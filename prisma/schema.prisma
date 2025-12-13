@@ -1,0 +1,187 @@
+// Prisma Schema for RIM System v3.10
+// This is your Prisma schema file
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// CORE MODELS
+// ============================================
+
+// User Model (Feature 2: User Management)
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  firstName String?  @map("first_name")
+  lastName  String?  @map("last_name")
+  phone     String?
+  role      UserRole @default(END_USER)
+  status    UserStatus @default(ACTIVE)
+  
+  // 2FA
+  twoFactorEnabled Boolean @default(false) @map("two_factor_enabled")
+  twoFactorSecret  String? @map("two_factor_secret")
+  
+  // Security
+  failedLoginAttempts Int @default(0) @map("failed_login_attempts")
+  lockedUntil        DateTime? @map("locked_until")
+  lastLogin          DateTime? @map("last_login")
+  lastPasswordChange DateTime? @map("last_password_change")
+  
+  // Metadata
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdBy Int?     @map("created_by")
+  
+  // Relations
+  createdIncidents Incident[] @relation("IncidentCreator")
+  assignedIncidents Incident[] @relation("IncidentAssignee")
+  
+  @@map("users")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  IT_MANAGER
+  HELP_DESK
+  SUPERVISOR
+  TECHNICIAN
+  END_USER
+  READ_ONLY
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  LOCKED
+}
+
+// Store Model (Feature 3: Store Management)
+model Store {
+  id          Int      @id @default(autoincrement())
+  storeCode   String   @unique @map("store_code")
+  name        String
+  address     String?
+  province    String
+  district    String?
+  subDistrict String?  @map("sub_district")
+  postalCode  String?  @map("postal_code")
+  latitude    Float?
+  longitude   Float?
+  phone       String?
+  isPopup     Boolean  @default(false) @map("is_popup")
+  
+  // Metadata
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  equipment Equipment[]
+  incidents Incident[]
+  
+  @@map("stores")
+}
+
+// Equipment Model (Feature 4: Equipment Management)
+model Equipment {
+  id            Int      @id @default(autoincrement())
+  serialNumber  String   @unique @map("serial_number")
+  name          String
+  category      EquipmentCategory
+  brand         String?
+  model         String?
+  purchaseDate  DateTime? @map("purchase_date")
+  warrantyExpiry DateTime? @map("warranty_expiry")
+  status        EquipmentStatus @default(ACTIVE)
+  
+  // Store relation
+  storeId Int @map("store_id")
+  store   Store @relation(fields: [storeId], references: [id])
+  
+  // Metadata
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  incidents Incident[]
+  
+  @@map("equipment")
+}
+
+enum EquipmentCategory {
+  DESKTOP
+  LAPTOP
+  PRINTER
+  SCANNER
+  POS
+  ROUTER
+  SWITCH
+  CCTV
+  OTHER
+}
+
+enum EquipmentStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+  RETIRED
+}
+
+// Incident Model (Feature 1: Incident Management)
+model Incident {
+  id          String   @id @default(cuid())
+  title       String
+  description String   @db.Text
+  priority    Priority
+  status      IncidentStatus @default(OPEN)
+  
+  // Store & Equipment
+  storeId     Int @map("store_id")
+  store       Store @relation(fields: [storeId], references: [id])
+  
+  equipmentId Int? @map("equipment_id")
+  equipment   Equipment? @relation(fields: [equipmentId], references: [id])
+  
+  // Users
+  createdById Int @map("created_by_id")
+  createdBy   User @relation("IncidentCreator", fields: [createdById], references: [id])
+  
+  assigneeId  Int? @map("assignee_id")
+  assignee    User? @relation("IncidentAssignee", fields: [assigneeId], references: [id])
+  
+  // SLA
+  slaDeadline DateTime? @map("sla_deadline")
+  
+  // Resolution
+  resolvedAt     DateTime? @map("resolved_at")
+  resolutionNote String?   @db.Text @map("resolution_note")
+  
+  // Metadata
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  @@map("incidents")
+}
+
+enum Priority {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum IncidentStatus {
+  OPEN
+  IN_PROGRESS
+  PENDING
+  RESOLVED
+  CLOSED
+  CANCELLED
+}

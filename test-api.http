@@ -1,0 +1,275 @@
+### Variables
+@baseUrl = http://localhost:3000
+@authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjEsImVtYWlsIjoiYWRtaW5AcmltLmNvbSIsInJvbGUiOiJTVVBFUl9BRE1JTiIsImlhdCI6MTc2NTY0MzUyOCwiZXhwIjoxNzY2MjQ4MzI4fQ.QxbJaMUtUz6CwyC7W45MOejw5szdVUtjaXv4MzOteD4
+
+### 1. Register New User
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "test@watsons.co.th",
+  "password": "password123",
+  "firstName": "Test",
+  "lastName": "User",
+  "phone": "086-111-2222",
+  "role": "END_USER"
+}
+
+### 2. Login (ใช้ user จาก seed data)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@rim.com",
+  "password": "password123"
+}
+
+### 3. Login (ใช้ user ที่เพิ่งสร้าง)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@watsons.co.th",
+  "password": "password123"
+}
+
+### 4. Get Current User (ต้อง login ก่อน แล้วเอา accessToken มาใส่)
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{authToken}}
+
+### 5. Test Invalid Login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@rim.com",
+  "password": "wrongpassword"
+}
+
+### 6. Test Duplicate Email
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "admin@rim.com",
+  "password": "password123"
+}
+
+### ========================================
+### INCIDENT MANAGEMENT APIs
+### ========================================
+
+### 1. Create Incident (ต้อง Login ก่อน)
+POST {{baseUrl}}/incidents
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "title": "Desktop freezing constantly",
+  "description": "Desktop computer keeps freezing every 5 minutes. User cannot work properly.",
+  "priority": "HIGH",
+  "storeId": 1,
+  "equipmentId": 1
+}
+
+### 2. Get All Incidents (with pagination)
+GET {{baseUrl}}/incidents?page=1&limit=10
+Authorization: Bearer {{authToken}}
+
+### 3. Filter Incidents by Status
+GET {{baseUrl}}/incidents?status=OPEN&page=1&limit=5
+Authorization: Bearer {{authToken}}
+
+### 4. Filter Incidents by Priority
+GET {{baseUrl}}/incidents?priority=CRITICAL&page=1&limit=5
+Authorization: Bearer {{authToken}}
+
+### 5. Filter Incidents by Store
+GET {{baseUrl}}/incidents?storeId=1&page=1&limit=5
+Authorization: Bearer {{authToken}}
+
+### 6. Get Single Incident (ใช้ ID จาก seed data หรือที่เพิ่งสร้าง)
+GET {{baseUrl}}/incidents/cmj4fystb0001je8clw08vb2k
+Authorization: Bearer {{authToken}}
+
+### 7. Update Incident
+PUT {{baseUrl}}/incidents/cmj4fystb0001je8clw08vb2k
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "title": "Desktop freezing - UPDATED",
+  "status": "IN_PROGRESS",
+  "priority": "CRITICAL"
+}
+
+### 8. Assign Technician to Incident
+PATCH {{baseUrl}}/incidents/cmj4fystb0001je8clw08vb2k/assign
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "technicianId": 4
+}
+
+### 9. Resolve Incident
+PUT {{baseUrl}}/incidents/cmj4fystb0001je8clw08vb2k
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "status": "RESOLVED",
+  "resolutionNote": "Replaced RAM module. Desktop running smoothly now. Tested for 1 hour."
+}
+
+### 10. Cancel Incident (Delete)
+DELETE {{baseUrl}}/incidents/cmj4fystb0001je8clw08vb2k
+Authorization: Bearer {{authToken}}
+
+### 11. Test Create Incident - CRITICAL Priority
+POST {{baseUrl}}/incidents
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "title": "POS system completely down",
+  "description": "All POS terminals not working. Store cannot process sales.",
+  "priority": "CRITICAL",
+  "storeId": 2,
+  "equipmentId": 3
+}
+
+### 12. Test Create Incident - Without Equipment
+POST {{baseUrl}}/incidents
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "title": "WiFi connection issue",
+  "description": "Internet very slow, customers complaining.",
+  "priority": "MEDIUM",
+  "storeId": 1
+}
+
+### 13. Test Invalid - Equipment not in Store
+POST {{baseUrl}}/incidents
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "title": "Test error",
+  "description": "This should fail - equipment 3 is not in store 1",
+  "priority": "LOW",
+  "storeId": 1,
+  "equipmentId": 3
+}
+
+### ========================================
+### USER MANAGEMENT APIs
+### ========================================
+
+### 1. Create New User (Admin creates user)
+POST {{baseUrl}}/users
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "email": "sarah.johnson@watsons.co.th",
+  "password": "password123",
+  "firstName": "Sarah",
+  "lastName": "Johnson",
+  "phone": "087-654-3210",
+  "role": "HELP_DESK"
+}
+
+### 2. Get All Users (with pagination)
+GET {{baseUrl}}/users?page=1&limit=10
+Authorization: Bearer {{authToken}}
+
+### 3. Filter Users by Role
+GET {{baseUrl}}/users?role=TECHNICIAN
+Authorization: Bearer {{authToken}}
+
+### 4. Filter Users by Status
+GET {{baseUrl}}/users?status=ACTIVE
+Authorization: Bearer {{authToken}}
+
+### 5. Search Users (by email, firstName, lastName)
+GET {{baseUrl}}/users?search=mike
+Authorization: Bearer {{authToken}}
+
+### 6. Get Single User Details
+GET {{baseUrl}}/users/1
+Authorization: Bearer {{authToken}}
+
+### 7. Update User Information
+PUT {{baseUrl}}/users/6
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "firstName": "Sarah",
+  "lastName": "Johnson-Smith",
+  "phone": "087-999-8888"
+}
+
+### 8. Change User Role
+PATCH {{baseUrl}}/users/6/role
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "role": "SUPERVISOR"
+}
+
+### 9. Get User Statistics
+GET {{baseUrl}}/users/4/statistics
+Authorization: Bearer {{authToken}}
+
+### 10. Change Own Password
+PATCH {{baseUrl}}/users/1/password
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "currentPassword": "password123",
+  "newPassword": "newpassword123"
+}
+
+### 11. Deactivate User
+PATCH {{baseUrl}}/users/6/deactivate
+Authorization: Bearer {{authToken}}
+
+### 12. Activate User
+PATCH {{baseUrl}}/users/6/activate
+Authorization: Bearer {{authToken}}
+
+### 13. Delete User (Hard Delete)
+DELETE {{baseUrl}}/users/6
+Authorization: Bearer {{authToken}}
+
+### 14. Test Create User - Duplicate Email (Should Fail)
+POST {{baseUrl}}/users
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "email": "admin@rim.com",
+  "password": "password123",
+  "firstName": "Test",
+  "lastName": "User",
+  "role": "END_USER"
+}
+
+### 15. Test Change Own Role (Should Fail)
+PATCH {{baseUrl}}/users/1/role
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "role": "END_USER"
+}
+
+### 16. Test Deactivate Self (Should Fail)
+PATCH {{baseUrl}}/users/1/deactivate
+Authorization: Bearer {{authToken}}
