@@ -1,39 +1,44 @@
 // src/users/users.controller.ts
+
 import {
   Controller,
   Get,
   Post,
   Body,
   Patch,
-  Put,
   Param,
   Delete,
-  Query,
   UseGuards,
   Request,
+  Query,
   HttpCode,
   HttpStatus,
   ParseIntPipe,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { CreateUserDto, UpdateUserDto, QueryUserDto, ChangePasswordDto } from './dto';
-import { JwtGuard } from '../auth/guard/jwt.guard';
-import { UserRole } from '@prisma/client';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserStatus } from '@prisma/client';
 
-@Controller('users')
-@UseGuards(JwtGuard) // Protect all routes
+@Controller('api/users')
+@UseGuards(JwtAuthGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
-  @HttpCode(HttpStatus.CREATED)
+  @Roles('SUPER_ADMIN', 'IT_MANAGER')
+  @UseGuards(RolesGuard)
   create(@Body() createUserDto: CreateUserDto) {
     return this.usersService.create(createUserDto);
   }
 
   @Get()
-  findAll(@Query() query: QueryUserDto) {
-    return this.usersService.findAll(query);
+  findAll() {
+    return this.usersService.findAll();
   }
 
   @Get(':id')
@@ -41,53 +46,69 @@ export class UsersController {
     return this.usersService.findOne(id);
   }
 
-  @Put(':id')
+  @Patch(':id')
+  @Roles('SUPER_ADMIN', 'IT_MANAGER')
+  @UseGuards(RolesGuard)
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateUserDto: UpdateUserDto,
-    @Request() req,
   ) {
-    return this.usersService.update(id, updateUserDto, req.user.id);
+    return this.usersService.update(id, updateUserDto);
   }
 
-  @Patch(':id/role')
-  changeRole(
-    @Param('id', ParseIntPipe) id: number,
-    @Body('role') role: UserRole,
-    @Request() req,
-  ) {
-    return this.usersService.changeRole(id, role, req.user.id);
-  }
-
-  @Patch(':id/password')
+  @Post(':id/change-password')
   changePassword(
     @Param('id', ParseIntPipe) id: number,
     @Body() changePasswordDto: ChangePasswordDto,
     @Request() req,
   ) {
-    return this.usersService.changePassword(id, changePasswordDto, req.user.id);
+    // Check if user is changing their own password or is admin
+    if (req.user.id !== id && !['SUPER_ADMIN', 'IT_MANAGER'].includes(req.user.role)) {
+      return this.usersService.changePassword(
+        id,
+        changePasswordDto.oldPassword,
+        changePasswordDto.newPassword,
+      );
+    }
+    return this.usersService.changePassword(
+      id,
+      changePasswordDto.oldPassword,
+      changePasswordDto.newPassword,
+    );
   }
 
-  @Patch(':id/deactivate')
-  @HttpCode(HttpStatus.OK)
-  deactivate(@Param('id', ParseIntPipe) id: number, @Request() req) {
-    return this.usersService.deactivate(id, req.user.id);
+  @Post(':id/update-status')
+  @Roles('SUPER_ADMIN', 'IT_MANAGER')
+  @UseGuards(RolesGuard)
+  updateStatus(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('status') status: UserStatus,
+  ) {
+    return this.usersService.updateStatus(id, status);
   }
 
-  @Patch(':id/activate')
-  @HttpCode(HttpStatus.OK)
-  activate(@Param('id', ParseIntPipe) id: number) {
-    return this.usersService.activate(id);
+  @Post(':id/unlock')
+  @Roles('SUPER_ADMIN', 'IT_MANAGER')
+  @UseGuards(RolesGuard)
+  unlockAccount(@Param('id', ParseIntPipe) id: number) {
+    return this.usersService.unlockAccount(id);
+  }
+
+  @Get(':id/incidents')
+  getUserIncidents(@Param('id', ParseIntPipe) id: number) {
+    return this.usersService.getUserIncidents(id);
   }
 
   @Get(':id/statistics')
-  getStatistics(@Param('id', ParseIntPipe) id: number) {
-    return this.usersService.getStatistics(id);
+  getUserStatistics(@Param('id', ParseIntPipe) id: number) {
+    return this.usersService.getUserStatistics(id);
   }
 
   @Delete(':id')
-  @HttpCode(HttpStatus.OK)
-  remove(@Param('id', ParseIntPipe) id: number, @Request() req) {
-    return this.usersService.remove(id, req.user.id);
+  @Roles('SUPER_ADMIN')
+  @UseGuards(RolesGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.usersService.remove(id);
   }
 }

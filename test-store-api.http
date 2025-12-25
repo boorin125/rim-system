@@ -1,0 +1,74 @@
+### Step 1: Login
+POST http://localhost:3000/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "superadmin@rim.com",
+  "password": "password123"
+}
+
+### Step 2: Copy token แล้ว update @token
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjIsImVtYWlsIjoic3VwZXJhZG1pbkByaW0uY29tIiwicm9sZSI6IlNVUEVSX0FETUlOIiwiaWF0IjoxNzY2MTUxODg4LCJleHAiOjE3NjY3NTY2ODh9.I4mLQTempkvb__L8Y2Tsf5OYVVwBQkyA_t5ThmG8T8Y
+
+### Step 3: Test Get All Stores
+GET http://localhost:3000/api/stores
+Authorization: Bearer {{token}}
+
+### Step 4: Test with Pagination
+GET http://localhost:3000/api/stores?page=1&limit=5
+Authorization: Bearer {{token}}
+
+### Step 5: Test with Filters
+GET http://localhost:3000/api/stores?status=ACTIVE&province=Bangkok
+Authorization: Bearer {{token}}
+
+### Step 6: Test with Search
+GET http://localhost:3000/api/stores?search=Watsons
+Authorization: Bearer {{token}}
+
+### Step 7: Test Get Store by ID
+GET http://localhost:3000/api/stores/10
+Authorization: Bearer {{token}}
+
+### Step 8: Test Get Statistics
+GET http://localhost:3000/api/stores/7/statistics
+Authorization: Bearer {{token}}
+
+### Step 9: Test Create Store
+POST http://localhost:3000/api/stores
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "storeCode": "TEST-999",
+  "name": "Test Store",
+  "company": "Test Company",
+  "province": "Bangkok",
+  "storeType": "PERMANENT",
+  "storeStatus": "ACTIVE"
+}
+
+### Step 10: Test Update Store
+PATCH http://localhost:3000/api/stores/7
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "phone": "02-999-8888",
+  "email": "updated@test.com"
+}
+
+### Step 11: Test Soft Delete (ใช้ PATCH แทน DELETE)
+PATCH http://localhost:3000/api/stores/7
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "storeStatus": "INACTIVE"
+}
+
+### Step 12: Download Template (ใช้ Browser)
+# เปิด browser: http://localhost:3000/api/stores/template
+
+### Step 13: Export Stores (ใช้ Browser)
+# เปิด browser: http://localhost:3000/api/stores/export?status=ACTIVE

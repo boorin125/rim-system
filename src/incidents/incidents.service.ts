@@ -1,172 +1,145 @@
 // src/incidents/incidents.service.ts
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+// CRITICAL FIX: TECHNICIAN can only see their own assigned incidents
+
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateIncidentDto, UpdateIncidentDto, QueryIncidentDto } from './dto';
-import { IncidentStatus, Priority } from '@prisma/client';
+import { CreateIncidentDto } from './dto/create-incident.dto';
+import { UpdateIncidentDto } from './dto/update-incident.dto';
+import { IncidentStatus, UserRole } from '@prisma/client';
 
 @Injectable()
 export class IncidentsService {
   constructor(private prisma: PrismaService) {}
 
-  // Create new incident
-  async create(createIncidentDto: CreateIncidentDto, userId: number) {
-    // Verify store exists
-    const store = await this.prisma.store.findUnique({
-      where: { id: createIncidentDto.storeId },
-    });
-
-    if (!store) {
-      throw new NotFoundException('Store not found');
-    }
-
-    // Verify equipment exists if provided
-    if (createIncidentDto.equipmentId) {
-      const equipment = await this.prisma.equipment.findUnique({
-        where: { id: createIncidentDto.equipmentId },
-      });
-
-      if (!equipment) {
-        throw new NotFoundException('Equipment not found');
-      }
-
-      // Verify equipment belongs to the store
-      if (equipment.storeId !== createIncidentDto.storeId) {
-        throw new BadRequestException('Equipment does not belong to this store');
-      }
-    }
-
-    // Calculate SLA deadline based on priority
-    const slaDeadline = this.calculateSLADeadline(createIncidentDto.priority);
-
-    // Create incident
-    const incident = await this.prisma.incident.create({
-      data: {
-        title: createIncidentDto.title,
-        description: createIncidentDto.description,
-        priority: createIncidentDto.priority,
-        storeId: createIncidentDto.storeId,
-        equipmentId: createIncidentDto.equipmentId,
-        createdById: userId,
-        slaDeadline,
-        status: IncidentStatus.OPEN,
-      },
-      include: {
-        store: true,
-        equipment: true,
-        createdBy: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-            role: true,
-          },
-        },
-      },
-    });
-
-    return incident;
-  }
-
-  // Get all incidents with filters and pagination
-  async findAll(query: QueryIncidentDto) {
-    const { page = 1, limit = 10, priority, status, storeId, assigneeId, createdById } = query;
-
-    const skip = (page - 1) * limit;
-
-    // Build where clause
+  /**
+   * Find all incidents with filtering
+   * 
+   * ⚠️ CRITICAL: TECHNICIAN can ONLY see their assigned incidents
+   * Other roles can see all incidents
+   */
+  async findAll(filterDto: any, user: any) {
+    const { status, priority, storeId, assigneeId, page = 1, limit = 10 } = filterDto;
+    
     const where: any = {};
 
-    if (priority) where.priority = priority;
-    if (status) where.status = status;
-    if (storeId) where.storeId = storeId;
-    if (assigneeId) where.assigneeId = assigneeId;
-    if (createdById) where.createdById = createdById;
+    // ⚠️ CRITICAL: TECHNICIAN can only see incidents assigned to them
+    if (user.role === UserRole.TECHNICIAN) {
+      where.assigneeId = user.id;  // ← Force filter by assigneeId
+    } else {
+      // Other roles can filter by assigneeId if provided
+      if (assigneeId) {
+        where.assigneeId = parseInt(assigneeId);
+      }
+    }
 
-    // Get total count for pagination
-    const total = await this.prisma.incident.count({ where });
+    // Additional filters
+    if (status) {
+      where.status = status;
+    }
 
-    // Get incidents
-    const incidents = await this.prisma.incident.findMany({
-      where,
-      skip,
-      take: limit,
-      orderBy: {
-        createdAt: 'desc',
-      },
-      include: {
-        store: {
-          select: {
-            id: true,
-            storeCode: true,
-            name: true,
-            province: true,
+    if (priority) {
+      where.priority = priority;
+    }
+
+    if (storeId) {
+      where.storeId = parseInt(storeId);
+    }
+
+    const skip = (page - 1) * limit;
+    const take = parseInt(limit);
+
+    const [incidents, total] = await Promise.all([
+      this.prisma.incident.findMany({
+        where,
+        skip,
+        take,
+        include: {
+          store: {
+            select: {
+              id: true,
+              storeCode: true,
+              name: true,
+              province: true,
+              storeStatus: true,
+            },
+          },
+          equipment: {
+            select: {
+              id: true,
+              serialNumber: true,
+              name: true,
+              category: true,
+              status: true,
+            },
+          },
+          assignee: {
+            select: {
+              id: true,
+              username: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              role: true,
+            },
+          },
+          createdBy: {
+            select: {
+              id: true,
+              username: true,
+              firstName: true,
+              lastName: true,
+              role: true,
+            },
           },
         },
-        equipment: {
-          select: {
-            id: true,
-            serialNumber: true,
-            name: true,
-            category: true,
-          },
+        orderBy: {
+          createdAt: 'desc',
         },
-        createdBy: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-            role: true,
-          },
-        },
-        assignee: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-            role: true,
-          },
-        },
-      },
-    });
+      }),
+      this.prisma.incident.count({ where }),
+    ]);
 
     return {
       data: incidents,
       meta: {
         total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
+        page: parseInt(page),
+        limit: take,
+        totalPages: Math.ceil(total / take),
       },
     };
   }
 
-  // Get single incident by ID
-  async findOne(id: string) {
-    const incident = await this.prisma.incident.findUnique({
-      where: { id },
+  /**
+   * Find one incident
+   * 
+   * ⚠️ CRITICAL: TECHNICIAN can only view their assigned incidents
+   */
+  async findOne(id: string, user: any) {
+    const incident = await this.prisma.incident.findFirst({
+      where: {
+        id,
+      },
       include: {
         store: true,
         equipment: true,
-        createdBy: {
+        assignee: {
           select: {
             id: true,
-            email: true,
+            username: true,
             firstName: true,
             lastName: true,
+            email: true,
             phone: true,
             role: true,
           },
         },
-        assignee: {
+        createdBy: {
           select: {
             id: true,
-            email: true,
+            username: true,
             firstName: true,
             lastName: true,
-            phone: true,
             role: true,
           },
         },
@@ -174,85 +147,92 @@ export class IncidentsService {
     });
 
     if (!incident) {
-      throw new NotFoundException('Incident not found');
+      throw new NotFoundException(`Incident with ID ${id} not found`);
+    }
+
+    // ⚠️ CRITICAL: TECHNICIAN can only view their own incidents
+    if (user.role === UserRole.TECHNICIAN && incident.assigneeId !== user.id) {
+      throw new ForbiddenException('You can only view incidents assigned to you');
     }
 
     return incident;
   }
 
-  // Update incident
-  async update(id: string, updateIncidentDto: UpdateIncidentDto, userId: number) {
-    const incident = await this.findOne(id);
+  /**
+   * Get incident statistics
+   * 
+   * ⚠️ CRITICAL: TECHNICIAN sees only their own stats
+   */
+  async getStatistics(user: any) {
+    const where: any = {};
 
-    // If updating store, verify it exists
-    if (updateIncidentDto.storeId && updateIncidentDto.storeId !== incident.storeId) {
-      const store = await this.prisma.store.findUnique({
-        where: { id: updateIncidentDto.storeId },
-      });
-
-      if (!store) {
-        throw new NotFoundException('Store not found');
-      }
+    // ⚠️ TECHNICIAN sees only their incidents
+    if (user.role === UserRole.TECHNICIAN) {
+      where.assigneeId = user.id;
     }
 
-    // If updating equipment, verify it exists and belongs to store
-    if (updateIncidentDto.equipmentId) {
-      const equipment = await this.prisma.equipment.findUnique({
-        where: { id: updateIncidentDto.equipmentId },
-      });
+    const [
+      total,
+      byStatus,
+      byPriority,
+    ] = await Promise.all([
+      this.prisma.incident.count({ where }),
+      this.prisma.incident.groupBy({
+        by: ['status'],
+        where,
+        _count: true,
+      }),
+      this.prisma.incident.groupBy({
+        by: ['priority'],
+        where,
+        _count: true,
+      }),
+    ]);
 
-      if (!equipment) {
-        throw new NotFoundException('Equipment not found');
-      }
+    return {
+      total,
+      byStatus: byStatus.reduce((acc, item) => {
+        acc[item.status] = item._count;
+        return acc;
+      }, {}),
+      byPriority: byPriority.reduce((acc, item) => {
+        acc[item.priority] = item._count;
+        return acc;
+      }, {}),
+    };
+  }
 
-      const targetStoreId = updateIncidentDto.storeId || incident.storeId;
-      if (equipment.storeId !== targetStoreId) {
-        throw new BadRequestException('Equipment does not belong to the selected store');
-      }
-    }
+  /**
+   * Create incident
+   * Access: HELP_DESK, END_USER
+   */
+  async create(dto: CreateIncidentDto, userId: number) {
+    // Generate incident code
+    const count = await this.prisma.incident.count();
+    const incidentCode = `INC-${new Date().getFullYear()}-${String(count + 1).padStart(4, '0')}`;
 
-    // If updating assignee, verify user exists and is a technician
-    if (updateIncidentDto.assigneeId) {
-      const assignee = await this.prisma.user.findUnique({
-        where: { id: updateIncidentDto.assigneeId },
-      });
-
-      if (!assignee) {
-        throw new NotFoundException('Assignee not found');
-      }
-
-      if (assignee.role !== 'TECHNICIAN') {
-        throw new BadRequestException('Assignee must be a technician');
-      }
-    }
-
-    // If marking as resolved, set resolvedAt
-    const updateData: any = { ...updateIncidentDto };
-
-    if (updateIncidentDto.status === IncidentStatus.RESOLVED && incident.status !== IncidentStatus.RESOLVED) {
-      updateData.resolvedAt = new Date();
-    }
-
-    // Update incident
-    const updated = await this.prisma.incident.update({
-      where: { id },
-      data: updateData,
+    return this.prisma.incident.create({
+      data: {
+        id: incidentCode,
+        incidentCode,
+        title: dto.title,
+        description: dto.description,
+        category: dto.category,
+        priority: dto.priority,
+        status: IncidentStatus.OPEN,
+        storeId: dto.storeId,
+        equipmentId: dto.equipmentId,
+        reportedBy: userId,
+        createdById: userId,
+        slaDeadline: this.calculateSLA(dto.priority),
+      },
       include: {
         store: true,
         equipment: true,
         createdBy: {
           select: {
             id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-            role: true,
-          },
-        },
-        assignee: {
-          select: {
-            id: true,
-            email: true,
+            username: true,
             firstName: true,
             lastName: true,
             role: true,
@@ -260,105 +240,401 @@ export class IncidentsService {
         },
       },
     });
-
-    return updated;
   }
 
-  // Assign technician to incident
-  async assign(id: string, technicianId: number) {
-    const incident = await this.findOne(id);
+  /**
+   * Update incident
+   * Access: HELP_DESK only
+   */
+  async update(id: string, dto: UpdateIncidentDto, userId: number) {
+    const incident = await this.findOne(id, { role: UserRole.HELP_DESK, id: userId });
 
-    // Verify technician exists
-    const technician = await this.prisma.user.findUnique({
-      where: { id: technicianId },
+    return this.prisma.incident.update({
+      where: { id },
+      data: {
+        ...dto,
+        updatedAt: new Date(),
+      },
+      include: {
+        store: true,
+        equipment: true,
+        assignee: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Assign incident to technician
+   * Access: SUPERVISOR, IT_MANAGER, HELP_DESK
+   */
+  async assign(id: string, technicianId: number, userId: number) {
+    const incident = await this.prisma.incident.findFirst({
+      where: { id },
+    });
+
+    if (!incident) {
+      throw new NotFoundException(`Incident ${id} not found`);
+    }
+
+    if (incident.status !== IncidentStatus.OPEN) {
+      throw new BadRequestException(`Incident must be OPEN to assign. Current status: ${incident.status}`);
+    }
+
+    // Verify technician exists and has TECHNICIAN role
+    const technician = await this.prisma.user.findFirst({
+      where: {
+        id: technicianId,
+        role: UserRole.TECHNICIAN,
+      },
     });
 
     if (!technician) {
-      throw new NotFoundException('Technician not found');
+      throw new NotFoundException(`Technician with ID ${technicianId} not found`);
     }
 
-    if (technician.role !== 'TECHNICIAN') {
-      throw new BadRequestException('User is not a technician');
-    }
-
-    if (technician.status !== 'ACTIVE') {
-      throw new BadRequestException('Technician is not active');
-    }
-
-    // Update incident status to IN_PROGRESS if currently OPEN
-    const updateData: any = {
-      assigneeId: technicianId,
-    };
-
-    if (incident.status === IncidentStatus.OPEN) {
-      updateData.status = IncidentStatus.IN_PROGRESS;
-    }
-
-    const updated = await this.prisma.incident.update({
+    return this.prisma.incident.update({
       where: { id },
-      data: updateData,
+      data: {
+        status: IncidentStatus.ASSIGNED,
+        assigneeId: technicianId,
+        updatedAt: new Date(),
+      },
       include: {
+        store: true,
         assignee: {
           select: {
             id: true,
-            email: true,
+            username: true,
             firstName: true,
             lastName: true,
-            phone: true,
+            email: true,
             role: true,
           },
         },
       },
     });
-
-    return updated;
   }
 
-  // Cancel/Delete incident
-  async remove(id: string, userId: number) {
-    const incident = await this.findOne(id);
-
-    // Only allow creator to cancel incident
-    if (incident.createdById !== userId) {
-      throw new ForbiddenException('You can only cancel your own incidents');
-    }
-
-    // Can't cancel resolved or closed incidents
-    if (incident.status === IncidentStatus.RESOLVED || incident.status === IncidentStatus.CLOSED) {
-      throw new BadRequestException('Cannot cancel resolved or closed incidents');
-    }
-
-    // Update status to CANCELLED instead of deleting
-    const cancelled = await this.prisma.incident.update({
+  /**
+   * Reassign incident to another technician
+   * Access: SUPERVISOR, IT_MANAGER, HELP_DESK
+   */
+  async reassign(id: string, technicianId: number, userId: number) {
+    const incident = await this.prisma.incident.findFirst({
       where: { id },
-      data: {
-        status: IncidentStatus.CANCELLED,
+    });
+
+    if (!incident) {
+      throw new NotFoundException(`Incident ${id} not found`);
+    }
+
+    const validStatuses = [IncidentStatus.ASSIGNED, IncidentStatus.IN_PROGRESS];
+    if (!validStatuses.includes(incident.status as any)) {
+      throw new BadRequestException(
+        `Incident must be ASSIGNED or IN_PROGRESS to reassign. Current status: ${incident.status}`
+      );
+    }
+
+    // Verify technician exists
+    const technician = await this.prisma.user.findFirst({
+      where: {
+        id: technicianId,
+        role: UserRole.TECHNICIAN,
       },
     });
 
-    return cancelled;
-  }
-
-  // Helper: Calculate SLA deadline based on priority
-  private calculateSLADeadline(priority: Priority): Date {
-    const now = new Date();
-    const deadline = new Date(now);
-
-    switch (priority) {
-      case Priority.CRITICAL:
-        deadline.setHours(deadline.getHours() + 2); // 2 hours
-        break;
-      case Priority.HIGH:
-        deadline.setHours(deadline.getHours() + 4); // 4 hours
-        break;
-      case Priority.MEDIUM:
-        deadline.setHours(deadline.getHours() + 8); // 8 hours
-        break;
-      case Priority.LOW:
-        deadline.setHours(deadline.getHours() + 24); // 24 hours
-        break;
+    if (!technician) {
+      throw new NotFoundException(`Technician with ID ${technicianId} not found`);
     }
 
-    return deadline;
+    return this.prisma.incident.update({
+      where: { id },
+      data: {
+        status: IncidentStatus.ASSIGNED,
+        assigneeId: technicianId,
+        updatedAt: new Date(),
+      },
+      include: {
+        store: true,
+        assignee: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Accept incident
+   * Access: TECHNICIAN only
+   */
+  async accept(id: string, userId: number) {
+    const incident = await this.prisma.incident.findFirst({
+      where: { id },
+    });
+
+    if (!incident) {
+      throw new NotFoundException(`Incident ${id} not found`);
+    }
+
+    // ⚠️ TECHNICIAN can only accept their own assignments
+    if (incident.assigneeId !== userId) {
+      throw new ForbiddenException('You can only accept incidents assigned to you');
+    }
+
+    if (incident.status !== IncidentStatus.ASSIGNED) {
+      throw new BadRequestException(
+        `Incident must be ASSIGNED to accept. Current status: ${incident.status}`
+      );
+    }
+
+    return this.prisma.incident.update({
+      where: { id },
+      data: {
+        status: IncidentStatus.IN_PROGRESS,
+        updatedAt: new Date(),
+      },
+      include: {
+        store: true,
+        equipment: true,
+        assignee: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Resolve incident
+   * Access: TECHNICIAN only
+   */
+  async resolve(id: string, resolutionNote: string, userId: number) {
+    const incident = await this.prisma.incident.findFirst({
+      where: { id },
+    });
+
+    if (!incident) {
+      throw new NotFoundException(`Incident ${id} not found`);
+    }
+
+    // ⚠️ TECHNICIAN can only resolve their own incidents
+    if (incident.assigneeId !== userId) {
+      throw new ForbiddenException('You can only resolve incidents assigned to you');
+    }
+
+    if (incident.status !== IncidentStatus.IN_PROGRESS) {
+      throw new BadRequestException(
+        `Incident must be IN_PROGRESS to resolve. Current status: ${incident.status}`
+      );
+    }
+
+    if (!resolutionNote || resolutionNote.trim().length === 0) {
+      throw new BadRequestException('Resolution note is required');
+    }
+
+    return this.prisma.incident.update({
+      where: { id },
+      data: {
+        status: IncidentStatus.RESOLVED,
+        resolvedAt: new Date(),
+        resolutionNote,
+        updatedAt: new Date(),
+      },
+      include: {
+        store: true,
+        equipment: true,
+        assignee: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Close incident
+   * Access: HELP_DESK only
+   */
+  async close(id: string, resolutionNote: string, photoEvidence: string, userId: number) {
+    const incident = await this.prisma.incident.findFirst({
+      where: { id },
+    });
+
+    if (!incident) {
+      throw new NotFoundException(`Incident ${id} not found`);
+    }
+
+    if (incident.status !== IncidentStatus.RESOLVED) {
+      throw new BadRequestException(
+        `Incident must be RESOLVED to close. Current status: ${incident.status}`
+      );
+    }
+
+    if (!photoEvidence || photoEvidence.trim().length === 0) {
+      throw new BadRequestException('Photo evidence is required to close incident');
+    }
+
+    return this.prisma.incident.update({
+      where: { id },
+      data: {
+        status: IncidentStatus.CLOSED,
+        resolutionNote: resolutionNote || incident.resolutionNote,
+        notes: `Photo: ${photoEvidence}`, // Store photo reference in notes
+        updatedAt: new Date(),
+      },
+      include: {
+        store: true,
+        equipment: true,
+        assignee: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Cancel incident
+   * Access: HELP_DESK only
+   */
+  async cancel(id: string, cancellationReason: string, userId: number) {
+    const incident = await this.prisma.incident.findFirst({
+      where: { id },
+    });
+
+    if (!incident) {
+      throw new NotFoundException(`Incident ${id} not found`);
+    }
+
+    if (incident.status === IncidentStatus.CLOSED) {
+      throw new BadRequestException('Cannot cancel a closed incident');
+    }
+
+    if (!cancellationReason || cancellationReason.trim().length === 0) {
+      throw new BadRequestException('Cancellation reason is required');
+    }
+
+    return this.prisma.incident.update({
+      where: { id },
+      data: {
+        status: IncidentStatus.CANCELLED,
+        notes: `Cancelled: ${cancellationReason}`, // Store reason in notes
+        updatedAt: new Date(),
+      },
+      include: {
+        store: true,
+        equipment: true,
+      },
+    });
+  }
+
+  /**
+   * Reopen incident
+   * Access: HELP_DESK only
+   * 
+   * Use cases:
+   * - Issue recurs after closing (within warranty)
+   * - Incomplete repair discovered
+   * - Same problem reported again
+   */
+  async reopen(id: string, reopenReason: string, userId: number) {
+    const incident = await this.prisma.incident.findFirst({
+      where: { id },
+    });
+
+    if (!incident) {
+      throw new NotFoundException(`Incident ${id} not found`);
+    }
+
+    if (incident.status !== IncidentStatus.CLOSED) {
+      throw new BadRequestException(
+        `Incident must be CLOSED to reopen. Current status: ${incident.status}`
+      );
+    }
+
+    if (!reopenReason || reopenReason.trim().length === 0) {
+      throw new BadRequestException('Reopen reason is required');
+    }
+
+    return this.prisma.incident.update({
+      where: { id },
+      data: {
+        status: IncidentStatus.OPEN,
+        assigneeId: null, // Clear assignment
+        resolvedAt: null, // Clear resolution
+        notes: `Reopened: ${reopenReason}`, // Store reopen reason
+        updatedAt: new Date(),
+      },
+      include: {
+        store: true,
+        equipment: true,
+        createdBy: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Delete incident (hard delete)
+   * Access: HELP_DESK only
+   */
+  async remove(id: string, userId: number) {
+    const incident = await this.findOne(id, { role: UserRole.HELP_DESK, id: userId });
+
+    return this.prisma.incident.delete({
+      where: { id },
+    });
+  }
+
+  /**
+   * Calculate SLA deadline based on priority
+   */
+  private calculateSLA(priority: string): Date {
+    const now = new Date();
+    const hours = {
+      CRITICAL: 2,
+      HIGH: 4,
+      MEDIUM: 8,
+      LOW: 24,
+    };
+
+    return new Date(now.getTime() + (hours[priority] || 24) * 60 * 60 * 1000);
   }
 }

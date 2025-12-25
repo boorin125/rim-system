@@ -1,27 +1,30 @@
 // src/auth/auth.service.ts
-import { Injectable, UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
-import { RegisterDto, LoginDto } from './dto';
 import * as bcrypt from 'bcrypt';
-import { User, UserStatus } from '@prisma/client';
+import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
+import { UserStatus } from '@prisma/client';
 
 @Injectable()
 export class AuthService {
   constructor(
-    private prisma: PrismaService,
-    private jwt: JwtService,
+    private readonly prisma: PrismaService,
+    private readonly jwtService: JwtService,
   ) {}
 
-  // Register new user
+  /**
+   * Register a new user
+   */
   async register(dto: RegisterDto) {
-    // Check if user already exists
+    // Check if email already exists
     const existingUser = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
 
     if (existingUser) {
-      throw new ConflictException('Email already exists');
+      throw new BadRequestException('Email already registered');
     }
 
     // Hash password
@@ -30,38 +33,31 @@ export class AuthService {
     // Create user
     const user = await this.prisma.user.create({
       data: {
+        username: dto.email.split('@')[0],  // ✅ เพิ่ม username (ใช้ email prefix)
         email: dto.email,
         password: hashedPassword,
         firstName: dto.firstName,
         lastName: dto.lastName,
         phone: dto.phone,
-        role: dto.role || 'END_USER', // Default role
-        status: UserStatus.ACTIVE,
-      },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        phone: true,
-        role: true,
-        status: true,
-        createdAt: true,
+        role: dto.role,
+        status: 'ACTIVE',
       },
     });
 
-    // Generate tokens
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    // Remove password from response
+    const { password, ...result } = user;
 
     return {
-      user,
-      ...tokens,
+      message: 'User registered successfully',
+      user: result,
     };
   }
 
-  // Login user
+  /**
+   * Login user
+   */
   async login(dto: LoginDto) {
-    // Find user
+    // Find user by email
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
@@ -73,23 +69,28 @@ export class AuthService {
     // Check if account is locked
     if (user.status === UserStatus.LOCKED) {
       if (user.lockedUntil && user.lockedUntil > new Date()) {
-        throw new UnauthorizedException('Account is temporarily locked. Please try again later.');
-      } else {
-        // Unlock account if lock period has passed
-        await this.prisma.user.update({
-          where: { id: user.id },
-          data: {
-            status: UserStatus.ACTIVE,
-            failedLoginAttempts: 0,
-            lockedUntil: null,
-          },
-        });
+        throw new UnauthorizedException(
+          `Account is locked until ${user.lockedUntil.toISOString()}`,
+        );
       }
+
+      // Unlock account if lock period has expired
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { 
+          failedLoginAttempts: 0,
+          status: UserStatus.ACTIVE,
+        },
+      });
     }
 
-    // Check if account is inactive
+    // Check if account is inactive or suspended
     if (user.status === UserStatus.INACTIVE) {
       throw new UnauthorizedException('Account is inactive');
+    }
+
+    if (user.status === UserStatus.SUSPENDED) {
+      throw new UnauthorizedException('Account is suspended');
     }
 
     // Verify password
@@ -98,25 +99,27 @@ export class AuthService {
     if (!isPasswordValid) {
       // Increment failed login attempts
       const failedAttempts = user.failedLoginAttempts + 1;
-      const maxAttempts = 5;
 
-      if (failedAttempts >= maxAttempts) {
-        // Lock account for 30 minutes
-        const lockUntil = new Date();
-        lockUntil.setMinutes(lockUntil.getMinutes() + 30);
+      // Lock account after 5 failed attempts
+      if (failedAttempts >= 5) {
+        const lockedUntil = new Date();
+        lockedUntil.setHours(lockedUntil.getHours() + 1); // Lock for 1 hour
 
         await this.prisma.user.update({
           where: { id: user.id },
           data: {
             status: UserStatus.LOCKED,
             failedLoginAttempts: failedAttempts,
-            lockedUntil: lockUntil,
+            lockedUntil,
           },
         });
 
-        throw new UnauthorizedException('Too many failed login attempts. Account locked for 30 minutes.');
+        throw new UnauthorizedException(
+          'Account locked due to too many failed login attempts. Please try again in 1 hour.',
+        );
       }
 
+      // Update failed attempts
       await this.prisma.user.update({
         where: { id: user.id },
         data: { failedLoginAttempts: failedAttempts },
@@ -134,56 +137,41 @@ export class AuthService {
       },
     });
 
-    // Generate tokens
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    // Generate JWT token
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    };
 
-    // Return user without password
+    const accessToken = this.jwtService.sign(payload);
+
+    // Remove password from response
     const { password, ...userWithoutPassword } = user;
 
     return {
-      user: userWithoutPassword,
-      ...tokens,
-    };
-  }
-
-  // Generate JWT tokens
-  private async generateTokens(userId: number, email: string, role: string) {
-    const payload = {
-      sub: userId,
-      email,
-      role,
-    };
-
-    const accessToken = await this.jwt.signAsync(payload, {
-      expiresIn: '7d', // 7 days
-      secret: process.env.JWT_SECRET,
-    });
-
-    return {
       accessToken,
-      tokenType: 'Bearer',
+      user: userWithoutPassword,
     };
   }
 
-  // Validate user (used by JWT strategy)
+  /**
+   * Validate user by ID (used by JWT strategy)
+   */
   async validateUser(userId: number) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        phone: true,
-        role: true,
-        status: true,
-      },
     });
 
-    if (!user || user.status !== UserStatus.ACTIVE) {
-      throw new UnauthorizedException('User not found or inactive');
+    if (!user) {
+      throw new UnauthorizedException('User not found');
     }
 
-    return user;
+    if (user.status !== UserStatus.ACTIVE) {
+      throw new UnauthorizedException('Account is not active');
+    }
+
+    const { password, ...result } = user;
+    return result;
   }
 }

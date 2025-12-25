@@ -1,8 +1,17 @@
 // src/users/dto/update-user.dto.ts
-import { IsString, IsOptional, IsEnum, Matches } from 'class-validator';
+
+import { IsString, IsEmail, IsOptional, IsEnum } from 'class-validator';
 import { UserRole, UserStatus } from '@prisma/client';
 
 export class UpdateUserDto {
+  @IsString()
+  @IsOptional()
+  username?: string;
+
+  @IsEmail()
+  @IsOptional()
+  email?: string;
+
   @IsString()
   @IsOptional()
   firstName?: string;
@@ -13,9 +22,6 @@ export class UpdateUserDto {
 
   @IsString()
   @IsOptional()
-  @Matches(/^0\d{1,2}-\d{3}-\d{4}$/, {
-    message: 'Phone must be in format: 0XX-XXX-XXXX',
-  })
   phone?: string;
 
   @IsEnum(UserRole)

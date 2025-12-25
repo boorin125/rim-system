@@ -1,0 +1,270 @@
+@baseUrl = http://localhost:3000
+@apiBase = http://localhost:3000/api
+
+# เก็บ token ไว้ที่นี่
+@tokenSuperAdmin = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjExLCJlbWFpbCI6InN1cGVyYWRtaW5AcmltLmNvbSIsInJvbGUiOiJTVVBFUl9BRE1JTiIsImlhdCI6MTc2NjQxNjEyNCwiZXhwIjoxNzY3MDIwOTI0fQ.BhLBHBW16ztHXhav8ytK32P1BcTYP8yeGBDS7TO6Rq8
+@tokenHelpDesk = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjEzLCJlbWFpbCI6ImhlbHBkZXNrQHJpbS5jb20iLCJyb2xlIjoiSEVMUF9ERVNLIiwiaWF0IjoxNzY2NDE2MjY1LCJleHAiOjE3NjcwMjEwNjV9.GUrDDAVCQaoGnYq0-zkyot-a-7rMjxjNmW2A_yqYV5U
+
+# =========================================================
+# SUPER_ADMIN Permission Testing
+# ตาม SRS: SUPER_ADMIN ทำได้เฉพาะ
+# 1. ตั้งค่าระบบ (System Configuration)
+# 2. ดูรายงานทั้งหมด (View All Reports)
+# ❌ ไม่สามารถ CRUD Incident/Store/Equipment ได้
+# =========================================================
+
+### ===============================================
+### STEP 1: Login as Super Admin
+### ===============================================
+POST {{apiBase}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "superadmin@rim.com",
+  "password": "password123"
+}
+
+# หลังจาก run แล้ว:
+# Copy access_token ทั้งหมดจาก response
+# Paste ลงในบรรทัดที่ 5 (@tokenSuperAdmin = ...)
+
+### ===============================================
+### STEP 2: SUPER_ADMIN View Equipment (Should Success ✅)
+### ===============================================
+GET {{baseUrl}}/equipment
+Authorization: Bearer {{tokenSuperAdmin}}
+
+# Expected: 200 OK ✅
+# SUPER_ADMIN สามารถดูรายงานได้
+
+### ===============================================
+### STEP 3: SUPER_ADMIN View Equipment by ID (Should Success ✅)
+### ===============================================
+GET {{baseUrl}}/equipment/19
+Authorization: Bearer {{tokenSuperAdmin}}
+
+# Expected: 200 OK ✅
+# SUPER_ADMIN สามารถดูรายละเอียดได้
+
+### ===============================================
+### STEP 4: SUPER_ADMIN View Statistics (Should Success ✅)
+### ===============================================
+GET {{baseUrl}}/equipment/19/statistics
+Authorization: Bearer {{tokenSuperAdmin}}
+
+# Expected: 200 OK ✅
+# SUPER_ADMIN สามารถดูสถิติได้
+
+### ===============================================
+### STEP 5: SUPER_ADMIN View Logs (Should Success ✅)
+### ===============================================
+GET {{baseUrl}}/equipment/19/logs?page=1&limit=20
+Authorization: Bearer {{tokenSuperAdmin}}
+
+# Expected: 200 OK ✅
+# SUPER_ADMIN สามารถดู logs ได้
+
+### ===============================================
+### STEP 6: SUPER_ADMIN Create Equipment (Should Fail ❌)
+### ===============================================
+POST {{baseUrl}}/equipment
+Authorization: Bearer {{tokenSuperAdmin}}
+Content-Type: application/json
+
+{
+  "serialNumber": "SN-SUPERADMIN-FAIL",
+  "name": "Super Admin Should Not Create",
+  "category": "COMPUTER",
+  "brand": "Test",
+  "model": "Test",
+  "purchaseDate": "2024-01-15T00:00:00.000Z",
+  "warrantyExpiry": "2027-01-15T00:00:00.000Z",
+  "status": "ACTIVE",
+  "storeId": 1
+}
+
+# Expected: 403 Forbidden ❌
+# {
+#   "statusCode": 403,
+#   "message": "Forbidden resource",
+#   "error": "Forbidden"
+# }
+
+### ===============================================
+### STEP 7: SUPER_ADMIN Update Equipment (Should Fail ❌)
+### ===============================================
+PUT {{baseUrl}}/equipment/1
+Authorization: Bearer {{tokenSuperAdmin}}
+Content-Type: application/json
+
+{
+  "name": "Super Admin Should Not Update"
+}
+
+# Expected: 403 Forbidden ❌
+
+### ===============================================
+### STEP 8: SUPER_ADMIN Delete Equipment (Should Fail ❌)
+### ===============================================
+DELETE {{baseUrl}}/equipment/1
+Authorization: Bearer {{tokenSuperAdmin}}
+
+# Expected: 403 Forbidden ❌
+
+### ===============================================
+### STEP 9: Login as Help Desk (For Comparison)
+### ===============================================
+POST {{apiBase}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "helpdesk@rim.com",
+  "password": "password123"
+}
+
+# Copy access_token และใส่ใน @tokenHelpDesk
+
+### ===============================================
+### STEP 10: HELP_DESK Create Equipment (Should Success ✅)
+### ===============================================
+POST {{baseUrl}}/equipment
+Authorization: Bearer {{tokenHelpDesk}}
+Content-Type: application/json
+
+{
+  "serialNumber": "SN-HELPDESK-SUCCESS",
+  "name": "Help Desk Can Create",
+  "category": "COMPUTER",
+  "brand": "Dell",
+  "model": "Test Model",
+  "purchaseDate": "2024-01-15T00:00:00.000Z",
+  "warrantyExpiry": "2027-01-15T00:00:00.000Z",
+  "status": "ACTIVE",
+  "storeId": 1
+}
+
+# Expected: 201 Created ✅
+# แสดงว่า HELP_DESK สามารถสร้างได้
+
+# =========================================================
+# Expected Results Summary
+# =========================================================
+
+# ✅ SUPER_ADMIN CAN:
+# - View Equipment (GET)           → 200 OK
+# - View Equipment by ID (GET)     → 200 OK
+# - View Statistics (GET)          → 200 OK
+# - View Logs (GET)                → 200 OK
+
+# ❌ SUPER_ADMIN CANNOT:
+# - Create Equipment (POST)        → 403 Forbidden
+# - Update Equipment (PUT)         → 403 Forbidden
+# - Delete Equipment (DELETE)      → 403 Forbidden
+
+# ✅ HELP_DESK CAN:
+# - All of the above +
+# - Create Equipment (POST)        → 201 Created
+# - Update Equipment (PUT)         → 200 OK
+# - Delete Equipment (DELETE)      → 200 OK
+
+# =========================================================
+# Permissions Matrix (SRS v3.10.1 Compliant)
+# =========================================================
+
+# | Operation | SUPER_ADMIN | IT_MANAGER | HELP_DESK | TECHNICIAN | END_USER |
+# |-----------|-------------|------------|-----------|------------|----------|
+# | View      | ✅          | ✅         | ✅        | ✅         | ✅       |
+# | Create    | ❌          | ❌         | ✅        | ❌         | ❌       |
+# | Update    | ❌          | ❌         | ✅        | ❌         | ❌       |
+# | Delete    | ❌          | ❌         | ✅        | ❌         | ❌       |
+
+# =========================================================
+# Notes
+# =========================================================
+
+# 1. ตาม SRS v3.10.1:
+#    - SUPER_ADMIN: ตั้งค่าระบบ + ดูรายงานทั้งหมด เท่านั้น
+#    - IT_MANAGER: จัดการ User + Reassign งาน + ดูรายงาน
+#    - HELP_DESK: Gate Keeper - CRUD Incident/Store/Equipment ได้ทั้งหมด
+#    - SUPERVISOR: มอบหมายงาน + Reassign งาน
+#    - TECHNICIAN: รับงาน + ซ่อม
+
+# 2. ถ้า SUPER_ADMIN หรือ IT_MANAGER ต้องการ CRUD:
+#    → ต้องเพิ่ม Role HELP_DESK (Multi-role system)
+
+# 3. การแยก Role ชัดเจนตาม SRS:
+#    - Admin (Configuration)     ← SUPER_ADMIN
+#    - Operations (CRUD)         ← HELP_DESK
+#    - Management (Oversight)    ← IT_MANAGER
+#    - Execution (Field Work)    ← TECHNICIAN
+
+# =========================================================
+# Why SUPER_ADMIN Cannot CRUD?
+# =========================================================
+
+# 1. Separation of Duties (แยกหน้าที่ชัดเจน)
+#    - Admin ≠ Operations
+#    - ป้องกันการใช้สิทธิ์ที่มากเกินไป
+
+# 2. Security (ความปลอดภัย)
+#    - Admin ไม่ควรแก้ไขข้อมูลปฏิบัติการโดยตรง
+#    - Audit Trail ชัดเจน
+
+# 3. Best Practice (แนวปฏิบัติที่ดี)
+#    - Admin จัดการระบบ
+#    - Operations จัดการข้อมูล
+#    - ไม่ผสมกัน
+
+# 4. Real-world Example:
+#    - Database Admin ≠ Application User
+#    - System Admin ≠ Content Editor
+#    - Root User ≠ Service User
+
+# =========================================================
+# Multi-Role Solution
+# =========================================================
+
+# ถ้า SUPER_ADMIN ต้องการ CRUD (เฉพาะกรณีจำเป็น):
+
+# 1. เพิ่ม Role HELP_DESK:
+### Add HELP_DESK role to SUPER_ADMIN
+POST {{apiBase}}/users/:id/roles
+Authorization: Bearer {{tokenSuperAdmin}}
+Content-Type: application/json
+
+{
+  "role": "HELP_DESK"
+}
+
+# 2. Logout และ Login ใหม่
+POST {{apiBase}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "superadmin@rim.com",
+  "password": "password123"
+}
+
+# 3. ตอนนี้ SUPER_ADMIN จะมี roles: ["SUPER_ADMIN", "HELP_DESK"]
+#    - ✅ สามารถ CRUD ได้ทั้งหมด
+#    - ✅ ยังคงมีสิทธิ์ Admin อยู่
+#    - ✅ Audit Trail จะบันทึกว่าใช้ role ไหน
+
+# =========================================================
+# Testing Checklist
+# =========================================================
+
+# □ Login as SUPER_ADMIN
+# □ View Equipment → 200 OK ✅
+# □ View by ID → 200 OK ✅
+# □ View Statistics → 200 OK ✅
+# □ View Logs → 200 OK ✅
+# □ Create Equipment → 403 Forbidden ❌
+# □ Update Equipment → 403 Forbidden ❌
+# □ Delete Equipment → 403 Forbidden ❌
+# □ Login as HELP_DESK
+# □ Create Equipment → 201 Created ✅
+
+# =========================================================
+# Status: Ready for Testing
+# =========================================================

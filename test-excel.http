@@ -1,0 +1,110 @@
+### Equipment Excel Import/Export API Tests
+
+@baseUrl = http://localhost:3000
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+### 1. Download Equipment Template
+GET {{baseUrl}}/equipment/template
+Authorization: Bearer {{token}}
+
+# File will be downloaded: equipment_import_template_YYYY-MM-DD.xlsx
+
+### 2. Import Equipment from Excel
+# Note: Use form-data with key "file" and select the Excel file
+POST {{baseUrl}}/equipment/import
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data
+
+# Response example:
+# {
+#   "success": 10,
+#   "failed": 2,
+#   "errors": [
+#     {
+#       "row": 5,
+#       "errors": ["Serial Number \"SN-001\" already exists"]
+#     }
+#   ],
+#   "imported": [...]
+# }
+
+### 3. Export All Equipment
+GET {{baseUrl}}/equipment/export
+Authorization: Bearer {{token}}
+
+# File will be downloaded: equipment_export_YYYY-MM-DD.xlsx
+
+### 4. Export Equipment by Status
+GET {{baseUrl}}/equipment/export?status=ACTIVE
+Authorization: Bearer {{token}}
+
+### 5. Export Equipment by Category
+GET {{baseUrl}}/equipment/export?category=ROUTER
+Authorization: Bearer {{token}}
+
+### 6. Export Equipment by Store
+GET {{baseUrl}}/equipment/export?storeCode=WAT-BKK-001
+Authorization: Bearer {{token}}
+
+### 7. Export Equipment by Brand
+GET {{baseUrl}}/equipment/export?brand=Cisco
+Authorization: Bearer {{token}}
+
+### 8. Export Equipment by Province
+GET {{baseUrl}}/equipment/export?province=กรุงเทพมหานคร
+Authorization: Bearer {{token}}
+
+### 9. Export Expired Warranty Equipment
+GET {{baseUrl}}/equipment/export?warrantyExpired=true
+Authorization: Bearer {{token}}
+
+### 10. Export Active Warranty Equipment
+GET {{baseUrl}}/equipment/export?warrantyExpired=false
+Authorization: Bearer {{token}}
+
+### 11. Export with Multiple Filters
+GET {{baseUrl}}/equipment/export?status=ACTIVE&category=COMPUTER&brand=Dell&province=กรุงเทพมหานคร
+Authorization: Bearer {{token}}
+
+### 12. Complete Equipment Management Flow
+
+# Step 1: Download template
+GET {{baseUrl}}/equipment/template
+Authorization: Bearer {{token}}
+
+###
+
+# Step 2: Fill in the template with equipment data
+# - Open the downloaded Excel file
+# - Fill in equipment information in "ข้อมูลอุปกรณ์" sheet
+# - Save the file
+
+###
+
+# Step 3: Import the filled template
+POST {{baseUrl}}/equipment/import
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data
+
+# [Upload the filled Excel file]
+
+###
+
+# Step 4: Verify imported equipment
+GET {{baseUrl}}/equipment?page=1&limit=20
+Authorization: Bearer {{token}}
+
+###
+
+# Step 5: Export equipment for review
+GET {{baseUrl}}/equipment/export
+Authorization: Bearer {{token}}
+
+### Notes:
+# - Maximum 1,000 equipment per import
+# - Excel file must be .xlsx format
+# - Serial numbers must be unique
+# - Store codes must exist in the system
+# - Valid categories: NETWORK, COMPUTER, POS, PRINTER, ROUTER, SWITCH, CCTV, OTHER
+# - Valid statuses: ACTIVE, INACTIVE, MAINTENANCE, RETIRED
+# - Dates must be in YYYY-MM-DD format

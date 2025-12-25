@@ -1,20 +1,21 @@
 // src/app.module.ts
+
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
-import { IncidentsModule } from './incidents/incidents.module';
 import { UsersModule } from './users/users.module';
+import { StoresModule } from './modules/stores/stores.module';
+import { IncidentsModule } from './incidents/incidents.module';
+import { PrismaModule } from './prisma/prisma.module';
+import { EquipmentModule } from './equipment/equipment.module';
 
 @Module({
   imports: [
     PrismaModule,
     AuthModule,
+    UsersModule,
+    StoresModule,
     IncidentsModule,
-    UsersModule, // เพิ่มบรรทัดนี้
+    EquipmentModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
 })
 export class AppModule {}

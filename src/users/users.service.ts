@@ -1,88 +1,60 @@
 // src/users/users.service.ts
-import { Injectable, NotFoundException, ConflictException, ForbiddenException, BadRequestException } from '@nestjs/common';
+
+import { Injectable, NotFoundException, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateUserDto, UpdateUserDto, QueryUserDto, ChangePasswordDto } from './dto';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { UserStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
-import { UserRole } from '@prisma/client';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  // Create new user (Admin only)
-  async create(createUserDto: CreateUserDto) {
-    // Check if user already exists
+  /**
+   * Create a new user
+   */
+  async create(dto: CreateUserDto) {
+    // Check if email already exists
     const existingUser = await this.prisma.user.findUnique({
-      where: { email: createUserDto.email },
+      where: { email: dto.email },
     });
 
     if (existingUser) {
-      throw new ConflictException('Email already exists');
+      throw new BadRequestException('Email already registered');
     }
 
     // Hash password
-    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
 
     // Create user
     const user = await this.prisma.user.create({
       data: {
-        email: createUserDto.email,
+        username: dto.email.split('@')[0],
+        email: dto.email,
         password: hashedPassword,
-        firstName: createUserDto.firstName,
-        lastName: createUserDto.lastName,
-        phone: createUserDto.phone,
-        role: createUserDto.role,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        phone: dto.phone,
+        role: dto.role,
         status: 'ACTIVE',
-      },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        phone: true,
-        role: true,
-        status: true,
-        createdAt: true,
       },
     });
 
-    return user;
+    // Remove password from response
+    const { password, ...result } = user;
+
+    return result;
   }
 
-  // Get all users with filters and pagination
-  async findAll(query: QueryUserDto) {
-    const { page = 1, limit = 10, role, status, search } = query;
-
-    const skip = (page - 1) * limit;
-
-    // Build where clause
-    const where: any = {};
-
-    if (role) where.role = role;
-    if (status) where.status = status;
-
-    // Search by email, firstName, or lastName
-    if (search) {
-      where.OR = [
-        { email: { contains: search, mode: 'insensitive' } },
-        { firstName: { contains: search, mode: 'insensitive' } },
-        { lastName: { contains: search, mode: 'insensitive' } },
-      ];
-    }
-
-    // Get total count
-    const total = await this.prisma.user.count({ where });
-
-    // Get users
+  /**
+   * Get all users
+   */
+  async findAll() {
     const users = await this.prisma.user.findMany({
-      where,
-      skip,
-      take: limit,
-      orderBy: {
-        createdAt: 'desc',
-      },
       select: {
         id: true,
+        username: true,
         email: true,
         firstName: true,
         lastName: true,
@@ -93,25 +65,23 @@ export class UsersService {
         createdAt: true,
         updatedAt: true,
       },
+      orderBy: {
+        createdAt: 'desc',
+      },
     });
 
-    return {
-      data: users,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
+    return users;
   }
 
-  // Get single user by ID
+  /**
+   * Get user by ID
+   */
   async findOne(id: number) {
     const user = await this.prisma.user.findUnique({
       where: { id },
       select: {
         id: true,
+        username: true,
         email: true,
         firstName: true,
         lastName: true,
@@ -119,117 +89,101 @@ export class UsersService {
         role: true,
         status: true,
         twoFactorEnabled: true,
-        failedLoginAttempts: true,
-        lockedUntil: true,
         lastLogin: true,
-        lastPasswordChange: true,
         createdAt: true,
         updatedAt: true,
-        // Include statistics
         _count: {
           select: {
-            createdIncidents: true,
-            assignedIncidents: true,
+            incidentsCreated: true,
+            incidentsAssigned: true,
           },
         },
       },
     });
 
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException(`User with ID ${id} not found`);
     }
 
     return user;
   }
 
-  // Update user
-  async update(id: number, updateUserDto: UpdateUserDto, currentUserId: number) {
-    const user = await this.findOne(id);
+  /**
+   * Update user
+   */
+  async update(id: number, dto: UpdateUserDto) {
+    // Check if user exists
+    await this.findOne(id);
 
-    // Prevent users from changing their own role (except SUPER_ADMIN)
-const currentUser = await this.prisma.user.findUnique({
-  where: { id: currentUserId },
-});
+    // If email is being updated, check if it's already taken
+    if (dto.email) {
+      const existingUser = await this.prisma.user.findUnique({
+        where: { email: dto.email },
+      });
 
-if (!currentUser) {
-  throw new NotFoundException('Current user not found');
-}
+      if (existingUser && existingUser.id !== id) {
+        throw new BadRequestException('Email already in use');
+      }
+    }
 
-if (updateUserDto.role && id === currentUserId && currentUser.role !== UserRole.SUPER_ADMIN) {
-  throw new ForbiddenException('You cannot change your own role');
-}
-
-    // Update user
-    const updated = await this.prisma.user.update({
+    const user = await this.prisma.user.update({
       where: { id },
-      data: updateUserDto,
+      data: dto,
       select: {
         id: true,
+        username: true,
         email: true,
         firstName: true,
         lastName: true,
         phone: true,
         role: true,
         status: true,
+        lastLogin: true,
+        createdAt: true,
         updatedAt: true,
       },
     });
 
-    return updated;
+    return user;
   }
 
-  // Change user role (Admin only)
-  async changeRole(id: number, role: UserRole, currentUserId: number) {
-    const user = await this.findOne(id);
+  /**
+   * Delete user
+   */
+  async remove(id: number) {
+    // Check if user exists
+    await this.findOne(id);
 
-    // Prevent changing own role
-    if (id === currentUserId) {
-      throw new ForbiddenException('You cannot change your own role');
-    }
-
-    // Update role
-    const updated = await this.prisma.user.update({
+    await this.prisma.user.delete({
       where: { id },
-      data: { role },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        role: true,
-      },
     });
 
-    return updated;
+    return {
+      message: 'User deleted successfully',
+    };
   }
 
-  // Change password
-  async changePassword(id: number, changePasswordDto: ChangePasswordDto, currentUserId: number) {
-    // Only allow users to change their own password
-    if (id !== currentUserId) {
-      throw new ForbiddenException('You can only change your own password');
-    }
-
+  /**
+   * Change password
+   */
+  async changePassword(id: number, oldPassword: string, newPassword: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
     });
 
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException(`User with ID ${id} not found`);
     }
 
-    // Verify current password
-    const isPasswordValid = await bcrypt.compare(
-      changePasswordDto.currentPassword,
-      user.password,
-    );
+    // Verify old password
+    const isPasswordValid = await bcrypt.compare(oldPassword, user.password);
 
     if (!isPasswordValid) {
-      throw new BadRequestException('Current password is incorrect');
+      throw new UnauthorizedException('Invalid old password');
     }
 
     // Hash new password
-    const hashedPassword = await bcrypt.hash(changePasswordDto.newPassword, 10);
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     // Update password
     await this.prisma.user.update({
@@ -240,135 +194,159 @@ if (updateUserDto.role && id === currentUserId && currentUser.role !== UserRole.
       },
     });
 
-    return { message: 'Password changed successfully' };
+    return {
+      message: 'Password changed successfully',
+    };
   }
 
-  // Deactivate user (soft delete)
-  async deactivate(id: number, currentUserId: number) {
-    const user = await this.findOne(id);
+  /**
+   * Update user status
+   */
+  async updateStatus(id: number, status: UserStatus) {
+    await this.findOne(id);
 
-    // Prevent deactivating self
-    if (id === currentUserId) {
-      throw new ForbiddenException('You cannot deactivate your own account');
-    }
-
-    // Update status to INACTIVE
-    const updated = await this.prisma.user.update({
+    const user = await this.prisma.user.update({
       where: { id },
-      data: {
-        status: 'INACTIVE',
-      },
+      data: { status },
       select: {
         id: true,
+        username: true,
         email: true,
-        firstName: true,
-        lastName: true,
         status: true,
       },
     });
 
-    return updated;
+    return user;
   }
 
-  // Activate user
-  async activate(id: number) {
-    const user = await this.findOne(id);
+  /**
+   * Unlock user account
+   */
+  async unlockAccount(id: number) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+    });
 
-    // Update status to ACTIVE
-    const updated = await this.prisma.user.update({
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+
+    await this.prisma.user.update({
       where: { id },
       data: {
-        status: 'ACTIVE',
+        status: UserStatus.ACTIVE,
         failedLoginAttempts: 0,
         lockedUntil: null,
       },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        status: true,
-      },
     });
 
-    return updated;
+    return {
+      message: 'Account unlocked successfully',
+    };
   }
 
-  // Delete user (hard delete - use with caution)
-  async remove(id: number, currentUserId: number) {
-    const user = await this.findOne(id);
-
-    // Prevent deleting self
-    if (id === currentUserId) {
-      throw new ForbiddenException('You cannot delete your own account');
-    }
-
-    // Check if user has created incidents
-    const incidentCount = await this.prisma.incident.count({
-      where: { createdById: id },
-    });
-
-    if (incidentCount > 0) {
-      throw new BadRequestException(
-        `Cannot delete user. User has ${incidentCount} incidents. Please deactivate instead.`,
-      );
-    }
-
-    // Delete user
-    await this.prisma.user.delete({
+  /**
+   * Get user incidents
+   */
+  async getUserIncidents(id: number) {
+    const user = await this.prisma.user.findUnique({
       where: { id },
     });
 
-    return { message: 'User deleted successfully' };
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+
+    // Get incidents created by user
+    const createdIncidents = await this.prisma.incident.findMany({
+      where: { createdById: id },
+      include: {
+        store: {
+          select: {
+            id: true,
+            storeCode: true,
+            name: true,
+          },
+        },
+        equipment: {
+          select: {
+            id: true,
+            serialNumber: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    // Get incidents assigned to user (for technicians)
+    const assignedIncidents = await this.prisma.incident.findMany({
+      where: { assigneeId: id },
+      include: {
+        store: {
+          select: {
+            id: true,
+            storeCode: true,
+            name: true,
+          },
+        },
+        equipment: {
+          select: {
+            id: true,
+            serialNumber: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    // Get open incidents
+    const openIncidents = await this.prisma.incident.count({
+      where: {
+        assigneeId: id,
+        status: {
+          in: ['OPEN', 'IN_PROGRESS', 'ASSIGNED'],
+        },
+      },
+    });
+
+    return {
+      created: createdIncidents,
+      assigned: assignedIncidents,
+      openCount: openIncidents,
+    };
   }
 
-  // Get user statistics
-  async getStatistics(id: number) {
-    const user = await this.findOne(id);
+  /**
+   * Get user statistics
+   */
+  async getUserStatistics(id: number) {
+    await this.findOne(id);
 
-    // Get incident statistics
-    const createdIncidents = await this.prisma.incident.count({
+    const incidentsCreated = await this.prisma.incident.count({
       where: { createdById: id },
     });
 
-    const assignedIncidents = await this.prisma.incident.count({
+    const incidentsAssigned = await this.prisma.incident.count({
       where: { assigneeId: id },
     });
 
-    const resolvedIncidents = await this.prisma.incident.count({
+    const incidentsResolved = await this.prisma.incident.count({
       where: {
         assigneeId: id,
         status: 'RESOLVED',
       },
     });
 
-    const pendingIncidents = await this.prisma.incident.count({
-      where: {
-        assigneeId: id,
-        status: {
-          in: ['OPEN', 'IN_PROGRESS', 'PENDING'],
-        },
-      },
-    });
-
     return {
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        role: user.role,
-      },
-      statistics: {
-        createdIncidents,
-        assignedIncidents,
-        resolvedIncidents,
-        pendingIncidents,
-        resolutionRate:
-          assignedIncidents > 0
-            ? ((resolvedIncidents / assignedIncidents) * 100).toFixed(2) + '%'
-            : '0%',
-      },
+      incidentsCreated,
+      incidentsAssigned,
+      incidentsResolved,
     };
   }
 }

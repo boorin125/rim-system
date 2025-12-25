@@ -1,0 +1,360 @@
+@baseUrl = http://localhost:3000
+@apiBase = http://localhost:3000/api
+
+# Tokens - Paste your tokens here
+@tokenHelpDesk = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjQsImVtYWlsIjoiaGVscGRlc2tAcmltLmNvbSIsInJvbGUiOiJIRUxQX0RFU0siLCJpYXQiOjE3NjY2NTIyNzEsImV4cCI6MTc2NzI1NzA3MX0.HCOi6mvnvkn-6T_ljlQIFg8Hz3MPcxYd92LerkcDThQ
+@tokenTechnician = 
+
+# =========================================================
+# HELP_DESK Quick Testing (15+ tests)
+# =========================================================
+
+### ===============================================
+### 1. Login as Help Desk
+### ===============================================
+POST {{apiBase}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "helpdesk@rim.com",
+  "password": "password123"
+}
+
+# Copy access_token to @tokenHelpDesk
+
+### ===============================================
+### INCIDENT OPERATIONS
+### ===============================================
+
+### 2. View All Incidents (Should Success ✅)
+GET {{apiBase}}/incidents
+Authorization: Bearer {{tokenHelpDesk}}
+
+# Expected: 200 OK
+# Should see ALL incidents (not filtered)
+
+### 3. Create Incident (Should Success ✅) - PRIMARY FUNCTION!
+POST {{apiBase}}/incidents
+Authorization: Bearer {{tokenHelpDesk}}
+Content-Type: application/json
+
+{
+  "title": "Network switch failure at CentralWorld",
+  "description": "Store network completely down. All POS terminals offline.",
+  "category": "Network",
+  "priority": "CRITICAL",
+  "storeId": 2,
+  "equipmentId": 4
+}
+
+# Expected: 201 Created
+# Status: OPEN
+# This is HELP_DESK's main responsibility!
+
+### 4. View Created Incident
+GET {{apiBase}}/incidents/INC-2025-0005
+Authorization: Bearer {{tokenHelpDesk}}
+
+# Expected: 200 OK
+# Should see the incident we just created
+
+### 5. Update Incident (Should Success ✅)
+PATCH {{apiBase}}/incidents/INC-2025-0005
+Authorization: Bearer {{tokenHelpDesk}}
+Content-Type: application/json
+
+{
+  "priority": "HIGH",
+  "notes": "Updated priority after initial assessment"
+}
+
+# Expected: 200 OK
+# Priority should change from CRITICAL to HIGH
+
+### 6. Assign Incident to Technician (Should Success ✅)
+POST {{apiBase}}/incidents/INC-2025-0005/assign
+Authorization: Bearer {{tokenHelpDesk}}
+Content-Type: application/json
+
+{
+  "technicianId": 5
+}
+
+# Expected: 200 OK
+# Status should change: OPEN → ASSIGNED
+# assigneeId should be set to 5
+
+### 7. Reassign Incident (Should Success ✅)
+POST {{apiBase}}/incidents/INC-2025-0005/reassign
+Authorization: Bearer {{tokenHelpDesk}}
+Content-Type: application/json
+
+{
+  "technicianId": 5
+}
+
+# Expected: 200 OK
+# Status should reset to ASSIGNED
+
+### 8. Close RESOLVED Incident (Should Success ✅) - PRIMARY FUNCTION!
+# First, need to have a RESOLVED incident
+# Use INC-2025-0001 which was resolved by TECHNICIAN
+
+POST {{apiBase}}/incidents/INC-2025-0004/close
+Authorization: Bearer {{tokenHelpDesk}}
+Content-Type: application/json
+
+{
+  "resolutionNote": "Verified repair. All tests passed.",
+  "photoEvidence": "repair_complete_20251223.jpg"
+}
+
+# Expected: 200 OK
+# Status should change: RESOLVED → CLOSED
+# This is HELP_DESK's main responsibility!
+
+### 9. Cancel Incident (Should Success ✅)
+POST {{apiBase}}/incidents/INC-2025-0005/cancel
+Authorization: Bearer {{tokenHelpDesk}}
+Content-Type: application/json
+
+{
+  "cancellationReason": "Duplicate incident - already reported as INC-2025-0004"
+}
+
+# Expected: 200 OK
+# Status should change to CANCELLED
+
+### 10. Accept Incident (Should Fail ❌)
+# Login as Technician first to get incident in right state
+POST {{apiBase}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "technician@rim.com",
+  "password": "password123"
+}
+
+# Create new incident for this test
+POST {{apiBase}}/incidents
+Authorization: Bearer {{tokenHelpDesk}}
+Content-Type: application/json
+
+{
+  "title": "Test for Accept restriction",
+  "description": "Testing HELP_DESK cannot accept",
+  "category": "Hardware",
+  "priority": "LOW",
+  "storeId": 1
+}
+
+# Assign it
+POST {{apiBase}}/incidents/INC-2025-0006/assign
+Authorization: Bearer {{tokenHelpDesk}}
+Content-Type: application/json
+
+{
+  "technicianId": 5
+}
+
+# Try to accept (Should Fail)
+POST {{apiBase}}/incidents/INC-2025-0006/accept
+Authorization: Bearer {{tokenHelpDesk}}
+
+# Expected: 403 Forbidden
+# Only TECHNICIAN can accept
+
+### 11. Resolve Incident (Should Fail ❌)
+POST {{apiBase}}/incidents/INC-2025-0006/resolve
+Authorization: Bearer {{tokenHelpDesk}}
+Content-Type: application/json
+
+{
+  "resolutionNote": "Should fail"
+}
+
+# Expected: 403 Forbidden
+# Only TECHNICIAN can resolve
+
+### ===============================================
+### STORE OPERATIONS (CRUD)
+### ===============================================
+
+### 12. View All Stores (Should Success ✅)
+GET {{apiBase}}/stores
+Authorization: Bearer {{tokenHelpDesk}}
+
+# Expected: 200 OK
+# Should see all 3 stores
+
+### 13. Create Store (Should Success ✅)
+POST {{apiBase}}/stores
+Authorization: Bearer {{tokenHelpDesk}}
+Content-Type: application/json
+
+{
+  "storeCode": "WAT-BKK-004",
+  "name": "Watsons Terminal 21",
+  "company": "Watsons",
+  "storeType": "PERMANENT",
+  "address": "88 Sukhumvit Soi 19",
+  "province": "Bangkok",
+  "postalCode": "10110",
+  "area": "Bangkok East",
+  "serviceCenter": "Bangkok Service Center",
+  "phone": "02-123-4572",
+  "email": "terminal21@watsons.co.th",
+  "routerIp": "192.168.4.1",
+  "mondayOpen": "10:00",
+  "mondayClose": "22:00",
+  "tuesdayOpen": "10:00",
+  "tuesdayClose": "22:00",
+  "wednesdayOpen": "10:00",
+  "wednesdayClose": "22:00",
+  "thursdayOpen": "10:00",
+  "thursdayClose": "22:00",
+  "fridayOpen": "10:00",
+  "fridayClose": "22:00",
+  "saturdayOpen": "10:00",
+  "saturdayClose": "22:00",
+  "sundayOpen": "10:00",
+  "sundayClose": "22:00",
+  "openDate": "2025-01-01",
+  "storeStatus": "ACTIVE"
+}
+
+# Expected: 201 Created
+# Only HELP_DESK can create stores
+
+### 14. Update Store (Should Success ✅)
+PATCH {{apiBase}}/stores/4
+Authorization: Bearer {{tokenHelpDesk}}
+Content-Type: application/json
+
+{
+  "phone": "02-123-9999",
+  "notes": "Updated contact number"
+}
+
+# Expected: 200 OK
+
+### 15. Delete Store (Should Success ✅)
+DELETE {{apiBase}}/stores/4
+Authorization: Bearer {{tokenHelpDesk}}
+
+# Expected: 200 OK
+# Only HELP_DESK can delete
+
+### ===============================================
+### EQUIPMENT OPERATIONS (CRUD)
+### ===============================================
+
+### 16. View All Equipment (Should Success ✅)
+GET {{apiBase}}/api/equipment
+Authorization: Bearer {{tokenHelpDesk}}
+
+# Expected: 200 OK
+# Should see all equipment
+
+### 17. Create Equipment (Should Success ✅)
+POST {{apiBase}}/api/equipment
+Authorization: Bearer {{tokenHelpDesk}}
+Content-Type: application/json
+
+{
+  "serialNumber": "SW-WAT-001",
+  "name": "Cisco Switch 2960",
+  "category": "SWITCH",
+  "brand": "Cisco",
+  "model": "2960",
+  "purchaseDate": "2025-01-01",
+  "warrantyExpiry": "2028-01-01",
+  "status": "ACTIVE",
+  "storeId": 1
+}
+
+# Expected: 201 Created
+# Only HELP_DESK can create equipment
+
+### 18. Update Equipment (Should Success ✅)
+PUT {{apiBase}}/api/equipment/5
+Authorization: Bearer {{tokenHelpDesk}}
+Content-Type: application/json
+
+{
+  "status": "MAINTENANCE",
+  "notes": "Scheduled maintenance"
+}
+
+# Expected: 200 OK
+
+### 19. Delete Equipment (Should Success ✅)
+DELETE {{apiBase}}/api/equipment/5
+Authorization: Bearer {{tokenHelpDesk}}
+
+# Expected: 200 OK
+# Only HELP_DESK can delete
+
+### ===============================================
+### STATISTICS
+### ===============================================
+
+### 20. View Incident Statistics (Should Success ✅)
+GET {{apiBase}}/incidents/statistics
+Authorization: Bearer {{tokenHelpDesk}}
+
+# Expected: 200 OK
+# Should see ALL incidents statistics (not filtered)
+
+### ===============================================
+### SUMMARY - Expected Results
+### ===============================================
+
+# HELP_DESK CAN DO (Should return 200/201 OK):
+# ✅ View all incidents
+# ✅ Create incidents (PRIMARY!)
+# ✅ Update incidents
+# ✅ Assign incidents
+# ✅ Reassign incidents
+# ✅ Close incidents (PRIMARY! with photo)
+# ✅ Cancel incidents
+# ✅ Delete incidents
+# ✅ CRUD Stores (all operations)
+# ✅ CRUD Equipment (all operations)
+# ✅ View statistics (all data)
+
+# HELP_DESK CANNOT DO (Should return 403 Forbidden):
+# ❌ Accept incidents (TECHNICIAN only)
+# ❌ Resolve incidents (TECHNICIAN only)
+
+### ===============================================
+### Testing Checklist
+### ===============================================
+
+# Incident Operations:
+# □ Login successful (got token)
+# □ View all incidents (200 OK)
+# □ Create incident (201 Created) ← Main function!
+# □ Update incident (200 OK)
+# □ Assign incident (200 OK)
+# □ Reassign incident (200 OK)
+# □ Close incident (200 OK) ← Main function!
+# □ Cancel incident (200 OK)
+# □ Cannot accept (403)
+# □ Cannot resolve (403)
+
+# Store Operations:
+# □ View stores (200 OK)
+# □ Create store (201 Created)
+# □ Update store (200 OK)
+# □ Delete store (200 OK)
+
+# Equipment Operations:
+# □ View equipment (200 OK)
+# □ Create equipment (201 Created)
+# □ Update equipment (200 OK)
+# □ Delete equipment (200 OK)
+
+### ===============================================
+### If All Tests Pass: ✅ HELP_DESK Role Complete!
+### ===============================================

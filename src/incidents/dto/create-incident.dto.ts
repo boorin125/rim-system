@@ -1,5 +1,6 @@
 // src/incidents/dto/create-incident.dto.ts
-import { IsString, IsNotEmpty, IsInt, IsOptional, IsEnum } from 'class-validator';
+
+import { IsString, IsNotEmpty, IsEnum, IsInt, IsOptional } from 'class-validator';
 import { Priority } from '@prisma/client';
 
 export class CreateIncidentDto {
@@ -10,6 +11,10 @@ export class CreateIncidentDto {
   @IsString()
   @IsNotEmpty()
   description: string;
+
+  @IsString()
+  @IsOptional()
+  category?: string;
 
   @IsEnum(Priority)
   @IsNotEmpty()

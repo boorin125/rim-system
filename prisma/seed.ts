@@ -1,5 +1,5 @@
 // prisma/seed.ts
-import { PrismaClient, UserRole, UserStatus, EquipmentCategory, EquipmentStatus, Priority, IncidentStatus } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -7,273 +7,399 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Starting seed...');
 
-  // Clear existing data
-  console.log('🗑️  Clearing existing data...');
-  await prisma.incident.deleteMany();
-  await prisma.equipment.deleteMany();
-  await prisma.store.deleteMany();
-  await prisma.user.deleteMany();
+  // Clean existing data
+  await prisma.incident.deleteMany({});
+  await prisma.equipment.deleteMany({});
+  await prisma.store.deleteMany({});
+  await prisma.user.deleteMany({});
 
-  // 1. Create Users
-  console.log('👥 Creating users...');
-  
+  console.log('✅ Cleaned existing data');
+  console.log('');
+
+  // ==========================================
+  // Seed Users
+  // ==========================================
   const hashedPassword = await bcrypt.hash('password123', 10);
+
+  console.log('👥 Creating Users...');
 
   const superAdmin = await prisma.user.create({
     data: {
-      email: 'admin@rim.com',
+      username: 'superadmin',
+      email: 'superadmin@rim.com',
       password: hashedPassword,
       firstName: 'Super',
       lastName: 'Admin',
-      phone: '081-234-5678',
-      role: UserRole.SUPER_ADMIN,
-      status: UserStatus.ACTIVE,
+      phone: '02-123-4567',
+      role: 'SUPER_ADMIN',
+      status: 'ACTIVE',
     },
   });
+  console.log('  ✅ Super Admin: superadmin@rim.com / password123');
 
   const itManager = await prisma.user.create({
     data: {
-      email: 'john.doe@watsons.co.th',
+      username: 'itmanager',
+      email: 'itmanager@rim.com',
       password: hashedPassword,
-      firstName: 'John',
-      lastName: 'Doe',
-      phone: '082-345-6789',
-      role: UserRole.IT_MANAGER,
-      status: UserStatus.ACTIVE,
+      firstName: 'Somchai',
+      lastName: 'IT Manager',
+      phone: '02-123-4568',
+      role: 'IT_MANAGER',
+      status: 'ACTIVE',
     },
   });
+  console.log('  ✅ IT Manager: itmanager@rim.com / password123');
+
+  const supervisor = await prisma.user.create({
+    data: {
+      username: 'supervisor',
+      email: 'supervisor@rim.com',
+      password: hashedPassword,
+      firstName: 'Somying',
+      lastName: 'Supervisor',
+      phone: '02-123-4569',
+      role: 'SUPERVISOR',
+      status: 'ACTIVE',
+    },
+  });
+  console.log('  ✅ Supervisor: supervisor@rim.com / password123');
 
   const helpDesk = await prisma.user.create({
     data: {
-      email: 'jane.smith@watsons.co.th',
+      username: 'helpdesk',
+      email: 'helpdesk@rim.com',
       password: hashedPassword,
-      firstName: 'Jane',
-      lastName: 'Smith',
-      phone: '083-456-7890',
-      role: UserRole.HELP_DESK,
-      status: UserStatus.ACTIVE,
+      firstName: 'Suda',
+      lastName: 'Help Desk',
+      phone: '02-123-4570',
+      role: 'HELP_DESK',
+      status: 'ACTIVE',
     },
   });
+  console.log('  ✅ Help Desk: helpdesk@rim.com / password123');
 
-  const technician1 = await prisma.user.create({
+  const technician = await prisma.user.create({
     data: {
-      email: 'mike.brown@watsons.co.th',
+      username: 'technician',
+      email: 'technician@rim.com',
       password: hashedPassword,
-      firstName: 'Mike',
-      lastName: 'Brown',
-      phone: '084-567-8901',
-      role: UserRole.TECHNICIAN,
-      status: UserStatus.ACTIVE,
+      firstName: 'Manop',
+      lastName: 'Technician',
+      phone: '081-234-5678',
+      role: 'TECHNICIAN',
+      status: 'ACTIVE',
     },
   });
+  console.log('  ✅ Technician: technician@rim.com / password123');
 
   const endUser = await prisma.user.create({
     data: {
-      email: 'user@watsons.co.th',
+      username: 'enduser',
+      email: 'user@rim.com',
       password: hashedPassword,
-      firstName: 'End',
-      lastName: 'User',
-      phone: '085-678-9012',
-      role: UserRole.END_USER,
-      status: UserStatus.ACTIVE,
+      firstName: 'Napat',
+      lastName: 'End User',
+      phone: '081-234-5679',
+      role: 'END_USER',
+      status: 'ACTIVE',
     },
   });
+  console.log('  ✅ End User: user@rim.com / password123');
 
-  console.log(`✅ Created ${5} users`);
+  console.log('');
 
-  // 2. Create Stores
-  console.log('🏪 Creating stores...');
+  // ==========================================
+  // Seed Stores
+  // ==========================================
+  console.log('🏪 Creating Stores...');
 
   const store1 = await prisma.store.create({
     data: {
-      storeCode: 'WTS-001',
+      storeCode: 'WAT-BKK-001',
       name: 'Watsons Siam Paragon',
-      address: '991 Rama I Rd, Pathum Wan',
+      company: 'Watsons',
+      storeType: 'PERMANENT',
+      address: '991 Rama 1 Road',
       province: 'Bangkok',
-      district: 'Pathum Wan',
-      subDistrict: 'Pathum Wan',
       postalCode: '10330',
-      latitude: 13.7467,
-      longitude: 100.5346,
-      phone: '02-610-8000',
-      isPopup: false,
+      area: 'Bangkok Central',
+      serviceCenter: 'Bangkok Service Center',
+      phone: '02-123-4567',
+      email: 'siam@watsons.co.th',
+      googleMapLink: 'https://maps.google.com/?q=13.7456,100.5344',
+      circuitId: 'CIR-BKK-001',
+      routerIp: '192.168.1.1',
+      switchIp: '192.168.1.2',
+      accessPointIp: '192.168.1.3',
+      pcServerIp: '192.168.10.1',
+      posIp: '192.168.20.1',
+      cctvIp: '192.168.30.1',
+      mondayOpen: '10:00',
+      mondayClose: '22:00',
+      tuesdayOpen: '10:00',
+      tuesdayClose: '22:00',
+      wednesdayOpen: '10:00',
+      wednesdayClose: '22:00',
+      thursdayOpen: '10:00',
+      thursdayClose: '22:00',
+      fridayOpen: '10:00',
+      fridayClose: '22:00',
+      saturdayOpen: '10:00',
+      saturdayClose: '22:00',
+      sundayOpen: '10:00',
+      sundayClose: '22:00',
+      holidayOpen: '11:00',
+      holidayClose: '20:00',
+      openDate: new Date('2020-01-15'),
+      storeStatus: 'ACTIVE',
     },
   });
+  console.log('  ✅ Store 1: Watsons Siam Paragon (ID: ' + store1.id + ')');
 
   const store2 = await prisma.store.create({
     data: {
-      storeCode: 'WTS-002',
-      name: 'Watsons Central World',
-      address: '999/9 Rama I Rd, Pathum Wan',
+      storeCode: 'WAT-BKK-002',
+      name: 'Watsons CentralWorld',
+      company: 'Watsons',
+      storeType: 'PERMANENT',
+      address: '999/9 Rama 1 Road',
       province: 'Bangkok',
-      district: 'Pathum Wan',
-      subDistrict: 'Pathum Wan',
       postalCode: '10330',
-      latitude: 13.7469,
-      longitude: 100.5398,
-      phone: '02-613-1111',
-      isPopup: false,
+      area: 'Bangkok Central',
+      serviceCenter: 'Bangkok Service Center',
+      phone: '02-123-4570',
+      email: 'centralworld@watsons.co.th',
+      routerIp: '192.168.2.1',
+      switchIp: '192.168.2.2',
+      mondayOpen: '10:00',
+      mondayClose: '22:00',
+      tuesdayOpen: '10:00',
+      tuesdayClose: '22:00',
+      wednesdayOpen: '10:00',
+      wednesdayClose: '22:00',
+      thursdayOpen: '10:00',
+      thursdayClose: '22:00',
+      fridayOpen: '10:00',
+      fridayClose: '22:00',
+      saturdayOpen: '10:00',
+      saturdayClose: '22:00',
+      sundayOpen: '10:00',
+      sundayClose: '22:00',
+      holidayOpen: '11:00',
+      holidayClose: '20:00',
+      openDate: new Date('2020-03-10'),
+      storeStatus: 'ACTIVE',
     },
   });
+  console.log('  ✅ Store 2: Watsons CentralWorld (ID: ' + store2.id + ')');
 
   const store3 = await prisma.store.create({
     data: {
-      storeCode: 'WTS-POP-001',
-      name: 'Watsons Pop-up Terminal 21',
-      address: '88 Soi Sukhumvit 19',
+      storeCode: 'WAT-BKK-003',
+      name: 'Watsons EmQuartier',
+      company: 'Watsons',
+      storeType: 'PERMANENT',
+      address: '693 Sukhumvit Road',
       province: 'Bangkok',
-      district: 'Khlong Toei',
-      subDistrict: 'Khlong Toei Nuea',
       postalCode: '10110',
-      latitude: 13.7375,
-      longitude: 100.5601,
-      phone: '02-108-0888',
-      isPopup: true,
+      area: 'Bangkok East',
+      serviceCenter: 'Bangkok Service Center',
+      phone: '02-123-4571',
+      email: 'emquartier@watsons.co.th',
+      routerIp: '192.168.3.1',
+      mondayOpen: '10:00',
+      mondayClose: '22:00',
+      tuesdayOpen: '10:00',
+      tuesdayClose: '22:00',
+      wednesdayOpen: '10:00',
+      wednesdayClose: '22:00',
+      thursdayOpen: '10:00',
+      thursdayClose: '22:00',
+      fridayOpen: '10:00',
+      fridayClose: '22:00',
+      saturdayOpen: '10:00',
+      saturdayClose: '22:00',
+      sundayOpen: '10:00',
+      sundayClose: '22:00',
+      openDate: new Date('2020-06-20'),
+      storeStatus: 'ACTIVE',
     },
   });
+  console.log('  ✅ Store 3: Watsons EmQuartier (ID: ' + store3.id + ')');
 
-  console.log(`✅ Created ${3} stores`);
+  console.log('');
 
-  // 3. Create Equipment
-  console.log('💻 Creating equipment...');
+  // ==========================================
+  // Seed Equipment
+  // ==========================================
+  console.log('💻 Creating Equipment...');
 
   const equipment1 = await prisma.equipment.create({
     data: {
-      serialNumber: 'DESK-001-2024',
-      name: 'Dell OptiPlex 7010',
-      category: EquipmentCategory.DESKTOP,
+      serialNumber: 'PC-WAT-001',
+      name: 'Dell OptiPlex 7090',
+      category: 'COMPUTER',
       brand: 'Dell',
-      model: 'OptiPlex 7010',
+      model: 'OptiPlex 7090',
       purchaseDate: new Date('2024-01-15'),
       warrantyExpiry: new Date('2027-01-15'),
-      status: EquipmentStatus.ACTIVE,
+      status: 'ACTIVE',
       storeId: store1.id,
     },
   });
+  console.log('  ✅ Equipment 1: Dell OptiPlex 7090');
 
   const equipment2 = await prisma.equipment.create({
     data: {
-      serialNumber: 'PRINT-001-2024',
+      serialNumber: 'PR-WAT-001',
       name: 'HP LaserJet Pro M404dn',
-      category: EquipmentCategory.PRINTER,
+      category: 'PRINTER',
       brand: 'HP',
-      model: 'LaserJet Pro M404dn',
+      model: 'M404dn',
       purchaseDate: new Date('2024-02-20'),
       warrantyExpiry: new Date('2027-02-20'),
-      status: EquipmentStatus.ACTIVE,
+      status: 'ACTIVE',
       storeId: store1.id,
     },
   });
+  console.log('  ✅ Equipment 2: HP LaserJet Pro');
 
   const equipment3 = await prisma.equipment.create({
     data: {
-      serialNumber: 'POS-001-2024',
-      name: 'NCR RealPOS 82XRT',
-      category: EquipmentCategory.POS,
+      serialNumber: 'POS-WAT-001',
+      name: 'POS Terminal',
+      category: 'POS',
       brand: 'NCR',
       model: 'RealPOS 82XRT',
       purchaseDate: new Date('2024-03-10'),
       warrantyExpiry: new Date('2027-03-10'),
-      status: EquipmentStatus.ACTIVE,
-      storeId: store2.id,
+      status: 'ACTIVE',
+      storeId: store1.id,
     },
   });
+  console.log('  ✅ Equipment 3: POS Terminal');
 
   const equipment4 = await prisma.equipment.create({
     data: {
-      serialNumber: 'ROUTER-001-2024',
-      name: 'Cisco ISR 4331',
-      category: EquipmentCategory.ROUTER,
+      serialNumber: 'RTR-WAT-001',
+      name: 'Cisco Router 2901',
+      category: 'ROUTER',
       brand: 'Cisco',
-      model: 'ISR 4331',
+      model: '2901',
       purchaseDate: new Date('2024-01-05'),
       warrantyExpiry: new Date('2029-01-05'),
-      status: EquipmentStatus.ACTIVE,
+      status: 'ACTIVE',
       storeId: store2.id,
     },
   });
+  console.log('  ✅ Equipment 4: Cisco Router');
 
-  console.log(`✅ Created ${4} equipment items`);
+  console.log('');
 
-  // 4. Create Incidents
-  console.log('🎫 Creating incidents...');
+  // ==========================================
+  // Seed Incidents
+  // ==========================================
+  console.log('🎫 Creating Incidents...');
 
   const incident1 = await prisma.incident.create({
     data: {
+      id: 'INC-2025-0001',
+      incidentCode: 'INC-2025-0001',
       title: 'Printer paper jam',
-      description: 'HP printer keeps jamming paper. Need urgent fix.',
-      priority: Priority.HIGH,
-      status: IncidentStatus.OPEN,
+      description: 'HP printer keeps jamming with every print job',
+      category: 'Hardware',
+      priority: 'HIGH',
+      status: 'OPEN',
       storeId: store1.id,
       equipmentId: equipment2.id,
+      reportedBy: endUser.id,
       createdById: endUser.id,
-      slaDeadline: new Date(Date.now() + 4 * 60 * 60 * 1000), // 4 hours from now
+      slaDeadline: new Date(Date.now() + 4 * 60 * 60 * 1000), // 4 hours
     },
   });
+  console.log('  ✅ Incident 1: ' + incident1.incidentCode + ' (OPEN)');
 
   const incident2 = await prisma.incident.create({
     data: {
-      title: 'Desktop won\'t boot',
-      description: 'Desktop computer showing black screen on startup.',
-      priority: Priority.CRITICAL,
-      status: IncidentStatus.IN_PROGRESS,
+      id: 'INC-2025-0002',
+      incidentCode: 'INC-2025-0002',
+      title: "Desktop won't boot",
+      description: 'Desktop computer showing blue screen on startup',
+      category: 'Hardware',
+      priority: 'CRITICAL',
+      status: 'ASSIGNED',
       storeId: store1.id,
       equipmentId: equipment1.id,
+      reportedBy: endUser.id,
       createdById: endUser.id,
-      assigneeId: technician1.id,
-      slaDeadline: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
+      assigneeId: technician.id,
+      slaDeadline: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours
     },
   });
+  console.log('  ✅ Incident 2: ' + incident2.incidentCode + ' (ASSIGNED)');
 
   const incident3 = await prisma.incident.create({
     data: {
+      id: 'INC-2025-0003',
+      incidentCode: 'INC-2025-0003',
       title: 'POS system slow',
-      description: 'POS terminal is very slow during transactions.',
-      priority: Priority.MEDIUM,
-      status: IncidentStatus.RESOLVED,
-      storeId: store2.id,
+      description: 'POS terminal taking 30+ seconds to process transactions',
+      category: 'Performance',
+      priority: 'MEDIUM',
+      status: 'IN_PROGRESS',
+      storeId: store1.id,
       equipmentId: equipment3.id,
-      createdById: endUser.id,
-      assigneeId: technician1.id,
-      resolvedAt: new Date(),
-      resolutionNote: 'Cleared cache and updated software. System running normally now.',
-      slaDeadline: new Date(Date.now() + 8 * 60 * 60 * 1000), // 8 hours from now
+      reportedBy: endUser.id,
+      createdById: helpDesk.id,
+      assigneeId: technician.id,
+      slaDeadline: new Date(Date.now() + 8 * 60 * 60 * 1000), // 8 hours
     },
   });
+  console.log('  ✅ Incident 3: ' + incident3.incidentCode + ' (IN_PROGRESS)');
 
   const incident4 = await prisma.incident.create({
     data: {
+      id: 'INC-2025-0004',
+      incidentCode: 'INC-2025-0004',
       title: 'Internet connection unstable',
-      description: 'WiFi keeps disconnecting every few minutes.',
-      priority: Priority.HIGH,
-      status: IncidentStatus.PENDING,
+      description: 'WiFi keeps disconnecting every 5-10 minutes',
+      category: 'Network',
+      priority: 'HIGH',
+      status: 'RESOLVED',
       storeId: store2.id,
       equipmentId: equipment4.id,
-      createdById: endUser.id,
-      assigneeId: technician1.id,
-      slaDeadline: new Date(Date.now() + 4 * 60 * 60 * 1000), // 4 hours from now
+      reportedBy: endUser.id,
+      createdById: helpDesk.id,
+      assigneeId: technician.id,
+      resolvedAt: new Date(),
+      resolutionNote: 'Restarted router and reconfigured WiFi settings. Connection stable now.',
+      slaDeadline: new Date(Date.now() + 4 * 60 * 60 * 1000), // 4 hours
     },
   });
-
-  console.log(`✅ Created ${4} incidents`);
+  console.log('  ✅ Incident 4: ' + incident4.incidentCode + ' (RESOLVED)');
 
   console.log('');
-  console.log('🎉 Seed completed successfully!');
+  console.log('✅ Seed completed successfully!');
   console.log('');
   console.log('📊 Summary:');
-  console.log(`   - Users: 5 (1 Super Admin, 1 IT Manager, 1 Help Desk, 1 Technician, 1 End User)`);
-  console.log(`   - Stores: 3 (2 regular, 1 pop-up)`);
-  console.log(`   - Equipment: 4 (Desktop, Printer, POS, Router)`);
-  console.log(`   - Incidents: 4 (1 Open, 1 In Progress, 1 Pending, 1 Resolved)`);
+  console.log('  - Users: 6');
+  console.log('  - Stores: 3');
+  console.log('  - Equipment: 4');
+  console.log('  - Incidents: 4');
   console.log('');
-  console.log('🔑 Test Login Credentials:');
-  console.log('   Email: admin@rim.com');
-  console.log('   Password: password123');
+  console.log('🔐 Login Credentials:');
+  console.log('  Super Admin: superadmin@rim.com / password123');
+  console.log('  IT Manager:  itmanager@rim.com / password123');
+  console.log('  Supervisor:  supervisor@rim.com / password123');
+  console.log('  Help Desk:   helpdesk@rim.com / password123');
+  console.log('  Technician:  technician@rim.com / password123');
+  console.log('  End User:    user@rim.com / password123');
 }
 
 main()
   .catch((e) => {
-    console.error(e);
+    console.error('❌ Seed failed:', e);
     process.exit(1);
   })
   .finally(async () => {

@@ -1,0 +1,198 @@
+@baseUrl = http://localhost:3000
+@apiBase = http://localhost:3000/api
+
+# Tokens - Paste your tokens here
+@tokenSupervisor = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjMsImVtYWlsIjoic3VwZXJ2aXNvckByaW0uY29tIiwicm9sZSI6IlNVUEVSVklTT1IiLCJpYXQiOjE3NjY0ODA4MTksImV4cCI6MTc2NzA4NTYxOX0.oMHwULvDgJSJ56hB8LR6Dh-A5xURQktFRLNnsNPEmuY
+@tokenHelpDesk = 
+
+# =========================================================
+# SUPERVISOR Quick Testing (10 tests)
+# =========================================================
+
+### ===============================================
+### 1. Login as Supervisor
+### ===============================================
+POST {{apiBase}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "supervisor@rim.com",
+  "password": "password123"
+}
+
+# Copy access_token to @tokenSupervisor
+
+### ===============================================
+### 2. View All Incidents (Should Success ✅)
+### ===============================================
+GET {{apiBase}}/incidents
+Authorization: Bearer {{tokenSupervisor}}
+
+# Expected: 200 OK
+# Should see 4 incidents
+
+### ===============================================
+### 3. View OPEN Incidents (Need Assignment)
+### ===============================================
+GET {{apiBase}}/incidents?status=OPEN
+Authorization: Bearer {{tokenSupervisor}}
+
+# Expected: 200 OK
+# Should see INC-2025-0001 (OPEN)
+
+### ===============================================
+### 4. Assign Incident (Should Success ✅)
+### ===============================================
+POST {{apiBase}}/incidents/INC-2025-0001/assign
+Authorization: Bearer {{tokenSupervisor}}
+Content-Type: application/json
+
+{
+  "technicianId": 5
+}
+
+# Expected: 200 OK
+# Status should change to ASSIGNED
+
+### ===============================================
+### 5. View Statistics (Should Success ✅)
+### ===============================================
+GET {{apiBase}}/incidents/statistics
+Authorization: Bearer {{tokenSupervisor}}
+
+# Expected: 200 OK
+
+### ===============================================
+### 6. Create Incident (Should Fail ❌)
+### ===============================================
+POST {{apiBase}}/incidents
+Authorization: Bearer {{tokenSupervisor}}
+Content-Type: application/json
+
+{
+  "title": "Test Incident",
+  "description": "Should fail",
+  "category": "Hardware",
+  "priority": "HIGH",
+  "storeId": 1
+}
+
+# Expected: 403 Forbidden
+# Only HELP_DESK and END_USER can create
+
+### ===============================================
+### 7. Close Incident (Should Fail ❌)
+### ===============================================
+POST {{apiBase}}/incidents/INC-2025-0004/close
+Authorization: Bearer {{tokenSupervisor}}
+Content-Type: application/json
+
+{
+  "resolutionNote": "Should fail",
+  "photoEvidence": "test.jpg"
+}
+
+# Expected: 403 Forbidden
+# Only HELP_DESK can close
+
+### ===============================================
+### 8. View Stores (Should Success ✅)
+### ===============================================
+GET {{apiBase}}/stores
+Authorization: Bearer {{tokenSupervisor}}
+
+# Expected: 200 OK
+# Should see 3 stores
+
+### ===============================================
+### 9. Create Store (Should Fail ❌)
+### ===============================================
+POST {{apiBase}}/stores
+Authorization: Bearer {{tokenSupervisor}}
+Content-Type: application/json
+
+{
+  "storeCode": "TEST-001",
+  "name": "Test Store",
+  "company": "Test",
+  "storeType": "PERMANENT",
+  "address": "Test Address",
+  "province": "Bangkok",
+  "postalCode": "10100"
+}
+
+# Expected: 403 Forbidden
+# Only HELP_DESK can create
+
+### ===============================================
+### 10. View Equipment (Should Success ✅)
+### ===============================================
+GET {{apiBase}}/equipment
+Authorization: Bearer {{tokenSupervisor}}
+
+# Expected: 200 OK
+# Should see 4 equipment items
+
+### ===============================================
+### SUMMARY - Expected Results
+### ===============================================
+
+# SUPERVISOR CAN DO (Should return 200 OK):
+# ✅ View incidents
+# ✅ View statistics
+# ✅ Assign incidents
+# ✅ View stores
+# ✅ View equipment
+
+# SUPERVISOR CANNOT DO (Should return 403 Forbidden):
+# ❌ Create incidents
+# ❌ Close incidents
+# ❌ Create stores
+# ❌ Create equipment
+
+### ===============================================
+### Bonus: Test Reassign
+### ===============================================
+
+### Login as Technician (to get another technician ID)
+POST {{apiBase}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "technician@rim.com",
+  "password": "password123"
+}
+
+# Get technician ID from response (should be 5)
+
+### Reassign Incident
+POST {{apiBase}}/incidents/INC-2025-0002/reassign
+Authorization: Bearer {{tokenSupervisor}}
+Content-Type: application/json
+
+{
+  "technicianId": 5
+}
+
+# Expected: 200 OK
+# Status resets to ASSIGNED
+
+### ===============================================
+### Testing Checklist
+### ===============================================
+
+# □ Login successful (got token)
+# □ View operations work (200 OK)
+#   □ View incidents
+#   □ View statistics
+#   □ View stores
+#   □ View equipment
+# □ Assign works (200 OK)
+# □ Reassign works (200 OK)
+# □ Cannot create incidents (403)
+# □ Cannot close incidents (403)
+# □ Cannot create stores (403)
+
+### ===============================================
+### If All Tests Pass: ✅ SUPERVISOR Role Complete!
+### ===============================================

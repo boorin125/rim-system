@@ -1,0 +1,47 @@
+@baseUrl = http://localhost:3000
+@apiBase = http://localhost:3000/api
+
+# เก็บ token ไว้ที่นี่
+@tokenHelpDesk = 
+@tokenITManager = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjEyLCJlbWFpbCI6Iml0bWFuYWdlckByaW0uY29tIiwicm9sZSI6IklUX01BTkFHRVIiLCJpYXQiOjE3NjY0MTM2MDUsImV4cCI6MTc2NzAxODQwNX0.CBv4InoHjiMk3xAyOzRs0ilDNR7KA0WAG0p137MLbNY
+
+### ===============================================
+### STEP 1: Login as IT Manager
+### ===============================================
+POST {{apiBase}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "itmanager@rim.com",
+  "password": "password123"
+}
+
+# หลังจาก run แล้ว:
+# 1. Copy access_token ทั้งหมดจาก response
+# 2. Paste ลงในบรรทัดที่ 6 (@tokenITManager = ...)
+# 3. Run tests ข้างล่างได้เลย
+
+### ===============================================
+### STEP 2: IT_MANAGER View (Should Success ✅)
+### ===============================================
+GET {{baseUrl}}/equipment
+Authorization: Bearer {{tokenITManager}}
+
+### ===============================================
+### STEP 3: IT_MANAGER Create (Should Fail ❌)
+### ===============================================
+POST {{baseUrl}}/equipment
+Authorization: Bearer {{tokenITManager}}
+Content-Type: application/json
+
+{
+  "serialNumber": "SN-FAIL-001",
+  "name": "Should Fail",
+  "category": "COMPUTER",
+  "brand": "Test",
+  "model": "Test",
+  "purchaseDate": "2024-01-15T00:00:00.000Z",
+  "warrantyExpiry": "2027-01-15T00:00:00.000Z",
+  "status": "ACTIVE",
+  "storeId": 7
+}

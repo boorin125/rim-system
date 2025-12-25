@@ -1,6 +1,3 @@
-// Prisma Schema for RIM System v3.10
-// This is your Prisma schema file
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,46 +7,168 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ============================================
-// CORE MODELS
-// ============================================
-
-// User Model (Feature 2: User Management)
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  password  String
-  firstName String?  @map("first_name")
-  lastName  String?  @map("last_name")
-  phone     String?
-  role      UserRole @default(END_USER)
-  status    UserStatus @default(ACTIVE)
-  
-  // 2FA
-  twoFactorEnabled Boolean @default(false) @map("two_factor_enabled")
-  twoFactorSecret  String? @map("two_factor_secret")
-  
-  // Security
-  failedLoginAttempts Int @default(0) @map("failed_login_attempts")
-  lockedUntil        DateTime? @map("locked_until")
-  lastLogin          DateTime? @map("last_login")
-  lastPasswordChange DateTime? @map("last_password_change")
-  
-  // Metadata
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  createdBy Int?     @map("created_by")
-  
-  // Relations
-  createdIncidents Incident[] @relation("IncidentCreator")
-  assignedIncidents Incident[] @relation("IncidentAssignee")
-  
+  id                    Int        @id @default(autoincrement())
+  username              String     @unique
+  email                 String     @unique
+  password              String
+  firstName             String?    @map("first_name")
+  lastName              String?    @map("last_name")
+  phone                 String?
+  role                  UserRole   @default(END_USER)
+  status                UserStatus @default(ACTIVE)
+  twoFactorEnabled      Boolean    @default(false) @map("two_factor_enabled")
+  twoFactorSecret       String?    @map("two_factor_secret")
+  failedLoginAttempts   Int        @default(0) @map("failed_login_attempts")
+  lockedUntil           DateTime?  @map("locked_until")
+  lastLogin             DateTime?  @map("last_login")
+  lastPasswordChange    DateTime?  @map("last_password_change")
+  createdAt             DateTime   @default(now()) @map("created_at")
+  updatedAt             DateTime   @updatedAt @map("updated_at")
+  createdBy             Int?       @map("created_by")
+  incidentsCreated      Incident[] @relation("IncidentCreatedBy")
+  incidentsAssigned     Incident[] @relation("IncidentAssignedTo")
+  equipmentLogs         EquipmentLog[]
+
   @@map("users")
+}
+
+model Store {
+  id               Int         @id @default(autoincrement())
+  storeCode        String      @map("store_code")
+  name             String
+  company          String?
+  storeType        StoreType   @default(PERMANENT) @map("store_type")
+  address          String?
+  province         String?
+  district         String?
+  subDistrict      String?     @map("sub_district")
+  postalCode       String?     @map("postal_code")
+  area             String?
+  serviceCenter    String?     @map("service_center")
+  latitude         Float?
+  longitude        Float?
+  phone            String?
+  email            String?
+  googleMapLink    String?     @map("google_map_link")
+  circuitId        String?     @map("circuit_id")
+  routerIp         String?     @map("router_ip")
+  switchIp         String?     @map("switch_ip")
+  accessPointIp    String?     @map("access_point_ip")
+  pcServerIp       String?     @map("pc_server_ip")
+  pcPrinterIp      String?     @map("pc_printer_ip")
+  pmcComputerIp    String?     @map("pmc_computer_ip")
+  sbsComputerIp    String?     @map("sbs_computer_ip")
+  vatComputerIp    String?     @map("vat_computer_ip")
+  posIp            String?     @map("pos_ip")
+  edcIp            String?     @map("edc_ip")
+  scoIp            String?     @map("sco_ip")
+  peopleCounterIp  String?     @map("people_counter_ip")
+  digitalTvIp      String?     @map("digital_tv_ip")
+  timeAttendanceIp String?     @map("time_attendance_ip")
+  cctvIp           String?     @map("cctv_ip")
+  mondayOpen       String?     @map("monday_open")
+  mondayClose      String?     @map("monday_close")
+  tuesdayOpen      String?     @map("tuesday_open")
+  tuesdayClose     String?     @map("tuesday_close")
+  wednesdayOpen    String?     @map("wednesday_open")
+  wednesdayClose   String?     @map("wednesday_close")
+  thursdayOpen     String?     @map("thursday_open")
+  thursdayClose    String?     @map("thursday_close")
+  fridayOpen       String?     @map("friday_open")
+  fridayClose      String?     @map("friday_close")
+  saturdayOpen     String?     @map("saturday_open")
+  saturdayClose    String?     @map("saturday_close")
+  sundayOpen       String?     @map("sunday_open")
+  sundayClose      String?     @map("sunday_close")
+  holidayOpen      String?     @map("holiday_open")
+  holidayClose     String?     @map("holiday_close")
+  openDate         DateTime?   @map("open_date")
+  closeDate        DateTime?   @map("close_date")
+  storeStatus      StoreStatus @default(ACTIVE) @map("store_status")
+  notes            String?
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+  equipment        Equipment[]
+  incidents        Incident[]
+
+  @@unique([storeCode, storeStatus], name: "unique_active_store")
+  @@index([storeCode])
+  @@index([company])
+  @@index([storeStatus])
+  @@index([province])
+  @@map("stores")
+}
+
+model Equipment {
+  id             Int               @id @default(autoincrement())
+  serialNumber   String            @unique @map("serial_number")
+  name           String
+  category       EquipmentCategory
+  brand          String?
+  model          String?
+  purchaseDate   DateTime?         @map("purchase_date")
+  warrantyExpiry DateTime?         @map("warranty_expiry")
+  status         EquipmentStatus   @default(ACTIVE)
+  storeId        Int               @map("store_id")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+  store          Store             @relation(fields: [storeId], references: [id])
+  incidents      Incident[]
+  logs           EquipmentLog[]
+
+  @@map("equipment")
+}
+
+model EquipmentLog {
+  id          Int                @id @default(autoincrement())
+  equipmentId Int                @map("equipment_id")
+  action      EquipmentLogAction
+  description String
+  changedBy   Int                @map("changed_by")
+  oldValue    String?            @map("old_value")
+  newValue    String?            @map("new_value")
+  createdAt   DateTime           @default(now()) @map("created_at")
+  equipment   Equipment          @relation(fields: [equipmentId], references: [id])
+  user        User               @relation(fields: [changedBy], references: [id])
+
+  @@index([equipmentId])
+  @@index([changedBy])
+  @@index([createdAt])
+  @@map("equipment_logs")
+}
+
+model Incident {
+  id             String         @id
+  incidentCode   String         @unique @map("incident_code")
+  title          String
+  description    String
+  category       String?
+  priority       Priority
+  status         IncidentStatus @default(OPEN)
+  storeId        Int            @map("store_id")
+  equipmentId    Int?           @map("equipment_id")
+  reportedBy     Int            @map("reported_by")
+  createdById    Int            @map("created_by_id")
+  assigneeId     Int?           @map("assignee_id")
+  slaDeadline    DateTime?      @map("sla_deadline")
+  resolvedAt     DateTime?      @map("resolved_at")
+  resolutionNote String?        @map("resolution_note")
+  notes          String?
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  createdBy      User           @relation("IncidentCreatedBy", fields: [createdById], references: [id])
+  assignee       User?          @relation("IncidentAssignedTo", fields: [assigneeId], references: [id])
+  equipment      Equipment?     @relation(fields: [equipmentId], references: [id])
+  store          Store          @relation(fields: [storeId], references: [id])
+
+  @@map("incidents")
 }
 
 enum UserRole {
   SUPER_ADMIN
   IT_MANAGER
+  FINANCE_ADMIN
   HELP_DESK
   SUPERVISOR
   TECHNICIAN
@@ -60,71 +179,19 @@ enum UserRole {
 enum UserStatus {
   ACTIVE
   INACTIVE
+  SUSPENDED
   LOCKED
 }
 
-// Store Model (Feature 3: Store Management)
-model Store {
-  id          Int      @id @default(autoincrement())
-  storeCode   String   @unique @map("store_code")
-  name        String
-  address     String?
-  province    String
-  district    String?
-  subDistrict String?  @map("sub_district")
-  postalCode  String?  @map("postal_code")
-  latitude    Float?
-  longitude   Float?
-  phone       String?
-  isPopup     Boolean  @default(false) @map("is_popup")
-  
-  // Metadata
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  
-  // Relations
-  equipment Equipment[]
-  incidents Incident[]
-  
-  @@map("stores")
+enum StoreType {
+  PERMANENT
+  POP_UP
+  SEASONAL
 }
 
-// Equipment Model (Feature 4: Equipment Management)
-model Equipment {
-  id            Int      @id @default(autoincrement())
-  serialNumber  String   @unique @map("serial_number")
-  name          String
-  category      EquipmentCategory
-  brand         String?
-  model         String?
-  purchaseDate  DateTime? @map("purchase_date")
-  warrantyExpiry DateTime? @map("warranty_expiry")
-  status        EquipmentStatus @default(ACTIVE)
-  
-  // Store relation
-  storeId Int @map("store_id")
-  store   Store @relation(fields: [storeId], references: [id])
-  
-  // Metadata
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  
-  // Relations
-  incidents Incident[]
-  
-  @@map("equipment")
-}
-
-enum EquipmentCategory {
-  DESKTOP
-  LAPTOP
-  PRINTER
-  SCANNER
-  POS
-  ROUTER
-  SWITCH
-  CCTV
-  OTHER
+enum StoreStatus {
+  ACTIVE
+  INACTIVE
 }
 
 enum EquipmentStatus {
@@ -134,40 +201,26 @@ enum EquipmentStatus {
   RETIRED
 }
 
-// Incident Model (Feature 1: Incident Management)
-model Incident {
-  id          String   @id @default(cuid())
-  title       String
-  description String   @db.Text
-  priority    Priority
-  status      IncidentStatus @default(OPEN)
-  
-  // Store & Equipment
-  storeId     Int @map("store_id")
-  store       Store @relation(fields: [storeId], references: [id])
-  
-  equipmentId Int? @map("equipment_id")
-  equipment   Equipment? @relation(fields: [equipmentId], references: [id])
-  
-  // Users
-  createdById Int @map("created_by_id")
-  createdBy   User @relation("IncidentCreator", fields: [createdById], references: [id])
-  
-  assigneeId  Int? @map("assignee_id")
-  assignee    User? @relation("IncidentAssignee", fields: [assigneeId], references: [id])
-  
-  // SLA
-  slaDeadline DateTime? @map("sla_deadline")
-  
-  // Resolution
-  resolvedAt     DateTime? @map("resolved_at")
-  resolutionNote String?   @db.Text @map("resolution_note")
-  
-  // Metadata
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  
-  @@map("incidents")
+enum EquipmentCategory {
+  NETWORK
+  COMPUTER
+  POS
+  PRINTER
+  ROUTER
+  SWITCH
+  CCTV
+  OTHER
+}
+
+enum EquipmentLogAction {
+  CREATED
+  UPDATED
+  STATUS_CHANGED
+  TRANSFERRED
+  RETIRED
+  WARRANTY_UPDATED
+  MAINTENANCE_SCHEDULED
+  MAINTENANCE_COMPLETED
 }
 
 enum Priority {
@@ -179,6 +232,7 @@ enum Priority {
 
 enum IncidentStatus {
   OPEN
+  ASSIGNED
   IN_PROGRESS
   PENDING
   RESOLVED

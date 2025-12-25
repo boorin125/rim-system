@@ -1,0 +1,486 @@
+# ============================================
+# RIM System - INCIDENT MANAGEMENT API Testing (FIXED)
+# ============================================
+# Base URL: http://localhost:3000
+# Last Updated: December 20, 2025
+# Status: Fixed - Ready to Test
+# ============================================
+
+### Variables
+@baseUrl = http://localhost:3000/api
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjEyLCJlbWFpbCI6Iml0bWFuYWdlckByaW0uY29tIiwicm9sZSI6IklUX01BTkFHRVIiLCJpYXQiOjE3NjY0NzUxMjgsImV4cCI6MTc2NzA3OTkyOH0.Cjl8_BNhBxceBZpY2j6iHqB8amqRiTLCtqoUYx3E82M
+### ============================================
+### STEP 1: Login to Get Token ✅
+### ============================================
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "itmanager@rim.com",
+  "password": "password123"
+}
+
+### ============================================
+### STEP 2: Get All Incidents ✅
+### ============================================
+GET {{baseUrl}}/incidents
+Authorization: Bearer {{token}}
+
+### ⚠️ NOTE: Check response to see actual incident IDs!
+### Example: If you see "id": 4, use 4 in following requests
+
+### ============================================
+### STEP 3: Get Incident by ID ✅
+### ============================================
+### ⚠️ IMPORTANT: Use actual ID from STEP 2!
+
+### Get Incident ID 4 (from screenshot)
+GET {{baseUrl}}/incidents/INC-2025-0003
+Authorization: Bearer {{token}}
+
+### ============================================
+### STEP 4: Create New Incident ✅
+### ============================================
+### ⚠️ CRITICAL: DO NOT include "notes" field in create!
+### Notes can be added later via PATCH
+
+### Minimal Create (Required fields only)
+POST {{baseUrl}}/incidents
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Network Connection Down",
+  "description": "Store network completely down, affecting all POS terminals",
+  "storeId": 7,
+  "priority": "HIGH",
+  "category": "NETWORK"
+}
+
+###
+
+### Create with Equipment ID
+POST {{baseUrl}}/incidents
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Printer Not Working",
+  "description": "Receipt printer not printing, needs maintenance",
+  "storeId": 7,
+  "priority": "MEDIUM",
+  "category": "HARDWARE",
+  "equipmentId": 4
+}
+
+###
+
+### Create Low Priority
+POST {{baseUrl}}/incidents
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Software Update Request",
+  "description": "Request to update POS software to latest version",
+  "storeId": 7,
+  "priority": "LOW",
+  "category": "SOFTWARE"
+}
+
+### ============================================
+### STEP 5: Update Incident (Add Notes) ✅
+### ============================================
+### ⚠️ Use actual incident ID from create response
+
+### Add Notes to Incident
+PATCH {{baseUrl}}/incidents/INC-2025-0003
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "notes": "Technician dispatched. ETA 30 minutes. Router replacement needed."
+}
+
+###
+
+### Update Title and Description
+PATCH {{baseUrl}}/incidents/INC-2025-0003
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Network Connection Down - Updated",
+  "description": "Network issue identified as router malfunction"
+}
+
+###
+
+### Update Priority
+PATCH {{baseUrl}}/incidents/INC-2025-0003
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "priority": "CRITICAL"
+}
+
+### ============================================
+### STEP 6: Assign Incident to Technician ✅
+### ============================================
+
+### Assign to Technician ID 3
+POST {{baseUrl}}/incidents/INC-2025-0003/assign
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "assignedToId": 3
+}
+
+### ============================================
+### STEP 7: Resolve Incident ✅
+### ============================================
+
+### Resolve with Resolution Text
+POST {{baseUrl}}/incidents/INC-2025-0003/resolve
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "resolution": "Replaced faulty router. Network connection restored. All POS terminals back online.",
+  "resolvedById": 3
+}
+
+### ============================================
+### STEP 8: Get Incident Statistics ✅
+### ============================================
+GET {{baseUrl}}/incidents/statistics
+Authorization: Bearer {{token}}
+
+### ============================================
+### STEP 9: Pagination & Filters ✅
+### ============================================
+
+### Get with Pagination
+GET {{baseUrl}}/incidents?page=1&limit=10
+Authorization: Bearer {{token}}
+
+###
+
+### Filter by Status
+GET {{baseUrl}}/incidents?status=OPEN
+Authorization: Bearer {{token}}
+
+###
+
+GET {{baseUrl}}/incidents?status=IN_PROGRESS
+Authorization: Bearer {{token}}
+
+###
+
+GET {{baseUrl}}/incidents?status=RESOLVED
+Authorization: Bearer {{token}}
+
+###
+
+### Filter by Priority
+GET {{baseUrl}}/incidents?priority=HIGH
+Authorization: Bearer {{token}}
+
+###
+
+GET {{baseUrl}}/incidents?priority=MEDIUM
+Authorization: Bearer {{token}}
+
+###
+
+### Filter by Store
+GET {{baseUrl}}/incidents?storeId=7
+Authorization: Bearer {{token}}
+
+###
+
+### Multiple Filters
+GET {{baseUrl}}/incidents?status=OPEN&priority=HIGH
+Authorization: Bearer {{token}}
+
+### ============================================
+### STEP 10: Search ✅
+### ============================================
+GET {{baseUrl}}/incidents?search=network
+Authorization: Bearer {{token}}
+
+### ============================================
+### COMPLETE WORKFLOW TEST
+### ============================================
+
+### 1. Create New Incident
+# @name createIncident
+POST {{baseUrl}}/incidents
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "CCTV Camera Offline",
+  "description": "Security camera #3 not responding",
+  "storeId": 7,
+  "priority": "MEDIUM",
+  "category": "HARDWARE"
+}
+
+###
+
+### 2. Get Incident ID from response above, then update notes
+### Replace INC-2025-XXXX with actual incident code
+PATCH {{baseUrl}}/incidents/INC-2025-0003
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "notes": "Technician contacted. Will check on-site."
+}
+
+###
+
+### 3. Assign to Technician
+POST {{baseUrl}}/incidents/INC-2025-0003/assign
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "assignedToId": 3
+}
+
+###
+
+### 4. Update Progress
+PATCH {{baseUrl}}/incidents/INC-2025-0003
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "notes": "Technician on-site. Checking camera power supply."
+}
+
+###
+
+### 5. Resolve Incident
+POST {{baseUrl}}/incidents/INC-2025-0003/resolve
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "resolution": "Power cable disconnected. Reconnected and camera back online.",
+  "resolvedById": 3
+}
+
+### ============================================
+### CATEGORY TESTING (FIXED)
+### ============================================
+
+### Hardware Issue ✅
+POST {{baseUrl}}/incidents
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Computer Won't Boot",
+  "description": "Workstation PC fails to start",
+  "storeId": 7,
+  "priority": "HIGH",
+  "category": "HARDWARE"
+}
+
+###
+
+### Software Issue ✅
+POST {{baseUrl}}/incidents
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Application Crashes Frequently",
+  "description": "Inventory software keeps crashing",
+  "storeId": 7,
+  "priority": "MEDIUM",
+  "category": "SOFTWARE"
+}
+
+###
+
+### Network Issue ✅
+POST {{baseUrl}}/incidents
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "WiFi Connection Unstable",
+  "description": "Staff tablets keep disconnecting from WiFi",
+  "storeId": 7,
+  "priority": "MEDIUM",
+  "category": "NETWORK"
+}
+
+###
+
+### System Issue ✅
+POST {{baseUrl}}/incidents
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Database Connection Error",
+  "description": "Cannot connect to central database",
+  "storeId": 7,
+  "priority": "HIGH",
+  "category": "SYSTEM"
+}
+
+###
+
+### Other Issue ✅
+POST {{baseUrl}}/incidents
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Request New Equipment",
+  "description": "Need additional barcode scanner",
+  "storeId": 7,
+  "priority": "LOW",
+  "category": "OTHER"
+}
+
+### ============================================
+### PRIORITY LEVELS TESTING (FIXED)
+### ============================================
+
+### CRITICAL Priority ✅
+POST {{baseUrl}}/incidents
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Complete System Outage",
+  "description": "All systems down. Store cannot operate.",
+  "storeId": 7,
+  "priority": "CRITICAL",
+  "category": "SYSTEM"
+}
+
+###
+
+### HIGH Priority ✅
+POST {{baseUrl}}/incidents
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "POS Terminal Down",
+  "description": "Main checkout terminal not working",
+  "storeId": 7,
+  "priority": "HIGH",
+  "category": "HARDWARE"
+}
+
+###
+
+### MEDIUM Priority ✅
+POST {{baseUrl}}/incidents
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Slow Network Performance",
+  "description": "Network speed degraded but still functional",
+  "storeId": 7,
+  "priority": "MEDIUM",
+  "category": "NETWORK"
+}
+
+###
+
+### LOW Priority ✅
+POST {{baseUrl}}/incidents
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Cosmetic Damage to Equipment",
+  "description": "Minor scratch on monitor, still fully functional",
+  "storeId": 7,
+  "priority": "LOW",
+  "category": "OTHER"
+}
+
+### ============================================
+### DELETE INCIDENT ✅
+### ============================================
+### ⚠️ Expected: 204 No Content (SUCCESS!)
+DELETE {{baseUrl}}/incidents/INC-2025-0003
+Authorization: Bearer {{token}}
+
+### ============================================
+### NOTES & FIXES
+### ============================================
+#
+# ✅ FIXES APPLIED:
+# 1. ❌ "notes" field removed from CREATE requests
+#    → Add notes later via PATCH
+#
+# 2. ✅ Use actual incident IDs from GET response
+#    → Check STEP 2 for real IDs
+#
+# 3. ✅ Use valid storeId (7) from seeded data
+#    → Watsons Siam Paragon (id: 7)
+#
+# 4. ✅ equipmentId is now OPTIONAL
+#    → Only include if you have valid equipment
+#
+# ============================================
+# REQUIRED FIELDS (CreateIncidentDto):
+# ============================================
+# - title: String (required)
+# - description: String (required)
+# - storeId: Number (required, must exist)
+# - priority: Enum (required: CRITICAL, HIGH, MEDIUM, LOW)
+# - category: Enum (optional: HARDWARE, SOFTWARE, NETWORK, SYSTEM, OTHER)
+# - equipmentId: Number (optional, must exist if provided)
+#
+# ❌ NOT ALLOWED in CREATE:
+# - notes (add via PATCH later)
+# - status (auto-set to PENDING/OPEN)
+# - incidentCode (auto-generated)
+# - assignedToId (use /assign endpoint)
+# - resolvedById (use /resolve endpoint)
+#
+# ============================================
+# WORKFLOW:
+# ============================================
+# 1. Create → POST /incidents (no notes!)
+# 2. Add Notes → PATCH /incidents/:id {notes}
+# 3. Assign → POST /incidents/:id/assign
+# 4. Update → PATCH /incidents/:id {notes}
+# 5. Resolve → POST /incidents/:id/resolve
+#
+# ============================================
+# COMMON ERRORS & SOLUTIONS:
+# ============================================
+#
+# Error: "property notes should not exist"
+# Solution: Remove "notes" from CREATE request
+#
+# Error: "Incident with ID X not found"
+# Solution: Use incident CODE (INC-2025-XXXX) or check actual IDs
+#
+# Error: "storeId must be a valid store"
+# Solution: Use storeId 7 (Watsons Siam Paragon)
+#
+# Error: 500 Internal Server Error
+# Solution: Check equipmentId exists or remove it
+#
+# ============================================
+# END OF FIXED INCIDENT API TESTS
+# ============================================

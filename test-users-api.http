@@ -1,0 +1,544 @@
+# ============================================
+# RIM System - USER MANAGEMENT API Testing
+# ============================================
+# Base URL: http://localhost:3000
+# Last Updated: December 19, 2025
+# ============================================
+
+### Variables
+@baseUrl = http://localhost:3000/api
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjYsImVtYWlsIjoic3VwZXJhZG1pbkByaW0uY29tIiwicm9sZSI6IlNVUEVSX0FETUlOIiwiaWF0IjoxNzY2NDA5Mzg2LCJleHAiOjE3NjcwMTQxODZ9.V8hipa_2RAyVV8ty4OqpkcwRT0Ma0pNjsVgaEy57jyo
+
+### ============================================
+### STEP 1: Login to Get Token
+### ============================================
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "superadmin@rim.com",
+  "password": "password123"
+}
+
+### After login, copy accessToken and update @token variable above
+
+### ============================================
+### USER MANAGEMENT APIs
+### ============================================
+
+### ============================================
+### STEP 2: Get All Users
+### ============================================
+GET {{baseUrl}}/users
+Authorization: Bearer {{token}}
+
+### ============================================
+### STEP 3: Get All Users (with Pagination)
+### ============================================
+GET {{baseUrl}}/users?page=1&limit=5
+Authorization: Bearer {{token}}
+
+### ============================================
+### STEP 4: Get All Users (with Filters)
+### ============================================
+
+### Filter by Role
+GET {{baseUrl}}/users?role=TECHNICIAN
+Authorization: Bearer {{token}}
+
+###
+
+### Filter by Status
+GET {{baseUrl}}/users?status=ACTIVE
+Authorization: Bearer {{token}}
+
+###
+
+### Filter by Multiple Criteria
+GET {{baseUrl}}/users?role=HELP_DESK&status=ACTIVE
+Authorization: Bearer {{token}}
+
+### ============================================
+### STEP 5: Get All Users (with Search)
+### ============================================
+GET {{baseUrl}}/users?search=admin
+Authorization: Bearer {{token}}
+
+### ============================================
+### STEP 6: Get User by ID
+### ============================================
+GET {{baseUrl}}/users/7
+Authorization: Bearer {{token}}
+
+### ============================================
+### STEP 7: Create New User
+### ============================================
+
+### Create Technician
+POST {{baseUrl}}/users
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "username": "tech.john",
+  "email": "john.tech@rim.com",
+  "password": "password123",
+  "firstName": "John",
+  "lastName": "Technician",
+  "phone": "081-111-2222",
+  "role": "TECHNICIAN",
+  "status": "ACTIVE"
+}
+
+###
+
+### Create Help Desk
+POST {{baseUrl}}/users
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "username": "helpdesk.sarah",
+  "email": "sarah.helpdesk@rim.com",
+  "password": "password123",
+  "firstName": "Sarah",
+  "lastName": "Support",
+  "phone": "081-333-4444",
+  "role": "HELP_DESK",
+  "status": "ACTIVE"
+}
+
+###
+
+### Create IT Manager
+POST {{baseUrl}}/users
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "username": "manager.bob",
+  "email": "bob.manager@rim.com",
+  "password": "password123",
+  "firstName": "Bob",
+  "lastName": "Manager",
+  "phone": "081-555-6666",
+  "role": "IT_MANAGER",
+  "status": "ACTIVE"
+}
+
+###
+
+### Create End User
+POST {{baseUrl}}/users
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "username": "user.alice",
+  "email": "alice.user@rim.com",
+  "password": "password123",
+  "firstName": "Alice",
+  "lastName": "Store Manager",
+  "phone": "081-777-8888",
+  "role": "END_USER",
+  "status": "ACTIVE"
+}
+
+### ============================================
+### STEP 8: Update User
+### ============================================
+
+### Update User Profile
+PATCH {{baseUrl}}/users/7
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "firstName": "John Updated",
+  "lastName": "Tech",
+  "phone": "082-999-9999"
+}
+
+###
+
+### Update User Email
+PATCH {{baseUrl}}/users/7
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "email": "john.updated@rim.com"
+}
+
+###
+
+### Update User Role
+PATCH {{baseUrl}}/users/7
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "role": "SUPERVISOR"
+}
+
+### ============================================
+### STEP 9: Change User Password
+### ============================================
+POST {{baseUrl}}/users/7/change-password
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "newPassword": "newpassword123"
+}
+
+### ============================================
+### STEP 10: Update User Status
+### ============================================
+
+### Set to INACTIVE
+POST {{baseUrl}}/users/7/update-status
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "status": "INACTIVE"
+}
+
+###
+
+### Set to ACTIVE
+POST {{baseUrl}}/users/7/update-status
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "status": "ACTIVE"
+}
+
+###
+
+### Set to SUSPENDED
+POST {{baseUrl}}/users/7/update-status
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "status": "SUSPENDED"
+}
+
+### ============================================
+### STEP 11: Unlock User Account
+### ============================================
+# Use this when user is locked due to failed login attempts
+POST {{baseUrl}}/users/7/unlock
+Authorization: Bearer {{token}}
+
+### ============================================
+### STEP 12: Get User Incidents
+### ============================================
+# Get all incidents assigned to or created by this user
+GET {{baseUrl}}/users/7/incidents
+Authorization: Bearer {{token}}
+
+###
+
+# Get User Incidents with Pagination
+GET {{baseUrl}}/users/7/incidents?page=1&limit=10
+Authorization: Bearer {{token}}
+
+###
+
+# Get User Incidents with Filters
+GET {{baseUrl}}/users/7/incidents?status=OPEN
+Authorization: Bearer {{token}}
+
+### ============================================
+### STEP 13: Get User Statistics
+### ============================================
+# Get statistics for a specific user
+GET {{baseUrl}}/users/7/statistics
+Authorization: Bearer {{token}}
+
+### ============================================
+### STEP 14: Delete User (Soft Delete)
+### ============================================
+DELETE {{baseUrl}}/users/7
+Authorization: Bearer {{token}}
+
+### ============================================
+### USER ROLES TESTING
+### ============================================
+
+### Test Create Super Admin (Should work only for Super Admin)
+POST {{baseUrl}}/users
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "username": "new.superadmin",
+  "email": "newsuperadmin@rim.com",
+  "password": "password123",
+  "firstName": "New",
+  "lastName": "Super Admin",
+  "phone": "081-999-9999",
+  "role": "SUPER_ADMIN",
+  "status": "ACTIVE"
+}
+
+### ============================================
+### ERROR TESTING
+### ============================================
+
+### Test Missing Required Fields
+POST {{baseUrl}}/users
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "username": "test",
+  "email": "test@test.com"
+}
+
+###
+
+### Test Duplicate Username
+POST {{baseUrl}}/users
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "username": "superadmin",
+  "email": "duplicate@rim.com",
+  "password": "password123",
+  "role": "END_USER"
+}
+
+###
+
+### Test Duplicate Email
+POST {{baseUrl}}/users
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "username": "duplicate",
+  "email": "superadmin@rim.com",
+  "password": "password123",
+  "role": "END_USER"
+}
+
+###
+
+### Test Invalid Email Format
+POST {{baseUrl}}/users
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "username": "test.user",
+  "email": "invalid-email",
+  "password": "password123",
+  "role": "END_USER"
+}
+
+###
+
+### Test Weak Password (less than 8 characters)
+POST {{baseUrl}}/users
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "username": "test.user",
+  "email": "test@rim.com",
+  "password": "123",
+  "role": "END_USER"
+}
+
+###
+
+### Test Invalid Role
+POST {{baseUrl}}/users
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "username": "test.user",
+  "email": "test@rim.com",
+  "password": "password123",
+  "role": "INVALID_ROLE"
+}
+
+###
+
+### Test Get Non-existent User
+GET {{baseUrl}}/users/9999
+Authorization: Bearer {{token}}
+
+###
+
+### Test Update Non-existent User
+PATCH {{baseUrl}}/users/9999
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "firstName": "Test"
+}
+
+###
+
+### Test Delete Non-existent User
+DELETE {{baseUrl}}/users/9999
+Authorization: Bearer {{token}}
+
+### ============================================
+### ADVANCED TESTING
+### ============================================
+
+### Get All Users with All Filters
+GET {{baseUrl}}/users?page=1&limit=10&role=TECHNICIAN&status=ACTIVE&search=john
+Authorization: Bearer {{token}}
+
+###
+
+### Get Users by Multiple Roles (if supported)
+GET {{baseUrl}}/users?role=TECHNICIAN&role=HELP_DESK
+Authorization: Bearer {{token}}
+
+###
+
+### Test Pagination Edge Cases
+GET {{baseUrl}}/users?page=1&limit=100
+Authorization: Bearer {{token}}
+
+###
+
+GET {{baseUrl}}/users?page=999&limit=10
+Authorization: Bearer {{token}}
+
+### ============================================
+### AUTHENTICATION TESTING
+### ============================================
+
+### Test Without Token (Should return 401)
+GET {{baseUrl}}/users
+
+###
+
+### Test With Invalid Token (Should return 401)
+GET {{baseUrl}}/users
+Authorization: Bearer invalid.token.here
+
+###
+
+### Test With Expired Token (Should return 401)
+GET {{baseUrl}}/users
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.expired
+
+### ============================================
+### AUTHORIZATION TESTING (RBAC)
+### ============================================
+# Note: These tests require different user roles
+
+### Test IT Manager Can Create Users
+# Login as IT Manager first, then test
+POST {{baseUrl}}/users
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "username": "new.user",
+  "email": "newuser@rim.com",
+  "password": "password123",
+  "role": "END_USER"
+}
+
+###
+
+### Test Help Desk Cannot Create Users (Should return 403)
+# Login as Help Desk first, then test
+POST {{baseUrl}}/users
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "username": "unauthorized",
+  "email": "unauthorized@rim.com",
+  "password": "password123",
+  "role": "END_USER"
+}
+
+###
+
+### Test Technician Cannot Delete Users (Should return 403)
+# Login as Technician first, then test
+DELETE {{baseUrl}}/users/5
+Authorization: Bearer {{token}}
+
+### ============================================
+### PERFORMANCE TESTING
+### ============================================
+
+### Bulk Create Users (Loop this request multiple times)
+POST {{baseUrl}}/users
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "username": "bulk.user.001",
+  "email": "bulk001@rim.com",
+  "password": "password123",
+  "firstName": "Bulk",
+  "lastName": "User 001",
+  "role": "END_USER",
+  "status": "ACTIVE"
+}
+
+### ============================================
+### SUMMARY OF ALL USER ENDPOINTS
+### ============================================
+# POST   /api/auth/login                    - Login
+# POST   /api/users                         - Create User
+# GET    /api/users                         - Get All Users
+# GET    /api/users?page=1&limit=10         - Get Users with Pagination
+# GET    /api/users?role=TECHNICIAN         - Get Users by Role
+# GET    /api/users?status=ACTIVE           - Get Users by Status
+# GET    /api/users?search=john             - Search Users
+# GET    /api/users/:id                     - Get User by ID
+# PATCH  /api/users/:id                     - Update User
+# POST   /api/users/:id/change-password     - Change Password
+# POST   /api/users/:id/update-status       - Update Status
+# POST   /api/users/:id/unlock              - Unlock Account
+# GET    /api/users/:id/incidents           - Get User Incidents
+# GET    /api/users/:id/statistics          - Get User Statistics
+# DELETE /api/users/:id                     - Delete User
+
+### ============================================
+### EXPECTED RESPONSES
+### ============================================
+# 200 OK          - Successful GET/PATCH/POST
+# 201 Created     - Successful POST (Create)
+# 204 No Content  - Successful DELETE
+# 400 Bad Request - Validation Error
+# 401 Unauthorized - Missing/Invalid Token
+# 403 Forbidden   - Insufficient Permissions
+# 404 Not Found   - Resource Not Found
+# 500 Internal Server Error - Server Error
+
+### ============================================
+### NOTES
+### ============================================
+# 1. Update @token variable after login
+# 2. Replace user IDs (e.g., /users/5) with actual IDs from your database
+# 3. Some operations require specific roles (SUPER_ADMIN, IT_MANAGER)
+# 4. Password must be at least 8 characters
+# 5. Valid roles: SUPER_ADMIN, IT_MANAGER, SUPERVISOR, HELP_DESK, TECHNICIAN, END_USER
+# 6. Valid statuses: ACTIVE, INACTIVE, SUSPENDED
+# 7. Soft delete means user is marked as deleted but not physically removed
+
+### ============================================
+### END OF USER API TESTS
+### ============================================
