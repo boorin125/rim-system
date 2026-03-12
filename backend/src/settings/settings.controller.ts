@@ -396,14 +396,23 @@ export class SettingsController {
     });
 
     // Transform to frontend expected format
-    return result.data.map((backup: any) => ({
-      id: backup.id,
-      filename: backup.fileName || `backup_${backup.jobCode}.json`,
-      size: backup.fileSize ? this.formatFileSize(backup.fileSize) : 'N/A',
-      createdAt: backup.createdAt,
-      type: backup.scheduleId ? 'auto' : 'manual',
-      status: backup.status,
-    }));
+    return result.data.map((backup: any) => {
+      const safeName = backup.customName
+        ? backup.customName.replace(/[\s/\\:*?"<>|]/g, '_') + '_'
+        : '';
+      return {
+        id: backup.id,
+        jobCode: backup.jobCode,
+        customName: backup.customName || null,
+        filename: backup.fileName || `${safeName}${backup.jobCode}.json`,
+        size: backup.fileSize ? this.formatFileSize(backup.fileSize) : 'N/A',
+        createdAt: backup.createdAt,
+        type: backup.scheduleId ? 'auto' : 'manual',
+        status: backup.status,
+        tablesIncluded: backup.tablesIncluded || [],
+        scope: backup.scope,
+      };
+    });
   }
 
   /**
@@ -428,7 +437,7 @@ export class SettingsController {
   @Post('backups/restore-file')
   @Roles(UserRole.SUPER_ADMIN)
   async restoreFromFile(@Request() req, @Body() dto: RestoreFromFileDto) {
-    return this.backupService.restoreFromFile(req.user.id, dto.content, dto.password);
+    return this.backupService.restoreFromFile(req.user.id, dto.content, dto.password, dto.selectedTables);
   }
 
   /**

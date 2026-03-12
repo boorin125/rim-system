@@ -182,7 +182,7 @@ export class BackupService {
 
       // Create backup file — include custom name as prefix if provided
       const safeName = backup.customName
-        ? backup.customName.replace(/[^a-zA-Z0-9ก-๙._-]/g, '_') + '_'
+        ? backup.customName.replace(/[\s/\\:*?"<>|]/g, '_') + '_'
         : '';
       const fileName = `${safeName}${backup.jobCode}.json`;
       const filePath = path.join(backupDir, fileName);
@@ -555,7 +555,7 @@ export class BackupService {
   /**
    * Restore from uploaded file content
    */
-  async restoreFromFile(userId: number, content: string, password?: string) {
+  async restoreFromFile(userId: number, content: string, password?: string, selectedTables?: string[]) {
     let backupData: any;
     try {
       backupData = JSON.parse(content);
@@ -607,6 +607,8 @@ export class BackupService {
     ];
 
     for (const table of restoreOrder) {
+      // Skip tables not selected by user (if selective restore)
+      if (selectedTables && selectedTables.length > 0 && !selectedTables.includes(table)) continue;
       const tableData = data[table];
       if (!Array.isArray(tableData) || tableData.length === 0) continue;
       try {

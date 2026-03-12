@@ -337,6 +337,10 @@ export default function SettingsPage() {
   const [restoreFilePassword, setRestoreFilePassword] = useState('')
   const [restoreFileNeedsPassword, setRestoreFileNeedsPassword] = useState(false)
   const [isRestoringFile, setIsRestoringFile] = useState(false)
+  // which groups are IN the backup file (parsed from metadata.tables)
+  const [restoreAvailableGroups, setRestoreAvailableGroups] = useState<string[]>([])
+  // which groups the user wants to restore (default = all available)
+  const [restoreSelectedGroups, setRestoreSelectedGroups] = useState<string[]>([])
 
   // Create backup with password state
   const [showBackupPasswordModal, setShowBackupPasswordModal] = useState(false)
@@ -1135,6 +1139,15 @@ export default function SettingsPage() {
         setRestoreFileContent(content)
         setRestoreFileNeedsPassword(!!parsed?.metadata?.passwordHash)
         setRestoreFilePassword('')
+
+        // Determine which backup groups are present in this file
+        const tablesInFile: string[] = parsed?.metadata?.tables || Object.keys(parsed?.data || {})
+        const availableGroups = BACKUP_GROUPS
+          .filter(g => g.tables.some((t: string) => tablesInFile.includes(t)))
+          .map(g => g.id)
+        setRestoreAvailableGroups(availableGroups)
+        setRestoreSelectedGroups(availableGroups) // default: restore all available
+
         setShowRestoreFileModal(true)
       } catch {
         toast.error('Invalid backup file')
@@ -1156,9 +1169,18 @@ export default function SettingsPage() {
     setIsRestoringFile(true)
     try {
       const token = localStorage.getItem('token')
+      // Compute selected tables from selected groups
+      const selectedTables = BACKUP_GROUPS
+        .filter(g => restoreSelectedGroups.includes(g.id))
+        .flatMap(g => g.tables)
+
       const res = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/settings/backups/restore-file`,
-        { content: restoreFileContent, password: restoreFilePassword || undefined },
+        {
+          content: restoreFileContent,
+          password: restoreFilePassword || undefined,
+          selectedTables: selectedTables.length > 0 ? selectedTables : undefined,
+        },
         { headers: { Authorization: `Bearer ${token}` } }
       )
       const data = res.data
@@ -3191,14 +3213,76 @@ export default function SettingsPage() {
         {/* ── Restore from File Modal ── */}
         {showRestoreFileModal && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-            <div className="bg-slate-800 rounded-2xl p-6 w-full max-w-md border border-slate-600">
+            <div className="bg-slate-800 rounded-2xl p-6 w-full max-w-lg border border-slate-600 max-h-[90vh] overflow-y-auto">
               <div className="flex items-center gap-3 mb-4">
                 <FolderOpen className="w-5 h-5 text-emerald-400" />
                 <h3 className="text-lg font-semibold text-white">Restore from File</h3>
               </div>
               <p className="text-sm text-gray-400 mb-4">
-                File: <span className="text-white font-medium">{restoreFileName}</span>
+                ไฟล์: <span className="text-white font-medium">{restoreFileName}</span>
               </p>
+
+              {/* Partial backup warning */}
+              {restoreAvailableGroups.length > 0 && restoreAvailableGroups.length < BACKUP_GROUPS.length && (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/40 rounded-lg mb-4">
+                  <p className="text-sm text-amber-300 font-medium mb-1">Backup บางส่วน</p>
+                  <p className="text-xs text-gray-400">
+                    ไฟล์นี้มีข้อมูลเพียง {restoreAvailableGroups.length} จาก {BACKUP_GROUPS.length} หัวข้อ
+                    — ข้อมูลที่ไม่มีในไฟล์จะไม่ถูกแตะต้อง
+                  </p>
+                </div>
+              )}
+
+              {/* Group selector */}
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm text-gray-400">เลือกหัวข้อที่ต้องการ Restore</label>
+                  <div className="flex gap-3 text-xs">
+                    <button onClick={() => setRestoreSelectedGroups(restoreAvailableGroups)} className="text-emerald-400 hover:text-emerald-300">เลือกทั้งหมด</button>
+                    <button onClick={() => setRestoreSelectedGroups([])} className="text-gray-500 hover:text-gray-300">ล้าง</button>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  {BACKUP_GROUPS.map(group => {
+                    const available = restoreAvailableGroups.includes(group.id)
+                    const checked = restoreSelectedGroups.includes(group.id)
+                    return (
+                      <label
+                        key={group.id}
+                        className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition ${
+                          !available
+                            ? 'bg-slate-700/10 border-slate-700/30 opacity-40 cursor-not-allowed'
+                            : checked
+                              ? 'bg-emerald-500/10 border-emerald-500/40'
+                              : 'bg-slate-700/30 border-slate-600/50 hover:bg-slate-700/50'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          disabled={!available}
+                          onChange={(e) => {
+                            if (!available) return
+                            if (e.target.checked) setRestoreSelectedGroups(prev => [...prev, group.id])
+                            else setRestoreSelectedGroups(prev => prev.filter(id => id !== group.id))
+                          }}
+                          className="accent-emerald-500"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-white">{group.label}</p>
+                          <p className="text-xs text-gray-500">{group.description}</p>
+                        </div>
+                        {!available && <span className="text-xs text-gray-600 shrink-0">ไม่มีในไฟล์</span>}
+                      </label>
+                    )
+                  })}
+                </div>
+                {restoreSelectedGroups.length === 0 && (
+                  <p className="text-xs text-red-400 mt-1">กรุณาเลือกอย่างน้อย 1 หัวข้อ</p>
+                )}
+              </div>
+
+              {/* Password */}
               {restoreFileNeedsPassword && (
                 <div className="mb-4">
                   <label className="block text-sm text-gray-400 mb-1 flex items-center gap-1">
@@ -3208,26 +3292,31 @@ export default function SettingsPage() {
                     type="password"
                     value={restoreFilePassword}
                     onChange={(e) => setRestoreFilePassword(e.target.value)}
-                    placeholder="Enter backup password"
+                    placeholder="ใส่ Password ของ Backup"
                     className="w-full px-3 py-2 bg-slate-700 border border-slate-500 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
               )}
+
               <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg mb-5">
-                <p className="text-xs text-yellow-300">New data from the backup will be added. Existing records will be skipped.</p>
+                <p className="text-xs text-yellow-300">ข้อมูลใหม่จาก Backup จะถูกเพิ่มเข้าระบบ — ข้อมูลที่มีอยู่แล้วจะถูกข้ามไป</p>
               </div>
+
               <div className="flex gap-3">
                 <button
-                  onClick={() => { setShowRestoreFileModal(false); setRestoreFileContent(null); setRestoreFilePassword('') }}
+                  onClick={() => { setShowRestoreFileModal(false); setRestoreFileContent(null); setRestoreFilePassword(''); setRestoreSelectedGroups([]); setRestoreAvailableGroups([]) }}
                   className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition"
-                >Cancel</button>
+                >ยกเลิก</button>
                 <button
                   onClick={handleRestoreFromFile}
-                  disabled={isRestoringFile || (restoreFileNeedsPassword && !restoreFilePassword)}
+                  disabled={isRestoringFile || restoreSelectedGroups.length === 0 || (restoreFileNeedsPassword && !restoreFilePassword)}
                   className="flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {isRestoringFile ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
                   Restore
+                  {restoreSelectedGroups.length > 0 && restoreSelectedGroups.length < restoreAvailableGroups.length && (
+                    <span className="text-xs opacity-70">({restoreSelectedGroups.length}/{restoreAvailableGroups.length})</span>
+                  )}
                 </button>
               </div>
             </div>

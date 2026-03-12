@@ -84,6 +84,11 @@ export class RestoreFromFileDto {
   @IsOptional()
   @IsString()
   password?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  selectedTables?: string[];
 }
 
 export class CreateRestoreDto {
