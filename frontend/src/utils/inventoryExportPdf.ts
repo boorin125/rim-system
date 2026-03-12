@@ -295,7 +295,7 @@ export async function generateInventoryExportPDF(data: InventoryExportData): Pro
   doc.text('ลงชื่อ', lineX1 - 1, sigLineY, { align: 'right' })
   doc.setDrawColor(TEXT_MUTED[0], TEXT_MUTED[1], TEXT_MUTED[2])
   doc.setLineWidth(0.2)
-  doc.setLineDashPattern([], 0)
+  ;(doc as any).setLineDashPattern([], 0)
   doc.line(lineX1 + 1, sigLineY, lineX2 - 1, sigLineY)
   doc.text('ผู้ตรวจสอบ', lineX2 + 1, sigLineY)
 
