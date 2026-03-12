@@ -1,0 +1,23 @@
+﻿# Dependencies
+node_modules/
+patch-tool/node_modules/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Build
+frontend/.next/
+frontend/out/
+backend/dist/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude
+.claude/settings.local.json
