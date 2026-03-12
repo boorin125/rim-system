@@ -1,0 +1,923 @@
+// app/(dashboard)/dashboard/incidents/[id]/page.tsx - View Incident Detail (UPDATED WITH TECHNICIAN WORKFLOW)
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter, useParams } from 'next/navigation'
+import {
+  ArrowLeft,
+  Edit,
+  X,
+  Clock,
+  User,
+  Building2,
+  AlertCircle,
+  CheckCircle2,
+  Calendar,
+  Tag,
+  UserPlus,
+  Camera,
+  CheckCircle,
+  Edit3,
+} from 'lucide-react'
+import axios from 'axios'
+import toast from 'react-hot-toast'
+import AssignIncidentModal from '@/components/AssignIncidentModal'
+// ✅ STEP 1: เพิ่ม imports สำหรับ workflow modals
+import CheckInModal from '@/components/CheckInModal'
+import ResolveIncidentModal from '@/components/ResolveIncidentModal'
+import UpdateResolveModal from '@/components/UpdateResolveModal'
+import ConfirmCloseModal from '@/components/ConfirmCloseModal'
+
+export default function IncidentDetailPage() {
+  const router = useRouter()
+  const params = useParams()
+  const [incident, setIncident] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [cancelModalOpen, setCancelModalOpen] = useState(false)
+  const [cancellationReason, setCancellationReason] = useState('')
+  const [isCancelling, setIsCancelling] = useState(false)
+  const [currentUser, setCurrentUser] = useState<any>(null)
+  const [assignModalOpen, setAssignModalOpen] = useState(false)
+  const [assignMode, setAssignMode] = useState<'assign' | 'reassign'>('assign')
+  
+  // ✅ STEP 2: เพิ่ม states สำหรับ workflow modals
+  const [showCheckIn, setShowCheckIn] = useState(false)
+  const [showResolve, setShowResolve] = useState(false)
+  const [showUpdate, setShowUpdate] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
+
+  useEffect(() => {
+    // Get current user
+    const userStr = localStorage.getItem('user')
+    if (userStr) {
+      setCurrentUser(JSON.parse(userStr))
+    }
+
+    if (params.id) {
+      fetchIncident()
+    }
+  }, [params.id])
+
+  const fetchIncident = async () => {
+    try {
+      setIsLoading(true)
+      const token = localStorage.getItem('token')
+
+      const response = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/incidents/${params.id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      )
+
+      setIncident(response.data)
+    } catch (error: any) {
+      toast.error('Failed to load incident')
+      console.error(error)
+      router.push('/dashboard/incidents')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // ✅ STEP 3: เพิ่ม API handlers สำหรับ workflow
+
+  /**
+   * Handle Check-In
+   * ASSIGNED → IN_PROGRESS
+   */
+  const handleCheckIn = async (beforePhotos: string[]) => {
+    try {
+      const token = localStorage.getItem('token')
+
+      const response = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/incidents/${params.id}/checkin`,
+        { beforePhotos },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      )
+
+      toast.success('Checked in successfully! Work started.')
+      await fetchIncident() // Refresh incident data
+      setShowCheckIn(false)
+    } catch (error: any) {
+      throw new Error(
+        error.response?.data?.message || 'Failed to check in'
+      )
+    }
+  }
+
+  /**
+   * Handle Resolve Incident
+   * IN_PROGRESS → RESOLVED
+   */
+  const handleResolve = async (data: any) => {
+    try {
+      const token = localStorage.getItem('token')
+
+      const response = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/incidents/${params.id}/resolve`,
+        data,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      )
+
+      toast.success('Incident resolved successfully! Awaiting confirmation.')
+      await fetchIncident() // Refresh incident data
+      setShowResolve(false)
+    } catch (error: any) {
+      throw new Error(
+        error.response?.data?.message || 'Failed to resolve incident'
+      )
+    }
+  }
+
+  /**
+   * Handle Update Resolution
+   * RESOLVED (no status change)
+   */
+  const handleUpdateResolve = async (data: any) => {
+    try {
+      const token = localStorage.getItem('token')
+
+      const response = await axios.patch(
+        `${process.env.NEXT_PUBLIC_API_URL}/incidents/${params.id}/update-resolve`,
+        data,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      )
+
+      toast.success('Resolution updated successfully!')
+      await fetchIncident() // Refresh incident data
+      setShowUpdate(false)
+    } catch (error: any) {
+      throw new Error(
+        error.response?.data?.message || 'Failed to update resolution'
+      )
+    }
+  }
+
+  /**
+   * Handle Confirm & Close
+   * RESOLVED → CLOSED
+   */
+  const handleConfirmClose = async () => {
+    try {
+      const token = localStorage.getItem('token')
+
+      const response = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/incidents/${params.id}/confirm-close`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      )
+
+      toast.success('Incident closed successfully!')
+      await fetchIncident() // Refresh incident data
+      setShowConfirm(false)
+    } catch (error: any) {
+      throw new Error(
+        error.response?.data?.message || 'Failed to close incident'
+      )
+    }
+  }
+
+  const handleCancel = async () => {
+    if (!cancellationReason.trim()) {
+      toast.error('Please enter cancellation reason')
+      return
+    }
+
+    setIsCancelling(true)
+
+    try {
+      const token = localStorage.getItem('token')
+
+      await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/incidents/${params.id}/cancel`,
+        { cancellationReason },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      )
+
+      toast.success('Incident cancelled successfully')
+      setCancelModalOpen(false)
+      fetchIncident() // Refresh data
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to cancel incident')
+      console.error(error)
+    } finally {
+      setIsCancelling(false)
+    }
+  }
+
+  const copyToClipboard = async () => {
+    if (!incident) return
+
+    // Format date in Thai
+    const createdDate = new Date(incident.createdAt).toLocaleDateString('th-TH', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    })
+    const createdTime = new Date(incident.createdAt).toLocaleTimeString('th-TH', {
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+
+    // Build message for LINE
+    const message = `📋 Incident Report
+
+🔢 Incident No: ${incident.incidentCode || incident.id}
+📍 Store: ${incident.store?.name || 'N/A'} (${incident.store?.storeCode || 'N/A'})
+📝 Title: ${incident.title}
+
+📊 Status: ${incident.status}
+⚠️ Priority: ${incident.priority}
+🏷️ Category: ${incident.category || '-'}
+💼 Job Type: ${incident.jobType || '-'}
+
+${incident.assignee ? `👤 Technician: ${incident.assignee.firstName} ${incident.assignee.lastName}` : '👤 Technician: Not assigned yet'}
+
+📅 Created: ${createdDate} ${createdTime}
+
+📝 Description:
+${incident.description}
+`
+
+    try {
+      await navigator.clipboard.writeText(message)
+      toast.success('Copied to clipboard! Ready to paste in LINE')
+    } catch (error) {
+      toast.error('Failed to copy')
+      console.error(error)
+    }
+  }
+
+  const getStatusBadge = (status: string) => {
+    const badges: any = {
+      PENDING: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-400 border border-blue-500/30',
+      ASSIGNED: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-purple-500/20 text-purple-400 border border-purple-500/30',
+      IN_PROGRESS: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30',
+      RESOLVED: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-500/20 text-green-400 border border-green-500/30',
+      CLOSED: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-500/20 text-green-400 border border-green-500/30',
+      CANCELLED: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gray-500/20 text-gray-400 border border-gray-500/30',
+    }
+    return badges[status] || 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-400 border border-blue-500/30'
+  }
+
+  const getPriorityBadge = (priority: string) => {
+    const badges: any = {
+      CRITICAL: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-red-500/20 text-red-400 border border-red-500/30',
+      HIGH: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-orange-500/20 text-orange-400 border border-orange-500/30',
+      MEDIUM: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30',
+      LOW: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-500/20 text-green-400 border border-green-500/30',
+    }
+    return badges[priority] || badges.MEDIUM
+  }
+
+  // Calculate SLA breach time (example: 4 hours for CRITICAL, 8 for HIGH, etc.)
+  const calculateSLATime = () => {
+    if (!incident) return null
+
+    const slaHours: any = {
+      CRITICAL: 4,
+      HIGH: 8,
+      MEDIUM: 24,
+      LOW: 48,
+    }
+
+    const hours = slaHours[incident.priority] || 24
+    const createdAt = new Date(incident.createdAt)
+    const slaTime = new Date(createdAt.getTime() + hours * 60 * 60 * 1000)
+
+    return slaTime
+  }
+
+  const formatDateTime = (date: Date) => {
+    return date.toLocaleString('th-TH', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  }
+
+  // Check permissions
+  const canEdit = currentUser?.role === 'HELP_DESK'
+  const canCancel = currentUser?.role === 'HELP_DESK'
+  
+  // Assign permission - SUPERVISOR only!
+  const canAssign = currentUser?.role === 'SUPERVISOR'
+  
+  // Reassign permission - SUPERVISOR only!
+  const canReassign = currentUser?.role === 'SUPERVISOR'
+
+  // ✅ STEP 4: เพิ่ม permission checks สำหรับ workflow buttons
+  
+  // Check In - TECHNICIAN เท่านั้น และต้องเป็นคนที่ถูก assign
+  const canCheckIn =
+    incident?.status === 'ASSIGNED' &&
+    currentUser?.role === 'TECHNICIAN' &&
+    incident?.assignedTo?.id === currentUser?.id
+
+  // Resolve - TECHNICIAN เท่านั้น และต้องเป็นคนที่ถูก assign
+  const canResolve =
+    incident?.status === 'IN_PROGRESS' &&
+    currentUser?.role === 'TECHNICIAN' &&
+    incident?.assignedTo?.id === currentUser?.id
+
+  // Update Resolution - TECHNICIAN เท่านั้น และต้องเป็นคนที่ทำงาน
+  const canUpdate =
+    incident?.status === 'RESOLVED' &&
+    currentUser?.role === 'TECHNICIAN' &&
+    incident?.assignedTo?.id === currentUser?.id
+
+  // Confirm & Close - HELP_DESK เท่านั้น
+  const canConfirm =
+    incident?.status === 'RESOLVED' &&
+    currentUser?.role === 'HELP_DESK'
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <div className="spinner mx-auto mb-4"></div>
+          <p className="text-gray-400">Loading incident...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!incident) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <AlertCircle className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+          <p className="text-gray-400">Incident not found</p>
+        </div>
+      </div>
+    )
+  }
+
+  const slaTime = calculateSLATime()
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <button
+            onClick={() => router.back()}
+            className="p-2 hover:bg-slate-700/50 rounded-lg transition duration-200"
+          >
+            <ArrowLeft className="w-5 h-5 text-gray-400" />
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold text-white">
+              Incident #{incident.id}
+            </h1>
+            <p className="text-gray-400 mt-1">{incident.title}</p>
+          </div>
+        </div>
+
+        {/* ✅ STEP 5: เพิ่มปุ่มตาม workflow */}
+        <div className="flex items-center space-x-3">
+          {/* Check In Button - ASSIGNED → IN_PROGRESS */}
+          {canCheckIn && (
+            <button
+              onClick={() => setShowCheckIn(true)}
+              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition duration-200"
+            >
+              <Camera className="w-4 h-4" />
+              <span>Check In & Start</span>
+            </button>
+          )}
+
+          {/* Resolve Button - IN_PROGRESS → RESOLVED */}
+          {canResolve && (
+            <button
+              onClick={() => setShowResolve(true)}
+              className="flex items-center space-x-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition duration-200"
+            >
+              <CheckCircle className="w-4 h-4" />
+              <span>Resolve Incident</span>
+            </button>
+          )}
+
+          {/* Update Resolution Button - RESOLVED (Technician can edit) */}
+          {canUpdate && (
+            <button
+              onClick={() => setShowUpdate(true)}
+              className="flex items-center space-x-2 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition duration-200"
+            >
+              <Edit3 className="w-4 h-4" />
+              <span>Update Resolution</span>
+            </button>
+          )}
+
+          {/* Confirm & Close Button - RESOLVED → CLOSED (Help Desk only) */}
+          {canConfirm && (
+            <button
+              onClick={() => setShowConfirm(true)}
+              className="flex items-center space-x-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition duration-200"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Confirm & Close</span>
+            </button>
+          )}
+        
+          {/* Assign Button - Show if NOT assigned yet */}
+          {canAssign && !incident.assignee && (
+            incident.status === 'PENDING' || 
+            incident.status === 'OPEN'
+          ) && (
+            <button
+              onClick={() => {
+                setAssignMode('assign')
+                setAssignModalOpen(true)
+              }}
+              className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition duration-200"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>Assign</span>
+            </button>
+          )}
+          
+          {/* Reassign Button - SUPERVISOR only, if already assigned */}
+          {canReassign && incident.assignee && (
+            <button
+              onClick={() => {
+                setAssignMode('reassign')
+                setAssignModalOpen(true)
+              }}
+              className="flex items-center space-x-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition duration-200"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>Reassign</span>
+            </button>
+          )}
+          
+          {canEdit && (
+            <button
+              onClick={() =>
+                router.push(`/dashboard/incidents/${incident.id}/edit`)
+              }
+              className="flex items-center space-x-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition duration-200"
+            >
+              <Edit className="w-4 h-4" />
+              <span>Edit</span>
+            </button>
+          )}
+          {canCancel && incident.status !== 'CANCELLED' && (
+            <button
+              onClick={() => setCancelModalOpen(true)}
+              className="flex items-center space-x-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition duration-200"
+            >
+              <X className="w-4 h-4" />
+              <span>Cancel</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Incident Summary Card - รวม Status, Priority, Category, Technician */}
+      <div className="glass-card p-6 rounded-2xl">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-white">Incident Summary</h2>
+          <button
+            onClick={() => copyToClipboard()}
+            className="flex items-center space-x-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition duration-200 text-sm"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            <span>Copy for LINE</span>
+          </button>
+        </div>
+        
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {/* Status */}
+          <div>
+            <p className="text-sm text-gray-400 mb-2">Status</p>
+            <span className={getStatusBadge(incident.status)}>
+              {incident.status}
+            </span>
+          </div>
+          
+          {/* Priority */}
+          <div>
+            <p className="text-sm text-gray-400 mb-2">Priority</p>
+            <span className={getPriorityBadge(incident.priority)}>
+              {incident.priority}
+            </span>
+          </div>
+          
+          {/* Category */}
+          {incident.category && (
+            <div>
+              <p className="text-sm text-gray-400 mb-2">Category</p>
+              <p className="text-white font-medium">{incident.category}</p>
+            </div>
+          )}
+          
+          {/* Job Type */}
+          {incident.jobType && (
+            <div>
+              <p className="text-sm text-gray-400 mb-2">Job Type</p>
+              <p className="text-white font-medium">{incident.jobType}</p>
+            </div>
+          )}
+        </div>
+        
+        {/* Assigned Technician */}
+        {incident.assignee && (
+          <div className="mt-4 pt-4 border-t border-gray-700/50">
+            <p className="text-sm text-gray-400 mb-2">Assigned Technician</p>
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-purple-500/20 rounded-lg">
+                <User className="w-5 h-5 text-purple-400" />
+              </div>
+              <div>
+                <p className="text-white font-medium">
+                  {incident.assignee.firstName} {incident.assignee.lastName}
+                </p>
+                <p className="text-sm text-gray-400">{incident.assignee.email}</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Main Details - เรียงตามที่ต้องการ */}
+      <div className="glass-card p-6 rounded-2xl">
+        <h2 className="text-lg font-semibold text-white mb-4">
+          Incident Information
+        </h2>
+
+        <div className="space-y-4">
+          {/* Incident No */}
+          <div className="flex items-start space-x-3 pb-4 border-b border-gray-700/50">
+            <Tag className="w-5 h-5 text-blue-400 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm text-gray-400">Incident No.</p>
+              <p className="text-white font-mono text-lg">
+                {incident.incidentCode || `INC-${incident.id}`}
+              </p>
+            </div>
+          </div>
+
+          {/* Store No & Name */}
+          <div className="flex items-start space-x-3 pb-4 border-b border-gray-700/50">
+            <Building2 className="w-5 h-5 text-blue-400 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm text-gray-400">Store</p>
+              <p className="text-white font-semibold">
+                {incident.store?.name || 'N/A'}
+              </p>
+              <p className="text-sm text-gray-400">
+                รหัสสาขา: {incident.store?.storeCode || 'N/A'}
+              </p>
+            </div>
+          </div>
+
+          {/* Title */}
+          <div className="flex items-start space-x-3 pb-4 border-b border-gray-700/50">
+            <AlertCircle className="w-5 h-5 text-yellow-400 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm text-gray-400">Title</p>
+              <p className="text-white font-medium">{incident.title}</p>
+            </div>
+          </div>
+
+          {/* Priority */}
+          <div className="flex items-start space-x-3 pb-4 border-b border-gray-700/50">
+            <AlertCircle className="w-5 h-5 text-orange-400 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm text-gray-400">Priority Level</p>
+              <span className={getPriorityBadge(incident.priority)}>
+                {incident.priority}
+              </span>
+            </div>
+          </div>
+
+          {/* Job Type */}
+          {incident.jobType && (
+            <div className="flex items-start space-x-3 pb-4 border-b border-gray-700/50">
+              <Tag className="w-5 h-5 text-cyan-400 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm text-gray-400">Job Type</p>
+                <p className="text-white font-medium">{incident.jobType}</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {incident.jobType === 'MA' && '(Maintenance - งานบำรุงรักษา)'}
+                  {incident.jobType === 'Adhoc' && '(งานเร่งด่วน ไม่ตามแผน)'}
+                  {incident.jobType === 'Project' && '(โครงการ ระยะยาว)'}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* วันที่เปิดงาน */}
+          <div className="flex items-start space-x-3 pb-4 border-b border-gray-700/50">
+            <Calendar className="w-5 h-5 text-green-400 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm text-gray-400">วันที่เปิดงาน</p>
+              <p className="text-white">
+                {new Date(incident.createdAt).toLocaleDateString('th-TH', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                })}
+              </p>
+            </div>
+          </div>
+
+          {/* เวลาเปิดงาน */}
+          <div className="flex items-start space-x-3 pb-4 border-b border-gray-700/50">
+            <Clock className="w-5 h-5 text-green-400 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm text-gray-400">เวลาเปิดงาน</p>
+              <p className="text-white">
+                {new Date(incident.createdAt).toLocaleTimeString('th-TH', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })} น.
+              </p>
+            </div>
+          </div>
+
+          {/* เวลาหลุด SLA */}
+          {slaTime && (
+            <div className="flex items-start space-x-3 pb-4 border-b border-gray-700/50">
+              <Clock className="w-5 h-5 text-red-400 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm text-gray-400">เวลาหลุด SLA</p>
+                <p className="text-white font-semibold">
+                  {formatDateTime(slaTime)}
+                </p>
+                {new Date() > slaTime && incident.status !== 'RESOLVED' && (
+                  <p className="text-xs text-red-400 mt-1">
+                    ⚠️ เกินเวลา SLA แล้ว!
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Technician (ถ้ามี) */}
+          {incident.assignedTo && (
+            <div className="flex items-start space-x-3 pb-4 border-b border-gray-700/50">
+              <User className="w-5 h-5 text-purple-400 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm text-gray-400">Assigned Technician</p>
+                <p className="text-white">
+                  {incident.assignedTo.firstName}{' '}
+                  {incident.assignedTo.lastName}
+                </p>
+                <p className="text-sm text-gray-400">
+                  {incident.assignedTo.role}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Reported By */}
+          <div className="flex items-start space-x-3">
+            <User className="w-5 h-5 text-gray-400 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm text-gray-400">Reported By</p>
+              <p className="text-white">
+                {incident.reportedBy?.firstName}{' '}
+                {incident.reportedBy?.lastName}
+              </p>
+              <p className="text-sm text-gray-400">
+                {incident.reportedBy?.role}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Description */}
+      <div className="glass-card p-6 rounded-2xl">
+        <h2 className="text-lg font-semibold text-white mb-4">Description</h2>
+        <p className="text-gray-300 whitespace-pre-wrap">
+          {incident.description}
+        </p>
+      </div>
+
+      {/* Resolution (if resolved) */}
+      {incident.status === 'RESOLVED' && incident.resolutionNote && (
+        <div className="glass-card p-6 rounded-2xl bg-green-500/5 border border-green-500/20">
+          <h2 className="text-lg font-semibold text-green-400 mb-4">Resolution</h2>
+          <p className="text-gray-300 whitespace-pre-wrap">
+            {incident.resolutionNote}
+          </p>
+          
+          {/* Spare Parts (if any) */}
+          {incident.usedSpareParts && incident.spareParts && incident.spareParts.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-green-500/20">
+              <h3 className="text-sm font-semibold text-green-400 mb-3">Spare Parts Used</h3>
+              <div className="space-y-2">
+                {incident.spareParts.map((part: any, index: number) => (
+                  <div key={index} className="text-sm text-gray-300">
+                    <span className="font-medium">{part.deviceName}</span>
+                    <span className="text-gray-400"> - Old: {part.oldSerialNo} → New: {part.newSerialNo}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Photos (if any) */}
+      {((incident.beforePhotos && incident.beforePhotos.length > 0) || 
+        (incident.afterPhotos && incident.afterPhotos.length > 0)) && (
+        <div className="glass-card p-6 rounded-2xl">
+          <h2 className="text-lg font-semibold text-white mb-4">Photos</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Before Photos */}
+            {incident.beforePhotos && incident.beforePhotos.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-gray-400 mb-3">
+                  Before Photos ({incident.beforePhotos.length})
+                </h3>
+                <div className="grid grid-cols-2 gap-2">
+                  {incident.beforePhotos.map((photo: string, index: number) => (
+                    <img
+                      key={index}
+                      src={photo}
+                      alt={`Before ${index + 1}`}
+                      className="w-full aspect-square object-cover rounded-lg cursor-pointer hover:opacity-80 transition"
+                      onClick={() => window.open(photo, '_blank')}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* After Photos */}
+            {incident.afterPhotos && incident.afterPhotos.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-gray-400 mb-3">
+                  After Photos ({incident.afterPhotos.length})
+                </h3>
+                <div className="grid grid-cols-2 gap-2">
+                  {incident.afterPhotos.map((photo: string, index: number) => (
+                    <img
+                      key={index}
+                      src={photo}
+                      alt={`After ${index + 1}`}
+                      className="w-full aspect-square object-cover rounded-lg cursor-pointer hover:opacity-80 transition"
+                      onClick={() => window.open(photo, '_blank')}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Additional Info */}
+      <div className="glass-card p-6 rounded-2xl">
+        <h2 className="text-lg font-semibold text-white mb-4">
+          Additional Information
+        </h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          <div>
+            <p className="text-gray-400">Created At</p>
+            <p className="text-white">{formatDateTime(new Date(incident.createdAt))}</p>
+          </div>
+          <div>
+            <p className="text-gray-400">Last Updated</p>
+            <p className="text-white">{formatDateTime(new Date(incident.updatedAt))}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Cancel Confirmation Modal */}
+      {cancelModalOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="glass-card p-6 rounded-2xl max-w-md w-full animate-fade-in">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="p-3 bg-red-500/20 rounded-full">
+                <X className="w-6 h-6 text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">
+                  Cancel Incident
+                </h3>
+                <p className="text-sm text-gray-400">
+                  Please provide cancellation reason
+                </p>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Cancellation Reason <span className="text-red-400">*</span>
+              </label>
+              <textarea
+                value={cancellationReason}
+                onChange={(e) => setCancellationReason(e.target.value)}
+                placeholder="Enter reason for cancellation..."
+                rows={4}
+                className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
+              />
+            </div>
+
+            <div className="flex items-center justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setCancelModalOpen(false)
+                  setCancellationReason('')
+                }}
+                disabled={isCancelling}
+                className="px-4 py-2 text-gray-300 hover:bg-slate-700/50 rounded-lg transition duration-200 disabled:opacity-50"
+              >
+                Close
+              </button>
+              <button
+                onClick={handleCancel}
+                disabled={isCancelling || !cancellationReason.trim()}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isCancelling ? 'Cancelling...' : 'Confirm Cancel'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Assign/Reassign Modal */}
+      <AssignIncidentModal
+        incident={incident}
+        isOpen={assignModalOpen}
+        onClose={() => setAssignModalOpen(false)}
+        onSuccess={fetchIncident}
+        mode={assignMode}
+      />
+
+      {/* ✅ STEP 6: เพิ่ม Workflow Modals */}
+      
+      {/* Check-In Modal */}
+      <CheckInModal
+        isOpen={showCheckIn}
+        onClose={() => setShowCheckIn(false)}
+        incidentId={incident.id}
+        onCheckIn={handleCheckIn}
+      />
+
+      {/* Resolve Incident Modal */}
+      <ResolveIncidentModal
+        isOpen={showResolve}
+        onClose={() => setShowResolve(false)}
+        incidentId={incident.id}
+        onResolve={handleResolve}
+      />
+
+      {/* Update Resolution Modal */}
+      <UpdateResolveModal
+        isOpen={showUpdate}
+        onClose={() => setShowUpdate(false)}
+        incidentId={incident.id}
+        currentData={{
+          resolutionNote: incident.resolutionNote || '',
+          usedSpareParts: incident.usedSpareParts || false,
+          spareParts: incident.spareParts || [],
+          afterPhotos: incident.afterPhotos || [],
+        }}
+        onUpdate={handleUpdateResolve}
+      />
+
+      {/* Confirm & Close Modal */}
+      <ConfirmCloseModal
+        isOpen={showConfirm}
+        onClose={() => setShowConfirm(false)}
+        incident={{
+          id: incident.id,
+          title: incident.title,
+          ticketNumber: incident.incidentCode || `INC-${incident.id}`,
+          technician: incident.assignedTo,
+          resolutionNote: incident.resolutionNote,
+          usedSpareParts: incident.usedSpareParts,
+          spareParts: incident.spareParts,
+          beforePhotos: incident.beforePhotos,
+          afterPhotos: incident.afterPhotos,
+          resolvedAt: incident.resolvedAt,
+        }}
+        onConfirm={handleConfirmClose}
+      />
+    </div>
+  )
+}

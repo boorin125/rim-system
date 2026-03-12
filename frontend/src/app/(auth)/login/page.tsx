@@ -1,0 +1,551 @@
+// app/(auth)/login/page.tsx - Login Page
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { Mail, Lock, Eye, EyeOff, User, Phone } from 'lucide-react'
+import toast from 'react-hot-toast'
+import axios from 'axios'
+
+export default function LoginPage() {
+  const router = useRouter()
+  const [isFlipped, setIsFlipped] = useState(false)
+  const [showForgot, setShowForgot] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showRegPassword, setShowRegPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+
+  // Login form state
+  const [loginData, setLoginData] = useState({
+    email: '',
+    password: '',
+  })
+
+  // Register form state
+  const [registerData, setRegisterData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    phone: '',
+    role: 'END_USER',
+  })
+
+  // Forgot password state
+  const [forgotEmail, setForgotEmail] = useState('')
+
+  // Handle Login
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsLoading(true)
+
+    try {
+      const response = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/auth/login`,
+        loginData
+      )
+
+      // Save tokens
+      localStorage.setItem('token', response.data.accessToken)
+      localStorage.setItem('refreshToken', response.data.refreshToken)
+      localStorage.setItem('user', JSON.stringify(response.data.user))
+
+      toast.success('เข้าสู่ระบบสำเร็จ!')
+      
+      // Redirect to dashboard
+      setTimeout(() => {
+        router.push('/dashboard')
+      }, 1000)
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'เข้าสู่ระบบไม่สำเร็จ')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Handle Register
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    // Validate passwords match
+    if (registerData.password !== registerData.confirmPassword) {
+      toast.error('รหัสผ่านไม่ตรงกัน')
+      return
+    }
+
+    // Validate password strength
+    if (registerData.password.length < 8) {
+      toast.error('รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร')
+      return
+    }
+
+    setIsLoading(true)
+
+    try {
+      await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/auth/register`,
+        {
+          email: registerData.email,
+          password: registerData.password,
+          firstName: registerData.firstName,
+          lastName: registerData.lastName,
+          phone: registerData.phone,
+          role: registerData.role,
+        }
+      )
+
+      toast.success('ลงทะเบียนสำเร็จ! รอการอนุมัติจาก IT Manager', {
+        duration: 5000,
+      })
+
+      // Switch back to login
+      setTimeout(() => {
+        setIsFlipped(false)
+        setRegisterData({
+          firstName: '',
+          lastName: '',
+          email: '',
+          password: '',
+          confirmPassword: '',
+          phone: '',
+          role: 'END_USER',
+        })
+      }, 2000)
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'ลงทะเบียนไม่สำเร็จ')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Handle Forgot Password
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsLoading(true)
+
+    try {
+      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/auth/forgot-password`, {
+        email: forgotEmail,
+      })
+
+      toast.success('หากอีเมลนี้มีในระบบ คุณจะได้รับลิงก์รีเซ็ตรหัสผ่านทางอีเมล')
+
+      setTimeout(() => {
+        setShowForgot(false)
+        setForgotEmail('')
+      }, 2000)
+    } catch (error: any) {
+      // Always show success to prevent email enumeration
+      toast.success('หากอีเมลนี้มีในระบบ คุณจะได้รับลิงก์รีเซ็ตรหัสผ่านทางอีเมล')
+
+      setTimeout(() => {
+        setShowForgot(false)
+        setForgotEmail('')
+      }, 2000)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-start justify-center px-4 pt-8 pb-4 overflow-y-auto">
+      {/* Background Pattern */}
+      <div className="fixed inset-0 bg-pattern"></div>
+
+      {/* Main Container */}
+      <div className="relative z-10 w-full max-w-md animate-fade-in">
+        
+        {/* Logo & Header */}
+        <div className="text-center mb-3">
+          <div className="mb-2">
+            <h1 className="logo-rim">RIM</h1>
+            <p className="logo-system">System</p>
+          </div>
+          <p className="text-lg text-gray-300 font-light">
+            Rubjobb Incident Management
+          </p>
+        </div>
+
+        {/* Flip Container */}
+        <div
+          className={`flip-container ${isFlipped ? 'flipped' : ''} ${
+            showForgot ? 'show-forgot' : ''
+          }`}
+        >
+          <div className="flipper">
+            
+            {/* FRONT: Login Form */}
+            <div className="flip-front">
+              <div className="glass-card rounded-2xl p-6">
+                <div className="mb-4">
+                  <h2 className="text-2xl font-semibold text-white mb-2">
+                    เข้าสู่ระบบ
+                  </h2>
+                  <p className="text-gray-400">
+                    ยินดีต้อนรับกลับ กรุณากรอกข้อมูลเพื่อเข้าใช้งาน
+                  </p>
+                </div>
+
+                <form onSubmit={handleLogin} className="space-y-4">
+                  {/* Email Input */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      อีเมล
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Mail className="w-5 h-5 text-gray-400" />
+                      </div>
+                      <input
+                        type="email"
+                        value={loginData.email}
+                        onChange={(e) =>
+                          setLoginData({ ...loginData, email: e.target.value })
+                        }
+                        placeholder="your.email@example.com"
+                        className="w-full pl-10 pr-4 py-3 bg-gray-700/50 backdrop-blur-sm border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {/* Password Input */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      รหัสผ่าน
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Lock className="w-5 h-5 text-gray-400" />
+                      </div>
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        value={loginData.password}
+                        onChange={(e) =>
+                          setLoginData({ ...loginData, password: e.target.value })
+                        }
+                        placeholder="••••••••"
+                        className="w-full pl-10 pr-12 py-3 bg-gray-700/50 backdrop-blur-sm border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                      >
+                        {showPassword ? (
+                          <EyeOff className="w-5 h-5 text-gray-400 hover:text-gray-300" />
+                        ) : (
+                          <Eye className="w-5 h-5 text-gray-400 hover:text-gray-300" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Forgot Password Link */}
+                  <div className="text-right">
+                    <button
+                      type="button"
+                      onClick={() => setShowForgot(true)}
+                      className="text-sm text-blue-400 hover:text-blue-300 transition duration-200"
+                    >
+                      ลืมรหัสผ่าน?
+                    </button>
+                  </div>
+
+                  {/* Login Button */}
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isLoading ? (
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      'เข้าสู่ระบบ'
+                    )}
+                  </button>
+
+                  {/* Register Link */}
+                  <div className="text-center pt-4 border-t border-gray-700/50">
+                    <p className="text-gray-400">
+                      ยังไม่มีบัญชี?{' '}
+                      <button
+                        type="button"
+                        onClick={() => setIsFlipped(true)}
+                        className="text-blue-400 hover:text-blue-300 font-medium transition duration-200"
+                      >
+                        สมัครสมาชิก
+                      </button>
+                    </p>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            {/* BACK: Register Form */}
+            <div className="flip-back">
+              <div className="glass-card rounded-2xl p-6">
+                <div className="mb-4">
+                  <h2 className="text-2xl font-semibold text-white mb-2">
+                    สมัครสมาชิก
+                  </h2>
+                  <p className="text-gray-400">
+                    สร้างบัญชีใหม่เพื่อเข้าใช้งานระบบ
+                  </p>
+                </div>
+
+                <form onSubmit={handleRegister} className="space-y-4">
+                  {/* Name Inputs */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        ชื่อ
+                      </label>
+                      <input
+                        type="text"
+                        value={registerData.firstName}
+                        onChange={(e) =>
+                          setRegisterData({
+                            ...registerData,
+                            firstName: e.target.value,
+                          })
+                        }
+                        placeholder="ชื่อ"
+                        className="w-full px-4 py-3 bg-gray-700/50 backdrop-blur-sm border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        นามสกุล
+                      </label>
+                      <input
+                        type="text"
+                        value={registerData.lastName}
+                        onChange={(e) =>
+                          setRegisterData({
+                            ...registerData,
+                            lastName: e.target.value,
+                          })
+                        }
+                        placeholder="นามสกุล"
+                        className="w-full px-4 py-3 bg-gray-700/50 backdrop-blur-sm border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {/* Email */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      อีเมล
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Mail className="w-5 h-5 text-gray-400" />
+                      </div>
+                      <input
+                        type="email"
+                        value={registerData.email}
+                        onChange={(e) =>
+                          setRegisterData({
+                            ...registerData,
+                            email: e.target.value,
+                          })
+                        }
+                        placeholder="your.email@example.com"
+                        className="w-full pl-10 pr-4 py-3 bg-gray-700/50 backdrop-blur-sm border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {/* Phone */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      เบอร์โทรศัพท์
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Phone className="w-5 h-5 text-gray-400" />
+                      </div>
+                      <input
+                        type="tel"
+                        value={registerData.phone}
+                        onChange={(e) =>
+                          setRegisterData({
+                            ...registerData,
+                            phone: e.target.value,
+                          })
+                        }
+                        placeholder="081-234-5678"
+                        className="w-full pl-10 pr-4 py-3 bg-gray-700/50 backdrop-blur-sm border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Password */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      รหัสผ่าน
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Lock className="w-5 h-5 text-gray-400" />
+                      </div>
+                      <input
+                        type={showRegPassword ? 'text' : 'password'}
+                        value={registerData.password}
+                        onChange={(e) =>
+                          setRegisterData({
+                            ...registerData,
+                            password: e.target.value,
+                          })
+                        }
+                        placeholder="••••••••"
+                        className="w-full pl-10 pr-12 py-3 bg-gray-700/50 backdrop-blur-sm border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowRegPassword(!showRegPassword)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                      >
+                        {showRegPassword ? (
+                          <EyeOff className="w-5 h-5 text-gray-400 hover:text-gray-300" />
+                        ) : (
+                          <Eye className="w-5 h-5 text-gray-400 hover:text-gray-300" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Confirm Password */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      ยืนยันรหัสผ่าน
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Lock className="w-5 h-5 text-gray-400" />
+                      </div>
+                      <input
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        value={registerData.confirmPassword}
+                        onChange={(e) =>
+                          setRegisterData({
+                            ...registerData,
+                            confirmPassword: e.target.value,
+                          })
+                        }
+                        placeholder="••••••••"
+                        className="w-full pl-10 pr-12 py-3 bg-gray-700/50 backdrop-blur-sm border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                      >
+                        {showConfirmPassword ? (
+                          <EyeOff className="w-5 h-5 text-gray-400 hover:text-gray-300" />
+                        ) : (
+                          <Eye className="w-5 h-5 text-gray-400 hover:text-gray-300" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Register Button */}
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isLoading ? (
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      'สมัครสมาชิก'
+                    )}
+                  </button>
+
+                  {/* Back to Login */}
+                  <div className="text-center pt-4 border-t border-gray-700/50">
+                    <p className="text-gray-400">
+                      มีบัญชีอยู่แล้ว?{' '}
+                      <button
+                        type="button"
+                        onClick={() => setIsFlipped(false)}
+                        className="text-blue-400 hover:text-blue-300 font-medium transition duration-200"
+                      >
+                        เข้าสู่ระบบ
+                      </button>
+                    </p>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            {/* FORGOT: Forgot Password Form */}
+            <div className="flip-forgot">
+              <div className="glass-card rounded-2xl p-6">
+                <div className="mb-4">
+                  <h2 className="text-2xl font-semibold text-white mb-2">
+                    ลืมรหัสผ่าน
+                  </h2>
+                  <p className="text-gray-400">
+                    กรอกอีเมลเพื่อรับลิงก์รีเซ็ตรหัสผ่าน
+                  </p>
+                </div>
+
+                <form onSubmit={handleForgotPassword} className="space-y-4">
+                  {/* Email */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      อีเมล
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Mail className="w-5 h-5 text-gray-400" />
+                      </div>
+                      <input
+                        type="email"
+                        value={forgotEmail}
+                        onChange={(e) => setForgotEmail(e.target.value)}
+                        placeholder="your.email@example.com"
+                        className="w-full pl-10 pr-4 py-3 bg-gray-700/50 backdrop-blur-sm border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {/* Submit Button */}
+                  <button
+                    type="submit"
+                    className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition duration-200"
+                  >
+                    ส่งลิงก์รีเซ็ตรหัสผ่าน
+                  </button>
+
+                  {/* Back to Login */}
+                  <div className="text-center pt-4 border-t border-gray-700/50">
+                    <button
+                      type="button"
+                      onClick={() => setShowForgot(false)}
+                      className="text-blue-400 hover:text-blue-300 font-medium transition duration-200"
+                    >
+                      ← กลับสู่หน้าเข้าสู่ระบบ
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

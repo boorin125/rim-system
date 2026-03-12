@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(npx prisma migrate dev:*)",
+      "Bash(timeout:*)",
+      "Bash(npx prisma generate:*)",
+      "Bash(npx ts-node:*)",
+      "Bash(node test-ticket-number.js:*)",
+      "Bash(node test-create-incident.js:*)",
+      "Bash(npm run build:*)",
+      "Bash(npx prisma:*)",
+      "Bash(npx tsc:*)",
+      "Bash(tasklist:*)",
+      "Bash(findstr:*)",
+      "Bash(grep:*)",
+      "Bash(PGPASSWORD=rubjobb125 psql:*)",
+      "Bash(node:*)",
+      "Bash(npx nest build)",
+      "Bash(npx next build:*)",
+      "Bash(pushd:*)",
+      "Bash(curl:*)",
+      "Bash(1 <<'EOF'\nUPDATE incidents SET resolution_type = 'ONSITE' WHERE status IN \\('ASSIGNED', 'IN_PROGRESS', 'RESOLVED'\\) AND assignee_id IS NOT NULL AND resolution_type IS NULL;\nUPDATE incidents SET resolution_type = 'ONSITE' WHERE status = 'OPEN' AND assignee_id IS NOT NULL AND resolution_type IS NULL;\nUPDATE incidents SET resolution_type = 'ONSITE' WHERE status = 'CLOSED' AND assignee_id IS NOT NULL AND resolution_type IS NULL;\nEOF)",
+      "Bash(1 <<'EOF'\nUPDATE incidents SET resolution_type = 'ONSITE' WHERE status IN \\('ASSIGNED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'\\) AND assignee_id IS NOT NULL AND resolution_type IS NULL;\nEOF)",
+      "Bash(npm config set:*)",
+      "Bash(npm run start:dev:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(npm config get:*)",
+      "Bash(ping:*)",
+      "Bash(npm cache clean:*)",
+      "Bash(taskkill:*)",
+      "Bash(wc:*)",
+      "Bash(1 <<'EOF'\nINSERT INTO \"incident_assignees\" \\(\"incident_id\", \"user_id\", \"assigned_at\"\\)\nSELECT \"id\", \"assignee_id\", \"updated_at\" FROM \"incidents\" WHERE \"assignee_id\" IS NOT NULL\nON CONFLICT \\(\"incident_id\", \"user_id\"\\) DO NOTHING;\nEOF)",
+      "Bash(npm ls:*)",
+      "Bash(cmd /c \"rd /s /q D:\\\\Projects\\\\RIM-System\\\\frontend\\\\.next\")",
+      "Bash(head:*)"
+    ]
+  }
+}

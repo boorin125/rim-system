@@ -1,0 +1,562 @@
+// app/(dashboard)/dashboard/incidents/page.tsx - Incident Management
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import {
+  Plus,
+  Search,
+  Filter,
+  Download,
+  Upload,
+  AlertCircle,
+  Eye,
+  Edit,
+  Trash2,
+  Clock,
+  CheckCircle2,
+  XCircle,
+} from 'lucide-react'
+import axios from 'axios'
+import toast from 'react-hot-toast'
+
+export default function IncidentsPage() {
+  const router = useRouter()
+  const [incidents, setIncidents] = useState<any[]>([])
+  const [filteredIncidents, setFilteredIncidents] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [filterStatus, setFilterStatus] = useState('ALL')
+  const [filterCategory, setFilterCategory] = useState('ALL')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [incidentToDelete, setIncidentToDelete] = useState<any>(null)
+  const [currentUser, setCurrentUser] = useState<any>(null)
+
+  const itemsPerPage = 10
+
+  // Categories list
+  const categories = ['POS', 'Network', 'Hardware', 'Software', 'Printer', 'Monitor', 'Other']
+
+  useEffect(() => {
+    // Get current user from localStorage
+    const userStr = localStorage.getItem('user')
+    if (userStr) {
+      const user = JSON.parse(userStr)
+      setCurrentUser(user)
+      
+      // Check if SUPER_ADMIN
+      if (user.role === 'SUPER_ADMIN') {
+        setIsLoading(false)
+        return
+      }
+    }
+    
+    fetchIncidents()
+  }, [])
+
+  useEffect(() => {
+    filterIncidents()
+  }, [incidents, searchTerm, filterStatus, filterCategory])
+
+  const fetchIncidents = async () => {
+    try {
+      setIsLoading(true)
+      const token = localStorage.getItem('token')
+      
+      const response = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/incidents`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      )
+
+      // Handle both array and object responses
+      const data = response.data
+      if (Array.isArray(data)) {
+        setIncidents(data)
+      } else if (data && Array.isArray(data.incidents)) {
+        setIncidents(data.incidents)
+      } else if (data && Array.isArray(data.data)) {
+        setIncidents(data.data)
+      } else {
+        console.error('Unexpected response format:', data)
+        setIncidents([])
+        toast.error('Unexpected data format from server')
+      }
+    } catch (error: any) {
+      toast.error('Failed to load incidents')
+      console.error(error)
+      setIncidents([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const filterIncidents = () => {
+    // Check if incidents is array
+    if (!Array.isArray(incidents)) {
+      setFilteredIncidents([])
+      return
+    }
+
+    let filtered = [...incidents]
+
+    // Search filter
+    if (searchTerm) {
+      filtered = filtered.filter(
+        (incident) =>
+          incident.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          incident.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          incident.id?.toString().includes(searchTerm)
+      )
+    }
+
+    // Status filter
+    if (filterStatus !== 'ALL') {
+      filtered = filtered.filter((incident) => incident.status === filterStatus)
+    }
+
+    // Category filter
+    if (filterCategory !== 'ALL') {
+      filtered = filtered.filter((incident) => incident.category === filterCategory)
+    }
+
+    setFilteredIncidents(filtered)
+    setCurrentPage(1)
+  }
+
+  const handleDelete = async () => {
+    if (!incidentToDelete) return
+
+    try {
+      const token = localStorage.getItem('token')
+      
+      await axios.delete(
+        `${process.env.NEXT_PUBLIC_API_URL}/incidents/${incidentToDelete.id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      )
+
+      toast.success('Incident deleted successfully')
+      setDeleteModalOpen(false)
+      setIncidentToDelete(null)
+      fetchIncidents()
+    } catch (error: any) {
+      toast.error('Failed to delete incident')
+      console.error(error)
+    }
+  }
+
+  const getStatusBadge = (status: string) => {
+    const badges: any = {
+      PENDING: { 
+        class: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-400 border border-blue-500/30', 
+        icon: Clock 
+      },
+      ASSIGNED: { 
+        class: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-purple-500/20 text-purple-400 border border-purple-500/30', 
+        icon: Clock 
+      },
+      IN_PROGRESS: { 
+        class: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30', 
+        icon: Clock 
+      },
+      RESOLVED: { 
+        class: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-500/20 text-green-400 border border-green-500/30', 
+        icon: CheckCircle2 
+      },
+      CLOSED: { 
+        class: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-500/20 text-green-400 border border-green-500/30', 
+        icon: CheckCircle2 
+      },
+      CANCELLED: { 
+        class: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gray-500/20 text-gray-400 border border-gray-500/30', 
+        icon: XCircle 
+      },
+    }
+    return badges[status] || { 
+      class: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-400 border border-blue-500/30', 
+      icon: Clock 
+    }
+  }
+
+  const getPriorityBadge = (priority: string) => {
+    const badges: any = {
+      CRITICAL: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-red-500/20 text-red-400 border border-red-500/30',
+      HIGH: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-orange-500/20 text-orange-400 border border-orange-500/30',
+      MEDIUM: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30',
+      LOW: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-500/20 text-green-400 border border-green-500/30',
+    }
+    return badges[priority] || badges.MEDIUM
+  }
+
+  // Pagination
+  const totalPages = Math.ceil(filteredIncidents.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const currentIncidents = filteredIncidents.slice(startIndex, endIndex)
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <div className="spinner mx-auto mb-4"></div>
+          <p className="text-gray-400">Loading incidents...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Check if SUPER_ADMIN (no access to incidents)
+  if (currentUser?.role === 'SUPER_ADMIN') {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="glass-card p-8 rounded-2xl max-w-md text-center">
+          <div className="p-4 bg-red-500/20 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+            <AlertCircle className="w-8 h-8 text-red-400" />
+          </div>
+          <h2 className="text-xl font-semibold text-white mb-2">
+            ไม่มีสิทธิ์ใช้งานฟีเจอร์นี้
+          </h2>
+          <p className="text-gray-400">
+            Super Admin ไม่สามารถเข้าถึงระบบจัดการ Incidents ได้
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  // Check permissions for CREATE action
+  const canCreate = currentUser?.role === 'HELP_DESK' || currentUser?.role === 'END_USER'
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Incident Management</h1>
+          <p className="text-gray-400 mt-1">
+            Manage and track all IT incidents
+          </p>
+        </div>
+        {canCreate && (
+          <button
+            onClick={() => router.push('/dashboard/incidents/create')}
+            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition duration-200"
+          >
+            <Plus className="w-5 h-5" />
+            <span>Create Incident</span>
+          </button>
+        )}
+      </div>
+
+      {/* Filters */}
+      <div className="glass-card p-6 rounded-2xl">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Search */}
+          <div className="md:col-span-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search incidents..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          {/* Status Filter */}
+          <div>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="w-full px-4 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="ALL">All Status</option>
+              <option value="PENDING">Pending</option>
+              <option value="ASSIGNED">Assigned</option>
+              <option value="IN_PROGRESS">In Progress</option>
+              <option value="RESOLVED">Resolved</option>
+              <option value="CLOSED">Closed</option>
+              <option value="CANCELLED">Cancelled</option>
+            </select>
+          </div>
+
+          {/* Category Filter */}
+          <div>
+            <select
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+              className="w-full px-4 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="ALL">All Category</option>
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-700/50">
+          <p className="text-sm text-gray-400">
+            Showing {startIndex + 1}-{Math.min(endIndex, filteredIncidents.length)} of{' '}
+            {filteredIncidents.length} incidents
+          </p>
+          <div className="flex items-center space-x-2">
+            <button className="p-2 hover:bg-gray-700/50 rounded-lg transition duration-200">
+              <Download className="w-5 h-5 text-gray-400" />
+            </button>
+            <button className="p-2 hover:bg-gray-700/50 rounded-lg transition duration-200">
+              <Upload className="w-5 h-5 text-gray-400" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Incidents Table */}
+      <div className="glass-card rounded-2xl overflow-hidden">
+        {currentIncidents.length === 0 ? (
+          <div className="text-center py-12">
+            <AlertCircle className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+            <p className="text-gray-400">No incidents found</p>
+            <button
+              onClick={() => router.push('/dashboard/incidents/create')}
+              className="mt-4 text-blue-400 hover:text-blue-300 transition duration-200"
+            >
+              Create your first incident
+            </button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-slate-800/50">
+                <tr className="border-b border-slate-700/50">
+                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-400">
+                    Status
+                  </th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-400">
+                    Incident No.
+                  </th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-400">
+                    Store ID
+                  </th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-400">
+                    Store Name
+                  </th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-400">
+                    Title
+                  </th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-400">
+                    Category
+                  </th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-400">
+                    Priority
+                  </th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-400">
+                    Aging (Days)
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {currentIncidents.map((incident, index) => {
+                  const statusBadge = getStatusBadge(incident.status)
+                  const StatusIcon = statusBadge.icon
+
+                  // Calculate aging (days since creation, only if not Closed/Cancelled)
+                  const calculateAging = () => {
+                    if (incident.status === 'CLOSED' || incident.status === 'CANCELLED') {
+                      return '-'
+                    }
+                    const createdAt = new Date(incident.createdAt)
+                    const now = new Date()
+                    const diffTime = Math.abs(now.getTime() - createdAt.getTime())
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+                    return diffDays
+                  }
+
+                  const aging = calculateAging()
+
+                  return (
+                    <tr
+                      key={incident.id}
+                      onClick={() => router.push(`/dashboard/incidents/${incident.id}`)}
+                      className={`
+                        border-b border-slate-700/30 cursor-pointer transition-all duration-200
+                        ${index % 2 === 0 
+                          ? 'bg-slate-800/30 hover:bg-slate-700/50' 
+                          : 'bg-slate-700/50 hover:bg-slate-600/60'
+                        }
+                      `}
+                    >
+                      {/* Status */}
+                      <td className="py-4 px-6">
+                        <span className={statusBadge.class}>
+                          {incident.status}
+                        </span>
+                      </td>
+
+                      {/* Incident No. */}
+                      <td className="py-4 px-6">
+                        <span className="text-sm font-mono text-blue-400 font-semibold">
+                          {incident.incidentCode || `INC-${String(incident.id).padStart(6, '0')}`}
+                        </span>
+                      </td>
+
+                      {/* Store ID */}
+                      <td className="py-4 px-6">
+                        <span className="text-sm font-mono text-gray-300">
+                          {incident.store?.storeCode || 'N/A'}
+                        </span>
+                      </td>
+
+                      {/* Store Name */}
+                      <td className="py-4 px-6">
+                        <span className="text-sm text-white">
+                          {incident.store?.name || 'N/A'}
+                        </span>
+                      </td>
+
+                      {/* Title */}
+                      <td className="py-4 px-6">
+                        <p className="text-sm font-medium text-white">
+                          {incident.title}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          {incident.description?.substring(0, 40)}
+                          {incident.description?.length > 40 ? '...' : ''}
+                        </p>
+                      </td>
+
+                      {/* Category */}
+                      <td className="py-4 px-6">
+                        {incident.category ? (
+                          <span className="text-sm text-white font-medium">
+                            {incident.category}
+                          </span>
+                        ) : (
+                          <span className="text-sm text-gray-500">-</span>
+                        )}
+                      </td>
+
+                      {/* Priority */}
+                      <td className="py-4 px-6">
+                        <span className={getPriorityBadge(incident.priority)}>
+                          {incident.priority}
+                        </span>
+                      </td>
+
+                      {/* Aging */}
+                      <td className="py-4 px-6">
+                        {aging === '-' ? (
+                          <span className="text-sm text-gray-500">-</span>
+                        ) : (
+                          <span className={`text-sm font-semibold ${
+                            aging > 7 ? 'text-red-400' :
+                            aging > 3 ? 'text-yellow-400' :
+                            'text-green-400'
+                          }`}>
+                            {aging} {aging === 1 ? 'day' : 'days'}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-6 py-4 border-t border-slate-700/50">
+            <button
+              onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className="px-4 py-2 text-sm text-gray-300 hover:bg-slate-700/50 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            
+            <div className="flex items-center space-x-2">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <button
+                  key={page}
+                  onClick={() => setCurrentPage(page)}
+                  className={`px-3 py-1 text-sm rounded-lg transition duration-200 ${
+                    currentPage === page
+                      ? 'bg-blue-600 text-white'
+                      : 'text-gray-300 hover:bg-slate-700/50'
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() =>
+                setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+              }
+              disabled={currentPage === totalPages}
+              className="px-4 py-2 text-sm text-gray-300 hover:bg-slate-700/50 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Delete Confirmation Modal */}
+      {deleteModalOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="glass-card p-6 rounded-2xl max-w-md w-full animate-fade-in">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="p-3 bg-red-500/20 rounded-full">
+                <AlertCircle className="w-6 h-6 text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">
+                  Delete Incident
+                </h3>
+                <p className="text-sm text-gray-400">
+                  This action cannot be undone
+                </p>
+              </div>
+            </div>
+
+            <p className="text-gray-300 mb-6">
+              Are you sure you want to delete incident{' '}
+              <span className="font-semibold">#{incidentToDelete?.id}</span>?
+            </p>
+
+            <div className="flex items-center justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setDeleteModalOpen(false)
+                  setIncidentToDelete(null)
+                }}
+                className="px-4 py-2 text-gray-300 hover:bg-slate-700/50 rounded-lg transition duration-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition duration-200"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

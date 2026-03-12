@@ -1,0 +1,1137 @@
+// frontend/src/components/SparePartForm.tsx - UPDATED WITH DARK THEME + AUTOCOMPLETE
+
+import { useState, useEffect, useRef } from 'react';
+import { Plus, Trash2, Package, Camera, AlertCircle, Search, Cpu, ArrowRightLeft } from 'lucide-react';
+import axios from 'axios';
+
+export interface SparePart {
+  id: string;
+  // Repair Type - ประเภทการซ่อม
+  repairType: 'EQUIPMENT_REPLACEMENT' | 'COMPONENT_REPLACEMENT';
+
+  // === EQUIPMENT_REPLACEMENT Fields ===
+  // Device selector (เลือกจาก Equipment ของ Store)
+  selectedDeviceId?: number;
+  // Old Device
+  oldDeviceName: string;
+  oldSerialNo: string;
+  oldEquipmentId?: number;  // ✅ เชื่อมโยงกับ Equipment ที่ถูกถอดออก
+  // New Device
+  newDeviceName: string;    // composed from newBrand + newModel for backend
+  newSerialNo: string;
+  newBrand?: string;        // ยี่ห้อของอุปกรณ์ใหม่
+  newModel?: string;        // รุ่นของอุปกรณ์ใหม่
+  newEquipmentId?: number;  // ✅ เชื่อมโยงกับ Equipment ที่ใส่เข้าไป
+  // Replacement Type
+  replacementType: 'PERMANENT' | 'TEMPORARY';
+
+  // === COMPONENT_REPLACEMENT Fields ===
+  // เปลี่ยนเฉพาะชิ้นส่วนภายใน (เช่น แบตเตอรี่ใน UPS)
+  componentName?: string;       // ชื่อชิ้นส่วน เช่น "Battery", "Power Supply"
+  oldComponentSerial?: string;  // Serial เดิมของชิ้นส่วน
+  newComponentSerial?: string;  // Serial ใหม่ของชิ้นส่วน
+  parentEquipmentId?: number;   // อุปกรณ์หลักที่ชิ้นส่วนอยู่ใน
+  parentEquipmentName?: string; // ชื่ออุปกรณ์หลัก (for display)
+
+  // Optional
+  notes?: string;
+}
+
+interface SparePartFormProps {
+  spareParts: SparePart[];
+  onChange: (spareParts: SparePart[]) => void;
+  disabled?: boolean;
+  storeId?: number;  // Store ID สำหรับดึง Equipment ของสาขานั้น
+  incidentEquipmentIds?: number[]; // กรอง Old Device ให้แสดงเฉพาะอุปกรณ์ที่เลือกไว้ใน Incident (MA)
+}
+
+// Device suggestion interface - เชื่อมกับ Equipment จริงในระบบ
+interface DeviceSuggestion {
+  id: number;              // Equipment ID (int)
+  name: string;
+  position?: string;       // ตำแหน่งอุปกรณ์ เช่น "POS#1", "Kitchen Printer#1"
+  serialNumber: string;    // Serial Number ของ Equipment
+  model?: string;
+  brand?: string;
+  category?: string;
+  status?: string;
+  storeName?: string;      // ชื่อสาขา
+}
+
+export default function SparePartForm({
+  spareParts,
+  onChange,
+  disabled = false,
+  storeId,
+  incidentEquipmentIds,
+}: SparePartFormProps) {
+  const [scanningFor, setScanningFor] = useState<{ partId: string; field: 'oldSerialNo' | 'newSerialNo' } | null>(null);
+
+  // Store equipment list for Device dropdown
+  const [storeEquipment, setStoreEquipment] = useState<DeviceSuggestion[]>([]);
+  const [filteredStoreEquipment, setFilteredStoreEquipment] = useState<DeviceSuggestion[]>([]);
+  const [loadingStoreEquipment, setLoadingStoreEquipment] = useState(false);
+
+  // Autocomplete states
+  const [oldDeviceSuggestions, setOldDeviceSuggestions] = useState<{ [key: string]: DeviceSuggestion[] }>({});
+  const [newDeviceSuggestions, setNewDeviceSuggestions] = useState<{ [key: string]: DeviceSuggestion[] }>({});
+  const [showOldDropdown, setShowOldDropdown] = useState<string | null>(null);
+  const [showNewDropdown, setShowNewDropdown] = useState<string | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+
+  // Brand / Model autocomplete states
+  const [brandSuggestions, setBrandSuggestions] = useState<{ [key: string]: string[] }>({});
+  const [modelSuggestions, setModelSuggestions] = useState<{ [key: string]: string[] }>({});
+  const [showBrandDropdown, setShowBrandDropdown] = useState<string | null>(null);
+  const [showModelDropdown, setShowModelDropdown] = useState<string | null>(null);
+  const brandDropdownRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+  const modelDropdownRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+
+  // Refs for click outside detection
+  const oldDropdownRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+  const newDropdownRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+
+  // Fetch store equipment for Device dropdown
+  useEffect(() => {
+    if (!storeId) return;
+    const fetchStoreEquipment = async () => {
+      setLoadingStoreEquipment(true);
+      try {
+        const token = localStorage.getItem('token');
+        const response = await axios.get(
+          `${process.env.NEXT_PUBLIC_API_URL}/equipment`,
+          {
+            params: { storeId, status: 'ACTIVE', limit: 200 },
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        const list = response.data?.data || [];
+        const mapped: DeviceSuggestion[] = list.map((device: any) => ({
+          id: device.id,
+          name: device.name,
+          position: device.position,
+          serialNumber: device.serialNumber,
+          model: device.model,
+          brand: device.brand,
+          category: device.category,
+          status: device.status,
+          storeName: device.store?.name || device.store?.storeCode,
+        }));
+        setStoreEquipment(mapped);
+        // Filter to incident equipment if provided (for MA incidents)
+        const filtered = incidentEquipmentIds?.length
+          ? mapped.filter(d => incidentEquipmentIds.includes(d.id))
+          : mapped;
+        setFilteredStoreEquipment(filtered);
+      } catch (error) {
+        console.error('Failed to fetch store equipment:', error);
+      } finally {
+        setLoadingStoreEquipment(false);
+      }
+    };
+    fetchStoreEquipment();
+  }, [storeId]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showOldDropdown) {
+        const ref = oldDropdownRefs.current[showOldDropdown];
+        if (ref && !ref.contains(event.target as Node)) setShowOldDropdown(null);
+      }
+      if (showNewDropdown) {
+        const ref = newDropdownRefs.current[showNewDropdown];
+        if (ref && !ref.contains(event.target as Node)) setShowNewDropdown(null);
+      }
+      if (showBrandDropdown) {
+        const ref = brandDropdownRefs.current[showBrandDropdown];
+        if (ref && !ref.contains(event.target as Node)) setShowBrandDropdown(null);
+      }
+      if (showModelDropdown) {
+        const ref = modelDropdownRefs.current[showModelDropdown];
+        if (ref && !ref.contains(event.target as Node)) setShowModelDropdown(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showOldDropdown, showNewDropdown, showBrandDropdown, showModelDropdown]);
+
+  // ✅ Fetch device suggestions from Equipment API
+  const searchDevices = async (query: string, storeId?: number): Promise<DeviceSuggestion[]> => {
+    if (!query || query.length < 2) return [];
+
+    try {
+      setIsSearching(true);
+      const token = localStorage.getItem('token');
+
+      // ใช้ /equipment endpoint พร้อม search parameter
+      const params: any = { search: query, limit: 15 };
+      if (storeId) params.storeId = storeId;
+
+      const response = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/equipment`,
+        {
+          params,
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      // Map response to DeviceSuggestion format
+      const equipmentList = response.data?.data || [];
+      return equipmentList.map((device: any) => ({
+        id: device.id,
+        name: device.name,
+        position: device.position, // ตำแหน่งอุปกรณ์
+        serialNumber: device.serialNumber,
+        model: device.model,
+        brand: device.brand,
+        category: device.category,
+        status: device.status,
+        storeName: device.store?.name || device.store?.storeCode,
+      }));
+    } catch (error) {
+      console.error('Failed to search devices:', error);
+      return [];
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Get category of the selected old device (for brand/model filtering)
+  const getOldDeviceCategory = (partId: string): string | undefined => {
+    const part = spareParts.find(p => p.id === partId);
+    if (!part?.selectedDeviceId) return undefined;
+    return storeEquipment.find(d => d.id === part.selectedDeviceId)?.category;
+  };
+
+  // Fetch distinct brand suggestions for a category
+  const fetchBrandSuggestions = async (partId: string, query: string) => {
+    const category = getOldDeviceCategory(partId);
+    if (!query) { setShowBrandDropdown(null); return; }
+    try {
+      const token = localStorage.getItem('token');
+      const params: any = { limit: 200 };
+      if (category) params.category = category;
+      if (query) params.brand = query;
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/equipment`, {
+        params,
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const list = res.data?.data || [];
+      const brands = [...new Set<string>(list.map((e: any) => e.brand).filter(Boolean))].sort();
+      setBrandSuggestions(prev => ({ ...prev, [partId]: brands }));
+      setShowBrandDropdown(brands.length > 0 ? partId : null);
+    } catch { setShowBrandDropdown(null); }
+  };
+
+  // Fetch distinct model suggestions for a category + brand
+  const fetchModelSuggestions = async (partId: string, query: string, brand: string) => {
+    const category = getOldDeviceCategory(partId);
+    if (!query) { setShowModelDropdown(null); return; }
+    try {
+      const token = localStorage.getItem('token');
+      const params: any = { limit: 200 };
+      if (category) params.category = category;
+      if (brand) params.brand = brand;
+      if (query) params.model = query;
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/equipment`, {
+        params,
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const list = res.data?.data || [];
+      const models = [...new Set<string>(list.map((e: any) => e.model).filter(Boolean))].sort();
+      setModelSuggestions(prev => ({ ...prev, [partId]: models }));
+      setShowModelDropdown(models.length > 0 ? partId : null);
+    } catch { setShowModelDropdown(null); }
+  };
+
+  // Handle device name change with search
+  const handleDeviceNameChange = async (
+    partId: string, 
+    field: 'oldDeviceName' | 'newDeviceName', 
+    value: string
+  ) => {
+    updateSparePart(partId, field, value);
+
+    // Search for suggestions
+    if (value.length >= 2) {
+      let suggestions = await searchDevices(value, field === 'newDeviceName' ? storeId : undefined);
+
+      if (field === 'oldDeviceName') {
+        // For Old Device: filter to incident equipment only if specified
+        if (incidentEquipmentIds?.length) {
+          suggestions = suggestions.filter(d => incidentEquipmentIds.includes(d.id));
+        }
+        setOldDeviceSuggestions(prev => ({ ...prev, [partId]: suggestions }));
+        setShowOldDropdown(partId);
+      } else {
+        setNewDeviceSuggestions(prev => ({ ...prev, [partId]: suggestions }));
+        setShowNewDropdown(partId);
+      }
+    } else {
+      if (field === 'oldDeviceName') {
+        setShowOldDropdown(null);
+      } else {
+        setShowNewDropdown(null);
+      }
+    }
+  };
+
+  // Select device from suggestions - เก็บทั้งชื่อ, Serial Number และ Equipment ID
+  const selectDevice = (
+    partId: string,
+    field: 'oldDeviceName' | 'newDeviceName',
+    device: DeviceSuggestion
+  ) => {
+    // สร้างชื่อแสดงผล โดยรวม position ถ้ามี
+    let deviceName = device.position ? `[${device.position}] ` : '';
+    deviceName += device.brand && device.model
+      ? `${device.name} (${device.brand} ${device.model})`
+      : device.model
+        ? `${device.name} ${device.model}`
+        : device.name;
+
+    // อัพเดตหลาย field พร้อมกัน
+    const updatedParts = spareParts.map((part) => {
+      if (part.id !== partId) return part;
+
+      if (field === 'oldDeviceName') {
+        return {
+          ...part,
+          oldDeviceName: deviceName,
+          oldSerialNo: device.serialNumber,
+          oldEquipmentId: device.id,
+        };
+      } else {
+        return {
+          ...part,
+          newDeviceName: deviceName,
+          newSerialNo: device.serialNumber,
+          newEquipmentId: device.id,
+          newBrand: device.brand || '',
+          newModel: device.model || '',
+        };
+      }
+    });
+
+    onChange(updatedParts);
+
+    if (field === 'oldDeviceName') {
+      setShowOldDropdown(null);
+    } else {
+      setShowNewDropdown(null);
+    }
+  };
+
+  // Handle Device dropdown selection — auto-fill old device info
+  const handleDeviceSelect = (partId: string, deviceId: number | '') => {
+    const updatedParts = spareParts.map((part) => {
+      if (part.id !== partId) return part;
+
+      if (deviceId === '' || !deviceId) {
+        // Clear selection
+        return {
+          ...part,
+          selectedDeviceId: undefined,
+          oldDeviceName: '',
+          oldSerialNo: '',
+          oldEquipmentId: undefined,
+        };
+      }
+
+      const device = storeEquipment.find((d) => d.id === deviceId);
+      if (!device) return part;
+
+      // Build display name: [Position] Brand Model
+      const parts: string[] = [];
+      if (device.position) parts.push(device.position);
+      if (device.brand) parts.push(device.brand);
+      if (device.model) parts.push(device.model);
+      if (parts.length === 0) parts.push(device.name);
+      const displayName = parts.join(' ');
+
+      return {
+        ...part,
+        selectedDeviceId: device.id,
+        oldDeviceName: displayName,
+        oldSerialNo: device.serialNumber || '',
+        oldEquipmentId: device.id,
+        // Auto-fill new device name with the same device type (new equipment inherits old device's name)
+        newDeviceName: part.newDeviceName || device.name,
+      };
+    });
+
+    onChange(updatedParts);
+  };
+
+  const addSparePart = () => {
+    const newPart: SparePart = {
+      id: `spare-${Date.now()}`,
+      repairType: 'EQUIPMENT_REPLACEMENT', // Default to equipment replacement
+      // Equipment Replacement fields
+      selectedDeviceId: undefined,
+      oldDeviceName: '',
+      oldSerialNo: '',
+      newDeviceName: '',
+      newSerialNo: '',
+      newBrand: '',
+      newModel: '',
+      replacementType: '' as any,
+      // Component Replacement fields
+      componentName: '',
+      oldComponentSerial: '',
+      newComponentSerial: '',
+      parentEquipmentName: '',
+      notes: '',
+    };
+    onChange([...spareParts, newPart]);
+  };
+
+  const removeSparePart = (id: string) => {
+    onChange(spareParts.filter((part) => part.id !== id));
+  };
+
+  const updateSparePart = (id: string, field: keyof SparePart, value: string) => {
+    onChange(
+      spareParts.map((part) =>
+        part.id === id ? { ...part, [field]: value } : part
+      )
+    );
+  };
+
+  const handleScanBarcode = async (partId: string, field: 'oldSerialNo' | 'newSerialNo') => {
+    if (!('BarcodeDetector' in window)) {
+      alert('Barcode scanning is not supported in this browser. Please enter serial number manually.');
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' } 
+      });
+
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      video.setAttribute('playsinline', 'true');
+      await video.play();
+
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+
+      const barcodeDetector = new (window as any).BarcodeDetector({
+        formats: ['code_128', 'code_39', 'ean_13', 'qr_code']
+      });
+
+      setScanningFor({ partId, field });
+
+      const scanLoop = async () => {
+        if (!context) return;
+
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        try {
+          const barcodes = await barcodeDetector.detect(canvas);
+          
+          if (barcodes.length > 0) {
+            const barcode = barcodes[0];
+            updateSparePart(partId, field, barcode.rawValue);
+            
+            stream.getTracks().forEach(track => track.stop());
+            setScanningFor(null);
+            return;
+          }
+        } catch (err) {
+          console.error('Barcode detection error:', err);
+        }
+
+        requestAnimationFrame(scanLoop);
+      };
+
+      scanLoop();
+
+    } catch (err) {
+      console.error('Camera access error:', err);
+      alert('Could not access camera. Please check permissions and try again.');
+      setScanningFor(null);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Package className="w-5 h-5 text-blue-400" />
+          <h3 className="font-medium text-white">Spare Parts Used</h3>
+          <span className="text-sm text-gray-400">({spareParts.length} items)</span>
+        </div>
+        <button
+          type="button"
+          onClick={addSparePart}
+          disabled={disabled}
+          className="flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-slate-700 disabled:cursor-not-allowed transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+          Add Part
+        </button>
+      </div>
+
+      {/* Spare Parts List */}
+      {spareParts.length === 0 ? (
+        <div className="text-center py-8 border-2 border-dashed border-slate-600/50 rounded-lg bg-slate-800/30">
+          <Package className="w-12 h-12 text-gray-500 mx-auto mb-3" />
+          <p className="text-sm text-gray-300 mb-2">No spare parts added yet</p>
+          <p className="text-xs text-gray-400">Click "Add Part" to add spare parts</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {spareParts.map((part, index) => (
+            <div
+              key={part.id}
+              className="border border-slate-700/50 rounded-lg p-4 space-y-4 bg-slate-800/30 shadow-lg"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-slate-700/50">
+                <h4 className="font-semibold text-white flex items-center gap-2">
+                  <Package className="w-4 h-4 text-blue-400" />
+                  Spare Part #{index + 1}
+                </h4>
+                <button
+                  type="button"
+                  onClick={() => removeSparePart(part.id)}
+                  disabled={disabled}
+                  className="p-1.5 text-red-400 hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-50"
+                  title="Remove part"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* REPAIR TYPE SELECTOR */}
+              <div className="bg-slate-900/50 border border-slate-700/50 rounded-lg p-3">
+                <label className="block text-sm font-semibold text-gray-200 mb-3">
+                  ประเภทการซ่อม <span className="text-red-400">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Equipment Replacement */}
+                  <label className={`flex items-center gap-3 p-3 border-2 rounded-lg cursor-pointer transition-all ${
+                    part.repairType === 'EQUIPMENT_REPLACEMENT'
+                      ? 'border-blue-500 bg-blue-900/30'
+                      : 'border-slate-600/50 hover:bg-slate-700/30'
+                  }`}>
+                    <input
+                      type="radio"
+                      name={`repair-type-${part.id}`}
+                      value="EQUIPMENT_REPLACEMENT"
+                      checked={part.repairType === 'EQUIPMENT_REPLACEMENT'}
+                      onChange={(e) => updateSparePart(part.id, 'repairType', e.target.value)}
+                      disabled={disabled}
+                      className="sr-only"
+                    />
+                    <ArrowRightLeft className={`w-5 h-5 ${
+                      part.repairType === 'EQUIPMENT_REPLACEMENT' ? 'text-blue-400' : 'text-gray-400'
+                    }`} />
+                    <div>
+                      <p className="text-sm font-medium text-white">เปลี่ยนอุปกรณ์</p>
+                      <p className="text-xs text-gray-400">เปลี่ยนอุปกรณ์ทั้งตัว</p>
+                    </div>
+                  </label>
+
+                  {/* Component Replacement */}
+                  <label className={`flex items-center gap-3 p-3 border-2 rounded-lg cursor-pointer transition-all ${
+                    part.repairType === 'COMPONENT_REPLACEMENT'
+                      ? 'border-purple-500 bg-purple-900/30'
+                      : 'border-slate-600/50 hover:bg-slate-700/30'
+                  }`}>
+                    <input
+                      type="radio"
+                      name={`repair-type-${part.id}`}
+                      value="COMPONENT_REPLACEMENT"
+                      checked={part.repairType === 'COMPONENT_REPLACEMENT'}
+                      onChange={(e) => updateSparePart(part.id, 'repairType', e.target.value)}
+                      disabled={disabled}
+                      className="sr-only"
+                    />
+                    <Cpu className={`w-5 h-5 ${
+                      part.repairType === 'COMPONENT_REPLACEMENT' ? 'text-purple-400' : 'text-gray-400'
+                    }`} />
+                    <div>
+                      <p className="text-sm font-medium text-white">เปลี่ยนชิ้นส่วน</p>
+                      <p className="text-xs text-gray-400">เปลี่ยนชิ้นส่วนภายใน</p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* COMPONENT REPLACEMENT FIELDS */}
+              {part.repairType === 'COMPONENT_REPLACEMENT' && (
+                <>
+                  {/* Parent Equipment */}
+                  <div className="bg-purple-900/20 border border-purple-700/50 rounded-lg p-3">
+                    <h5 className="text-sm font-semibold text-purple-400 mb-3 flex items-center gap-2">
+                      <Package className="w-4 h-4" />
+                      อุปกรณ์หลัก (Parent Equipment)
+                    </h5>
+                    <div className="relative" ref={el => { oldDropdownRefs.current[`parent-${part.id}`] = el }}>
+                      <label className="block text-xs font-medium text-gray-200 mb-1">
+                        ชื่ออุปกรณ์ <span className="text-red-400">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={part.parentEquipmentName || ''}
+                          onChange={async (e) => {
+                            updateSparePart(part.id, 'parentEquipmentName', e.target.value);
+                            if (e.target.value.length >= 2) {
+                              const suggestions = await searchDevices(e.target.value);
+                              setOldDeviceSuggestions(prev => ({ ...prev, [`parent-${part.id}`]: suggestions }));
+                              setShowOldDropdown(`parent-${part.id}`);
+                            }
+                          }}
+                          onFocus={() => {
+                            if ((part.parentEquipmentName || '').length >= 2) {
+                              setShowOldDropdown(`parent-${part.id}`);
+                            }
+                          }}
+                          disabled={disabled}
+                          placeholder="e.g., UPS APC Smart 1500VA"
+                          className="w-full px-3 py-2 pr-8 text-sm bg-slate-700/50 border border-slate-600/50 text-white placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:bg-slate-800/30 disabled:cursor-not-allowed"
+                          required
+                        />
+                        <Search className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      </div>
+
+                      {/* Parent Equipment Autocomplete Dropdown */}
+                      {showOldDropdown === `parent-${part.id}` && oldDeviceSuggestions[`parent-${part.id}`]?.length > 0 && (
+                        <div className="absolute z-10 w-full mt-1 bg-slate-700 border border-slate-600 rounded-lg shadow-xl max-h-72 overflow-y-auto">
+                          {oldDeviceSuggestions[`parent-${part.id}`].map((device) => (
+                            <button
+                              key={device.id}
+                              type="button"
+                              onClick={() => {
+                                let deviceName = device.position ? `[${device.position}] ` : '';
+                                deviceName += device.brand && device.model
+                                  ? `${device.name} (${device.brand} ${device.model})`
+                                  : device.name;
+
+                                const updatedParts = spareParts.map((p) => {
+                                  if (p.id !== part.id) return p;
+                                  return {
+                                    ...p,
+                                    parentEquipmentName: deviceName,
+                                    parentEquipmentId: device.id,
+                                  };
+                                });
+                                onChange(updatedParts);
+                                setShowOldDropdown(null);
+                              }}
+                              className="w-full px-3 py-2.5 text-left hover:bg-slate-600 transition-colors border-b border-slate-600/50 last:border-0"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    {device.position && (
+                                      <span className="text-xs px-1.5 py-0.5 bg-yellow-900/40 text-yellow-300 rounded font-medium">
+                                        {device.position}
+                                      </span>
+                                    )}
+                                    <p className="text-sm text-white font-medium truncate">{device.name}</p>
+                                  </div>
+                                  <p className="text-xs text-purple-400 font-mono">S/N: {device.serialNumber}</p>
+                                  {device.storeName && (
+                                    <p className="text-xs text-gray-500">📍 {device.storeName}</p>
+                                  )}
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Component Details */}
+                  <div className="bg-cyan-900/20 border border-cyan-700/50 rounded-lg p-3">
+                    <h5 className="text-sm font-semibold text-cyan-400 mb-3 flex items-center gap-2">
+                      <Cpu className="w-4 h-4" />
+                      ชิ้นส่วนที่เปลี่ยน (Component)
+                    </h5>
+                    <div className="grid grid-cols-1 gap-3">
+                      {/* Component Name */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-200 mb-1">
+                          ชื่อชิ้นส่วน <span className="text-red-400">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={part.componentName || ''}
+                          onChange={(e) => updateSparePart(part.id, 'componentName', e.target.value)}
+                          disabled={disabled}
+                          placeholder="e.g., Battery, Power Supply, Hard Drive"
+                          className="w-full px-3 py-2 text-sm bg-slate-700/50 border border-slate-600/50 text-white placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent disabled:bg-slate-800/30 disabled:cursor-not-allowed"
+                          required
+                        />
+                      </div>
+
+                      {/* Old/New Component Serials */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-200 mb-1">
+                            Serial เดิม <span className="text-red-400">*</span>
+                          </label>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={part.oldComponentSerial || ''}
+                              onChange={(e) => updateSparePart(part.id, 'oldComponentSerial', e.target.value)}
+                              disabled={disabled}
+                              placeholder="Serial ชิ้นส่วนเดิม"
+                              className="flex-1 px-3 py-2 text-sm bg-red-900/20 border border-red-700/50 text-white placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent disabled:bg-slate-800/30 disabled:cursor-not-allowed"
+                              required
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleScanBarcode(part.id, 'oldSerialNo')}
+                              disabled={disabled || scanningFor !== null}
+                              className="px-3 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-500 disabled:bg-slate-800 disabled:cursor-not-allowed transition-colors"
+                              title="Scan barcode"
+                            >
+                              <Camera className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-200 mb-1">
+                            Serial ใหม่ <span className="text-red-400">*</span>
+                          </label>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={part.newComponentSerial || ''}
+                              onChange={(e) => updateSparePart(part.id, 'newComponentSerial', e.target.value)}
+                              disabled={disabled}
+                              placeholder="Serial ชิ้นส่วนใหม่"
+                              className="flex-1 px-3 py-2 text-sm bg-green-900/20 border border-green-700/50 text-white placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-slate-800/30 disabled:cursor-not-allowed"
+                              required
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleScanBarcode(part.id, 'newSerialNo')}
+                              disabled={disabled || scanningFor !== null}
+                              className="px-3 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-500 disabled:bg-slate-800 disabled:cursor-not-allowed transition-colors"
+                              title="Scan barcode"
+                            >
+                              <Camera className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* EQUIPMENT REPLACEMENT FIELDS */}
+              {part.repairType === 'EQUIPMENT_REPLACEMENT' && (
+                <>
+              {/* DEVICE SELECTOR - เลือก Device จาก Equipment ของ Store */}
+              {storeId && (
+                <div className="bg-yellow-900/20 border border-yellow-700/50 rounded-lg p-3">
+                  <h5 className="text-sm font-semibold text-yellow-400 mb-3 flex items-center gap-2">
+                    <Package className="w-4 h-4" />
+                    เลือก Device ที่ต้องการเปลี่ยน
+                  </h5>
+                  <select
+                    value={part.selectedDeviceId || ''}
+                    onChange={(e) => handleDeviceSelect(part.id, e.target.value ? Number(e.target.value) : '')}
+                    disabled={disabled || loadingStoreEquipment}
+                    className="w-full px-3 py-2.5 text-sm bg-slate-700/50 border border-slate-600/50 text-white rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent disabled:bg-slate-800/30 disabled:cursor-not-allowed"
+                  >
+                    <option value="">-- เลือก Device --</option>
+                    {filteredStoreEquipment.map((device) => (
+                      <option key={device.id} value={device.id}>
+                        {device.name}
+                        {device.brand || device.model
+                          ? ` — ${[device.brand, device.model].filter(Boolean).join(' ')}`
+                          : ''}
+                        {device.serialNumber ? ` (S/N: ${device.serialNumber})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {loadingStoreEquipment && (
+                    <p className="text-xs text-yellow-300 mt-1">กำลังโหลดข้อมูล Equipment...</p>
+                  )}
+                  {!loadingStoreEquipment && filteredStoreEquipment.length === 0 && (
+                    <p className="text-xs text-gray-400 mt-1">ไม่พบ Equipment ในสาขานี้ — สามารถกรอกข้อมูลเองได้</p>
+                  )}
+                </div>
+              )}
+
+              {/* OLD DEVICE SECTION */}
+              <div className="bg-red-900/20 border border-red-700/50 rounded-lg p-3">
+                <h5 className="text-sm font-semibold text-red-400 mb-3 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4" />
+                  Old Device (Removed)
+                </h5>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {/* Old Device Name with Autocomplete */}
+                  <div className="relative" ref={el => { oldDropdownRefs.current[part.id] = el }}>
+                    <label className="block text-xs font-medium text-gray-200 mb-1">
+                      Device Name <span className="text-red-400">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={part.oldDeviceName}
+                        onChange={(e) =>
+                          handleDeviceNameChange(part.id, 'oldDeviceName', e.target.value)
+                        }
+                        onFocus={() => {
+                          if (part.oldDeviceName.length >= 2) {
+                            setShowOldDropdown(part.id);
+                          }
+                        }}
+                        disabled={disabled}
+                        placeholder="e.g., POS Terminal HP RP2"
+                        className="w-full px-3 py-2 pr-8 text-sm bg-slate-700/50 border border-slate-600/50 text-white placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent disabled:bg-slate-800/30 disabled:cursor-not-allowed"
+                        required
+                      />
+                      <Search className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    </div>
+
+                    {/* Autocomplete Dropdown - แสดง Equipment จริงจากระบบ */}
+                    {showOldDropdown === part.id && oldDeviceSuggestions[part.id]?.length > 0 && (
+                      <div className="absolute z-10 w-full mt-1 bg-slate-700 border border-slate-600 rounded-lg shadow-xl max-h-72 overflow-y-auto">
+                        {isSearching && (
+                          <div className="p-3 text-center text-sm text-gray-400">
+                            กำลังค้นหาอุปกรณ์...
+                          </div>
+                        )}
+                        {oldDeviceSuggestions[part.id].map((device) => (
+                          <button
+                            key={device.id}
+                            type="button"
+                            onClick={() => selectDevice(part.id, 'oldDeviceName', device)}
+                            className="w-full px-3 py-2.5 text-left hover:bg-slate-600 transition-colors border-b border-slate-600/50 last:border-0"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  {device.position && (
+                                    <span className="text-xs px-1.5 py-0.5 bg-yellow-900/40 text-yellow-300 rounded font-medium">
+                                      {device.position}
+                                    </span>
+                                  )}
+                                  <p className="text-sm text-white font-medium truncate">{device.name}</p>
+                                </div>
+                                <p className="text-xs text-blue-400 font-mono">S/N: {device.serialNumber}</p>
+                                {device.brand && device.model && (
+                                  <p className="text-xs text-gray-400">{device.brand} {device.model}</p>
+                                )}
+                                {device.storeName && (
+                                  <p className="text-xs text-gray-500">📍 {device.storeName}</p>
+                                )}
+                              </div>
+                              <div className="flex flex-col items-end gap-1">
+                                {device.category && (
+                                  <span className="text-xs px-2 py-0.5 bg-blue-900/30 text-blue-300 rounded">
+                                    {device.category}
+                                  </span>
+                                )}
+                                {device.status && (
+                                  <span className={`text-xs px-2 py-0.5 rounded ${
+                                    device.status === 'ACTIVE' ? 'bg-green-900/30 text-green-300' :
+                                    device.status === 'MAINTENANCE' ? 'bg-yellow-900/30 text-yellow-300' :
+                                    'bg-gray-900/30 text-gray-300'
+                                  }`}>
+                                    {device.status}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Old Serial No with Barcode Scanner */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-200 mb-1">
+                      Serial No. <span className="text-red-400">*</span>
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={part.oldSerialNo}
+                        onChange={(e) =>
+                          updateSparePart(part.id, 'oldSerialNo', e.target.value)
+                        }
+                        disabled={disabled}
+                        placeholder="Scan or enter serial number"
+                        className="flex-1 px-3 py-2 text-sm bg-slate-700/50 border border-slate-600/50 text-white placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent disabled:bg-slate-800/30 disabled:cursor-not-allowed"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleScanBarcode(part.id, 'oldSerialNo')}
+                        disabled={disabled || scanningFor !== null}
+                        className="px-3 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-500 disabled:bg-slate-800 disabled:cursor-not-allowed transition-colors"
+                        title="Scan barcode"
+                      >
+                        <Camera className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* NEW DEVICE SECTION */}
+              <div className="bg-green-900/20 border border-green-700/50 rounded-lg p-3">
+                <h5 className="text-sm font-semibold text-green-400 mb-3 flex items-center gap-2">
+                  <Package className="w-4 h-4" />
+                  New Device (Installed)
+                </h5>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {/* Brand */}
+                  <div
+                    className="relative"
+                    ref={el => { brandDropdownRefs.current[part.id] = el; }}
+                  >
+                    <label className="block text-xs font-medium text-gray-200 mb-1">
+                      Brand / ยี่ห้อ <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={part.newBrand || ''}
+                      onChange={(e) => {
+                        updateSparePart(part.id, 'newBrand', e.target.value);
+                        fetchBrandSuggestions(part.id, e.target.value);
+                      }}
+                      onFocus={() => {
+                        if (part.newBrand) fetchBrandSuggestions(part.id, part.newBrand);
+                      }}
+                      disabled={disabled}
+                      placeholder="e.g., HP, Dell, Epson"
+                      className="w-full px-3 py-2 text-sm bg-slate-700/50 border border-slate-600/50 text-white placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-slate-800/30 disabled:cursor-not-allowed"
+                      required
+                      autoComplete="off"
+                    />
+                    {showBrandDropdown === part.id && (brandSuggestions[part.id]?.length ?? 0) > 0 && (
+                      <ul className="absolute z-50 left-0 right-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl max-h-44 overflow-y-auto">
+                        {brandSuggestions[part.id].map(brand => (
+                          <li
+                            key={brand}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              updateSparePart(part.id, 'newBrand', brand);
+                              setShowBrandDropdown(null);
+                            }}
+                            className="px-3 py-2 text-sm text-white hover:bg-slate-700 cursor-pointer"
+                          >
+                            {brand}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  {/* Model */}
+                  <div
+                    className="relative"
+                    ref={el => { modelDropdownRefs.current[part.id] = el; }}
+                  >
+                    <label className="block text-xs font-medium text-gray-200 mb-1">
+                      Model / รุ่น <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={part.newModel || ''}
+                      onChange={(e) => {
+                        updateSparePart(part.id, 'newModel', e.target.value);
+                        fetchModelSuggestions(part.id, e.target.value, part.newBrand || '');
+                      }}
+                      onFocus={() => {
+                        if (part.newModel) fetchModelSuggestions(part.id, part.newModel, part.newBrand || '');
+                      }}
+                      disabled={disabled}
+                      placeholder="e.g., EloPOS X10, ProBook 450"
+                      className="w-full px-3 py-2 text-sm bg-slate-700/50 border border-slate-600/50 text-white placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-slate-800/30 disabled:cursor-not-allowed"
+                      required
+                      autoComplete="off"
+                    />
+                    {showModelDropdown === part.id && (modelSuggestions[part.id]?.length ?? 0) > 0 && (
+                      <ul className="absolute z-50 left-0 right-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl max-h-44 overflow-y-auto">
+                        {modelSuggestions[part.id].map(model => (
+                          <li
+                            key={model}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              updateSparePart(part.id, 'newModel', model);
+                              setShowModelDropdown(null);
+                            }}
+                            className="px-3 py-2 text-sm text-white hover:bg-slate-700 cursor-pointer"
+                          >
+                            {model}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  {/* Serial No with Barcode Scanner */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-200 mb-1">
+                      Serial No. <span className="text-red-400">*</span>
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={part.newSerialNo}
+                        onChange={(e) => updateSparePart(part.id, 'newSerialNo', e.target.value)}
+                        disabled={disabled}
+                        placeholder="Scan or enter serial number"
+                        className="flex-1 px-3 py-2 text-sm bg-slate-700/50 border border-slate-600/50 text-white placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-slate-800/30 disabled:cursor-not-allowed"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleScanBarcode(part.id, 'newSerialNo')}
+                        disabled={disabled || scanningFor !== null}
+                        className="px-3 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-500 disabled:bg-slate-800 disabled:cursor-not-allowed transition-colors"
+                        title="Scan barcode"
+                      >
+                        <Camera className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* REPLACEMENT TYPE */}
+              <div className="bg-blue-900/20 border border-blue-700/50 rounded-lg p-4">
+                <label className="block text-sm font-semibold text-blue-300 mb-3">
+                  Replacement Type <span className="text-red-400">*</span>
+                </label>
+                <div className="space-y-2">
+                  {/* Permanent */}
+                  <label className="flex items-start gap-3 p-3 border-2 border-slate-600/50 rounded-lg cursor-pointer hover:bg-blue-900/30 transition-colors has-[:checked]:border-blue-500 has-[:checked]:bg-blue-900/40">
+                    <input
+                      type="radio"
+                      name={`replacement-type-${part.id}`}
+                      value="PERMANENT"
+                      checked={part.replacementType === 'PERMANENT'}
+                      onChange={(e) =>
+                        updateSparePart(part.id, 'replacementType', e.target.value)
+                      }
+                      disabled={disabled}
+                      className="mt-0.5 w-4 h-4 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                    />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-white">
+                        Permanent Replacement - เปลี่ยนถาวร
+                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Device is permanently replaced. Old device removed from inventory.
+                      </p>
+                    </div>
+                  </label>
+
+                  {/* Temporary */}
+                  <label className="flex items-start gap-3 p-3 border-2 border-slate-600/50 rounded-lg cursor-pointer hover:bg-orange-900/30 transition-colors has-[:checked]:border-orange-500 has-[:checked]:bg-orange-900/40">
+                    <input
+                      type="radio"
+                      name={`replacement-type-${part.id}`}
+                      value="TEMPORARY"
+                      checked={part.replacementType === 'TEMPORARY'}
+                      onChange={(e) =>
+                        updateSparePart(part.id, 'replacementType', e.target.value)
+                      }
+                      disabled={disabled}
+                      className="mt-0.5 w-4 h-4 text-orange-600 focus:ring-2 focus:ring-orange-500"
+                    />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-white">
+                        Temporary Spare - วางสแปร์ชั่วคราว
+                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Spare device installed temporarily. Must be returned later.
+                      </p>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Warning for Temporary */}
+                {part.replacementType === 'TEMPORARY' && (
+                  <div className="flex items-start gap-2 mt-3 p-2 bg-orange-900/30 border border-orange-700/50 rounded text-xs text-orange-200">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                    <p>
+                      <strong>Note:</strong> A "Return Spare Part" task will need to be created later to track the return of this device.
+                    </p>
+                  </div>
+                )}
+              </div>
+                </>
+              )}
+
+              {/* Notes */}
+              <div>
+                <label className="block text-sm font-medium text-gray-200 mb-1">
+                  Additional Notes (Optional)
+                </label>
+                <textarea
+                  value={part.notes || ''}
+                  onChange={(e) =>
+                    updateSparePart(part.id, 'notes', e.target.value)
+                  }
+                  disabled={disabled}
+                  placeholder="Any additional information about this replacement..."
+                  rows={2}
+                  className="w-full px-3 py-2 text-sm bg-slate-700/50 border border-slate-600/50 text-white placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-slate-800/30 disabled:cursor-not-allowed resize-none"
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Scanning Indicator */}
+      {scanningFor && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+          <div className="glass-card border border-slate-700/50 rounded-lg p-6 max-w-sm text-center">
+            <Camera className="w-16 h-16 text-blue-400 mx-auto mb-4 animate-pulse" />
+            <h3 className="text-lg font-semibold text-white mb-2">
+              Scanning Barcode...
+            </h3>
+            <p className="text-sm text-gray-300 mb-4">
+              Point your camera at the barcode
+            </p>
+            <button
+              onClick={() => setScanningFor(null)}
+              className="px-4 py-2 bg-slate-700 text-gray-200 rounded-lg hover:bg-slate-600 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Info */}
+      <div className="flex items-start gap-2 p-3 bg-blue-900/20 border border-blue-700/50 rounded-lg text-sm text-blue-200">
+        <Package className="w-4 h-4 flex-shrink-0 mt-0.5" />
+        <div>
+          <p className="font-medium mb-1">Spare Parts Tracking:</p>
+          <ul className="text-xs space-y-0.5 list-disc list-inside">
+            <li>Type device name to search from inventory (2+ characters)</li>
+            <li>Use barcode scanner for accurate serial numbers</li>
+            <li>Select replacement type for proper inventory tracking</li>
+            <li>Temporary spares require follow-up return task</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}

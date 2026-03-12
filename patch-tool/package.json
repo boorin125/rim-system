@@ -1,0 +1,11 @@
+{
+  "name": "rim-patch-tool",
+  "version": "1.0.0",
+  "description": "RIM-System patch creation tool",
+  "scripts": {
+    "create": "node create-patch.js"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.16"
+  }
+}
