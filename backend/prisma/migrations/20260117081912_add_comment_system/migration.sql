@@ -1,12 +1,3 @@
--- DropIndex (if exists)
-DROP INDEX IF EXISTS "incidents_last_reopened_at_idx";
-
--- DropIndex (if exists)
-DROP INDEX IF EXISTS "incidents_reopen_count_idx";
-
--- AlterTable
-ALTER TABLE "incidents" ALTER COLUMN "last_reopened_at" SET DATA TYPE TIMESTAMP(3);
-
 -- CreateTable
 CREATE TABLE "comments" (
     "id" SERIAL NOT NULL,
