@@ -554,7 +554,7 @@ export default function EquipmentDetailPage() {
                 <ImageIcon className="w-5 h-5 text-purple-400" />
                 รูปภาพอุปกรณ์
               </h2>
-              {canPerformAction(currentUser?.role, 'equipment', 'update') && (
+              {canPerformAction(currentUser?.role, 'equipment', 'edit') && (
                 <label className="flex items-center gap-2 px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 border border-purple-500/30 rounded-lg text-xs cursor-pointer transition-colors">
                   {imageUploading ? (
                     <><Clock className="w-3.5 h-3.5 animate-spin" />กำลังอัปโหลด...</>
