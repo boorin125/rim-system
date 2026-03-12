@@ -180,8 +180,11 @@ export class BackupService {
         backup.schedule?.externalPath,
       );
 
-      // Create backup file
-      const fileName = `${backup.jobCode}.json`;
+      // Create backup file — include custom name as prefix if provided
+      const safeName = backup.customName
+        ? backup.customName.replace(/[^a-zA-Z0-9ก-๙._-]/g, '_') + '_'
+        : '';
+      const fileName = `${safeName}${backup.jobCode}.json`;
       const filePath = path.join(backupDir, fileName);
 
       const passwordHash = preHashedPassword || (password ? await bcrypt.hash(password, 10) : undefined);

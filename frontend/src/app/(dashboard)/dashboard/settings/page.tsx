@@ -343,6 +343,19 @@ export default function SettingsPage() {
   const [backupPassword, setBackupPassword] = useState('')
   const [backupPasswordConfirm, setBackupPasswordConfirm] = useState('')
 
+  // Backup group selection (all checked by default = Full backup)
+  const BACKUP_GROUPS = [
+    { id: 'config',    label: 'ตั้งค่าระบบ',              description: 'SLA, หมวดหมู่, Job Type, License, ตั้งค่าองค์กร', tables: ['system_configs', 'sla_configs', 'incident_categories', 'job_types', 'licenses'] },
+    { id: 'users',     label: 'ผู้ใช้งาน',                description: 'บัญชีผู้ใช้และสิทธิ์การเข้าถึง', tables: ['users', 'user_role_assignments'] },
+    { id: 'stores',    label: 'ร้านค้า & อุปกรณ์',        description: 'ข้อมูลร้านค้า อุปกรณ์ และประวัติ', tables: ['stores', 'equipment', 'equipment_logs'] },
+    { id: 'incidents', label: 'งาน Incident',              description: 'Incident ทั้งหมด ความคิดเห็น อะไหล่ ประวัติ SLA Defense', tables: ['incidents', 'incident_assignees', 'incident_reassignments', 'incident_ratings', 'sla_defenses', 'comments', 'spare_parts', 'incident_history', 'notifications'] },
+    { id: 'outsource', label: 'Outsource',                 description: 'งาน Outsource และการเสนอราคา', tables: ['outsource_jobs', 'outsource_bids'] },
+    { id: 'pm',        label: 'Preventive Maintenance',    description: 'บันทึก PM อุปกรณ์', tables: ['pm_records', 'pm_equipment_records'] },
+    { id: 'knowledge', label: 'Knowledge Base',            description: 'บทความและหมวดหมู่ความรู้', tables: ['knowledge_categories', 'knowledge_articles'] },
+  ]
+  const ALL_GROUP_IDS = BACKUP_GROUPS.map(g => g.id)
+  const [selectedBackupGroups, setSelectedBackupGroups] = useState<string[]>(ALL_GROUP_IDS)
+
   // Auto Backup Schedule State
   const [schedule, setSchedule] = useState<BackupSchedule | null>(null)
   const [isEditingSchedule, setIsEditingSchedule] = useState(false)
@@ -1072,12 +1085,25 @@ export default function SettingsPage() {
   // ========================================
 
   const handleCreateBackup = async (password?: string) => {
+    if (selectedBackupGroups.length === 0) {
+      toast.error('กรุณาเลือกอย่างน้อย 1 หัวข้อ')
+      return
+    }
     setIsCreatingBackup(true)
     try {
       const token = localStorage.getItem('token')
+      const isAll = selectedBackupGroups.length === BACKUP_GROUPS.length
       const payload: any = {}
       if (password) payload.password = password
       if (backupCustomName.trim()) payload.customName = backupCustomName.trim()
+      if (isAll) {
+        payload.scope = 'ALL'
+      } else {
+        payload.scope = 'SELECTIVE'
+        payload.scopeDetails = BACKUP_GROUPS
+          .filter(g => selectedBackupGroups.includes(g.id))
+          .flatMap(g => g.tables)
+      }
       await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/settings/backups`,
         payload,
@@ -1093,6 +1119,7 @@ export default function SettingsPage() {
       setBackupPassword('')
       setBackupPasswordConfirm('')
       setBackupCustomName('')
+      setSelectedBackupGroups(ALL_GROUP_IDS)
     }
   }
 
@@ -3207,15 +3234,16 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* ── Create Backup with Password Modal ── */}
+        {/* ── Create Backup Modal ── */}
         {showBackupPasswordModal && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-            <div className="bg-slate-800 rounded-2xl p-6 w-full max-w-md border border-slate-600">
-              <div className="flex items-center gap-3 mb-4">
+            <div className="bg-slate-800 rounded-2xl p-6 w-full max-w-lg border border-slate-600 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center gap-3 mb-5">
                 <Database className="w-5 h-5 text-purple-400" />
-                <h3 className="text-lg font-semibold text-white">Create Backup</h3>
+                <h3 className="text-lg font-semibold text-white">สร้าง Backup</h3>
               </div>
-              <div className="space-y-3 mb-4">
+
+              <div className="space-y-4">
                 {/* Custom name */}
                 <div>
                   <label className="block text-sm text-gray-400 mb-1">ชื่อ Backup <span className="text-gray-500">(ไม่บังคับ)</span></label>
@@ -3227,9 +3255,65 @@ export default function SettingsPage() {
                     className="w-full px-3 py-2 bg-slate-700 border border-slate-500 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
                   />
                 </div>
-                {/* Password */}
+
+                {/* Scope selector */}
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1 flex items-center gap-1">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm text-gray-400">ข้อมูลที่ต้องการ Backup</label>
+                    <div className="flex gap-3 text-xs">
+                      <button
+                        onClick={() => setSelectedBackupGroups(ALL_GROUP_IDS)}
+                        className="text-purple-400 hover:text-purple-300 transition"
+                      >เลือกทั้งหมด</button>
+                      <button
+                        onClick={() => setSelectedBackupGroups([])}
+                        className="text-gray-500 hover:text-gray-300 transition"
+                      >ล้างทั้งหมด</button>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    {BACKUP_GROUPS.map(group => {
+                      const checked = selectedBackupGroups.includes(group.id)
+                      return (
+                        <label
+                          key={group.id}
+                          className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition ${
+                            checked
+                              ? 'bg-purple-500/10 border-purple-500/40'
+                              : 'bg-slate-700/30 border-slate-600/50 hover:bg-slate-700/50'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedBackupGroups(prev => [...prev, group.id])
+                              } else {
+                                setSelectedBackupGroups(prev => prev.filter(id => id !== group.id))
+                              }
+                            }}
+                            className="mt-0.5 accent-purple-500"
+                          />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-white">{group.label}</p>
+                            <p className="text-xs text-gray-500 mt-0.5">{group.description}</p>
+                          </div>
+                        </label>
+                      )
+                    })}
+                  </div>
+                  {selectedBackupGroups.length === 0 && (
+                    <p className="text-xs text-red-400 mt-1">กรุณาเลือกอย่างน้อย 1 หัวข้อ</p>
+                  )}
+                  {selectedBackupGroups.length === BACKUP_GROUPS.length && (
+                    <p className="text-xs text-green-400 mt-1">Full Backup — ครอบคลุมทุกตาราง</p>
+                  )}
+                </div>
+
+                {/* Password */}
+                <div className="pt-2 border-t border-slate-600/50">
+                  <label className="block text-sm text-gray-400 mb-2 flex items-center gap-1">
                     <Lock className="w-3.5 h-3.5" /> Password <span className="text-gray-500">(ไม่บังคับ)</span>
                   </label>
                   <input
@@ -3251,18 +3335,28 @@ export default function SettingsPage() {
                   )}
                 </div>
               </div>
-              <div className="flex gap-3">
+
+              <div className="flex gap-3 mt-5">
                 <button
-                  onClick={() => { setShowBackupPasswordModal(false); setBackupPassword(''); setBackupPasswordConfirm(''); setBackupCustomName('') }}
+                  onClick={() => {
+                    setShowBackupPasswordModal(false)
+                    setBackupPassword('')
+                    setBackupPasswordConfirm('')
+                    setBackupCustomName('')
+                    setSelectedBackupGroups(ALL_GROUP_IDS)
+                  }}
                   className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition"
                 >ยกเลิก</button>
                 <button
                   onClick={() => handleCreateBackup(backupPassword || undefined)}
-                  disabled={isCreatingBackup || (!!backupPassword && backupPassword !== backupPasswordConfirm)}
+                  disabled={isCreatingBackup || selectedBackupGroups.length === 0 || (!!backupPassword && backupPassword !== backupPasswordConfirm)}
                   className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {isCreatingBackup ? <Loader2 className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
                   สร้าง Backup
+                  {selectedBackupGroups.length < BACKUP_GROUPS.length && selectedBackupGroups.length > 0 && (
+                    <span className="text-xs opacity-70">({selectedBackupGroups.length}/{BACKUP_GROUPS.length})</span>
+                  )}
                 </button>
               </div>
             </div>

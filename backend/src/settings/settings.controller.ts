@@ -411,10 +411,12 @@ export class SettingsController {
    */
   @Post('backups')
   @Roles(UserRole.SUPER_ADMIN, UserRole.IT_MANAGER)
-  async createBackup(@Request() req, @Body() body: { password?: string; customName?: string }) {
+  async createBackup(@Request() req, @Body() body: { password?: string; customName?: string; scope?: string; scopeDetails?: string[] }) {
+    const scope = (body?.scope as BackupScope) || BackupScope.ALL;
     return this.backupService.createBackup(req.user.id, {
       backupType: BackupType.FULL,
-      scope: BackupScope.ALL,
+      scope,
+      scopeDetails: body?.scopeDetails,
       password: body?.password,
       customName: body?.customName,
     });
