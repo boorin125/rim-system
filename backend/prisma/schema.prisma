@@ -1,0 +1,1707 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                       Int        @id @default(autoincrement())
+  username                 String     @unique
+  email                    String     @unique
+  password                 String
+  firstName                String?    @map("first_name")
+  lastName                 String?    @map("last_name")
+  phone                    String?
+  department               String?    @map("department")
+  technicianType           TechnicianType? @map("technician_type")
+  serviceCenter            String?    @map("service_center")
+  responsibleProvinces     String[]   @default([]) @map("responsible_provinces")
+  address                  String?    @db.Text
+  avatarPath               String?    @map("avatar_path")
+  bankBookPath             String?    @map("bank_book_path")
+  idCardPath               String?    @map("id_card_path")
+  signaturePath            String?    @map("signature_path")
+  cumulativeRating         Float      @default(5.0) @map("cumulative_rating")
+  roles                    UserRoleAssignment[]
+  status                   UserStatus @default(PENDING)
+  isProtected              Boolean    @default(false) @map("is_protected")
+  twoFactorEnabled         Boolean    @default(false) @map("two_factor_enabled")
+  twoFactorSecret          String?    @map("two_factor_secret")
+  failedLoginAttempts      Int        @default(0) @map("failed_login_attempts")
+  lockedUntil              DateTime?  @map("locked_until")
+  lastLogin                DateTime?  @map("last_login")
+  lastPasswordChange       DateTime?  @map("last_password_change")
+  createdAt                DateTime   @default(now()) @map("created_at")
+  updatedAt                DateTime   @updatedAt @map("updated_at")
+  createdBy                Int?       @map("created_by")
+  incidentsCreated         Incident[] @relation("IncidentCreatedBy")
+  incidentsAssigned        Incident[] @relation("IncidentAssignedTo")
+  equipmentLogs            EquipmentLog[]
+  resolvedIncidents        Incident[] @relation("ResolvedBy")
+  techConfirmedIncidents   Incident[] @relation("TechConfirmedBy")
+  confirmedIncidents       Incident[] @relation("ConfirmedBy")
+  reopenedIncidents        Incident[] @relation("LastReopenedBy")
+  respondedIncidents       Incident[] @relation("RespondedBy")
+  comments                 Comment[]
+  incidentHistory          IncidentHistory[]
+  notifications            Notification[]
+  storeDeleteRequests             StoreDeleteRequest[]           @relation("StoreDeleteRequester")
+  approvedDeleteRequests          StoreDeleteRequest[]           @relation("StoreDeleteApprover")
+  equipmentRetirementRequests     EquipmentRetirementRequest[]   @relation("EquipmentRetireRequester")
+  approvedRetirementRequests      EquipmentRetirementRequest[]   @relation("EquipmentRetireApprover")
+  passwordResetTokens      PasswordResetToken[]
+  refreshTokens            RefreshToken[]
+
+  // Multi-technician assignment
+  incidentAssignments      IncidentAssignee[] @relation("IncidentAssignees")
+
+  // Reassignment relations
+  reassignmentsFrom        IncidentReassignment[] @relation("ReassignmentFrom")
+  reassignmentsTo          IncidentReassignment[] @relation("ReassignmentTo")
+  reassignmentsBy          IncidentReassignment[] @relation("ReassignmentBy")
+
+  // Rating relations
+  ratingsGiven             IncidentRating[]
+
+  // Performance relations
+  performanceScores        TechnicianPerformanceScore[] @relation("PerformanceScore")
+  performanceCalculatedBy  TechnicianPerformanceScore[] @relation("PerformanceCalculatedBy")
+
+  // Outsource Marketplace relations
+  outsourceJobsPosted      OutsourceJob[] @relation("OutsourceJobPostedBy")
+  outsourceJobsApproved    OutsourceJob[] @relation("OutsourceJobApprovedBy")
+  outsourceJobsAwarded     OutsourceJob[] @relation("OutsourceJobAwardedTo")
+  outsourceJobsAwardedBy   OutsourceJob[] @relation("OutsourceJobAwardedBy")
+  outsourceJobsVerified    OutsourceJob[] @relation("OutsourceJobVerifiedBy")
+  outsourceJobsPaid        OutsourceJob[] @relation("OutsourceJobPaidBy")
+  outsourceJobsCancelRequested OutsourceJob[] @relation("OutsourceJobCancelRequestedBy")
+  outsourceJobsCancelConfirmed OutsourceJob[] @relation("OutsourceJobCancelConfirmedBy")
+  outsourceJobsSparePartsConfirmed OutsourceJob[] @relation("OutsourceJobSparePartsConfirmedBy")
+  outsourceJobsDocumentsReceived   OutsourceJob[] @relation("OutsourceJobDocumentsReceivedBy")
+  outsourceBids            OutsourceBid[] @relation("OutsourceBidTechnician")
+
+  // Knowledge Base relations
+  kbArticlesAuthored       KnowledgeArticle[] @relation("ArticleAuthor")
+  kbArticlesEdited         KnowledgeArticle[] @relation("ArticleLastEditor")
+  kbArticleFeedbacks       KnowledgeArticleFeedback[]
+  kbArticleUsages          KnowledgeArticleUsage[]
+
+  // Backup & Restore relations
+  backupJobsCreated        BackupJob[] @relation("BackupCreatedBy")
+  restoreJobsCreated       RestoreJob[] @relation("RestoreCreatedBy")
+  backupSchedulesCreated   BackupSchedule[] @relation("ScheduleCreatedBy")
+
+  // Audit Trail relations
+  auditLogs                AuditLog[]
+
+  // SLA Defense relations
+  slaDefensesSubmitted     SlaDefense[] @relation("SlaDefenseTechnician")
+  slaDefensesReviewed      SlaDefense[] @relation("SlaDefenseReviewer")
+
+  // Version management
+  appliedVersions          AppVersion[]
+
+  @@map("users")
+}
+
+// User Role Assignment (Many-to-Many)
+model UserRoleAssignment {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  role      UserRole
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role])
+  @@map("user_role_assignments")
+  @@index([userId])
+  @@index([role])
+}
+
+
+model Store {
+  id               Int         @id @default(autoincrement())
+  storeCode        String      @map("store_code")
+  name             String
+  company          String?
+  storeType        StoreType   @default(PERMANENT) @map("store_type")
+  address          String?
+  province         String?
+  district         String?
+  subDistrict      String?     @map("sub_district")
+  postalCode       String?     @map("postal_code")
+  area             String?
+  slaRegion        SlaRegion   @default(BANGKOK_METRO) @map("sla_region") // พื้นที่สำหรับคำนวณ SLA
+  serviceCenter    String?     @map("service_center")
+  latitude         Float?
+  longitude        Float?
+  phone            String?
+  email            String?
+  googleMapLink    String?     @map("google_map_link")
+  circuitId        String?     @map("circuit_id")
+  routerIp         String?     @map("router_ip")
+  switchIp         String?     @map("switch_ip")
+  accessPointIp    String?     @map("access_point_ip")
+  pcServerIp       String?     @map("pc_server_ip")
+  pcPrinterIp      String?     @map("pc_printer_ip")
+  pmcComputerIp    String?     @map("pmc_computer_ip")
+  sbsComputerIp    String?     @map("sbs_computer_ip")
+  vatComputerIp    String?     @map("vat_computer_ip")
+  posIp            String?     @map("pos_ip")
+  edcIp            String?     @map("edc_ip")
+  scoIp            String?     @map("sco_ip")
+  peopleCounterIp  String?     @map("people_counter_ip")
+  digitalTvIp      String?     @map("digital_tv_ip")
+  timeAttendanceIp String?     @map("time_attendance_ip")
+  cctvIp           String?     @map("cctv_ip")
+  mondayOpen       String?     @map("monday_open")
+  mondayClose      String?     @map("monday_close")
+  tuesdayOpen      String?     @map("tuesday_open")
+  tuesdayClose     String?     @map("tuesday_close")
+  wednesdayOpen    String?     @map("wednesday_open")
+  wednesdayClose   String?     @map("wednesday_close")
+  thursdayOpen     String?     @map("thursday_open")
+  thursdayClose    String?     @map("thursday_close")
+  fridayOpen       String?     @map("friday_open")
+  fridayClose      String?     @map("friday_close")
+  saturdayOpen     String?     @map("saturday_open")
+  saturdayClose    String?     @map("saturday_close")
+  sundayOpen       String?     @map("sunday_open")
+  sundayClose      String?     @map("sunday_close")
+  holidayOpen      String?     @map("holiday_open")
+  holidayClose     String?     @map("holiday_close")
+  openDate         DateTime?   @map("open_date")
+  closeDate        DateTime?   @map("close_date")
+  storeStatus      StoreStatus @default(ACTIVE) @map("store_status")
+  layoutImagePath  String?     @map("layout_image_path")
+  ipRangeImagePath String?     @map("ip_range_image_path")
+  notes            String?
+  createdAt        DateTime              @default(now()) @map("created_at")
+  updatedAt        DateTime              @updatedAt @map("updated_at")
+  equipment        Equipment[]
+  incidents        Incident[]
+  deleteRequests   StoreDeleteRequest[]
+  pmRecords        PmRecord[]
+  lastPmAt         DateTime?  @map("last_pm_at")
+
+  @@index([storeCode])
+  @@index([company])
+  @@index([storeStatus])
+  @@index([province])
+  @@map("stores")
+}
+
+model Equipment {
+  id             Int               @id @default(autoincrement())
+  serialNumber   String            @unique @map("serial_number")
+  name           String            // ชื่ออุปกรณ์รวมตำแหน่ง เช่น "POS#1 Printer"
+  category       String
+  brand          String?
+  model          String?
+  purchaseDate   DateTime?         @map("purchase_date")
+  warrantyExpiry DateTime?         @map("warranty_expiry")
+  ipAddress      String?           @map("ip_address")
+  imagePath      String?           @map("image_path")
+  status         EquipmentStatus   @default(ACTIVE)
+  storeId        Int               @map("store_id")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+  store          Store             @relation(fields: [storeId], references: [id])
+  incidents      Incident[]
+  logs           EquipmentLog[]
+  retirementRequests EquipmentRetirementRequest[]
+
+  // Spare parts tracking - อุปกรณ์ที่ถูกเปลี่ยน
+  replacedByParts      SparePart[]           @relation("OldEquipment")  // ถูกถอดออกจาก Incident
+  replacingParts       SparePart[]           @relation("NewEquipment")  // ถูกใส่เข้าไปใน Incident
+  componentParts       SparePart[]           @relation("ParentEquipment") // ชิ้นส่วนที่ถูกเปลี่ยนภายในอุปกรณ์นี้
+  pmEquipmentRecords   PmEquipmentRecord[]
+
+  @@map("equipment")
+}
+
+model EquipmentLog {
+  id          Int                @id @default(autoincrement())
+  equipmentId Int                @map("equipment_id")
+  action      EquipmentLogAction
+  description String
+  changedBy   Int                @map("changed_by")
+  oldValue    String?            @map("old_value")
+  newValue    String?            @map("new_value")
+  createdAt   DateTime           @default(now()) @map("created_at")
+  equipment   Equipment          @relation(fields: [equipmentId], references: [id])
+  user        User               @relation(fields: [changedBy], references: [id])
+
+  @@index([equipmentId])
+  @@index([changedBy])
+  @@index([createdAt])
+  @@map("equipment_logs")
+}
+
+model EquipmentRetirementRequest {
+  id           Int       @id @default(autoincrement())
+  equipmentId  Int       @map("equipment_id")
+  equipment    Equipment @relation(fields: [equipmentId], references: [id])
+  requestedBy  Int       @map("requested_by")
+  requester    User      @relation("EquipmentRetireRequester", fields: [requestedBy], references: [id])
+  reason       String
+  status       String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  approvedBy   Int?      @map("approved_by")
+  approver     User?     @relation("EquipmentRetireApprover", fields: [approvedBy], references: [id])
+  approvalNote String?   @map("approval_note")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@index([equipmentId])
+  @@index([requestedBy])
+  @@index([status])
+  @@map("equipment_retirement_requests")
+}
+
+model Incident {
+  id             String         @id
+  ticketNumber   String         @unique @map("ticket_number")
+  title          String
+  description    String
+  category       String?
+  jobType        String?        @map("job_type")
+  priority       Priority
+  status         IncidentStatus @default(OPEN)
+  incidentType   IncidentType   @default(NORMAL) @map("incident_type")
+  resolutionType ResolutionType? @map("resolution_type")
+  storeId        Int            @map("store_id")
+  storeName      String?        @map("store_name") // Stored for historical reference when store is deleted
+  storeCode      String?        @map("store_code") // Stored for historical reference when store is deleted
+  equipmentId    Int?           @map("equipment_id")
+  equipmentIds   Int[]          @default([]) @map("equipment_ids")
+  reportedBy     Int            @map("reported_by")
+  createdById    Int            @map("created_by_id")
+  assigneeId     Int?           @map("assignee_id")
+  relatedIncidentId String?     @map("related_incident_id")
+  slaDeadline    DateTime?      @map("sla_deadline")
+  notes          String?
+  incidentDate   DateTime?      @map("incident_date") // วันที่ลูกค้าแจ้ง (อาจก่อน createdAt)
+  scheduledAt     DateTime?      @map("scheduled_at")      // วันเวลานัดเข้าดำเนินการ (Project/Adhoc)
+  scheduledReason String?        @map("scheduled_reason")  // เหตุผลการระบุเวลาเข้าดำเนินการ
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  
+  // Technician Workflow Fields
+  checkInAt         DateTime?  @map("check_in_at")
+  checkInLatitude   Float?     @map("check_in_latitude")   // GPS latitude at check-in
+  checkInLongitude        Float?   @map("check_in_longitude")   // GPS longitude at check-in
+  cancelledAfterCheckin   Boolean  @default(false) @map("cancelled_after_checkin")
+  beforePhotos            String[] @default([]) @map("before_photos")
+  
+  resolvedAt        DateTime?  @map("resolved_at")
+  resolvedById      Int?       @map("resolved_by_id")
+  resolutionNote    String?    @map("resolution_note")
+  usedSpareParts    Boolean    @default(false) @map("used_spare_parts")
+  afterPhotos       String[]   @default([]) @map("after_photos")
+  signedReportPhotos String[]  @default([]) @map("signed_report_photos")
+
+  // Technician Confirm Resolve (gate before helpdesk notification)
+  techConfirmedAt     DateTime?  @map("tech_confirmed_at")
+  techConfirmedById   Int?       @map("tech_confirmed_by_id")
+
+  confirmedAt       DateTime?  @map("confirmed_at")
+  confirmedById     Int?       @map("confirmed_by_id")
+
+  // Reopen Tracking Fields
+  reopenCount       Int        @default(0) @map("reopen_count")
+  lastReopenedAt    DateTime?  @map("last_reopened_at")
+  lastReopenedById  Int?       @map("last_reopened_by_id")
+  reopenReason      String?    @map("reopen_reason")
+
+  // Technician Response Fields (before onsite)
+  respondedAt           DateTime?  @map("responded_at")
+  respondedById         Int?       @map("responded_by_id")
+  estimatedArrivalTime  DateTime?  @map("estimated_arrival_time")
+  responseMessage       String?    @map("response_message") @db.Text
+  respondedBy           User?      @relation("RespondedBy", fields: [respondedById], references: [id])
+
+  // Rating Token (Public Link for customer rating)
+  ratingToken       String?    @unique @map("rating_token")
+  ratingTokenCreatedAt DateTime? @map("rating_token_created_at")
+  ratingTokenExpiresAt DateTime? @map("rating_token_expires_at")
+  ratingEmailSentAt DateTime?  @map("rating_email_sent_at")
+
+  // Service Report Token (Public Link for service report / signature)
+  serviceReportToken          String?    @unique @map("service_report_token")
+  serviceReportTokenCreatedAt DateTime?  @map("service_report_token_created_at")
+  serviceReportTokenExpiresAt DateTime?  @map("service_report_token_expires_at")
+
+  // Customer Signature
+  customerSignature           String?    @map("customer_signature") @db.Text
+  customerSignatureName       String?    @map("customer_signature_name")
+  customerSignedAt            DateTime?  @map("customer_signed_at")
+
+  // Relations
+  createdBy        User           @relation("IncidentCreatedBy", fields: [createdById], references: [id])
+  assignee         User?          @relation("IncidentAssignedTo", fields: [assigneeId], references: [id])
+  resolvedBy       User?          @relation("ResolvedBy", fields: [resolvedById], references: [id])
+  techConfirmedBy  User?          @relation("TechConfirmedBy", fields: [techConfirmedById], references: [id])
+  confirmedBy      User?          @relation("ConfirmedBy", fields: [confirmedById], references: [id])
+  lastReopenedBy   User?          @relation("LastReopenedBy", fields: [lastReopenedById], references: [id])
+  equipment        Equipment?     @relation(fields: [equipmentId], references: [id])
+  store            Store          @relation(fields: [storeId], references: [id])
+  relatedIncident  Incident?      @relation("RelatedIncidents", fields: [relatedIncidentId], references: [id])
+  childIncidents   Incident[]     @relation("RelatedIncidents")
+  spareParts       SparePart[]
+  comments         Comment[]
+  history          IncidentHistory[]
+  notifications    Notification[]
+  reassignments    IncidentReassignment[]
+  assignees        IncidentAssignee[]
+  rating           IncidentRating?
+  outsourceJobs    OutsourceJob[]
+  kbArticleUsages  KnowledgeArticleUsage[]
+  slaDefenses      SlaDefense[]
+  pmRecord         PmRecord?
+
+  @@map("incidents")
+  @@index([ratingToken])
+}
+
+model SparePart {
+  id              Int         @id @default(autoincrement())
+  incidentId      String      @map("incident_id")
+
+  // Repair Type - ประเภทการซ่อม
+  repairType      RepairType  @default(EQUIPMENT_REPLACEMENT) @map("repair_type")
+
+  // For EQUIPMENT_REPLACEMENT - เปลี่ยนอุปกรณ์ทั้งตัว
+  deviceName      String      @map("device_name")
+  oldSerialNo     String      @map("old_serial_no")
+  newSerialNo     String      @map("new_serial_no")
+  newBrand        String?     @map("new_brand")         // ยี่ห้ออุปกรณ์ใหม่ที่ใส่เข้าไป
+  newModel        String?     @map("new_model")         // รุ่นอุปกรณ์ใหม่ที่ใส่เข้าไป
+
+  // For COMPONENT_REPLACEMENT - เปลี่ยนเฉพาะชิ้นส่วนภายใน (เช่น แบตเตอรี่ใน UPS)
+  componentName       String?     @map("component_name")       // ชื่อชิ้นส่วน เช่น "Battery", "Power Supply"
+  oldComponentSerial  String?     @map("old_component_serial") // Serial เดิมของชิ้นส่วน
+  newComponentSerial  String?     @map("new_component_serial") // Serial ใหม่ของชิ้นส่วน
+  parentEquipmentId   Int?        @map("parent_equipment_id")  // อุปกรณ์หลักที่ชิ้นส่วนอยู่ใน
+
+  notes           String?
+
+  // Equipment tracking - เชื่อมโยงกับ Equipment ที่ถูกเปลี่ยน (สำหรับ EQUIPMENT_REPLACEMENT)
+  oldEquipmentId  Int?        @map("old_equipment_id")   // อุปกรณ์เดิมที่ถูกถอดออก
+  newEquipmentId  Int?        @map("new_equipment_id")   // อุปกรณ์ใหม่ที่ใส่เข้าไป
+
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  incident        Incident    @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  oldEquipment    Equipment?  @relation("OldEquipment", fields: [oldEquipmentId], references: [id])
+  newEquipment    Equipment?  @relation("NewEquipment", fields: [newEquipmentId], references: [id])
+  parentEquipment Equipment?  @relation("ParentEquipment", fields: [parentEquipmentId], references: [id])
+
+  @@map("spare_parts")
+  @@index([oldEquipmentId])
+  @@index([newEquipmentId])
+  @@index([parentEquipmentId])
+}
+
+model Comment {
+  id              Int       @id @default(autoincrement())
+  incidentId      String    @map("incident_id")
+  userId          Int       @map("user_id")
+  content         String    @db.Text
+  isInternal      Boolean   @default(false) @map("is_internal")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  incident        Incident  @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("comments")
+  @@index([incidentId])
+  @@index([userId])
+}
+
+model IncidentHistory {
+  id              Int                 @id @default(autoincrement())
+  incidentId      String              @map("incident_id")
+  userId          Int?                @map("user_id")
+  action          IncidentAction
+  oldStatus       IncidentStatus?     @map("old_status")
+  newStatus       IncidentStatus?     @map("new_status")
+  details         String?             @db.Text
+  createdAt       DateTime            @default(now()) @map("created_at")
+
+  incident        Incident            @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  user            User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("incident_history")
+  @@index([incidentId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Notification {
+  id              Int                 @id @default(autoincrement())
+  userId          Int                 @map("user_id")
+  type            NotificationType
+  title           String
+  message         String              @db.Text
+  incidentId      String?             @map("incident_id")
+  link            String?
+  isRead          Boolean             @default(false) @map("is_read")
+  readAt          DateTime?           @map("read_at")
+  createdAt       DateTime            @default(now()) @map("created_at")
+
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  incident        Incident?           @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+  @@index([userId])
+  @@index([incidentId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  IT_MANAGER
+  FINANCE_ADMIN
+  HELP_DESK
+  SUPERVISOR
+  TECHNICIAN
+  END_USER
+  READ_ONLY
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  LOCKED
+}
+
+enum TechnicianType {
+  INSOURCE
+  OUTSOURCE
+}
+
+enum StoreType {
+  PERMANENT
+  POP_UP
+  SEASONAL
+}
+
+enum StoreStatus {
+  ACTIVE
+  TEMPORARILY_CLOSED
+  PERMANENTLY_CLOSED
+}
+
+enum EquipmentStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+  RETIRED
+}
+
+enum EquipmentCategory {
+  NETWORK
+  COMPUTER
+  POS
+  PRINTER
+  ROUTER
+  SWITCH
+  CCTV
+  OTHER
+}
+
+enum EquipmentLogAction {
+  CREATED
+  UPDATED
+  STATUS_CHANGED
+  TRANSFERRED
+  RETIRED
+  WARRANTY_UPDATED
+  MAINTENANCE_SCHEDULED
+  MAINTENANCE_COMPLETED
+  REPLACED_OUT        // ถูกถอดออกจาก Incident (อุปกรณ์เดิม)
+  REPLACED_IN         // ถูกใส่เข้าไปใน Incident (อุปกรณ์ใหม่)
+}
+
+enum Priority {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+// ประเภทการซ่อม - Repair Type for Spare Parts
+enum RepairType {
+  EQUIPMENT_REPLACEMENT   // เปลี่ยนอุปกรณ์ทั้งตัว
+  COMPONENT_REPLACEMENT   // เปลี่ยนเฉพาะชิ้นส่วนภายใน (เช่น Battery, Power Supply)
+}
+
+enum IncidentStatus {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  PENDING
+  RESOLVED
+  CLOSED
+  CANCELLED
+  OUTSOURCED
+}
+
+enum SlaDefenseStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum IncidentAction {
+  CREATED
+  UPDATED
+  STATUS_CHANGED
+  ASSIGNED
+  REASSIGNED
+  UNASSIGNED
+  TECHNICIAN_RESPONDED
+  CHECKED_IN
+  RESOLVED
+  RESOLUTION_UPDATED
+  TECH_CONFIRMED
+  CONFIRMED
+  CLOSED
+  REOPENED
+  CANCELLED
+  COMMENTED
+  DELETED
+  RETURN_JOB_CREATED
+  DIRECT_CLOSED
+  REQUESTED_ONSITE
+}
+
+enum IncidentType {
+  NORMAL
+  RETURN_EQUIPMENT
+  FOLLOW_UP
+}
+
+enum ResolutionType {
+  PHONE_SUPPORT
+  REMOTE_SUPPORT
+  ONSITE
+}
+
+enum NotificationType {
+  INCIDENT_CREATED
+  INCIDENT_ASSIGNED
+  INCIDENT_REASSIGNED
+  INCIDENT_RESPONDED
+  INCIDENT_CHECKED_IN
+  INCIDENT_RESOLVED
+  INCIDENT_CONFIRMED
+  INCIDENT_REOPENED
+  INCIDENT_CANCELLED
+  COMMENT_ADDED
+  STATUS_CHANGED
+  SYSTEM_ALERT
+  SLA_WARNING
+  SLA_BREACH
+  NEW_USER_REGISTERED
+}
+
+// Password Reset Tokens
+model PasswordResetToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([token])
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+// Refresh Tokens for JWT authentication
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  userAgent String?  @map("user_agent")
+  ipAddress String?  @map("ip_address")
+
+  @@index([token])
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model StoreDeleteRequest {
+  id            Int      @id @default(autoincrement())
+  storeId       Int      @map("store_id")
+  store         Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  requestedBy   Int      @map("requested_by")
+  requester     User     @relation("StoreDeleteRequester", fields: [requestedBy], references: [id])
+  reason        String
+  status        String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  approvedBy    Int?     @map("approved_by")
+  approver      User?    @relation("StoreDeleteApprover", fields: [approvedBy], references: [id])
+  approvalNote  String?  @map("approval_note")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("store_delete_requests")
+}
+
+// ========================================
+// INCIDENT CATEGORY MANAGEMENT
+// ========================================
+
+model IncidentCategory {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  description String?
+  color       String?   // สีสำหรับแสดงใน UI (e.g., "#3B82F6")
+  icon        String?   // ชื่อ icon (e.g., "Monitor", "Wifi", "Printer")
+  isActive    Boolean   @default(true) @map("is_active")
+  sortOrder   Int       @default(0) @map("sort_order")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([isActive])
+  @@index([sortOrder])
+  @@map("incident_categories")
+}
+
+model JobType {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  description String?
+  color       String?   // สีสำหรับแสดงใน UI
+  isActive    Boolean   @default(true) @map("is_active")
+  sortOrder   Int       @default(0) @map("sort_order")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([isActive])
+  @@index([sortOrder])
+  @@map("job_types")
+}
+
+// ========================================
+// SLA CONFIGURATION
+// ========================================
+
+// SLA Region - พื้นที่สำหรับคำนวณ SLA
+enum SlaRegion {
+  BANGKOK_METRO   // กรุงเทพฯ และปริมณฑล
+  PROVINCIAL      // ต่างจังหวัด
+}
+
+model SlaConfig {
+  id                    Int       @id @default(autoincrement())
+  priority              Priority  @unique
+  name                  String    // Display name e.g., "Critical", "High"
+  description           String?
+  // กรุงเทพฯ และปริมณฑล (Default)
+  responseTimeMinutes   Int       @map("response_time_minutes")  // เวลาตอบรับงาน (นาที)
+  resolutionTimeMinutes Int       @map("resolution_time_minutes") // เวลาแก้ไขงาน (นาที)
+  // ต่างจังหวัด (ถ้าไม่กำหนดจะใช้ค่า Default)
+  responseTimeProvincial   Int?   @map("response_time_provincial")  // เวลาตอบรับงานต่างจังหวัด (นาที)
+  resolutionTimeProvincial Int?   @map("resolution_time_provincial") // เวลาแก้ไขงานต่างจังหวัด (นาที)
+  escalationEnabled     Boolean   @default(true) @map("escalation_enabled")
+  escalationAfterMinutes Int?     @map("escalation_after_minutes") // Escalate หลังจากกี่นาที
+  warningThreshold      Int       @default(80) @map("warning_threshold") // % ของเวลาก่อนแจ้งเตือน
+  color                 String?   // สีสำหรับแสดง UI
+  isActive              Boolean   @default(true) @map("is_active")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  @@map("sla_configs")
+}
+
+// ========================================
+// INCIDENT REASSIGNMENT SYSTEM (Feature 15)
+// ========================================
+
+model IncidentReassignment {
+  id                Int                  @id @default(autoincrement())
+  incidentId        String               @map("incident_id")
+  fromTechnicianId  Int                  @map("from_technician_id")
+  toTechnicianId    Int                  @map("to_technician_id")
+  reassignedById    Int                  @map("reassigned_by_id")
+  reason            String               @db.Text
+  status            ReassignmentStatus   @default(PENDING)
+  responseNote      String?              @map("response_note") @db.Text
+  reassignedAt      DateTime             @default(now()) @map("reassigned_at")
+  respondedAt       DateTime?            @map("responded_at")
+  createdAt         DateTime             @default(now()) @map("created_at")
+  updatedAt         DateTime             @updatedAt @map("updated_at")
+
+  incident          Incident             @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  fromTechnician    User                 @relation("ReassignmentFrom", fields: [fromTechnicianId], references: [id])
+  toTechnician      User                 @relation("ReassignmentTo", fields: [toTechnicianId], references: [id])
+  reassignedBy      User                 @relation("ReassignmentBy", fields: [reassignedById], references: [id])
+
+  @@map("incident_reassignments")
+  @@index([incidentId])
+  @@index([fromTechnicianId])
+  @@index([toTechnicianId])
+  @@index([status])
+  @@index([reassignedAt])
+}
+
+enum ReassignmentStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+// ========================================
+// INCIDENT RATING SYSTEM (Feature 8)
+// Public Link Rating - ลูกค้าประเมินช่างหลังปิดงาน
+// ========================================
+
+model IncidentRating {
+  id                     Int       @id @default(autoincrement())
+  incidentId             String    @unique @map("incident_id")
+
+  // Overall Rating (1-5)
+  rating                 Int       @db.SmallInt
+  comment                String?   @db.Text
+
+  // Detailed Ratings (Optional, 1-5)
+  qualityRating          Int?      @map("quality_rating") @db.SmallInt
+  professionalismRating  Int?      @map("professionalism_rating") @db.SmallInt
+  politenessRating       Int?      @map("politeness_rating") @db.SmallInt
+
+  // Rater Information
+  ratedById              Int?      @map("rated_by_id")
+  raterName              String?   @map("rater_name")
+  raterEmail             String?   @map("rater_email")
+
+  // Technical Details
+  raterIp                String?   @map("rater_ip")
+  userAgent              String?   @map("user_agent") @db.Text
+
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  incident               Incident  @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  ratedBy                User?     @relation(fields: [ratedById], references: [id])
+
+  @@map("incident_ratings")
+  @@index([rating])
+  @@index([createdAt])
+}
+
+// ========================================
+// TECHNICIAN PERFORMANCE GRADING SYSTEM (Feature 14)
+// ประเมินผลการทำงานช่างเทคนิคอัตโนมัติ
+// ========================================
+
+model TechnicianPerformanceScore {
+  id                      Int       @id @default(autoincrement())
+  technicianId            Int       @map("technician_id")
+
+  // Period
+  period                  String    // 'YYYY-MM' format
+  startDate               DateTime  @map("start_date")
+  endDate                 DateTime  @map("end_date")
+
+  // Core Metrics (raw data + score)
+  slaCompliance           Decimal?  @map("sla_compliance") @db.Decimal(5, 2)
+  slaScore                Decimal?  @map("sla_score") @db.Decimal(5, 2)
+
+  workVolume              Int?      @map("work_volume")
+  workVolumeTarget        Int?      @map("work_volume_target")
+  workVolumeScore         Decimal?  @map("work_volume_score") @db.Decimal(5, 2)
+
+  avgResolutionTime       Decimal?  @map("avg_resolution_time") @db.Decimal(8, 2) // hours
+  resolutionTimeStandard  Decimal?  @map("resolution_time_standard") @db.Decimal(8, 2)
+  resolutionTimeScore     Decimal?  @map("resolution_time_score") @db.Decimal(5, 2)
+
+  avgResponseTime         Decimal?  @map("avg_response_time") @db.Decimal(8, 2) // minutes
+  responseTimeStandard    Decimal?  @map("response_time_standard") @db.Decimal(8, 2)
+  responseTimeScore       Decimal?  @map("response_time_score") @db.Decimal(5, 2)
+
+  firstTimeFixRate        Decimal?  @map("first_time_fix_rate") @db.Decimal(5, 2)
+  firstTimeFixScore       Decimal?  @map("first_time_fix_score") @db.Decimal(5, 2)
+
+  reopenRate              Decimal?  @map("reopen_rate") @db.Decimal(5, 2)
+  reopenScore             Decimal?  @map("reopen_score") @db.Decimal(5, 2)
+
+  avgCustomerRating       Decimal?  @map("avg_customer_rating") @db.Decimal(3, 2)
+  totalRatings            Int?      @map("total_ratings")
+  customerSatisfactionScore Decimal? @map("customer_satisfaction_score") @db.Decimal(5, 2)
+
+  // Bonus Points
+  kbUsageRate             Decimal?  @map("kb_usage_rate") @db.Decimal(5, 2)
+  kbUsageBonus            Decimal?  @map("kb_usage_bonus") @db.Decimal(5, 2)
+
+  equipmentDamageCount    Int?      @map("equipment_damage_count")
+  equipmentDamagePenalty  Decimal?  @map("equipment_damage_penalty") @db.Decimal(5, 2)
+
+  availabilityRate        Decimal?  @map("availability_rate") @db.Decimal(5, 2)
+  availabilityBonus       Decimal?  @map("availability_bonus") @db.Decimal(5, 2)
+
+  documentationQualityRate Decimal? @map("documentation_quality_rate") @db.Decimal(5, 2)
+  documentationBonus       Decimal? @map("documentation_bonus") @db.Decimal(5, 2)
+
+  totalBonusPoints        Decimal?  @map("total_bonus_points") @db.Decimal(5, 2)
+
+  // Final Score & Grade
+  totalScore              Decimal?  @map("total_score") @db.Decimal(5, 2) // 0-100+
+  grade                   String?   @db.VarChar(2) // 'A+', 'A', 'B+', 'B', 'C+', 'C', 'D', 'F'
+  gradeDescription        String?   @map("grade_description") @db.VarChar(50)
+
+  // Ranking
+  teamRanking             Int?      @map("team_ranking")
+  totalTechnicians        Int?      @map("total_technicians")
+
+  // Comparison
+  teamAvgScore            Decimal?  @map("team_avg_score") @db.Decimal(5, 2)
+  topPerformerScore       Decimal?  @map("top_performer_score") @db.Decimal(5, 2)
+
+  // Metadata
+  isCalculated            Boolean   @default(false) @map("is_calculated")
+  calculatedAt            DateTime? @map("calculated_at")
+  calculatedById          Int?      @map("calculated_by_id")
+
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @updatedAt @map("updated_at")
+
+  technician              User      @relation("PerformanceScore", fields: [technicianId], references: [id], onDelete: Cascade)
+  calculatedBy            User?     @relation("PerformanceCalculatedBy", fields: [calculatedById], references: [id])
+
+  @@unique([technicianId, period])
+  @@map("technician_performance_scores")
+  @@index([technicianId, period])
+  @@index([period])
+  @@index([grade])
+  @@index([teamRanking])
+  @@index([totalScore(sort: Desc)])
+}
+
+// ========================================
+// OUTSOURCE MARKETPLACE SYSTEM (Feature 7)
+// ระบบตลาดจ้างช่างภายนอก
+// ========================================
+
+model OutsourceJob {
+  id                  Int                @id @default(autoincrement())
+  incidentId          String             @map("incident_id")
+  jobCode             String             @unique @map("job_code") // OUT-YYYYMMDD-XXXX
+
+  // Job Details
+  title               String
+  description         String             @db.Text
+  requirements        String?            @db.Text  // ข้อกำหนดพิเศษ
+  location            String?            @db.Text  // สถานที่ทำงาน
+  estimatedHours      Decimal?           @map("estimated_hours") @db.Decimal(5, 2)
+
+  // Pricing
+  budgetMin           Decimal?           @map("budget_min") @db.Decimal(10, 2)
+  budgetMax           Decimal?           @map("budget_max") @db.Decimal(10, 2)
+  agreedPrice         Decimal?           @map("agreed_price") @db.Decimal(10, 2)
+
+  // Deadline
+  deadline            DateTime?
+  urgencyLevel        UrgencyLevel       @default(NORMAL) @map("urgency_level")
+
+  // Job Type & Status
+  jobType             String             @default("MARKETPLACE") @map("job_type")  // MARKETPLACE | DIRECT_ASSIGN
+  status              OutsourceJobStatus @default(PENDING_APPROVAL)
+
+  // Approval (IT Manager)
+  approvalStatus      String             @default("PENDING") @map("approval_status")  // PENDING | APPROVED | REJECTED
+  approvedById        Int?               @map("approved_by_id")
+  approvedAt          DateTime?          @map("approved_at")
+  rejectionReason     String?            @map("rejection_reason") @db.Text
+
+  // Posted By (IT Manager / Help Desk)
+  postedById          Int                @map("posted_by_id")
+  postedAt            DateTime           @default(now()) @map("posted_at")
+
+  // Awarded To
+  awardedToId              Int?               @map("awarded_to_id")
+  awardedAt                DateTime?          @map("awarded_at")
+  awardedById              Int?               @map("awarded_by_id")
+  awardNotes               String?            @map("award_notes") @db.Text
+  technicianTypeAtAward    TechnicianType?    @map("technician_type_at_award")
+
+  // Completion
+  completedAt         DateTime?          @map("completed_at")
+  completionNotes     String?            @map("completion_notes") @db.Text
+  completionPhotos    String[]           @default([]) @map("completion_photos")
+
+  // Verification
+  verifiedAt          DateTime?          @map("verified_at")
+  verifiedById        Int?               @map("verified_by_id")
+  verificationNotes   String?            @map("verification_notes") @db.Text
+  verificationStatus  VerificationStatus? @map("verification_status")
+
+  // Payment
+  paymentStatus       PaymentStatus      @default(UNPAID) @map("payment_status")
+  paymentAmount       Decimal?           @map("payment_amount") @db.Decimal(10, 2)
+  withholdingTax      Decimal?           @map("withholding_tax") @db.Decimal(10, 2)
+  netPaymentAmount    Decimal?           @map("net_payment_amount") @db.Decimal(10, 2)
+  paymentSlipPath     String?            @map("payment_slip_path")
+  paymentNote         String?            @map("payment_note") @db.Text
+  paidAt              DateTime?          @map("paid_at")
+  paidById            Int?               @map("paid_by_id")
+
+  // Rating
+  technicianRating    Int?               @map("technician_rating") @db.SmallInt
+  technicianComment   String?            @map("technician_comment") @db.Text
+  customerRating      Int?               @map("customer_rating") @db.SmallInt
+  customerComment     String?            @map("customer_comment") @db.Text
+
+  // Document Submission (Outsource ส่งเอกสาร)
+  documentSlipPath      String?    @map("document_slip_path")
+  documentWorkOrderPath String?    @map("document_work_order_path")
+  documentPhotos        String[]   @default([]) @map("document_photos")
+  shippingCost          Decimal?   @map("shipping_cost") @db.Decimal(10, 2)
+  documentSubmittedAt   DateTime?  @map("document_submitted_at")
+  documentReviewNotes   Json?      @default("[]") @map("document_review_notes")
+
+  // Finance Confirmation
+  sparePartsReturned    Boolean    @default(false) @map("spare_parts_returned")
+  sparePartsConfirmedAt DateTime?  @map("spare_parts_confirmed_at")
+  sparePartsConfirmedById Int?     @map("spare_parts_confirmed_by_id")
+  documentsReceivedAt   DateTime?  @map("documents_received_at")
+  documentsReceivedById Int?       @map("documents_received_by_id")
+
+  // Cancellation
+  cancellationReason          String?    @map("cancellation_reason") @db.Text
+  cancellationRequestedAt     DateTime?  @map("cancellation_requested_at")
+  cancellationRequestedById   Int?       @map("cancellation_requested_by_id")
+  cancellationConfirmedAt     DateTime?  @map("cancellation_confirmed_at")
+  cancellationConfirmedById   Int?       @map("cancellation_confirmed_by_id")
+
+  createdAt           DateTime           @default(now()) @map("created_at")
+  updatedAt           DateTime           @updatedAt @map("updated_at")
+
+  // Relations
+  incident            Incident?          @relation(fields: [incidentId], references: [id])
+  postedBy            User               @relation("OutsourceJobPostedBy", fields: [postedById], references: [id])
+  approvedBy          User?              @relation("OutsourceJobApprovedBy", fields: [approvedById], references: [id])
+  awardedTo           User?              @relation("OutsourceJobAwardedTo", fields: [awardedToId], references: [id])
+  awardedBy           User?              @relation("OutsourceJobAwardedBy", fields: [awardedById], references: [id])
+  verifiedBy          User?              @relation("OutsourceJobVerifiedBy", fields: [verifiedById], references: [id])
+  paidBy              User?              @relation("OutsourceJobPaidBy", fields: [paidById], references: [id])
+  cancellationRequestedBy User?          @relation("OutsourceJobCancelRequestedBy", fields: [cancellationRequestedById], references: [id])
+  cancellationConfirmedBy  User?         @relation("OutsourceJobCancelConfirmedBy", fields: [cancellationConfirmedById], references: [id])
+  sparePartsConfirmedBy User?            @relation("OutsourceJobSparePartsConfirmedBy", fields: [sparePartsConfirmedById], references: [id])
+  documentsReceivedBy   User?            @relation("OutsourceJobDocumentsReceivedBy", fields: [documentsReceivedById], references: [id])
+  bids                OutsourceBid[]
+
+  @@map("outsource_jobs")
+  @@index([incidentId])
+  @@index([status])
+  @@index([postedById])
+  @@index([awardedToId])
+  @@index([deadline])
+  @@index([postedAt])
+}
+
+model OutsourceBid {
+  id                  Int              @id @default(autoincrement())
+  jobId               Int              @map("job_id")
+  technicianId        Int              @map("technician_id")
+
+  // Bid Details
+  proposedPrice       Decimal          @map("proposed_price") @db.Decimal(10, 2)
+  estimatedHours      Decimal?         @map("estimated_hours") @db.Decimal(5, 2)
+  proposedStartDate   DateTime?        @map("proposed_start_date")
+  message             String?          @db.Text
+  attachments         String[]         @default([])
+
+  // Status
+  status              BidStatus        @default(PENDING)
+  rejectionReason     String?          @map("rejection_reason") @db.Text
+
+  // Timestamps
+  submittedAt         DateTime         @default(now()) @map("submitted_at")
+  respondedAt         DateTime?        @map("responded_at")
+
+  createdAt           DateTime         @default(now()) @map("created_at")
+  updatedAt           DateTime         @updatedAt @map("updated_at")
+
+  // Relations
+  job                 OutsourceJob     @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  technician          User             @relation("OutsourceBidTechnician", fields: [technicianId], references: [id])
+
+  @@unique([jobId, technicianId])
+  @@map("outsource_bids")
+  @@index([jobId])
+  @@index([technicianId])
+  @@index([status])
+  @@index([submittedAt])
+}
+
+enum OutsourceJobStatus {
+  DRAFT           // ร่าง
+  PENDING_APPROVAL // รอ IT Manager อนุมัติ
+  OPEN            // เปิดรับเสนอราคา
+  PENDING_CANCEL  // รอ Outsource ยืนยันยกเลิก
+  BIDDING_CLOSED  // ปิดรับเสนอราคา
+  AWARDED         // มอบหมายงานแล้ว
+  IN_PROGRESS     // กำลังดำเนินการ
+  COMPLETED       // ช่างทำเสร็จ รอส่งเอกสาร
+  DOCUMENT_SUBMITTED // ส่งเอกสารแล้ว รอ Finance ตรวจรับ
+  VERIFIED        // ตรวจสอบผ่าน
+  REJECTED        // ตรวจสอบไม่ผ่าน ต้องแก้ไข
+  PAID            // จ่ายเงินแล้ว
+  CANCELLED       // ยกเลิก
+}
+
+enum UrgencyLevel {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum BidStatus {
+  PENDING         // รอพิจารณา
+  SHORTLISTED     // อยู่ในรายการพิจารณา
+  ACCEPTED        // ได้รับเลือก
+  REJECTED        // ไม่ได้รับเลือก
+  WITHDRAWN       // ถอนข้อเสนอ
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  NEEDS_REVISION
+}
+
+enum PaymentStatus {
+  UNPAID
+  PENDING_APPROVAL
+  APPROVED
+  PAID
+  DISPUTED
+}
+
+// ========================================
+// KNOWLEDGE BASE SYSTEM (Feature 12)
+// ระบบฐานความรู้และ FAQ
+// ========================================
+
+model KnowledgeCategory {
+  id              Int               @id @default(autoincrement())
+  name            String            @unique
+  slug            String            @unique
+  description     String?           @db.Text
+  icon            String?           // Icon name
+  color           String?           // Color hex
+  parentId        Int?              @map("parent_id")
+  sortOrder       Int               @default(0) @map("sort_order")
+  isActive        Boolean           @default(true) @map("is_active")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  parent          KnowledgeCategory? @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children        KnowledgeCategory[] @relation("CategoryHierarchy")
+  articles        KnowledgeArticle[]
+
+  @@map("knowledge_categories")
+  @@index([parentId])
+  @@index([isActive])
+  @@index([sortOrder])
+}
+
+model KnowledgeArticle {
+  id              Int               @id @default(autoincrement())
+  categoryId      Int               @map("category_id")
+  title           String
+  slug            String            @unique
+  summary         String?           @db.Text
+  content         String            @db.Text  // Markdown content
+  keywords        String[]          @default([])  // Search keywords
+
+  // Visibility
+  isPublic        Boolean           @default(true) @map("is_public")  // Public to all users
+  isPublished     Boolean           @default(false) @map("is_published")
+  publishedAt     DateTime?         @map("published_at")
+
+  // Authorship
+  authorId        Int               @map("author_id")
+  lastEditedById  Int?              @map("last_edited_by_id")
+
+  // Stats
+  viewCount       Int               @default(0) @map("view_count")
+  helpfulCount    Int               @default(0) @map("helpful_count")
+  notHelpfulCount Int               @default(0) @map("not_helpful_count")
+
+  // Related
+  relatedArticleIds Int[]           @default([]) @map("related_article_ids")
+
+  // Versioning
+  version         Int               @default(1)
+
+  // Attachments
+  attachments     String[]          @default([])
+
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  category        KnowledgeCategory @relation(fields: [categoryId], references: [id])
+  author          User              @relation("ArticleAuthor", fields: [authorId], references: [id])
+  lastEditedBy    User?             @relation("ArticleLastEditor", fields: [lastEditedById], references: [id])
+  feedbacks       KnowledgeArticleFeedback[]
+  usageHistory    KnowledgeArticleUsage[]
+
+  @@map("knowledge_articles")
+  @@index([categoryId])
+  @@index([authorId])
+  @@index([isPublished])
+  @@index([viewCount(sort: Desc)])
+  @@index([helpfulCount(sort: Desc)])
+}
+
+model KnowledgeArticleFeedback {
+  id              Int               @id @default(autoincrement())
+  articleId       Int               @map("article_id")
+  userId          Int?              @map("user_id")
+  isHelpful       Boolean           @map("is_helpful")
+  comment         String?           @db.Text
+  createdAt       DateTime          @default(now()) @map("created_at")
+
+  article         KnowledgeArticle  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  user            User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([articleId, userId])
+  @@map("knowledge_article_feedbacks")
+  @@index([articleId])
+  @@index([userId])
+}
+
+model KnowledgeArticleUsage {
+  id              Int               @id @default(autoincrement())
+  articleId       Int               @map("article_id")
+  incidentId      String?           @map("incident_id")
+  usedById        Int               @map("used_by_id")
+  usageType       KBUsageType       @default(VIEWED) @map("usage_type")
+  notes           String?           @db.Text
+  createdAt       DateTime          @default(now()) @map("created_at")
+
+  article         KnowledgeArticle  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  usedBy          User              @relation(fields: [usedById], references: [id])
+  incident        Incident?         @relation(fields: [incidentId], references: [id], onDelete: SetNull)
+
+  @@map("knowledge_article_usages")
+  @@index([articleId])
+  @@index([incidentId])
+  @@index([usedById])
+  @@index([createdAt])
+}
+
+enum KBUsageType {
+  VIEWED           // แค่ดู
+  APPLIED          // นำไปใช้แก้ปัญหา
+  SHARED           // แชร์ให้ผู้อื่น
+  REFERENCED       // อ้างอิงใน Incident
+}
+
+// ========================================
+// BACKUP & RESTORE SYSTEM (Feature 13)
+// ระบบสำรองและกู้คืนข้อมูล
+// ========================================
+
+model BackupJob {
+  id              Int           @id @default(autoincrement())
+  jobCode         String        @unique @map("job_code")  // BKP-YYYYMMDD-HHMMSS
+
+  // Backup Configuration
+  backupType      BackupType    @default(FULL) @map("backup_type")
+  scope           BackupScope   @default(ALL) @map("scope")
+  scopeDetails    String[]      @default([]) @map("scope_details")  // Specific tables if SELECTIVE
+
+  // Status
+  status          BackupStatus  @default(PENDING)
+  progress        Int           @default(0)  // 0-100%
+  errorMessage    String?       @map("error_message") @db.Text
+
+  // File Info
+  fileName        String?       @map("file_name")
+  filePath        String?       @map("file_path")
+  fileSize        BigInt?       @map("file_size")  // bytes
+  checksum        String?       // MD5/SHA256 for integrity
+
+  // Compression & Encryption
+  isCompressed    Boolean       @default(true) @map("is_compressed")
+  isEncrypted     Boolean       @default(true) @map("is_encrypted")
+  encryptionKey   String?       @map("encryption_key")  // Encrypted key reference
+
+  // Stats
+  totalRecords    Int?          @map("total_records")
+  tablesIncluded  String[]      @default([]) @map("tables_included")
+
+  // Scheduling
+  isScheduled     Boolean       @default(false) @map("is_scheduled")
+  scheduleId      Int?          @map("schedule_id")
+
+  // Timestamps
+  startedAt       DateTime?     @map("started_at")
+  completedAt     DateTime?     @map("completed_at")
+  expiresAt       DateTime?     @map("expires_at")  // Auto-delete after this date
+
+  // User
+  createdById     Int           @map("created_by_id")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  createdBy       User          @relation("BackupCreatedBy", fields: [createdById], references: [id])
+  schedule        BackupSchedule? @relation(fields: [scheduleId], references: [id])
+  restoreJobs     RestoreJob[]
+
+  @@map("backup_jobs")
+  @@index([status])
+  @@index([backupType])
+  @@index([createdAt])
+  @@index([createdById])
+}
+
+model RestoreJob {
+  id              Int           @id @default(autoincrement())
+  jobCode         String        @unique @map("job_code")  // RST-YYYYMMDD-HHMMSS
+  backupId        Int           @map("backup_id")
+
+  // Restore Options
+  restoreType     RestoreType   @default(FULL) @map("restore_type")
+  targetTables    String[]      @default([]) @map("target_tables")  // If SELECTIVE
+  overwriteMode   OverwriteMode @default(SKIP_EXISTING) @map("overwrite_mode")
+
+  // Status
+  status          BackupStatus  @default(PENDING)
+  progress        Int           @default(0)  // 0-100%
+  errorMessage    String?       @map("error_message") @db.Text
+
+  // Stats
+  recordsRestored Int?          @map("records_restored")
+  recordsSkipped  Int?          @map("records_skipped")
+  recordsFailed   Int?          @map("records_failed")
+
+  // Timestamps
+  startedAt       DateTime?     @map("started_at")
+  completedAt     DateTime?     @map("completed_at")
+
+  // User
+  createdById     Int           @map("created_by_id")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  backup          BackupJob     @relation(fields: [backupId], references: [id])
+  createdBy       User          @relation("RestoreCreatedBy", fields: [createdById], references: [id])
+
+  @@map("restore_jobs")
+  @@index([backupId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model BackupSchedule {
+  id              Int           @id @default(autoincrement())
+  name            String
+  description     String?
+
+  // Schedule Configuration
+  frequency       ScheduleFrequency @default(DAILY)
+  cronExpression  String?       @map("cron_expression")  // For advanced scheduling
+  timeOfDay       String?       @map("time_of_day")  // HH:mm format
+  dayOfWeek       Int?          @map("day_of_week")  // 0-6 for weekly
+  dayOfMonth      Int?          @map("day_of_month")  // 1-31 for monthly
+
+  // Backup Settings
+  backupType      BackupType    @default(FULL) @map("backup_type")
+  scope           BackupScope   @default(ALL) @map("scope")
+  scopeDetails    String[]      @default([]) @map("scope_details")
+  isCompressed    Boolean       @default(true) @map("is_compressed")
+  isEncrypted     Boolean       @default(true) @map("is_encrypted")
+
+  // Retention Policy
+  retentionDays   Int           @default(30) @map("retention_days")  // Auto-delete after N days
+  maxBackups      Int?          @map("max_backups")  // Keep only N latest backups
+
+  // Storage Location
+  storageType     StorageType   @default(LOCAL) @map("storage_type")
+  externalPath    String?       @map("external_path")  // Path for external storage (e.g., D:\Backups, \\server\backups)
+
+  // Status
+  isActive        Boolean       @default(true) @map("is_active")
+  lastRunAt       DateTime?     @map("last_run_at")
+  nextRunAt       DateTime?     @map("next_run_at")
+  lastStatus      BackupStatus? @map("last_status")
+
+  // User
+  createdById     Int           @map("created_by_id")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  createdBy       User          @relation("ScheduleCreatedBy", fields: [createdById], references: [id])
+  backupJobs      BackupJob[]
+
+  @@map("backup_schedules")
+  @@index([isActive])
+  @@index([nextRunAt])
+}
+
+enum BackupType {
+  FULL            // สำรองทั้งหมด
+  INCREMENTAL     // สำรองเฉพาะที่เปลี่ยนแปลง
+  DIFFERENTIAL    // สำรองส่วนต่างจาก Full ล่าสุด
+}
+
+enum BackupScope {
+  ALL             // ทุกตาราง
+  CORE            // เฉพาะข้อมูลหลัก (Users, Incidents, Stores)
+  TRANSACTIONS    // เฉพาะ Transactions (Incidents, Comments, History)
+  CONFIG          // เฉพาะ Config (SLA, Categories, Roles)
+  SELECTIVE       // เลือกตาราง
+}
+
+enum StorageType {
+  LOCAL           // เก็บใน Local (./backups)
+  EXTERNAL        // เก็บที่ External path (Network drive, USB, etc.)
+}
+
+enum BackupStatus {
+  PENDING         // รอดำเนินการ
+  RUNNING         // กำลังทำงาน
+  COMPLETED       // สำเร็จ
+  FAILED          // ล้มเหลว
+  CANCELLED       // ยกเลิก
+}
+
+enum RestoreType {
+  FULL            // กู้คืนทั้งหมด
+  SELECTIVE       // กู้คืนเฉพาะบางตาราง
+}
+
+enum OverwriteMode {
+  SKIP_EXISTING   // ข้ามถ้ามีอยู่แล้ว
+  OVERWRITE       // เขียนทับ
+  MERGE           // รวมข้อมูล
+}
+
+enum ScheduleFrequency {
+  HOURLY
+  DAILY
+  WEEKLY
+  MONTHLY
+  CUSTOM          // ใช้ cron expression
+}
+
+// ========================================
+// LICENSE & ACTIVATION SYSTEM (Feature 17)
+// ระบบใบอนุญาตและการเปิดใช้งาน
+// ========================================
+
+model License {
+  id                Int           @id @default(autoincrement())
+  licenseKey        String        @unique @map("license_key")  // XXX-XXX-XXX-XXX format
+
+  // License Info
+  licenseType       LicenseType   @default(TRIAL) @map("license_type")
+  organizationName  String        @map("organization_name")
+  contactEmail      String        @map("contact_email")
+  contactPhone      String?       @map("contact_phone")
+
+  // Features & Limits
+  maxUsers          Int           @default(10) @map("max_users")
+  maxStores         Int           @default(5) @map("max_stores")
+  maxIncidentsMonth Int?          @map("max_incidents_month")  // null = unlimited
+  featuresEnabled   String[]      @default([]) @map("features_enabled")  // Feature flags
+
+  // Validity
+  issuedAt          DateTime      @default(now()) @map("issued_at")
+  activatedAt       DateTime?     @map("activated_at")
+  expiresAt         DateTime      @map("expires_at")
+
+  // Status
+  status            LicenseStatus @default(INACTIVE)
+
+  // Hardware Binding
+  machineId         String?       @map("machine_id")         // Primary bound machine (first activation)
+  machineIds        String[]      @default([]) @map("machine_ids")  // All bound machines (Volume License)
+  hardwareHash      String?       @map("hardware_hash")
+
+  // Activation History
+  activationCount   Int           @default(0) @map("activation_count")
+  maxActivations    Int           @default(1) @map("max_activations")  // >1 = Volume License
+  lastActivationAt  DateTime?     @map("last_activation_at")
+  lastCheckAt       DateTime?     @map("last_check_at")
+
+  // Notes
+  notes             String?       @db.Text
+
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  activationLogs    LicenseActivationLog[]
+
+  @@map("licenses")
+  @@index([status])
+  @@index([expiresAt])
+  @@index([licenseType])
+}
+
+model LicenseActivationLog {
+  id              Int                   @id @default(autoincrement())
+  licenseId       Int                   @map("license_id")
+
+  // Action
+  action          LicenseAction
+
+  // Details
+  machineId       String?               @map("machine_id")
+  ipAddress       String?               @map("ip_address")
+  userAgent       String?               @map("user_agent") @db.Text
+
+  // Result
+  success         Boolean
+  errorMessage    String?               @map("error_message")
+
+  // Metadata
+  metadata        Json?                 @db.JsonB
+
+  createdAt       DateTime              @default(now()) @map("created_at")
+
+  license         License               @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+
+  @@map("license_activation_logs")
+  @@index([licenseId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model SystemConfig {
+  id              Int           @id @default(autoincrement())
+  key             String        @unique
+  value           String        @db.Text
+  description     String?
+  isEncrypted     Boolean       @default(false) @map("is_encrypted")
+  category        String        @default("general")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  @@map("system_configs")
+  @@index([category])
+}
+
+enum LicenseType {
+  TRIAL           // ทดลองใช้ 14-30 วัน
+  BASIC           // Basic plan
+  PROFESSIONAL    // Professional plan
+  ENTERPRISE      // Enterprise plan
+  UNLIMITED       // Unlimited (internal use)
+}
+
+enum LicenseStatus {
+  INACTIVE        // ยังไม่ได้เปิดใช้งาน
+  ACTIVE          // กำลังใช้งาน
+  EXPIRED         // หมดอายุ
+  SUSPENDED       // ถูกระงับ
+  REVOKED         // ถูกเพิกถอน
+}
+
+enum LicenseAction {
+  ACTIVATE        // เปิดใช้งาน
+  DEACTIVATE      // ปิดใช้งาน
+  REACTIVATE      // เปิดใช้งานใหม่
+  VALIDATE        // ตรวจสอบ
+  RENEW           // ต่ออายุ
+  UPGRADE         // อัปเกรด
+  TRANSFER        // โอนย้าย
+}
+
+// ==========================================
+// Audit Trail (Cross-Module)
+// ==========================================
+
+enum AuditModule {
+  INCIDENT
+  STORE
+  EQUIPMENT
+  USER
+  SYSTEM
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  STATUS_CHANGE
+  ASSIGN
+  REASSIGN
+  RESOLVE
+  CONFIRM
+  REOPEN
+  CANCEL
+  TRANSFER
+  IMPORT
+  EXPORT
+  LOGIN
+  LOGOUT
+}
+
+model AuditLog {
+  id          Int         @id @default(autoincrement())
+  module      AuditModule
+  action      AuditAction
+  entityType  String      @map("entity_type")
+  entityId    String      @map("entity_id")
+  userId      Int         @map("user_id")
+  description String      @db.Text
+  oldValue    String?     @map("old_value") @db.Text
+  newValue    String?     @map("new_value") @db.Text
+  ipAddress   String?     @map("ip_address")
+  createdAt   DateTime    @default(now()) @map("created_at")
+
+  user        User        @relation(fields: [userId], references: [id])
+
+  @@index([module])
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// Multi-technician Assignment (Many-to-Many)
+model IncidentAssignee {
+  id               Int       @id @default(autoincrement())
+  incidentId       String    @map("incident_id")
+  userId           Int       @map("user_id")
+  assignedAt       DateTime  @default(now()) @map("assigned_at")
+  checkedInAt      DateTime? @map("checked_in_at")
+  checkInLatitude  Float?    @map("check_in_latitude")
+  checkInLongitude Float?    @map("check_in_longitude")
+
+  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  user       User     @relation("IncidentAssignees", fields: [userId], references: [id])
+
+  @@unique([incidentId, userId])
+  @@index([incidentId])
+  @@index([userId])
+  @@map("incident_assignees")
+}
+
+// SLA Defense Request
+model SlaDefense {
+  id           Int              @id @default(autoincrement())
+  incidentId   String           @map("incident_id")
+  technicianId Int              @map("technician_id")
+  reason       String           @db.Text
+  status       SlaDefenseStatus @default(PENDING)
+  reviewedById Int?             @map("reviewed_by_id")
+  reviewedAt   DateTime?        @map("reviewed_at")
+  reviewNote   String?          @db.Text @map("review_note")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+
+  incident    Incident  @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  technician  User      @relation("SlaDefenseTechnician", fields: [technicianId], references: [id])
+  reviewedBy  User?     @relation("SlaDefenseReviewer", fields: [reviewedById], references: [id])
+
+  @@index([incidentId])
+  @@index([status])
+  @@map("sla_defenses")
+}
+
+// ============================================================
+// Preventive Maintenance (PM)
+// ============================================================
+
+model PmRecord {
+  id            Int     @id @default(autoincrement())
+  incidentId    String  @unique @map("incident_id")
+  storeId       Int     @map("store_id")
+  technicianId  Int?    @map("technician_id")
+
+  performedAt   DateTime? @map("performed_at")
+
+  // Inventory List online signature
+  inventoryListToken          String?   @unique @map("inventory_list_token")
+  inventoryListTokenExpiresAt DateTime? @map("inventory_list_token_expires_at")
+  storeSignature              String?   @db.Text @map("store_signature")
+  storeSignerName             String?   @map("store_signer_name")
+  storeSignedAt               DateTime? @map("store_signed_at")
+  signedInventoryPhoto        String?   @db.Text @map("signed_inventory_photo")
+
+  incident         Incident            @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  store            Store               @relation(fields: [storeId], references: [id])
+  equipmentRecords PmEquipmentRecord[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([storeId])
+  @@index([inventoryListToken])
+  @@map("pm_records")
+}
+
+model PmEquipmentRecord {
+  id          Int    @id @default(autoincrement())
+  pmRecordId  Int    @map("pm_record_id")
+  equipmentId Int    @map("equipment_id")
+
+  beforePhotos String[] @default([]) @map("before_photos")
+  afterPhotos  String[] @default([]) @map("after_photos")
+  comment      String?  @db.Text
+  condition    String?  // GOOD | NEEDS_REPAIR | REPLACED
+
+  // Fields to update on Equipment table when PM is submitted
+  updatedBrand  String? @map("updated_brand")
+  updatedModel  String? @map("updated_model")
+  updatedSerial String? @map("updated_serial")
+
+  pmRecord  PmRecord  @relation(fields: [pmRecordId], references: [id], onDelete: Cascade)
+  equipment Equipment @relation(fields: [equipmentId], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([pmRecordId])
+  @@index([equipmentId])
+  @@map("pm_equipment_records")
+}
+
+// ─── Version Management ───────────────────────────────────────────────────────
+
+enum VersionStatus {
+  CURRENT
+  PREVIOUS
+  FAILED
+}
+
+model AppVersion {
+  id           Int           @id @default(autoincrement())
+  version      String        @unique              // e.g. "1.1.0"
+  fromVersion  String?       @map("from_version") // e.g. "1.0.0"
+  status       VersionStatus @default(CURRENT)
+  releaseNotes String?       @map("release_notes") @db.Text
+  changes      Json          @default("[]")       // [{type, desc}]
+  appliedAt    DateTime      @default(now()) @map("applied_at")
+  appliedById  Int?          @map("applied_by_id")
+  appliedBy    User?         @relation(fields: [appliedById], references: [id], onDelete: SetNull)
+  snapshotPath String?       @map("snapshot_path")
+  checksum     String?
+
+  @@map("app_versions")
+}
