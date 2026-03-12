@@ -52,6 +52,8 @@ import {
   Smartphone,
   QrCode,
   Copy,
+  FolderOpen,
+  Lock,
 } from 'lucide-react'
 import Link from 'next/link'
 import QRCode from 'qrcode'
@@ -326,6 +328,20 @@ export default function SettingsPage() {
   const [backups, setBackups] = useState<BackupInfo[]>([])
   const [isCreatingBackup, setIsCreatingBackup] = useState(false)
   const [isRestoring, setIsRestoring] = useState(false)
+
+  // Restore from file state
+  const restoreFileRef = useRef<HTMLInputElement>(null)
+  const [restoreFileContent, setRestoreFileContent] = useState<string | null>(null)
+  const [restoreFileName, setRestoreFileName] = useState('')
+  const [showRestoreFileModal, setShowRestoreFileModal] = useState(false)
+  const [restoreFilePassword, setRestoreFilePassword] = useState('')
+  const [restoreFileNeedsPassword, setRestoreFileNeedsPassword] = useState(false)
+  const [isRestoringFile, setIsRestoringFile] = useState(false)
+
+  // Create backup with password state
+  const [showBackupPasswordModal, setShowBackupPasswordModal] = useState(false)
+  const [backupPassword, setBackupPassword] = useState('')
+  const [backupPasswordConfirm, setBackupPasswordConfirm] = useState('')
 
   // Auto Backup Schedule State
   const [schedule, setSchedule] = useState<BackupSchedule | null>(null)
@@ -1049,13 +1065,13 @@ export default function SettingsPage() {
   // BACKUP HANDLERS
   // ========================================
 
-  const handleCreateBackup = async () => {
+  const handleCreateBackup = async (password?: string) => {
     setIsCreatingBackup(true)
     try {
       const token = localStorage.getItem('token')
       await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/settings/backups`,
-        {},
+        password ? { password } : {},
         { headers: { Authorization: `Bearer ${token}` } }
       )
       toast.success('Backup created successfully')
@@ -1064,6 +1080,54 @@ export default function SettingsPage() {
       toast.error(error.response?.data?.message || 'Failed to create backup')
     } finally {
       setIsCreatingBackup(false)
+      setShowBackupPasswordModal(false)
+      setBackupPassword('')
+      setBackupPasswordConfirm('')
+    }
+  }
+
+  const handleSelectRestoreFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setRestoreFileName(file.name)
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const content = ev.target?.result as string
+      try {
+        const parsed = JSON.parse(content)
+        setRestoreFileContent(content)
+        setRestoreFileNeedsPassword(!!parsed?.metadata?.passwordHash)
+        setRestoreFilePassword('')
+        setShowRestoreFileModal(true)
+      } catch {
+        toast.error('Invalid backup file')
+      }
+    }
+    reader.readAsText(file)
+    e.target.value = ''
+  }
+
+  const handleRestoreFromFile = async () => {
+    if (!restoreFileContent) return
+    setIsRestoringFile(true)
+    try {
+      const token = localStorage.getItem('token')
+      const res = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/settings/backups/restore-file`,
+        { content: restoreFileContent, password: restoreFilePassword || undefined },
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      toast.success(`Restore complete: ${res.data.message}`)
+      setShowRestoreFileModal(false)
+      setRestoreFileContent(null)
+      setRestoreFilePassword('')
+    } catch (error: any) {
+      const msg = error.response?.data?.message
+      if (msg === 'PASSWORD_REQUIRED') toast.error('This backup is password protected')
+      else if (msg === 'INVALID_PASSWORD') toast.error('Incorrect password')
+      else toast.error(msg || 'Failed to restore')
+    } finally {
+      setIsRestoringFile(false)
     }
   }
 
@@ -2672,18 +2736,36 @@ export default function SettingsPage() {
               </div>
 
               {canManage && (
-                <button
-                  onClick={handleCreateBackup}
-                  disabled={isCreatingBackup}
-                  className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition disabled:opacity-50"
-                >
-                  {isCreatingBackup ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Database className="w-4 h-4" />
-                  )}
-                  <span>Create Backup</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  {/* Restore from File */}
+                  <input
+                    ref={restoreFileRef}
+                    type="file"
+                    accept=".json"
+                    className="hidden"
+                    onChange={handleSelectRestoreFile}
+                  />
+                  <button
+                    onClick={() => restoreFileRef.current?.click()}
+                    className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition"
+                  >
+                    <FolderOpen className="w-4 h-4" />
+                    <span>Restore from File</span>
+                  </button>
+                  {/* Create Backup */}
+                  <button
+                    onClick={() => setShowBackupPasswordModal(true)}
+                    disabled={isCreatingBackup}
+                    className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition disabled:opacity-50"
+                  >
+                    {isCreatingBackup ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Database className="w-4 h-4" />
+                    )}
+                    <span>Create Backup</span>
+                  </button>
+                </div>
               )}
             </div>
 
@@ -3003,6 +3085,100 @@ export default function SettingsPage() {
                     Restoring a backup will overwrite all current data. Make sure to create a backup of current state before restoring.
                   </p>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Restore from File Modal ── */}
+        {showRestoreFileModal && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <div className="bg-slate-800 rounded-2xl p-6 w-full max-w-md border border-slate-600">
+              <div className="flex items-center gap-3 mb-4">
+                <FolderOpen className="w-5 h-5 text-emerald-400" />
+                <h3 className="text-lg font-semibold text-white">Restore from File</h3>
+              </div>
+              <p className="text-sm text-gray-400 mb-4">
+                File: <span className="text-white font-medium">{restoreFileName}</span>
+              </p>
+              {restoreFileNeedsPassword && (
+                <div className="mb-4">
+                  <label className="block text-sm text-gray-400 mb-1 flex items-center gap-1">
+                    <Lock className="w-3.5 h-3.5" /> Password
+                  </label>
+                  <input
+                    type="password"
+                    value={restoreFilePassword}
+                    onChange={(e) => setRestoreFilePassword(e.target.value)}
+                    placeholder="Enter backup password"
+                    className="w-full px-3 py-2 bg-slate-700 border border-slate-500 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              )}
+              <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg mb-5">
+                <p className="text-xs text-yellow-300">New data from the backup will be added. Existing records will be skipped.</p>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setShowRestoreFileModal(false); setRestoreFileContent(null); setRestoreFilePassword('') }}
+                  className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition"
+                >Cancel</button>
+                <button
+                  onClick={handleRestoreFromFile}
+                  disabled={isRestoringFile || (restoreFileNeedsPassword && !restoreFilePassword)}
+                  className="flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isRestoringFile ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                  Restore
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Create Backup with Password Modal ── */}
+        {showBackupPasswordModal && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <div className="bg-slate-800 rounded-2xl p-6 w-full max-w-md border border-slate-600">
+              <div className="flex items-center gap-3 mb-4">
+                <Database className="w-5 h-5 text-purple-400" />
+                <h3 className="text-lg font-semibold text-white">Create Backup</h3>
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm text-gray-400 mb-1 flex items-center gap-1">
+                  <Lock className="w-3.5 h-3.5" /> Password <span className="text-gray-500">(optional)</span>
+                </label>
+                <input
+                  type="password"
+                  value={backupPassword}
+                  onChange={(e) => setBackupPassword(e.target.value)}
+                  placeholder="Leave blank for no password"
+                  className="w-full px-3 py-2 bg-slate-700 border border-slate-500 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 mb-2"
+                />
+                <input
+                  type="password"
+                  value={backupPasswordConfirm}
+                  onChange={(e) => setBackupPasswordConfirm(e.target.value)}
+                  placeholder="Confirm password"
+                  className="w-full px-3 py-2 bg-slate-700 border border-slate-500 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+                {backupPassword && backupPasswordConfirm && backupPassword !== backupPasswordConfirm && (
+                  <p className="text-xs text-red-400 mt-1">Passwords do not match</p>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setShowBackupPasswordModal(false); setBackupPassword(''); setBackupPasswordConfirm('') }}
+                  className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition"
+                >Cancel</button>
+                <button
+                  onClick={() => handleCreateBackup(backupPassword || undefined)}
+                  disabled={isCreatingBackup || (!!backupPassword && backupPassword !== backupPasswordConfirm)}
+                  className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isCreatingBackup ? <Loader2 className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
+                  Create
+                </button>
               </div>
             </div>
           </div>

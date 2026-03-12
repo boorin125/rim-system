@@ -29,6 +29,7 @@ import {
   ScheduleFrequency,
   CreateScheduleDto,
   UpdateScheduleDto,
+  RestoreFromFileDto,
 } from '../modules/backup/dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -410,11 +411,21 @@ export class SettingsController {
    */
   @Post('backups')
   @Roles(UserRole.SUPER_ADMIN, UserRole.IT_MANAGER)
-  async createBackup(@Request() req) {
+  async createBackup(@Request() req, @Body() body: { password?: string }) {
     return this.backupService.createBackup(req.user.id, {
       backupType: BackupType.FULL,
       scope: BackupScope.ALL,
+      password: body?.password,
     });
+  }
+
+  /**
+   * Restore from uploaded file
+   */
+  @Post('backups/restore-file')
+  @Roles(UserRole.SUPER_ADMIN)
+  async restoreFromFile(@Request() req, @Body() dto: RestoreFromFileDto) {
+    return this.backupService.restoreFromFile(req.user.id, dto.content, dto.password);
   }
 
   /**

@@ -15,6 +15,7 @@ import {
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
+import * as bcrypt from 'bcrypt';
 
 // Default backup directory
 const DEFAULT_BACKUP_DIR = process.env.BACKUP_DIR || './backups';
@@ -103,7 +104,7 @@ export class BackupService {
     });
 
     // Start backup process asynchronously
-    this.executeBackup(backupJob.id).catch(console.error);
+    this.executeBackup(backupJob.id, dto.password).catch(console.error);
 
     return backupJob;
   }
@@ -111,7 +112,7 @@ export class BackupService {
   /**
    * Execute backup process
    */
-  private async executeBackup(backupId: number) {
+  private async executeBackup(backupId: number, password?: string) {
     try {
       // Update status to running
       await this.prisma.backupJob.update({
@@ -166,6 +167,8 @@ export class BackupService {
       const fileName = `${backup.jobCode}.json`;
       const filePath = path.join(backupDir, fileName);
 
+      const passwordHash = password ? await bcrypt.hash(password, 10) : undefined;
+
       const backupContent = JSON.stringify({
         metadata: {
           jobCode: backup.jobCode,
@@ -174,6 +177,7 @@ export class BackupService {
           scope: backup.scope,
           tables: tables,
           totalRecords,
+          ...(passwordHash && { passwordHash }),
         },
         data: backupData,
       }, null, 2);
@@ -496,6 +500,96 @@ export class BackupService {
     restored = data.length;
 
     return { restored, skipped };
+  }
+
+  /**
+   * Restore from uploaded file content
+   */
+  async restoreFromFile(userId: number, content: string, password?: string) {
+    let backupData: any;
+    try {
+      backupData = JSON.parse(content);
+    } catch {
+      throw new BadRequestException('Invalid backup file format');
+    }
+
+    const metadata = backupData.metadata;
+    const data = backupData.data;
+
+    if (!metadata || !data) {
+      throw new BadRequestException('Invalid backup file structure');
+    }
+
+    // Verify password if backup is protected
+    if (metadata.passwordHash) {
+      if (!password) {
+        throw new BadRequestException('PASSWORD_REQUIRED');
+      }
+      const valid = await bcrypt.compare(password, metadata.passwordHash);
+      if (!valid) {
+        throw new BadRequestException('INVALID_PASSWORD');
+      }
+    }
+
+    const stats: Record<string, number> = {};
+    let totalRestored = 0;
+
+    // Restore order respects foreign key dependencies
+    const restoreOrder = [
+      'stores', 'sla_configs', 'incident_categories', 'job_types',
+      'incidents', 'equipment', 'comments', 'spare_parts',
+      'incident_history', 'notifications',
+    ];
+
+    for (const table of restoreOrder) {
+      const tableData = data[table];
+      if (!Array.isArray(tableData) || tableData.length === 0) continue;
+      try {
+        const result = await this.restoreTableFromFile(table, tableData);
+        stats[table] = result.restored;
+        totalRestored += result.restored;
+      } catch (err) {
+        console.error(`Error restoring table ${table}:`, err);
+        stats[table] = 0;
+      }
+    }
+
+    return { success: true, message: `Restored ${totalRestored} records`, stats };
+  }
+
+  /**
+   * Restore table data from file (createMany skipDuplicates)
+   */
+  private async restoreTableFromFile(table: string, data: any[]): Promise<{ restored: number }> {
+    const dateFields = ['createdAt', 'updatedAt', 'resolvedAt', 'closedAt', 'slaDeadline',
+      'openDate', 'purchaseDate', 'warrantyExpiry', 'expiresAt', 'lastReopenedAt', 'respondedAt'];
+
+    const processed = data.map(record => {
+      const r: any = { ...record };
+      for (const f of dateFields) {
+        if (r[f]) r[f] = new Date(r[f]);
+      }
+      return r;
+    });
+
+    const tableMap: Record<string, (d: any[]) => Promise<{ count: number }>> = {
+      stores: (d) => this.prisma.store.createMany({ data: d, skipDuplicates: true }),
+      incidents: (d) => this.prisma.incident.createMany({ data: d, skipDuplicates: true }),
+      equipment: (d) => this.prisma.equipment.createMany({ data: d, skipDuplicates: true }),
+      comments: (d) => this.prisma.comment.createMany({ data: d, skipDuplicates: true }),
+      notifications: (d) => this.prisma.notification.createMany({ data: d, skipDuplicates: true }),
+      incident_history: (d) => this.prisma.incidentHistory.createMany({ data: d, skipDuplicates: true }),
+      sla_configs: (d) => this.prisma.slaConfig.createMany({ data: d, skipDuplicates: true }),
+      incident_categories: (d) => this.prisma.incidentCategory.createMany({ data: d, skipDuplicates: true }),
+      job_types: (d) => this.prisma.jobType.createMany({ data: d, skipDuplicates: true }),
+      spare_parts: (d) => this.prisma.sparePart.createMany({ data: d, skipDuplicates: true }),
+    };
+
+    const fn = tableMap[table];
+    if (!fn) return { restored: 0 };
+
+    const result = await fn(processed);
+    return { restored: result.count };
   }
 
   /**

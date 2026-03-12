@@ -67,6 +67,19 @@ export class CreateBackupDto {
   @IsOptional()
   @IsBoolean()
   isEncrypted?: boolean;
+
+  @IsOptional()
+  @IsString()
+  password?: string;
+}
+
+export class RestoreFromFileDto {
+  @IsString()
+  content: string;
+
+  @IsOptional()
+  @IsString()
+  password?: string;
 }
 
 export class CreateRestoreDto {
