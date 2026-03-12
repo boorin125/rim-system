@@ -587,7 +587,7 @@ export class PerformanceService {
     return {
       period: targetPeriod,
       total,
-      closed: closed + resolved,
+      closed: closed,
       pending,
       cancelled,
       open,
