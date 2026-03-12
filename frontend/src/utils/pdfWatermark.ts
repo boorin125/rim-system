@@ -15,7 +15,6 @@
  *   applyPdfWatermark(doc, { orgName: 'Acme Corp', ticketNumber: 'INC-001' })
  */
 
-import type { jsPDF } from 'jspdf'
 
 interface WatermarkOptions {
   orgName?: string
@@ -35,7 +34,7 @@ function getBuildCustomer(): string {
  * Apply invisible copyright fingerprint to all pages of a jsPDF document.
  * Must be called AFTER all content has been added, BEFORE doc.save() / doc.output().
  */
-export function applyPdfWatermark(doc: jsPDF, options: WatermarkOptions = {}): void {
+export function applyPdfWatermark(doc: any, options: WatermarkOptions = {}): void {
   const buildId = getBuildId()
   const customer = getBuildCustomer()
   const orgName = options.orgName || 'RIM'
