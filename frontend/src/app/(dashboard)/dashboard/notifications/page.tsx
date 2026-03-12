@@ -27,6 +27,7 @@ interface Notification {
   message: string
   isRead: boolean
   createdAt: string
+  link?: string
   incident?: {
     id: string
     ticketNumber: string
