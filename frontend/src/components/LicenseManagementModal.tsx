@@ -447,7 +447,7 @@ export default function LicenseManagementModal({ onClose }: LicenseManagementMod
               {licenses.map((license) => {
                 const sc = STATUS_CONFIG[license.status] || STATUS_CONFIG.INACTIVE
                 const StatusIcon = sc.icon
-                const days = daysRemaining(license.isExpanded ? license.expiresAt : license.expiresAt)
+                const days = daysRemaining(license.expiresAt)
                 const isExpanded = expandedId === license.id
 
                 return (
