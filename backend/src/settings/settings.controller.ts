@@ -411,11 +411,12 @@ export class SettingsController {
    */
   @Post('backups')
   @Roles(UserRole.SUPER_ADMIN, UserRole.IT_MANAGER)
-  async createBackup(@Request() req, @Body() body: { password?: string }) {
+  async createBackup(@Request() req, @Body() body: { password?: string; customName?: string }) {
     return this.backupService.createBackup(req.user.id, {
       backupType: BackupType.FULL,
       scope: BackupScope.ALL,
       password: body?.password,
+      customName: body?.customName,
     });
   }
 

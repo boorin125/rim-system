@@ -357,8 +357,12 @@ export default function SettingsPage() {
     maxBackups: 10,
     isActive: true,
     storageType: 'LOCAL' as 'LOCAL' | 'EXTERNAL',
-    externalPath: ''
+    externalPath: '',
+    schedulePassword: '',
+    schedulePasswordConfirm: '',
   })
+  // Custom name for manual backup
+  const [backupCustomName, setBackupCustomName] = useState('')
 
   // Service Warranty Settings State
   const [warrantyDays, setWarrantyDays] = useState<number>(30)
@@ -583,7 +587,9 @@ export default function SettingsPage() {
             maxBackups: firstSchedule.maxBackups ?? 10,
             isActive: firstSchedule.isActive ?? true,
             storageType: firstSchedule.storageType || 'LOCAL',
-            externalPath: firstSchedule.externalPath || ''
+            externalPath: firstSchedule.externalPath || '',
+            schedulePassword: '',
+            schedulePasswordConfirm: '',
           })
         }
       } catch {
@@ -1069,12 +1075,15 @@ export default function SettingsPage() {
     setIsCreatingBackup(true)
     try {
       const token = localStorage.getItem('token')
+      const payload: any = {}
+      if (password) payload.password = password
+      if (backupCustomName.trim()) payload.customName = backupCustomName.trim()
       await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/settings/backups`,
-        password ? { password } : {},
+        payload,
         { headers: { Authorization: `Bearer ${token}` } }
       )
-      toast.success('Backup created successfully')
+      toast.success('สร้าง Backup สำเร็จ')
       fetchData()
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to create backup')
@@ -1083,6 +1092,7 @@ export default function SettingsPage() {
       setShowBackupPasswordModal(false)
       setBackupPassword('')
       setBackupPasswordConfirm('')
+      setBackupCustomName('')
     }
   }
 
@@ -1109,6 +1119,13 @@ export default function SettingsPage() {
 
   const handleRestoreFromFile = async () => {
     if (!restoreFileContent) return
+
+    // License check
+    if (!licenseInfo?.hasLicense || !licenseInfo?.valid) {
+      toast.error('ต้อง Activate License ก่อนจึงจะใช้ฟีเจอร์ Restore ได้')
+      return
+    }
+
     setIsRestoringFile(true)
     try {
       const token = localStorage.getItem('token')
@@ -1117,15 +1134,25 @@ export default function SettingsPage() {
         { content: restoreFileContent, password: restoreFilePassword || undefined },
         { headers: { Authorization: `Bearer ${token}` } }
       )
-      toast.success(`Restore complete: ${res.data.message}`)
+      const data = res.data
+      if (data.errors && Object.keys(data.errors).length > 0) {
+        const errorSummary = Object.entries(data.errors)
+          .map(([table, msg]) => `${table}: ${msg}`)
+          .join('\n')
+        toast.success(`Restore บางส่วนสำเร็จ: ${data.message}`)
+        console.error('Restore errors by table:', data.errors)
+        alert(`Restore สำเร็จบางส่วน\n\nข้อผิดพลาด:\n${errorSummary}`)
+      } else {
+        toast.success(`Restore สำเร็จ: ${data.message}`)
+      }
       setShowRestoreFileModal(false)
       setRestoreFileContent(null)
       setRestoreFilePassword('')
     } catch (error: any) {
       const msg = error.response?.data?.message
-      if (msg === 'PASSWORD_REQUIRED') toast.error('This backup is password protected')
-      else if (msg === 'INVALID_PASSWORD') toast.error('Incorrect password')
-      else toast.error(msg || 'Failed to restore')
+      if (msg === 'PASSWORD_REQUIRED') toast.error('Backup นี้มีการป้องกัน Password')
+      else if (msg === 'INVALID_PASSWORD') toast.error('Password ไม่ถูกต้อง')
+      else toast.error(msg || 'Restore ล้มเหลว')
     } finally {
       setIsRestoringFile(false)
     }
@@ -1198,32 +1225,37 @@ export default function SettingsPage() {
   // ========================================
 
   const handleSaveSchedule = async () => {
+    if (scheduleForm.schedulePassword && scheduleForm.schedulePassword !== scheduleForm.schedulePasswordConfirm) {
+      toast.error('Password ไม่ตรงกัน')
+      return
+    }
     setIsSavingSchedule(true)
     try {
       const token = localStorage.getItem('token')
       const headers = { Authorization: `Bearer ${token}` }
+      // Build payload: exclude confirm field, only send schedulePassword if non-empty
+      const { schedulePasswordConfirm, schedulePassword, ...rest } = scheduleForm
+      const payload: any = { ...rest }
+      if (schedulePassword) payload.schedulePassword = schedulePassword
 
       if (schedule) {
-        // Update existing schedule
         const res = await axios.put(
           `${process.env.NEXT_PUBLIC_API_URL}/settings/backups/schedules/${schedule.id}`,
-          scheduleForm,
+          payload,
           { headers }
         )
-        // Use response data to get updated nextRunAt
         setSchedule(res.data)
       } else {
-        // Create new schedule
         const res = await axios.post(
           `${process.env.NEXT_PUBLIC_API_URL}/settings/backups/schedules`,
-          scheduleForm,
+          payload,
           { headers }
         )
         setSchedule(res.data)
       }
 
       setIsEditingSchedule(false)
-      toast.success('Auto backup schedule saved')
+      toast.success('บันทึก Auto Backup Schedule สำเร็จ')
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to save schedule')
     } finally {
@@ -1261,7 +1293,9 @@ export default function SettingsPage() {
         maxBackups: schedule.maxBackups ?? 10,
         isActive: schedule.isActive ?? true,
         storageType: schedule.storageType || 'LOCAL',
-        externalPath: schedule.externalPath || ''
+        externalPath: schedule.externalPath || '',
+        schedulePassword: '',
+        schedulePasswordConfirm: '',
       })
     }
     setIsEditingSchedule(true)
@@ -1280,7 +1314,9 @@ export default function SettingsPage() {
         maxBackups: schedule.maxBackups ?? 10,
         isActive: schedule.isActive ?? true,
         storageType: schedule.storageType || 'LOCAL',
-        externalPath: schedule.externalPath || ''
+        externalPath: schedule.externalPath || '',
+        schedulePassword: '',
+        schedulePasswordConfirm: '',
       })
     }
   }
@@ -2928,6 +2964,41 @@ export default function SettingsPage() {
                     )}
                   </div>
 
+                  {/* Password for scheduled backups */}
+                  <div className="mt-4 pt-4 border-t border-slate-600/50">
+                    <p className="text-sm text-gray-400 mb-3 flex items-center gap-2">
+                      <span>🔒</span> Password สำหรับ Backup อัตโนมัติ (ไม่บังคับ)
+                    </p>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm text-gray-400 mb-1">Password</label>
+                        <input
+                          type="password"
+                          value={scheduleForm.schedulePassword}
+                          onChange={(e) => setScheduleForm({ ...scheduleForm, schedulePassword: e.target.value })}
+                          placeholder="เว้นว่างถ้าไม่ต้องการ Password"
+                          className="w-full px-3 py-2 bg-slate-600/50 border border-slate-500 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-400 mb-1">ยืนยัน Password</label>
+                        <input
+                          type="password"
+                          value={scheduleForm.schedulePasswordConfirm}
+                          onChange={(e) => setScheduleForm({ ...scheduleForm, schedulePasswordConfirm: e.target.value })}
+                          placeholder="ยืนยัน Password"
+                          className="w-full px-3 py-2 bg-slate-600/50 border border-slate-500 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+                    {scheduleForm.schedulePassword && scheduleForm.schedulePasswordConfirm && scheduleForm.schedulePassword !== scheduleForm.schedulePasswordConfirm && (
+                      <p className="text-xs text-red-400 mt-1">Password ไม่ตรงกัน</p>
+                    )}
+                    {scheduleForm.schedulePassword && !scheduleForm.schedulePasswordConfirm && (
+                      <p className="text-xs text-yellow-400 mt-1">กรุณายืนยัน Password</p>
+                    )}
+                  </div>
+
                   {/* Save/Cancel Buttons */}
                   <div className="flex justify-end space-x-2 pt-2">
                     <button
@@ -2938,7 +3009,7 @@ export default function SettingsPage() {
                     </button>
                     <button
                       onClick={handleSaveSchedule}
-                      disabled={isSavingSchedule}
+                      disabled={isSavingSchedule || (!!scheduleForm.schedulePassword && scheduleForm.schedulePassword !== scheduleForm.schedulePasswordConfirm)}
                       className="flex items-center space-x-2 px-4 py-2 hover:brightness-110 text-white rounded-lg transition disabled:opacity-50"
                       style={{ backgroundColor: themeHighlight }}
                     >
@@ -3144,40 +3215,54 @@ export default function SettingsPage() {
                 <Database className="w-5 h-5 text-purple-400" />
                 <h3 className="text-lg font-semibold text-white">Create Backup</h3>
               </div>
-              <div className="mb-4">
-                <label className="block text-sm text-gray-400 mb-1 flex items-center gap-1">
-                  <Lock className="w-3.5 h-3.5" /> Password <span className="text-gray-500">(optional)</span>
-                </label>
-                <input
-                  type="password"
-                  value={backupPassword}
-                  onChange={(e) => setBackupPassword(e.target.value)}
-                  placeholder="Leave blank for no password"
-                  className="w-full px-3 py-2 bg-slate-700 border border-slate-500 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 mb-2"
-                />
-                <input
-                  type="password"
-                  value={backupPasswordConfirm}
-                  onChange={(e) => setBackupPasswordConfirm(e.target.value)}
-                  placeholder="Confirm password"
-                  className="w-full px-3 py-2 bg-slate-700 border border-slate-500 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-                />
-                {backupPassword && backupPasswordConfirm && backupPassword !== backupPasswordConfirm && (
-                  <p className="text-xs text-red-400 mt-1">Passwords do not match</p>
-                )}
+              <div className="space-y-3 mb-4">
+                {/* Custom name */}
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1">ชื่อ Backup <span className="text-gray-500">(ไม่บังคับ)</span></label>
+                  <input
+                    type="text"
+                    value={backupCustomName}
+                    onChange={(e) => setBackupCustomName(e.target.value)}
+                    placeholder="เช่น Before-Migration, v2.0-release"
+                    className="w-full px-3 py-2 bg-slate-700 border border-slate-500 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                {/* Password */}
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1 flex items-center gap-1">
+                    <Lock className="w-3.5 h-3.5" /> Password <span className="text-gray-500">(ไม่บังคับ)</span>
+                  </label>
+                  <input
+                    type="password"
+                    value={backupPassword}
+                    onChange={(e) => setBackupPassword(e.target.value)}
+                    placeholder="เว้นว่างถ้าไม่ต้องการ Password"
+                    className="w-full px-3 py-2 bg-slate-700 border border-slate-500 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 mb-2"
+                  />
+                  <input
+                    type="password"
+                    value={backupPasswordConfirm}
+                    onChange={(e) => setBackupPasswordConfirm(e.target.value)}
+                    placeholder="ยืนยัน Password"
+                    className="w-full px-3 py-2 bg-slate-700 border border-slate-500 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                  {backupPassword && backupPasswordConfirm && backupPassword !== backupPasswordConfirm && (
+                    <p className="text-xs text-red-400 mt-1">Password ไม่ตรงกัน</p>
+                  )}
+                </div>
               </div>
               <div className="flex gap-3">
                 <button
-                  onClick={() => { setShowBackupPasswordModal(false); setBackupPassword(''); setBackupPasswordConfirm('') }}
+                  onClick={() => { setShowBackupPasswordModal(false); setBackupPassword(''); setBackupPasswordConfirm(''); setBackupCustomName('') }}
                   className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition"
-                >Cancel</button>
+                >ยกเลิก</button>
                 <button
                   onClick={() => handleCreateBackup(backupPassword || undefined)}
                   disabled={isCreatingBackup || (!!backupPassword && backupPassword !== backupPasswordConfirm)}
                   className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {isCreatingBackup ? <Loader2 className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
-                  Create
+                  สร้าง Backup
                 </button>
               </div>
             </div>

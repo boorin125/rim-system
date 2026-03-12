@@ -23,13 +23,27 @@ const DEFAULT_BACKUP_DIR = process.env.BACKUP_DIR || './backups';
 // Tables by scope
 const SCOPE_TABLES = {
   ALL: [
-    'users', 'stores', 'incidents', 'equipment', 'comments',
-    'notifications', 'incident_history', 'sla_configs',
-    'incident_categories', 'job_types', 'spare_parts',
+    // Core config (no FK deps)
+    'system_configs', 'sla_configs', 'incident_categories', 'job_types', 'licenses',
+    // Users & roles
+    'users', 'user_role_assignments',
+    // Stores & equipment
+    'stores', 'equipment',
+    // Knowledge base (categories before articles; self-ref handled specially)
+    'knowledge_categories', 'knowledge_articles',
+    // Incidents & related
+    'incidents', 'incident_assignees', 'incident_reassignments', 'incident_ratings',
+    'sla_defenses', 'comments', 'spare_parts', 'incident_history', 'notifications',
+    // Outsource
+    'outsource_jobs', 'outsource_bids',
+    // PM
+    'pm_records', 'pm_equipment_records',
+    // Equipment logs
+    'equipment_logs',
   ],
-  CORE: ['users', 'stores', 'incidents', 'equipment'],
+  CORE: ['users', 'user_role_assignments', 'stores', 'incidents', 'equipment'],
   TRANSACTIONS: ['incidents', 'comments', 'incident_history', 'notifications', 'spare_parts'],
-  CONFIG: ['sla_configs', 'incident_categories', 'job_types'],
+  CONFIG: ['system_configs', 'sla_configs', 'incident_categories', 'job_types'],
 };
 
 @Injectable()
@@ -92,6 +106,7 @@ export class BackupService {
     const backupJob = await this.prisma.backupJob.create({
       data: {
         jobCode,
+        customName: dto.customName || null,
         backupType: dto.backupType || 'FULL',
         scope,
         scopeDetails: dto.scopeDetails || [],
@@ -111,8 +126,10 @@ export class BackupService {
 
   /**
    * Execute backup process
+   * password: plain-text password to hash and embed
+   * preHashedPassword: already-hashed password to embed directly (used by scheduled backups)
    */
-  private async executeBackup(backupId: number, password?: string) {
+  private async executeBackup(backupId: number, password?: string, preHashedPassword?: string) {
     try {
       // Update status to running
       await this.prisma.backupJob.update({
@@ -167,7 +184,7 @@ export class BackupService {
       const fileName = `${backup.jobCode}.json`;
       const filePath = path.join(backupDir, fileName);
 
-      const passwordHash = password ? await bcrypt.hash(password, 10) : undefined;
+      const passwordHash = preHashedPassword || (password ? await bcrypt.hash(password, 10) : undefined);
 
       const backupContent = JSON.stringify({
         metadata: {
@@ -222,17 +239,47 @@ export class BackupService {
   private async getTableData(table: string): Promise<any[]> {
     // Map table names to Prisma models
     const tableModelMap: Record<string, () => Promise<any[]>> = {
-      users: () => this.prisma.user.findMany({ select: { id: true, username: true, email: true, firstName: true, lastName: true, phone: true, department: true, status: true, createdAt: true } }),
-      stores: () => this.prisma.store.findMany(),
-      incidents: () => this.prisma.incident.findMany(),
-      equipment: () => this.prisma.equipment.findMany(),
-      comments: () => this.prisma.comment.findMany(),
-      notifications: () => this.prisma.notification.findMany(),
-      incident_history: () => this.prisma.incidentHistory.findMany(),
+      // Config
+      system_configs: () => this.prisma.systemConfig.findMany(),
       sla_configs: () => this.prisma.slaConfig.findMany(),
       incident_categories: () => this.prisma.incidentCategory.findMany(),
       job_types: () => this.prisma.jobType.findMany(),
+      licenses: () => this.prisma.license.findMany(),
+      // Users (exclude sensitive 2FA secret; password set to default on restore)
+      users: () => this.prisma.user.findMany({
+        select: {
+          id: true, username: true, email: true,
+          firstName: true, lastName: true, phone: true,
+          department: true, technicianType: true, serviceCenter: true,
+          responsibleProvinces: true, address: true,
+          cumulativeRating: true, status: true, isProtected: true,
+          createdAt: true, updatedAt: true, createdBy: true,
+        },
+      }),
+      user_role_assignments: () => this.prisma.userRoleAssignment.findMany(),
+      // Stores & equipment
+      stores: () => this.prisma.store.findMany(),
+      equipment: () => this.prisma.equipment.findMany(),
+      equipment_logs: () => this.prisma.equipmentLog.findMany(),
+      // Knowledge base
+      knowledge_categories: () => this.prisma.knowledgeCategory.findMany(),
+      knowledge_articles: () => this.prisma.knowledgeArticle.findMany(),
+      // Incidents & related
+      incidents: () => this.prisma.incident.findMany(),
+      incident_assignees: () => this.prisma.incidentAssignee.findMany(),
+      incident_reassignments: () => this.prisma.incidentReassignment.findMany(),
+      incident_ratings: () => this.prisma.incidentRating.findMany(),
+      sla_defenses: () => this.prisma.slaDefense.findMany(),
+      comments: () => this.prisma.comment.findMany(),
       spare_parts: () => this.prisma.sparePart.findMany(),
+      incident_history: () => this.prisma.incidentHistory.findMany(),
+      notifications: () => this.prisma.notification.findMany(),
+      // Outsource
+      outsource_jobs: () => this.prisma.outsourceJob.findMany(),
+      outsource_bids: () => this.prisma.outsourceBid.findMany(),
+      // PM
+      pm_records: () => this.prisma.pmRecord.findMany(),
+      pm_equipment_records: () => this.prisma.pmEquipmentRecord.findMany(),
     };
 
     const getData = tableModelMap[table];
@@ -532,13 +579,28 @@ export class BackupService {
     }
 
     const stats: Record<string, number> = {};
+    const errors: Record<string, string> = {};
     let totalRestored = 0;
 
     // Restore order respects foreign key dependencies
     const restoreOrder = [
-      'stores', 'sla_configs', 'incident_categories', 'job_types',
-      'incidents', 'equipment', 'comments', 'spare_parts',
-      'incident_history', 'notifications',
+      // No-FK config first
+      'system_configs', 'sla_configs', 'incident_categories', 'job_types', 'licenses',
+      // Users & roles
+      'users', 'user_role_assignments',
+      // Stores & equipment
+      'stores', 'equipment',
+      // Knowledge base (self-ref categories: root nodes first, then children)
+      'knowledge_categories', 'knowledge_articles',
+      // Incidents & relations
+      'incidents', 'incident_assignees', 'incident_reassignments', 'incident_ratings',
+      'sla_defenses', 'comments', 'spare_parts', 'incident_history', 'notifications',
+      // Outsource
+      'outsource_jobs', 'outsource_bids',
+      // PM
+      'pm_records', 'pm_equipment_records',
+      // Equipment logs (last — depends on equipment + users)
+      'equipment_logs',
     ];
 
     for (const table of restoreOrder) {
@@ -548,21 +610,39 @@ export class BackupService {
         const result = await this.restoreTableFromFile(table, tableData);
         stats[table] = result.restored;
         totalRestored += result.restored;
-      } catch (err) {
-        console.error(`Error restoring table ${table}:`, err);
+      } catch (err: any) {
+        const msg = err?.message || 'Unknown error';
+        errors[table] = msg;
         stats[table] = 0;
+        console.error(`Error restoring table ${table}:`, msg);
       }
     }
 
-    return { success: true, message: `Restored ${totalRestored} records`, stats };
+    const hasErrors = Object.keys(errors).length > 0;
+    return {
+      success: !hasErrors || totalRestored > 0,
+      message: `Restored ${totalRestored} records${hasErrors ? ` (some tables had errors)` : ''}`,
+      stats,
+      errors: hasErrors ? errors : undefined,
+    };
   }
 
   /**
    * Restore table data from file (createMany skipDuplicates)
    */
   private async restoreTableFromFile(table: string, data: any[]): Promise<{ restored: number }> {
-    const dateFields = ['createdAt', 'updatedAt', 'resolvedAt', 'closedAt', 'slaDeadline',
-      'openDate', 'purchaseDate', 'warrantyExpiry', 'expiresAt', 'lastReopenedAt', 'respondedAt'];
+    const dateFields = [
+      'createdAt', 'updatedAt', 'resolvedAt', 'closedAt', 'slaDeadline',
+      'openDate', 'purchaseDate', 'warrantyExpiry', 'expiresAt', 'lastReopenedAt',
+      'respondedAt', 'scheduledAt', 'checkInAt', 'checkOutAt', 'performedAt',
+      'issuedAt', 'activatedAt', 'lastActivationAt', 'lastCheckAt',
+      'publishedAt', 'deadline', 'postedAt', 'awardedAt', 'completedAt',
+      'verifiedAt', 'paidAt', 'documentSubmittedAt', 'submittedAt',
+      'cancellationRequestedAt', 'cancellationConfirmedAt',
+      'sparePartsConfirmedAt', 'documentsReceivedAt', 'lockedUntil',
+      'lastLogin', 'lastPasswordChange', 'lastPmAt',
+      'inventoryListTokenExpiresAt', 'storeSignedAt',
+    ];
 
     const processed = data.map(record => {
       const r: any = { ...record };
@@ -572,17 +652,75 @@ export class BackupService {
       return r;
     });
 
+    const defaultPasswordHash = await bcrypt.hash('Password@1', 10);
+
     const tableMap: Record<string, (d: any[]) => Promise<{ count: number }>> = {
-      stores: (d) => this.prisma.store.createMany({ data: d, skipDuplicates: true }),
-      incidents: (d) => this.prisma.incident.createMany({ data: d, skipDuplicates: true }),
-      equipment: (d) => this.prisma.equipment.createMany({ data: d, skipDuplicates: true }),
-      comments: (d) => this.prisma.comment.createMany({ data: d, skipDuplicates: true }),
-      notifications: (d) => this.prisma.notification.createMany({ data: d, skipDuplicates: true }),
-      incident_history: (d) => this.prisma.incidentHistory.createMany({ data: d, skipDuplicates: true }),
+      // Config
+      system_configs: (d) => this.prisma.systemConfig.createMany({ data: d, skipDuplicates: true }),
       sla_configs: (d) => this.prisma.slaConfig.createMany({ data: d, skipDuplicates: true }),
       incident_categories: (d) => this.prisma.incidentCategory.createMany({ data: d, skipDuplicates: true }),
       job_types: (d) => this.prisma.jobType.createMany({ data: d, skipDuplicates: true }),
+      licenses: (d) => this.prisma.license.createMany({ data: d, skipDuplicates: true }),
+
+      // Users (restore with default password since we don't back up hashed passwords)
+      users: (d) => this.prisma.user.createMany({
+        data: d.map(u => ({
+          id: u.id,
+          username: u.username,
+          email: u.email,
+          password: defaultPasswordHash,
+          firstName: u.firstName || null,
+          lastName: u.lastName || null,
+          phone: u.phone || null,
+          department: u.department || null,
+          technicianType: u.technicianType || null,
+          serviceCenter: u.serviceCenter || null,
+          responsibleProvinces: u.responsibleProvinces || [],
+          address: u.address || null,
+          cumulativeRating: u.cumulativeRating ?? 5.0,
+          status: u.status || 'ACTIVE',
+          isProtected: false,
+          createdAt: u.createdAt ? new Date(u.createdAt) : new Date(),
+          updatedAt: u.updatedAt ? new Date(u.updatedAt) : new Date(),
+          createdBy: u.createdBy || null,
+        })),
+        skipDuplicates: true,
+      }),
+      user_role_assignments: (d) => this.prisma.userRoleAssignment.createMany({ data: d, skipDuplicates: true }),
+
+      // Stores & equipment
+      stores: (d) => this.prisma.store.createMany({ data: d, skipDuplicates: true }),
+      equipment: (d) => this.prisma.equipment.createMany({ data: d, skipDuplicates: true }),
+      equipment_logs: (d) => this.prisma.equipmentLog.createMany({ data: d, skipDuplicates: true }),
+
+      // Knowledge base (self-referential categories: restore root nodes first, then children)
+      knowledge_categories: async (d) => {
+        const roots = d.filter(c => !c.parentId);
+        const children = d.filter(c => !!c.parentId);
+        const r1 = await this.prisma.knowledgeCategory.createMany({ data: roots, skipDuplicates: true });
+        const r2 = await this.prisma.knowledgeCategory.createMany({ data: children, skipDuplicates: true });
+        return { count: r1.count + r2.count };
+      },
+      knowledge_articles: (d) => this.prisma.knowledgeArticle.createMany({ data: d, skipDuplicates: true }),
+
+      // Incidents & related
+      incidents: (d) => this.prisma.incident.createMany({ data: d, skipDuplicates: true }),
+      incident_assignees: (d) => this.prisma.incidentAssignee.createMany({ data: d, skipDuplicates: true }),
+      incident_reassignments: (d) => this.prisma.incidentReassignment.createMany({ data: d, skipDuplicates: true }),
+      incident_ratings: (d) => this.prisma.incidentRating.createMany({ data: d, skipDuplicates: true }),
+      sla_defenses: (d) => this.prisma.slaDefense.createMany({ data: d, skipDuplicates: true }),
+      comments: (d) => this.prisma.comment.createMany({ data: d, skipDuplicates: true }),
       spare_parts: (d) => this.prisma.sparePart.createMany({ data: d, skipDuplicates: true }),
+      incident_history: (d) => this.prisma.incidentHistory.createMany({ data: d, skipDuplicates: true }),
+      notifications: (d) => this.prisma.notification.createMany({ data: d, skipDuplicates: true }),
+
+      // Outsource
+      outsource_jobs: (d) => this.prisma.outsourceJob.createMany({ data: d, skipDuplicates: true }),
+      outsource_bids: (d) => this.prisma.outsourceBid.createMany({ data: d, skipDuplicates: true }),
+
+      // PM
+      pm_records: (d) => this.prisma.pmRecord.createMany({ data: d, skipDuplicates: true }),
+      pm_equipment_records: (d) => this.prisma.pmEquipmentRecord.createMany({ data: d, skipDuplicates: true }),
     };
 
     const fn = tableMap[table];
@@ -666,6 +804,10 @@ export class BackupService {
       }
     }
 
+    const schedulePasswordHash = dto.schedulePassword
+      ? await bcrypt.hash(dto.schedulePassword, 10)
+      : undefined;
+
     return this.prisma.backupSchedule.create({
       data: {
         name: dto.name,
@@ -684,6 +826,7 @@ export class BackupService {
         maxBackups: dto.maxBackups,
         storageType: dto.storageType || 'LOCAL',
         externalPath: dto.externalPath,
+        schedulePassword: schedulePasswordHash,
         createdById: userId,
         nextRunAt,
       },
@@ -795,10 +938,16 @@ export class BackupService {
 
     const nextRunAt = this.calculateNextRun({ ...schedule, ...dto } as any);
 
+    const { schedulePassword: newPassword, ...dtoWithoutPassword } = dto;
+    const schedulePasswordHash = newPassword
+      ? await bcrypt.hash(newPassword, 10)
+      : (newPassword === '' ? null : undefined);
+
     return this.prisma.backupSchedule.update({
       where: { id },
       data: {
-        ...dto,
+        ...dtoWithoutPassword,
+        ...(schedulePasswordHash !== undefined && { schedulePassword: schedulePasswordHash }),
         nextRunAt,
       },
     });
@@ -870,8 +1019,8 @@ export class BackupService {
       },
     });
 
-    // Execute the backup
-    await this.executeBackup(backupJob.id);
+    // Execute the backup (pass stored hash directly to avoid double-hashing)
+    await this.executeBackup(backupJob.id, undefined, schedule.schedulePassword || undefined);
 
     return backupJob;
   }

@@ -71,6 +71,10 @@ export class CreateBackupDto {
   @IsOptional()
   @IsString()
   password?: string;
+
+  @IsOptional()
+  @IsString()
+  customName?: string;
 }
 
 export class RestoreFromFileDto {
@@ -183,6 +187,10 @@ export class CreateScheduleDto {
   @Type(() => Number)
   @Min(1)
   maxBackups?: number;
+
+  @IsOptional()
+  @IsString()
+  schedulePassword?: string;
 }
 
 export class UpdateScheduleDto {
@@ -243,4 +251,8 @@ export class UpdateScheduleDto {
   @Type(() => Number)
   @Min(1)
   maxBackups?: number;
+
+  @IsOptional()
+  @IsString()
+  schedulePassword?: string;
 }
