@@ -460,13 +460,26 @@ export class LicenseService {
       orderBy: { activatedAt: 'desc' },
     });
 
-    // Auto-create trial on first install (only if this machine has NEVER had a license)
+    // Auto-create trial only if this machine has NEVER had ANY license (including inactive/expired)
     if (!license) {
       const hadLicenseBefore = await this.prisma.license.findFirst({
-        where: { machineId: currentMachineId },
+        where: {
+          OR: [
+            { machineId: currentMachineId },
+            { machineIds: { has: currentMachineId } },
+          ],
+        },
       });
       if (!hadLicenseBefore) {
-        license = await this.autoCreateTrial(currentMachineId);
+        // Also check if a TRIAL already exists globally (not yet bound to any machine)
+        const existingTrial = await this.prisma.license.findFirst({
+          where: { licenseType: 'TRIAL', machineId: null, status: 'INACTIVE' },
+        });
+        if (existingTrial) {
+          license = existingTrial;
+        } else {
+          license = await this.autoCreateTrial(currentMachineId);
+        }
       }
     }
 
