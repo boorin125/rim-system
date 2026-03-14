@@ -7,10 +7,10 @@ import { Shield, ArrowLeft, Copy, Check } from 'lucide-react'
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'
 
 const TYPE_DEFAULTS: Record<string, { maxUsers: number; maxStores: number; days: number }> = {
-  TRIAL: { maxUsers: 5, maxStores: 3, days: 14 },
-  BASIC: { maxUsers: 10, maxStores: 10, days: 365 },
-  PROFESSIONAL: { maxUsers: 50, maxStores: 50, days: 365 },
-  ENTERPRISE: { maxUsers: 500, maxStores: 500, days: 365 },
+  TRIAL: { maxUsers: 5, maxStores: 10, days: 30 },
+  BASIC: { maxUsers: 30, maxStores: 100, days: 365 },
+  PROFESSIONAL: { maxUsers: 100, maxStores: 300, days: 365 },
+  ENTERPRISE: { maxUsers: 500, maxStores: 1000, days: 365 },
   UNLIMITED: { maxUsers: 99999, maxStores: 99999, days: 3650 },
 }
 

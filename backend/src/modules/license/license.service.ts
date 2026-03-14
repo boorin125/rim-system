@@ -28,14 +28,14 @@ const LICENSE_FEATURES = {
     durationDays: 14,
   },
   BASIC: {
-    maxUsers: 10,
-    maxStores: 10,
+    maxUsers: 30,
+    maxStores: 100,
     maxIncidentsMonth: 200,
     features: ['basic_incidents', 'basic_stores', 'equipment', 'reports'],
     durationDays: 365,
   },
   PROFESSIONAL: {
-    maxUsers: 50,
+    maxUsers: 100,
     maxStores: 300,
     maxIncidentsMonth: 1000,
     features: ['basic_incidents', 'basic_stores', 'equipment', 'reports', 'sla', 'performance', 'knowledge_base', 'realtime_tracking'],
