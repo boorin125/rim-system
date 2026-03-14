@@ -1,17 +1,34 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Shield, ArrowLeft, Copy, Check } from 'lucide-react'
+import { Shield, ArrowLeft, Copy, Check, Calculator, Tag, Users, Store } from 'lucide-react'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'
 
-const TYPE_DEFAULTS: Record<string, { maxUsers: number; maxStores: number; days: number }> = {
-  TRIAL: { maxUsers: 5, maxStores: 10, days: 30 },
-  BASIC: { maxUsers: 30, maxStores: 100, days: 365 },
-  PROFESSIONAL: { maxUsers: 100, maxStores: 300, days: 365 },
-  ENTERPRISE: { maxUsers: 500, maxStores: 1000, days: 365 },
-  UNLIMITED: { maxUsers: 99999, maxStores: 99999, days: 3650 },
+const TYPE_DEFAULTS: Record<string, { maxUsers: number; maxStores: number; days: number; pricePerDay: number }> = {
+  TRIAL:        { maxUsers: 5,     maxStores: 10,    days: 30,   pricePerDay: 0 },
+  BASIC:        { maxUsers: 30,    maxStores: 100,   days: 365,  pricePerDay: 50 },
+  PROFESSIONAL: { maxUsers: 100,   maxStores: 300,   days: 365,  pricePerDay: 200 },
+  ENTERPRISE:   { maxUsers: 500,   maxStores: 1000,  days: 365,  pricePerDay: 600 },
+  UNLIMITED:    { maxUsers: 99999, maxStores: 99999, days: 3650, pricePerDay: 1200 },
+}
+
+// Volume discount tiers
+const VOLUME_TIERS = [
+  { min: 1,  max: 1,  discount: 0,    label: '—' },
+  { min: 2,  max: 3,  discount: 0.05, label: '5%' },
+  { min: 4,  max: 5,  discount: 0.10, label: '10%' },
+  { min: 6,  max: 10, discount: 0.15, label: '15%' },
+  { min: 11, max: Infinity, discount: 0.20, label: '20%' },
+]
+
+function getDiscount(machines: number) {
+  return VOLUME_TIERS.find(t => machines >= t.min && machines <= t.max) ?? VOLUME_TIERS[0]
+}
+
+function fmt(n: number) {
+  return n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 export default function NewLicensePage() {
@@ -32,9 +49,6 @@ export default function NewLicensePage() {
     organizationName: '',
     contactEmail: '',
     contactPhone: '',
-    maxUsers: 500,
-    maxStores: 500,
-    maxIncidentsMonth: '',
     maxActivations: 1,
     expiresAt: getDefaultExpiry(365),
     notes: '',
@@ -44,34 +58,41 @@ export default function NewLicensePage() {
 
   const handleTypeChange = (type: string) => {
     const def = TYPE_DEFAULTS[type]
-    setForm(f => ({
-      ...f,
-      licenseType: type,
-      maxUsers: def.maxUsers,
-      maxStores: def.maxStores,
-      expiresAt: getDefaultExpiry(def.days),
-    }))
+    setForm(f => ({ ...f, licenseType: type, expiresAt: getDefaultExpiry(def.days) }))
   }
+
+  // ── Calculator ─────────────────────────────────────────────────────
+  const calc = useMemo(() => {
+    const def = TYPE_DEFAULTS[form.licenseType]
+    const machines = Math.max(1, Number(form.maxActivations) || 1)
+    const today = new Date(); today.setHours(0,0,0,0)
+    const expiry = new Date(form.expiresAt); expiry.setHours(0,0,0,0)
+    const days = Math.max(0, Math.round((expiry.getTime() - today.getTime()) / 86400000))
+    const tier = getDiscount(machines)
+    const subtotal = def.pricePerDay * machines * days
+    const discountAmt = subtotal * tier.discount
+    const total = subtotal - discountAmt
+    return { pricePerDay: def.pricePerDay, machines, days, tier, subtotal, discountAmt, total }
+  }, [form.licenseType, form.maxActivations, form.expiresAt])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const secret = sessionStorage.getItem('vendor_secret') || ''
     if (!secret) { router.push('/vendor/login'); return }
 
-    setLoading(true)
-    setError('')
+    const def = TYPE_DEFAULTS[form.licenseType]
+    setLoading(true); setError('')
     try {
       const payload: Record<string, unknown> = {
         licenseType: form.licenseType,
         organizationName: form.organizationName,
         contactEmail: form.contactEmail,
-        maxUsers: Number(form.maxUsers),
-        maxStores: Number(form.maxStores),
+        maxUsers: def.maxUsers,
+        maxStores: def.maxStores,
         maxActivations: Number(form.maxActivations),
         expiresAt: new Date(form.expiresAt).toISOString(),
       }
       if (form.contactPhone) payload.contactPhone = form.contactPhone
-      if (form.maxIncidentsMonth) payload.maxIncidentsMonth = Number(form.maxIncidentsMonth)
       if (form.notes) payload.notes = form.notes
 
       const res = await fetch(`${API_URL}/vendor/licenses`, {
@@ -80,12 +101,7 @@ export default function NewLicensePage() {
         body: JSON.stringify(payload),
       })
 
-      if (!res.ok) {
-        const err = await res.json()
-        setError(err.message || 'เกิดข้อผิดพลาด')
-        return
-      }
-
+      if (!res.ok) { const err = await res.json(); setError(err.message || 'เกิดข้อผิดพลาด'); return }
       const data = await res.json()
       setCreatedKey(data.licenseKey)
     } catch {
@@ -102,7 +118,7 @@ export default function NewLicensePage() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  // Success screen
+  // ── Success screen ──────────────────────────────────────────────────
   if (createdKey) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
@@ -113,18 +129,13 @@ export default function NewLicensePage() {
             </div>
             <h2 className="text-xl font-bold text-white mb-1">สร้าง License สำเร็จ</h2>
             <p className="text-gray-400 text-sm mb-6">คัดลอก License Key นี้ให้ลูกค้า</p>
-
             <div className="bg-gray-800 border border-gray-600 rounded-xl p-4 mb-4">
               <code className="text-2xl font-mono text-purple-300 tracking-widest">{createdKey}</code>
             </div>
-
             <button onClick={copyKey}
-              className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-medium transition-colors mb-3 ${
-                copied ? 'bg-green-600 text-white' : 'bg-purple-600 hover:bg-purple-700 text-white'
-              }`}>
+              className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-medium transition-colors mb-3 ${copied ? 'bg-green-600 text-white' : 'bg-purple-600 hover:bg-purple-700 text-white'}`}>
               {copied ? <><Check className="w-4 h-4" /> คัดลอกแล้ว!</> : <><Copy className="w-4 h-4" /> คัดลอก License Key</>}
             </button>
-
             <button onClick={() => router.push('/vendor/licenses')}
               className="w-full py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl transition-colors">
               กลับไปรายการ
@@ -134,6 +145,8 @@ export default function NewLicensePage() {
       </div>
     )
   }
+
+  const def = TYPE_DEFAULTS[form.licenseType]
 
   return (
     <div className="min-h-screen">
@@ -148,15 +161,15 @@ export default function NewLicensePage() {
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto px-4 py-8">
+      <div className="max-w-2xl mx-auto px-4 py-8 space-y-4">
         <form onSubmit={handleSubmit} className="bg-gray-900 border border-gray-700/50 rounded-2xl p-6 space-y-5">
+
           {/* License Type */}
           <div>
             <label className="block text-sm text-gray-400 mb-2">ประเภท License</label>
             <div className="grid grid-cols-5 gap-2">
               {Object.keys(TYPE_DEFAULTS).map(type => (
-                <button key={type} type="button"
-                  onClick={() => handleTypeChange(type)}
+                <button key={type} type="button" onClick={() => handleTypeChange(type)}
                   className={`py-2 text-xs font-medium rounded-lg border transition-colors ${
                     form.licenseType === type
                       ? 'bg-purple-600 border-purple-500 text-white'
@@ -165,6 +178,27 @@ export default function NewLicensePage() {
                   {type}
                 </button>
               ))}
+            </div>
+
+            {/* Limits badge (read-only) */}
+            <div className="flex gap-3 mt-3">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm">
+                <Users className="w-3.5 h-3.5 text-gray-400" />
+                <span className="text-gray-400">Users:</span>
+                <span className="text-white font-medium">{def.maxUsers === 99999 ? '∞' : def.maxUsers}</span>
+              </div>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm">
+                <Store className="w-3.5 h-3.5 text-gray-400" />
+                <span className="text-gray-400">Stores:</span>
+                <span className="text-white font-medium">{def.maxStores === 99999 ? '∞' : def.maxStores}</span>
+              </div>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm">
+                <Tag className="w-3.5 h-3.5 text-gray-400" />
+                <span className="text-gray-400">ราคา/วัน:</span>
+                <span className="text-purple-300 font-medium">
+                  {def.pricePerDay === 0 ? 'ฟรี' : `฿${def.pricePerDay.toLocaleString()}`}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -190,30 +224,32 @@ export default function NewLicensePage() {
             </div>
           </div>
 
-          {/* Limits */}
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm text-gray-400 mb-1.5">Max Users</label>
-              <input type="number" min="1" value={form.maxUsers} onChange={e => setField('maxUsers', e.target.value)}
-                className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500" />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-400 mb-1.5">Max Stores</label>
-              <input type="number" min="1" value={form.maxStores} onChange={e => setField('maxStores', e.target.value)}
-                className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500" />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-400 mb-1.5">Max เครื่อง</label>
-              <input type="number" min="1" max="100" value={form.maxActivations} onChange={e => setField('maxActivations', e.target.value)}
-                className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500" />
+          {/* Machines */}
+          <div>
+            <label className="block text-sm text-gray-400 mb-1.5">จำนวนเครื่อง (Server)</label>
+            <input type="number" min="1" max="100" value={form.maxActivations}
+              onChange={e => setField('maxActivations', e.target.value)}
+              className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500" />
+            {/* Volume discount hint */}
+            <div className="flex gap-2 mt-2 flex-wrap">
+              {VOLUME_TIERS.slice(1).map(t => (
+                <span key={t.min}
+                  className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+                    calc.tier.min === t.min
+                      ? 'bg-green-500/20 border-green-500/50 text-green-300'
+                      : 'bg-gray-800 border-gray-600 text-gray-500'
+                  }`}>
+                  {t.min === 11 ? '11+' : `${t.min}–${t.max}`} เครื่อง: ลด {t.label}
+                </span>
+              ))}
             </div>
           </div>
 
-          {/* Expiry + Quick presets */}
+          {/* Expiry */}
           <div>
             <label className="block text-sm text-gray-400 mb-1.5">วันหมดอายุ</label>
-            <div className="flex gap-2 mb-2">
-              {[{ label: '3 เดือน', days: 90 }, { label: '6 เดือน', days: 180 }, { label: '1 ปี', days: 365 }, { label: '2 ปี', days: 730 }, { label: '3 ปี', days: 1095 }, { label: '10 ปี', days: 3650 }].map(p => (
+            <div className="flex gap-2 mb-2 flex-wrap">
+              {[{ label: '30 วัน', days: 30 }, { label: '3 เดือน', days: 90 }, { label: '6 เดือน', days: 180 }, { label: '1 ปี', days: 365 }, { label: '2 ปี', days: 730 }, { label: '3 ปี', days: 1095 }, { label: '10 ปี', days: 3650 }].map(p => (
                 <button key={p.days} type="button"
                   onClick={() => setField('expiresAt', getDefaultExpiry(p.days))}
                   className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded-lg transition-colors">
@@ -242,6 +278,75 @@ export default function NewLicensePage() {
             {loading ? 'กำลังสร้าง...' : 'สร้าง License Key'}
           </button>
         </form>
+
+        {/* ── Price Calculator ─────────────────────────────────────────── */}
+        <div className="bg-gray-900 border border-purple-500/30 rounded-2xl p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Calculator className="w-5 h-5 text-purple-400" />
+            <h3 className="font-semibold text-white">คำนวณราคา</h3>
+          </div>
+
+          {calc.pricePerDay === 0 ? (
+            <p className="text-green-400 text-center py-4">TRIAL License — ไม่มีค่าใช้จ่าย</p>
+          ) : (
+            <div className="space-y-3">
+              {/* Formula row */}
+              <div className="grid grid-cols-3 gap-2 text-center text-sm">
+                <div className="bg-gray-800 rounded-xl p-3">
+                  <div className="text-gray-400 text-xs mb-1">ราคา/วัน/เครื่อง</div>
+                  <div className="text-white font-semibold">฿{calc.pricePerDay.toLocaleString()}</div>
+                </div>
+                <div className="bg-gray-800 rounded-xl p-3">
+                  <div className="text-gray-400 text-xs mb-1">จำนวนเครื่อง</div>
+                  <div className="text-white font-semibold">{calc.machines}</div>
+                </div>
+                <div className="bg-gray-800 rounded-xl p-3">
+                  <div className="text-gray-400 text-xs mb-1">จำนวนวัน</div>
+                  <div className="text-white font-semibold">{calc.days}</div>
+                </div>
+              </div>
+
+              {/* Breakdown */}
+              <div className="bg-gray-800/50 rounded-xl p-4 space-y-2 text-sm">
+                <div className="flex justify-between text-gray-400">
+                  <span>ราคารวมก่อนส่วนลด</span>
+                  <span className="text-white">฿{fmt(calc.subtotal)}</span>
+                </div>
+                {calc.tier.discount > 0 && (
+                  <div className="flex justify-between text-green-400">
+                    <span className="flex items-center gap-1">
+                      <Tag className="w-3.5 h-3.5" />
+                      ส่วนลด Volume {calc.tier.label} ({calc.machines} เครื่อง)
+                    </span>
+                    <span>-฿{fmt(calc.discountAmt)}</span>
+                  </div>
+                )}
+                <div className="border-t border-gray-700 pt-2 flex justify-between font-semibold">
+                  <span className="text-white">ราคาสุทธิ</span>
+                  <span className="text-purple-300 text-lg">฿{fmt(calc.total)}</span>
+                </div>
+              </div>
+
+              {/* Volume discount table */}
+              <div className="text-xs text-gray-500">
+                <p className="mb-1 text-gray-400">ตารางส่วนลด Volume:</p>
+                <div className="grid grid-cols-5 gap-1">
+                  {VOLUME_TIERS.map(t => (
+                    <div key={t.min}
+                      className={`text-center px-1 py-1.5 rounded-lg border ${
+                        calc.tier.min === t.min
+                          ? 'bg-purple-500/20 border-purple-500/50 text-purple-300'
+                          : 'bg-gray-800 border-gray-700 text-gray-500'
+                      }`}>
+                      <div>{t.min === 1 ? '1' : t.min === 11 ? '11+' : `${t.min}–${t.max}`}</div>
+                      <div className="font-medium">{t.discount === 0 ? '—' : t.label}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
