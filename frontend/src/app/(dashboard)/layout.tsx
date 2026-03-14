@@ -43,14 +43,6 @@ function LicenseExpiredBanner() {
   const { isExpired, hasLicense, loading, daysRemaining, isTrialFull, isTrialGrace, isTrialExpired, trialDaysRemaining } = useLicense()
   if (loading) return null
 
-  // Trial — Grace Period (Day 8–30): features blocked, urgent orange
-  if (isTrialGrace) return (
-    <div className="fixed top-0 left-0 right-0 z-[35] bg-orange-600/90 backdrop-blur-sm text-white text-center py-2 text-sm font-medium flex items-center justify-center gap-2">
-      <AlertCircle className="w-4 h-4" />
-      Grace Period — ทดลองใช้งานเหลือ {trialDaysRemaining} วัน ฟีเจอร์หลักถูกจำกัด กรุณา Activate License ที่ Settings → License
-    </div>
-  )
-
   // Trial — Fully expired (Day 31+)
   if (isTrialExpired) return (
     <div className="fixed top-0 left-0 right-0 z-[35] bg-red-600/90 backdrop-blur-sm text-white text-center py-2 text-sm font-medium flex items-center justify-center gap-2">
@@ -75,11 +67,11 @@ function LicenseExpiredBanner() {
     </div>
   )
 
-  // Trial — Full access (Day 1–7): just informational yellow
+  // Trial — Full access (Day 1–30): informational yellow
   if (isTrialFull) return (
     <div className="fixed top-0 left-0 right-0 z-[35] bg-yellow-500/90 backdrop-blur-sm text-white text-center py-2 text-sm font-medium flex items-center justify-center gap-2">
       <Shield className="w-4 h-4" />
-      ทดลองใช้งาน — เหลือ {trialDaysRemaining} วัน (เต็มทุกฟีเจอร์ 7 วันแรก) กด Activate License เพื่อใช้งานเต็มรูปแบบ
+      ทดลองใช้งาน — เหลือ {trialDaysRemaining} วัน โปรด Activate License เพื่อใช้งานเต็มรูปแบบ
     </div>
   )
 

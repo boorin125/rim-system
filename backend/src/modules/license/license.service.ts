@@ -480,14 +480,13 @@ export class LicenseService {
 
     // ── TRIAL phase logic ──────────────────────────────────────────────
     if (license.licenseType === 'TRIAL') {
-      const FULL_ACCESS_DAYS = 7;
       const TOTAL_TRIAL_DAYS = 30;
       const trialStart = license.activatedAt || license.createdAt;
       const daysSinceStart = Math.floor((Date.now() - trialStart.getTime()) / (1000 * 60 * 60 * 24));
       const trialDaysRemaining = Math.max(0, TOTAL_TRIAL_DAYS - daysSinceStart);
 
-      if (daysSinceStart < FULL_ACCESS_DAYS) {
-        // Full access period (Day 1–7)
+      if (daysSinceStart < TOTAL_TRIAL_DAYS) {
+        // Full access for all 30 days
         await this.prisma.license.update({ where: { id: license.id }, data: { lastCheckAt: new Date() } });
         return {
           valid: true,
@@ -495,19 +494,6 @@ export class LicenseService {
           trialDaysRemaining,
           daysRemaining: trialDaysRemaining,
           license: this.sanitizeLicense(license),
-        };
-      }
-
-      if (daysSinceStart < TOTAL_TRIAL_DAYS) {
-        // Grace period (Day 8–30) — Level 1 features blocked
-        return {
-          valid: false,
-          reason: 'GRACE_PERIOD',
-          trialPhase: 'GRACE',
-          trialDaysRemaining,
-          daysRemaining: trialDaysRemaining,
-          license: this.sanitizeLicense(license),
-          message: 'อยู่ในช่วง Grace Period ฟีเจอร์บางอย่างถูกจำกัด กรุณา Activate License',
         };
       }
 
