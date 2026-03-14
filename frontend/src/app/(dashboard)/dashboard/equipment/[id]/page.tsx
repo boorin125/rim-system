@@ -414,8 +414,8 @@ export default function EquipmentDetailPage() {
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-700/50">
-        <nav className="flex space-x-8">
+      <div className="border-b border-gray-700/50 overflow-x-auto scrollbar-hide">
+        <nav className="flex space-x-8 min-w-max">
           <button
             onClick={() => setActiveTab('info')}
             className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${

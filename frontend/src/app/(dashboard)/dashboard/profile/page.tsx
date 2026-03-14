@@ -544,10 +544,10 @@ export default function ProfilePage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-slate-700">
+      <div className="flex gap-2 border-b border-slate-700 overflow-x-auto scrollbar-hide">
         <button
           onClick={() => setActiveTab('profile')}
-          className={`px-4 py-2 font-medium transition-colors ${
+          className={`px-4 py-2 font-medium transition-colors whitespace-nowrap flex-shrink-0 ${
             activeTab === 'profile'
               ? 'text-blue-400 border-b-2 border-blue-400'
               : 'text-gray-400 hover:text-gray-300'
@@ -558,7 +558,7 @@ export default function ProfilePage() {
         </button>
         <button
           onClick={() => setActiveTab('security')}
-          className={`px-4 py-2 font-medium transition-colors ${
+          className={`px-4 py-2 font-medium transition-colors whitespace-nowrap flex-shrink-0 ${
             activeTab === 'security'
               ? 'text-blue-400 border-b-2 border-blue-400'
               : 'text-gray-400 hover:text-gray-300'

@@ -880,8 +880,8 @@ export default function StoreDetailPage() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="border-b border-gray-700/50">
-        <nav className="flex gap-4">
+      <div className="border-b border-gray-700/50 overflow-x-auto scrollbar-hide">
+        <nav className="flex gap-4 min-w-max">
           <button
             onClick={() => setActiveTab('overview')}
             className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
