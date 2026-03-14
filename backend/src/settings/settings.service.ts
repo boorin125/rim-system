@@ -255,9 +255,9 @@ export class SettingsService {
     return {
       version: '1.0.0',
       buildDate: '2024-01-15',
-      developer: 'RIM Development Team',
-      website: 'https://rim-system.com',
-      email: 'support@rim-system.com',
+      developer: 'Rub-jobb Development Team',
+      website: 'https://rub-jobb.com',
+      email: 'support@rub-jobb.com',
       phone: '+66 2 xxx xxxx',
       licenseStatus: 'active',
       licenseExpiry: '2025-12-31',
