@@ -23,8 +23,24 @@ const VOLUME_TIERS = [
   { min: 11, max: Infinity, discount: 0.20, label: '20%' },
 ]
 
-function getDiscount(machines: number) {
+// Time-based discount presets
+const TIME_PRESETS = [
+  { label: '30 วัน',  days: 30,   discount: 0,    discountLabel: '—' },
+  { label: '3 เดือน', days: 90,   discount: 0.05, discountLabel: '5%' },
+  { label: '6 เดือน', days: 180,  discount: 0.10, discountLabel: '10%' },
+  { label: '1 ปี',    days: 365,  discount: 0.15, discountLabel: '15%' },
+  { label: '2 ปี',    days: 730,  discount: 0.20, discountLabel: '20%' },
+  { label: '5 ปี',    days: 1825, discount: 0.30, discountLabel: '30%' },
+]
+
+function getVolumeDiscount(machines: number) {
   return VOLUME_TIERS.find(t => machines >= t.min && machines <= t.max) ?? VOLUME_TIERS[0]
+}
+
+function getTimeDiscount(days: number) {
+  // Match closest preset (or nearest lower)
+  const sorted = [...TIME_PRESETS].reverse()
+  return sorted.find(p => days >= p.days) ?? TIME_PRESETS[0]
 }
 
 function fmt(n: number) {
@@ -68,11 +84,13 @@ export default function NewLicensePage() {
     const today = new Date(); today.setHours(0,0,0,0)
     const expiry = new Date(form.expiresAt); expiry.setHours(0,0,0,0)
     const days = Math.max(0, Math.round((expiry.getTime() - today.getTime()) / 86400000))
-    const tier = getDiscount(machines)
+    const volumeTier = getVolumeDiscount(machines)
+    const timeTier   = getTimeDiscount(days)
     const subtotal = def.pricePerDay * machines * days
-    const discountAmt = subtotal * tier.discount
+    const totalDiscountRate = Math.min(volumeTier.discount + timeTier.discount, 0.45)
+    const discountAmt = subtotal * totalDiscountRate
     const total = subtotal - discountAmt
-    return { pricePerDay: def.pricePerDay, machines, days, tier, subtotal, discountAmt, total }
+    return { pricePerDay: def.pricePerDay, machines, days, volumeTier, timeTier, subtotal, discountAmt, totalDiscountRate, total }
   }, [form.licenseType, form.maxActivations, form.expiresAt])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -235,7 +253,7 @@ export default function NewLicensePage() {
               {VOLUME_TIERS.slice(1).map(t => (
                 <span key={t.min}
                   className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
-                    calc.tier.min === t.min
+                    calc.volumeTier.min === t.min
                       ? 'bg-green-500/20 border-green-500/50 text-green-300'
                       : 'bg-gray-800 border-gray-600 text-gray-500'
                   }`}>
@@ -249,11 +267,20 @@ export default function NewLicensePage() {
           <div>
             <label className="block text-sm text-gray-400 mb-1.5">วันหมดอายุ</label>
             <div className="flex gap-2 mb-2 flex-wrap">
-              {[{ label: '30 วัน', days: 30 }, { label: '3 เดือน', days: 90 }, { label: '6 เดือน', days: 180 }, { label: '1 ปี', days: 365 }, { label: '2 ปี', days: 730 }, { label: '3 ปี', days: 1095 }, { label: '10 ปี', days: 3650 }].map(p => (
+              {TIME_PRESETS.map(p => (
                 <button key={p.days} type="button"
                   onClick={() => setField('expiresAt', getDefaultExpiry(p.days))}
-                  className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded-lg transition-colors">
+                  className={`px-3 py-1 text-xs rounded-lg transition-colors flex items-center gap-1 ${
+                    calc.timeTier.days === p.days
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                  }`}>
                   {p.label}
+                  {p.discount > 0 && (
+                    <span className={`px-1 py-0.5 rounded text-xs ${calc.timeTier.days === p.days ? 'bg-purple-400/30 text-purple-100' : 'bg-green-500/20 text-green-400'}`}>
+                      -{p.discountLabel}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -312,13 +339,28 @@ export default function NewLicensePage() {
                   <span>ราคารวมก่อนส่วนลด</span>
                   <span className="text-white">฿{fmt(calc.subtotal)}</span>
                 </div>
-                {calc.tier.discount > 0 && (
+                {calc.timeTier.discount > 0 && (
+                  <div className="flex justify-between text-blue-400">
+                    <span className="flex items-center gap-1">
+                      <Tag className="w-3.5 h-3.5" />
+                      ส่วนลดระยะยาว ({calc.timeTier.label}) -{calc.timeTier.discountLabel}
+                    </span>
+                    <span>-฿{fmt(calc.subtotal * calc.timeTier.discount)}</span>
+                  </div>
+                )}
+                {calc.volumeTier.discount > 0 && (
                   <div className="flex justify-between text-green-400">
                     <span className="flex items-center gap-1">
                       <Tag className="w-3.5 h-3.5" />
-                      ส่วนลด Volume {calc.tier.label} ({calc.machines} เครื่อง)
+                      ส่วนลด Volume ({calc.machines} เครื่อง) -{calc.volumeTier.label}
                     </span>
-                    <span>-฿{fmt(calc.discountAmt)}</span>
+                    <span>-฿{fmt(calc.subtotal * calc.volumeTier.discount)}</span>
+                  </div>
+                )}
+                {calc.totalDiscountRate > 0 && (
+                  <div className="flex justify-between text-amber-400 text-xs">
+                    <span>รวมส่วนลดทั้งหมด</span>
+                    <span>{(calc.totalDiscountRate * 100).toFixed(0)}%</span>
                   </div>
                 )}
                 <div className="border-t border-gray-700 pt-2 flex justify-between font-semibold">
@@ -327,21 +369,39 @@ export default function NewLicensePage() {
                 </div>
               </div>
 
-              {/* Volume discount table */}
-              <div className="text-xs text-gray-500">
-                <p className="mb-1 text-gray-400">ตารางส่วนลด Volume:</p>
-                <div className="grid grid-cols-5 gap-1">
-                  {VOLUME_TIERS.map(t => (
-                    <div key={t.min}
-                      className={`text-center px-1 py-1.5 rounded-lg border ${
-                        calc.tier.min === t.min
-                          ? 'bg-purple-500/20 border-purple-500/50 text-purple-300'
-                          : 'bg-gray-800 border-gray-700 text-gray-500'
-                      }`}>
-                      <div>{t.min === 1 ? '1' : t.min === 11 ? '11+' : `${t.min}–${t.max}`}</div>
-                      <div className="font-medium">{t.discount === 0 ? '—' : t.label}</div>
-                    </div>
-                  ))}
+              {/* Discount tables */}
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <p className="mb-1.5 text-gray-400">ส่วนลดระยะยาว:</p>
+                  <div className="space-y-1">
+                    {TIME_PRESETS.map(p => (
+                      <div key={p.days}
+                        className={`flex justify-between px-2 py-1 rounded-lg border ${
+                          calc.timeTier.days === p.days
+                            ? 'bg-blue-500/20 border-blue-500/40 text-blue-300'
+                            : 'bg-gray-800 border-gray-700 text-gray-500'
+                        }`}>
+                        <span>{p.label}</span>
+                        <span className="font-medium">{p.discount === 0 ? '—' : p.discountLabel}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="mb-1.5 text-gray-400">ส่วนลด Volume:</p>
+                  <div className="space-y-1">
+                    {VOLUME_TIERS.map(t => (
+                      <div key={t.min}
+                        className={`flex justify-between px-2 py-1 rounded-lg border ${
+                          calc.volumeTier.min === t.min
+                            ? 'bg-green-500/20 border-green-500/40 text-green-300'
+                            : 'bg-gray-800 border-gray-700 text-gray-500'
+                        }`}>
+                        <span>{t.min === 1 ? '1 เครื่อง' : t.min === 11 ? '11+ เครื่อง' : `${t.min}–${t.max} เครื่อง`}</span>
+                        <span className="font-medium">{t.discount === 0 ? '—' : t.label}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
