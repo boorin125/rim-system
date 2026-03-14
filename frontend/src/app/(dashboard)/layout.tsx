@@ -428,7 +428,7 @@ export default function DashboardLayout({
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
         } lg:translate-x-0`}
       >
-        <div className="h-full w-64 glass-card border-r border-slate-700/50 flex flex-col">
+        <div className="h-full w-64 max-w-[85vw] glass-card border-r border-slate-700/50 flex flex-col">
           {/* Logo + Organization Name */}
           <div className="p-4 pb-3 border-b border-slate-700/50">
             <div className="flex items-start justify-between">
@@ -505,7 +505,7 @@ export default function DashboardLayout({
         {/* Top Navbar - FIXED (ไม่เคลื่อนไหว) */}
         <header className="fixed top-0 right-0 left-0 lg:left-64 z-30 glass-card border-b border-slate-700/50">
           <LicenseExpiredBanner />
-          <div className="flex items-center justify-between px-6 py-4">
+          <div className="flex items-center justify-between px-4 lg:px-6 py-3 lg:py-4">
             {/* Mobile Menu Toggle */}
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -521,8 +521,8 @@ export default function DashboardLayout({
               </h2>
             </div>
 
-            {/* Right Side - Notifications & User Info (Desktop) */}
-            <div className="hidden lg:flex items-center space-x-4">
+            {/* Right Side - Notifications & User Info (All screens) */}
+            <div className="flex items-center gap-2">
               {/* Notification Bell */}
               <NotificationBell />
 
@@ -532,9 +532,10 @@ export default function DashboardLayout({
                     e.stopPropagation()
                     setIsUserMenuOpen(!isUserMenuOpen)
                   }}
-                  className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-slate-700/50 transition duration-200"
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-700/50 transition duration-200"
                 >
-                  <div className="text-right">
+                  {/* Name + role - desktop only */}
+                  <div className="hidden lg:block text-right">
                     <p className="text-sm font-medium text-white">
                       {user?.firstName} {user?.lastName}
                     </p>
@@ -544,31 +545,28 @@ export default function DashboardLayout({
                     <img
                       src={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '')}${user.avatarPath.startsWith('/uploads/') ? user.avatarPath : `/uploads/${user.avatarPath}`}`}
                       alt="Avatar"
-                      className="w-10 h-10 rounded-full object-cover border-2"
+                      className="w-8 h-8 lg:w-10 lg:h-10 rounded-full object-cover border-2"
                       style={{ borderColor: activeMenuBg ? `${activeMenuBg}80` : 'rgba(59,130,246,0.5)' }}
                     />
                   ) : (
                     <div
-                      className="w-10 h-10 rounded-full flex items-center justify-center"
+                      className="w-8 h-8 lg:w-10 lg:h-10 rounded-full flex items-center justify-center"
                       style={{ backgroundColor: activeMenuBg || '#2563eb' }}
                     >
-                      <User className="w-5 h-5 text-white" />
+                      <User className="w-4 h-4 lg:w-5 lg:h-5 text-white" />
                     </div>
                   )}
-                  <ChevronDown className="w-4 h-4 text-gray-400" />
+                  <ChevronDown className="hidden lg:block w-4 h-4 text-gray-400" />
                 </button>
 
                 {/* User Dropdown Menu */}
                 {isUserMenuOpen && (
                   <>
-                    {/* Backdrop for closing menu - คลิกนอกแล้วปิด */}
                     <div
                       className="fixed inset-0 z-40 bg-black/10"
                       onClick={() => setIsUserMenuOpen(false)}
                     ></div>
-                    
-                    {/* Dropdown - ทึบแสง 100% */}
-                    <div 
+                    <div
                       className="absolute right-0 top-full mt-2 w-56 bg-slate-800 backdrop-blur-xl rounded-lg overflow-hidden shadow-2xl border border-slate-600 z-50"
                       onClick={(e) => e.stopPropagation()}
                     >
@@ -579,7 +577,7 @@ export default function DashboardLayout({
                         <p className="text-xs text-gray-400">{user?.email}</p>
                         <p className="text-xs text-gray-500 mt-1">{user?.role}</p>
                       </div>
-                      
+
                       <Link
                         href="/dashboard/profile"
                         className="flex items-center space-x-3 px-4 py-3 hover:bg-slate-700 transition duration-200 text-gray-300"
@@ -588,7 +586,7 @@ export default function DashboardLayout({
                         <User className="w-4 h-4" />
                         <span className="text-sm">Profile</span>
                       </Link>
-                      
+
                       <button
                         onClick={() => {
                           setIsUserMenuOpen(false)
@@ -608,7 +606,7 @@ export default function DashboardLayout({
         </header>
 
         {/* Page Content - เพิ่ม pt-28 เพื่อไม่ให้ header ทับ */}
-        <main className="relative z-10 p-6 pt-28">{children}</main>
+        <main className="relative z-10 p-4 lg:p-6 pt-20 lg:pt-28">{children}</main>
       </div>
 
       {/* Mobile Sidebar Overlay */}

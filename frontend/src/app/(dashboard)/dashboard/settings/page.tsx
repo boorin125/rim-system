@@ -1592,8 +1592,20 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="border-b border-slate-700 overflow-x-auto scrollbar-hide">
+      {/* Tabs — mobile: select dropdown / desktop: tab bar */}
+      <div className="md:hidden mb-4">
+        <select
+          value={activeTab}
+          onChange={(e) => setActiveTab(e.target.value as TabType)}
+          className="w-full bg-slate-700 border border-slate-600 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          {tabs.map((tab) => (
+            <option key={tab.id} value={tab.id}>{tab.label}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="hidden md:block border-b border-slate-700 overflow-x-auto scrollbar-hide">
         <div className="flex gap-2 min-w-max">
           {tabs.map((tab) => (
             <button
