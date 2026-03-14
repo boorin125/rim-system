@@ -418,6 +418,10 @@ export default function SettingsPage() {
     { name: 'Ocean', bgStart: '#0c1929', bgEnd: '#164e63' },
     { name: 'Midnight', bgStart: '#020617', bgEnd: '#0f172a' },
   ]
+  const srThemePresets = [
+    ...themePresets,
+    { name: 'Gold Bright', bgStart: '#78350f', bgEnd: '#d97706' },
+  ]
 
   // Adjust hex color brightness: factor 0=darkest, 50=original, 100=lightest
   const adjustHex = (hex: string, factor: number): string => {
@@ -1614,14 +1618,10 @@ export default function SettingsPage() {
 
       {/* Tabs — mobile: iOS scroll picker / desktop: tab bar */}
       <div className="md:hidden mb-4">
-        <div className="relative bg-slate-700/50 border border-slate-600/50 rounded-2xl overflow-hidden" style={{ height: 132 }}>
-          {/* Selection highlight band */}
-          <div className="absolute inset-x-0 pointer-events-none z-10" style={{ top: 44, height: 44, background: 'rgba(255,255,255,0.06)', borderTop: '1px solid rgba(255,255,255,0.12)', borderBottom: '1px solid rgba(255,255,255,0.12)' }} />
-          {/* Fade top */}
-          <div className="absolute inset-x-0 top-0 pointer-events-none z-10" style={{ height: 55, background: 'linear-gradient(to bottom, rgba(15,23,42,0.95) 0%, transparent 100%)' }} />
-          {/* Fade bottom */}
-          <div className="absolute inset-x-0 bottom-0 pointer-events-none z-10" style={{ height: 55, background: 'linear-gradient(to top, rgba(15,23,42,0.95) 0%, transparent 100%)' }} />
-          {/* Scrollable list */}
+        <div className="relative overflow-hidden" style={{ height: 132 }}>
+          {/* Fade top/bottom only */}
+          <div className="absolute inset-x-0 top-0 pointer-events-none z-10" style={{ height: 44, background: 'linear-gradient(to bottom, rgba(15,23,42,1) 0%, transparent 100%)' }} />
+          <div className="absolute inset-x-0 bottom-0 pointer-events-none z-10" style={{ height: 44, background: 'linear-gradient(to top, rgba(15,23,42,1) 0%, transparent 100%)' }} />
           <div
             className="scrollbar-hide"
             style={{ height: '100%', overflowY: 'scroll', scrollSnapType: 'y mandatory', paddingTop: 44, paddingBottom: 44 }}
@@ -1641,9 +1641,9 @@ export default function SettingsPage() {
               <div
                 key={tab.id}
                 style={{ height: 44, scrollSnapAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-                className={`text-sm font-medium transition-colors ${tab.id === activeTab ? 'text-white' : 'text-gray-500'}`}
+                className={`text-sm font-semibold transition-colors ${tab.id === activeTab ? 'text-white' : 'text-gray-600'}`}
               >
-                <tab.icon className={`w-4 h-4 ${tab.id === activeTab ? 'text-blue-400' : 'text-gray-600'}`} />
+                <tab.icon className={`w-4 h-4 flex-shrink-0 ${tab.id === activeTab ? 'text-blue-400' : 'text-gray-700'}`} />
                 {tab.label}
               </div>
             ))}
@@ -2588,7 +2588,7 @@ export default function SettingsPage() {
 
             {/* SR Theme Color Picker */}
             <div className="pt-6 border-t border-slate-700">
-              <h3 className="text-lg font-semibold text-white mb-2">สีธีม Service Report</h3>
+              <h3 className="text-lg font-semibold text-white mb-2">Service Report Theme</h3>
               <p className="text-sm text-gray-400 mb-4">
                 เลือกสี Theme ที่จะใช้ใน Service Report (เว็บและ PDF) แยกจากสี Theme หลักของระบบ
               </p>
@@ -2639,11 +2639,11 @@ export default function SettingsPage() {
                 </button>
 
                 {/* Theme presets */}
-                {themePresets.map((preset) => {
+                {srThemePresets.map((preset) => {
                   const isSelected = srSettings.srThemeBgStart === preset.bgStart && srSettings.srThemeBgEnd === preset.bgEnd
                   return (
                     <button
-                      key={`sr-${preset.name}`}
+                      key={`sr-${preset.name}-${preset.bgStart}`}
                       type="button"
                       onClick={() => setSrSettings({ ...srSettings, srThemeBgStart: preset.bgStart, srThemeBgEnd: preset.bgEnd })}
                       className={`relative p-1 rounded-xl transition-all ${
