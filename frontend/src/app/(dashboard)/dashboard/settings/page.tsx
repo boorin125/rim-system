@@ -670,6 +670,16 @@ export default function SettingsPage() {
       } catch {
         // Use defaults
       }
+
+      // Fetch current app version — must run AFTER system-info to avoid being overwritten
+      try {
+        const verRes = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/version`, { headers })
+        if (verRes.data?.version) {
+          setSystemInfo(prev => ({ ...prev, version: verRes.data.version }))
+        }
+      } catch {
+        // Keep whatever version was set by system-info
+      }
     } catch (error) {
       console.error('Error fetching settings:', error)
     } finally {
@@ -1406,6 +1416,14 @@ export default function SettingsPage() {
   const [patchValidating, setPatchValidating] = useState(false)
   const [releaseNotesModal, setReleaseNotesModal] = useState<any | null>(null)
 
+  // Install progress
+  const [installJobId, setInstallJobId] = useState<string | null>(null)
+  const [installProgress, setInstallProgress] = useState<{
+    step: number; total: number; pct: number; message: string;
+    status: 'running' | 'done' | 'error'; result?: any; error?: string;
+  } | null>(null)
+  const installPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
   const fetchVersionData = async () => {
     if (!isSuperAdmin) return
     setVersionLoading(true)
@@ -1451,23 +1469,68 @@ export default function SettingsPage() {
   const handleInstallPatch = async () => {
     if (!selectedPatch || !patchPreview) return
     if (!confirm(`Install version ${patchPreview.version}? A snapshot will be created before installation.`)) return
+
     setVersionInstalling(true)
+    setInstallProgress({ step: 0, total: 5, pct: 0, message: 'Starting installation…', status: 'running' })
+
     try {
       const token = localStorage.getItem('token')
       const form = new FormData()
       form.append('patch', selectedPatch)
-      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/version/install`, form, {
+
+      // POST install → returns { jobId }
+      const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/version/install`, form, {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
       })
-      toast.success(`Version ${patchPreview.version} installed successfully`)
-      setSelectedPatch(null)
-      setPatchPreview(null)
-      await fetchVersionData()
+      const jobId: string = res.data.jobId
+      setInstallJobId(jobId)
+
+      // Poll progress every 500ms
+      installPollRef.current = setInterval(async () => {
+        try {
+          const statusRes = await axios.get(
+            `${process.env.NEXT_PUBLIC_API_URL}/version/install-status/${jobId}`,
+            { headers: { Authorization: `Bearer ${token}` } },
+          )
+          const job = statusRes.data
+          setInstallProgress({
+            step: job.step,
+            total: job.total,
+            pct: job.pct,
+            message: job.message,
+            status: job.status,
+            result: job.result,
+            error: job.error,
+          })
+
+          if (job.status === 'done') {
+            clearInterval(installPollRef.current!)
+            installPollRef.current = null
+            setVersionInstalling(false)
+            setSelectedPatch(null)
+            setPatchPreview(null)
+            await fetchVersionData()
+          } else if (job.status === 'error') {
+            clearInterval(installPollRef.current!)
+            installPollRef.current = null
+            setVersionInstalling(false)
+            toast.error(job.error || 'Installation failed')
+          }
+        } catch {
+          // ignore poll errors
+        }
+      }, 500)
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Installation failed')
-    } finally {
       setVersionInstalling(false)
+      setInstallProgress(null)
+      toast.error(err.response?.data?.message || 'Failed to start installation')
     }
+  }
+
+  const handleCloseInstallProgress = () => {
+    if (installProgress?.status === 'running') return // cannot close while running
+    setInstallProgress(null)
+    setInstallJobId(null)
   }
 
   const handleRollback = async (targetVersion: string) => {
@@ -3924,7 +3987,7 @@ export default function SettingsPage() {
                     </div>
 
                     {/* Patch preview */}
-                    {patchPreview && (
+                    {patchPreview && !installProgress && (
                       <div className="p-4 bg-slate-800/60 rounded-xl border border-blue-500/30 space-y-3">
                         <div className="flex items-center justify-between">
                           <span className="text-white font-semibold">
@@ -3953,12 +4016,131 @@ export default function SettingsPage() {
                           disabled={versionInstalling}
                           className="w-full flex items-center justify-center gap-2 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-lg font-medium transition-colors"
                         >
-                          {versionInstalling ? (
-                            <><Loader2 className="w-4 h-4 animate-spin" /> Installing...</>
-                          ) : (
-                            <><Zap className="w-4 h-4" /> Install v{patchPreview.version}</>
-                          )}
+                          <Zap className="w-4 h-4" /> Install v{patchPreview.version}
                         </button>
+                      </div>
+                    )}
+
+                    {/* ── Install Progress UI ── */}
+                    {installProgress && (
+                      <div className={`p-5 rounded-xl border space-y-4 ${
+                        installProgress.status === 'done'  ? 'bg-green-500/10 border-green-500/30' :
+                        installProgress.status === 'error' ? 'bg-red-500/10 border-red-500/30' :
+                        'bg-purple-500/10 border-purple-500/30'
+                      }`}>
+                        {/* Header */}
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-white flex items-center gap-2">
+                            {installProgress.status === 'running' && <Loader2 className="w-4 h-4 text-purple-400 animate-spin" />}
+                            {installProgress.status === 'done'    && <CheckCircle className="w-4 h-4 text-green-400" />}
+                            {installProgress.status === 'error'   && <AlertTriangle className="w-4 h-4 text-red-400" />}
+                            {installProgress.status === 'running' ? 'Installing…' :
+                             installProgress.status === 'done'    ? 'Installation Complete' :
+                             'Installation Failed'}
+                          </span>
+                          <span className={`text-2xl font-bold font-mono tabular-nums ${
+                            installProgress.status === 'done'  ? 'text-green-400' :
+                            installProgress.status === 'error' ? 'text-red-400' :
+                            'text-purple-300'
+                          }`}>
+                            {installProgress.pct}%
+                          </span>
+                        </div>
+
+                        {/* Progress bar */}
+                        <div className="w-full bg-slate-700 rounded-full h-3 overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ease-out ${
+                              installProgress.status === 'done'  ? 'bg-green-500' :
+                              installProgress.status === 'error' ? 'bg-red-500' :
+                              'bg-purple-500'
+                            } ${installProgress.status === 'running' ? 'relative overflow-hidden' : ''}`}
+                            style={{ width: `${installProgress.pct}%` }}
+                          >
+                            {installProgress.status === 'running' && (
+                              <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Step counter */}
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-300">{installProgress.message}</span>
+                          {installProgress.total > 0 && (
+                            <span className="text-gray-500 text-xs">
+                              Step {installProgress.step}/{installProgress.total}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Step dots */}
+                        {installProgress.total > 0 && (
+                          <div className="flex items-center gap-1.5">
+                            {Array.from({ length: installProgress.total }).map((_, i) => (
+                              <div key={i} className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
+                                i < installProgress.step
+                                  ? installProgress.status === 'error' && i === installProgress.step - 1
+                                    ? 'bg-red-500'
+                                    : 'bg-purple-500'
+                                  : 'bg-slate-600'
+                              }`} />
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Success banner */}
+                        {installProgress.status === 'done' && (
+                          <div className="pt-2 space-y-3">
+                            <div className="p-3 bg-green-500/20 border border-green-500/30 rounded-lg text-center">
+                              <p className="text-green-300 font-semibold text-sm">
+                                ✅ Version {installProgress.result?.version} installed successfully!
+                              </p>
+                              {installProgress.result?.appliedAt && (
+                                <p className="text-green-400/70 text-xs mt-1">
+                                  {new Date(installProgress.result.appliedAt).toLocaleString('th-TH')}
+                                </p>
+                              )}
+                            </div>
+                            <button
+                              onClick={handleCloseInstallProgress}
+                              className="w-full py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium"
+                            >
+                              Close
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Error detail */}
+                        {installProgress.status === 'error' && (
+                          <div className="pt-2 space-y-3">
+                            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg space-y-2">
+                              <p className="text-red-300 text-sm font-medium">❌ {installProgress.error}</p>
+                              {installProgress.error?.includes('restored automatically') ? (
+                                <p className="text-green-400 text-xs flex items-center gap-1">
+                                  <CheckCircle className="w-3.5 h-3.5" />
+                                  Code เดิมถูก restore กลับอัตโนมัติแล้ว — ระบบพร้อมใช้งาน
+                                </p>
+                              ) : installProgress.error?.includes('Auto-rollback failed') ? (
+                                <div className="p-2 bg-yellow-500/10 border border-yellow-500/20 rounded text-yellow-300 text-xs">
+                                  ⚠️ Auto-rollback ล้มเหลว — กรุณา restore snapshot ด้วยตนเองจาก:<br />
+                                  <code className="font-mono text-yellow-200 break-all">
+                                    {installProgress.result?.snapshotPath}
+                                  </code>
+                                </div>
+                              ) : (
+                                <p className="text-gray-400 text-xs">
+                                  ✅ ไม่มีการแก้ไข code — ระบบยังอยู่ในสถานะเดิม
+                                </p>
+                              )}
+                            </div>
+                            <button
+                              onClick={handleCloseInstallProgress}
+                              className="w-full py-2 bg-slate-700 hover:bg-slate-600 text-gray-300 rounded-lg text-sm"
+                            >
+                              Dismiss
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

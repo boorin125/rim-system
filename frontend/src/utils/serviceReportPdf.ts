@@ -58,7 +58,7 @@ export interface ServiceReportData {
 interface PdfOptions {
   blankSignature?: boolean
   returnBlob?: boolean
-  style?: 'classic' | 'modern'
+  style?: 'classic' | 'modern' | 'compact'
 }
 
 /** Convert Blob to base64 data URL using FileReader (more reliable than manual conversion) */
@@ -808,6 +808,276 @@ async function generateModernPDF(data: ServiceReportData, options: PdfOptions): 
 }
 
 // ╔══════════════════════════════════════════════════════════════════╗
+// ║                    COMPACT STYLE (v1.0.1)                        ║
+// ╚══════════════════════════════════════════════════════════════════╝
+
+async function generateCompactPDF(
+  data: ServiceReportData,
+  options: PdfOptions
+): Promise<Blob | void> {
+  const { blankSignature = false, returnBlob = false } = options
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const fontLoaded = await loadThaiFont(doc)
+  const font = fontLoaded ? 'Sarabun' : 'helvetica'
+
+  const pageWidth  = doc.internal.pageSize.getWidth()
+  const pageHeight = doc.internal.pageSize.getHeight()
+  const margin = 12
+  const cW = pageWidth - margin * 2   // content width ~186mm
+  const { headerLogo, headerName, headerAddress, headerPhone, headerEmail, headerTaxId } = getProviderInfo(data)
+
+  // ── accent colour (from theme or fallback charcoal) ─────────────
+  const themeHex = data.themeColors?.bgStart || '#1e293b'
+  const c = themeHex.replace('#', '')
+  const accent: [number, number, number] = [
+    parseInt(c.substring(0,2),16),
+    parseInt(c.substring(2,4),16),
+    parseInt(c.substring(4,6),16),
+  ]
+
+  let y = margin
+
+  // ═══════════════════════════════════════════
+  // HEADER — top accent bar
+  // ═══════════════════════════════════════════
+  doc.setFillColor(accent[0], accent[1], accent[2])
+  doc.rect(margin, y, cW, 1.5, 'F')
+  y += 3.5
+
+  // Logo (left)
+  if (headerLogo) {
+    try {
+      const img = await fetchImageAsBase64(headerLogo)
+      if (img) doc.addImage(img.dataUrl, img.format, margin, y, 20, 12)
+    } catch { /* skip */ }
+  }
+
+  // Company name (centre)
+  doc.setFont(font, 'bold')
+  doc.setFontSize(13)
+  doc.setTextColor(accent[0], accent[1], accent[2])
+  doc.text(headerName || 'Service Report', pageWidth / 2, y + 5, { align: 'center' })
+
+  doc.setFont(font, 'normal')
+  doc.setFontSize(7)
+  doc.setTextColor(100, 100, 100)
+  const addrLine = [headerAddress, headerPhone ? `Tel: ${headerPhone}` : '', headerEmail ? `Email: ${headerEmail}` : ''].filter(Boolean).join('   ')
+  doc.text(addrLine, pageWidth / 2, y + 9.5, { align: 'center' })
+  if (headerTaxId) doc.text(`Tax ID: ${headerTaxId}`, pageWidth / 2, y + 13, { align: 'center' })
+
+  // Ticket badge (right)
+  const badgeX = pageWidth - margin - 44
+  doc.setFillColor(accent[0], accent[1], accent[2])
+  doc.roundedRect(badgeX, y, 44, 14, 2, 2, 'F')
+  doc.setFont(font, 'normal')
+  doc.setFontSize(6.5)
+  doc.setTextColor(255, 255, 255)
+  doc.text('Ticket No.', badgeX + 22, y + 4.5, { align: 'center' })
+  doc.setFont(font, 'bold')
+  doc.setFontSize(9)
+  doc.text(data.ticketNumber, badgeX + 22, y + 11, { align: 'center' })
+
+  y += 18
+
+  // ═══════════════════════════════════════════
+  // TITLE STRIP
+  // ═══════════════════════════════════════════
+  doc.setFillColor(240, 240, 240)
+  doc.rect(margin, y, cW, 7, 'F')
+  doc.setDrawColor(accent[0], accent[1], accent[2])
+  doc.setLineWidth(0.6)
+  doc.line(margin, y, margin, y + 7)
+  doc.line(margin + cW, y, margin + cW, y + 7)
+  doc.setFont(font, 'bold')
+  doc.setFontSize(9.5)
+  doc.setTextColor(30, 30, 30)
+  doc.text('SERVICE CALL REPORT  /  ใบรายงานเรียกบริการ', pageWidth / 2, y + 5, { align: 'center' })
+  y += 9
+
+  // ═══════════════════════════════════════════
+  // TWO-COLUMN INFO BLOCK
+  // ═══════════════════════════════════════════
+  const colL = margin
+  const colR = margin + cW / 2 + 2
+  const colWHalf = cW / 2 - 2
+
+  // Outer border
+  doc.setDrawColor(180, 180, 180)
+  doc.setLineWidth(0.25)
+  doc.rect(margin, y, cW, 34)
+  // Divider
+  doc.line(margin + cW / 2, y, margin + cW / 2, y + 34)
+
+  // Left column — Client Info
+  doc.setFillColor(accent[0], accent[1], accent[2])
+  doc.rect(colL, y, colWHalf, 5.5, 'F')
+  doc.setFont(font, 'bold'); doc.setFontSize(7); doc.setTextColor(255,255,255)
+  doc.text('ข้อมูลลูกค้า / Client Info', colL + colWHalf/2, y + 4, { align: 'center' })
+
+  const storeDisplay = data.store ? `${data.store.storeCode} ${data.store.name}` : '-'
+  const lRows = [
+    ['บริษัท / Company', data.store?.company || '-'],
+    ['สาขา / Store',     storeDisplay],
+    ['ที่อยู่ / Address',  (data.store ? [data.store.address, data.store.province].filter(Boolean).join(', ') : null) || '-'],
+    ['โทร / Phone',     data.store?.phone || '-'],
+    ['อีเมล / Email',    data.store?.email || '-'],
+  ]
+  let ry = y + 6
+  doc.setDrawColor(220,220,220); doc.setLineWidth(0.15)
+  for (const [label, val] of lRows) {
+    doc.setFont(font, 'bold'); doc.setFontSize(6.5); doc.setTextColor(90,90,90)
+    doc.text(label, colL + 2, ry + 3.5)
+    doc.setFont(font, 'normal'); doc.setFontSize(7); doc.setTextColor(20,20,20)
+    doc.text(String(val), colL + 36, ry + 3.5)
+    doc.line(colL, ry + 5.5, colL + colWHalf, ry + 5.5)
+    ry += 5.5
+  }
+
+  // Right column — Service Info
+  doc.setFillColor(accent[0], accent[1], accent[2])
+  doc.rect(colR - 2, y, colWHalf, 5.5, 'F')
+  doc.setFont(font, 'bold'); doc.setFontSize(7); doc.setTextColor(255,255,255)
+  doc.text('ข้อมูลการบริการ / Service Info', colR - 2 + colWHalf/2, y + 4, { align: 'center' })
+
+  const techName = data.technicians?.length ? data.technicians.map(t=>t.name).join(', ') : (data.technician?.name || data.resolvedBy?.name || '-')
+  const rRows = [
+    ['ช่างเทคนิค / Tech', techName],
+    ['ประเภทงาน / Type',  data.category || '-'],
+    ['ความสำคัญ / Priority', data.priority || '-'],
+    ['เข้าปฏิบัติงาน / Start', data.checkInAt  ? formatDate(data.checkInAt)  : '-'],
+    ['แก้ไขเสร็จ / Finish',    data.resolvedAt ? formatDate(data.resolvedAt) : '-'],
+  ]
+  ry = y + 6
+  for (const [label, val] of rRows) {
+    doc.setFont(font, 'bold'); doc.setFontSize(6.5); doc.setTextColor(90,90,90)
+    doc.text(label, colR, ry + 3.5)
+    doc.setFont(font, 'normal'); doc.setFontSize(7); doc.setTextColor(20,20,20)
+    doc.text(String(val), colR + 34, ry + 3.5)
+    doc.setDrawColor(220,220,220); doc.setLineWidth(0.15)
+    doc.line(colR - 2, ry + 5.5, colR - 2 + colWHalf, ry + 5.5)
+    ry += 5.5
+  }
+
+  y += 36
+
+  // ═══════════════════════════════════════════
+  // TEXT SECTIONS — problem / resolution / comment
+  // ═══════════════════════════════════════════
+  const drawSection = (label: string, content: string, minH: number) => {
+    doc.setFillColor(248, 248, 248)
+    doc.rect(margin, y, cW, 5.5, 'F')
+    doc.setDrawColor(accent[0], accent[1], accent[2]); doc.setLineWidth(0.5)
+    doc.line(margin, y, margin, y + 5.5)
+    doc.setFont(font, 'bold'); doc.setFontSize(7.5); doc.setTextColor(30,30,30)
+    doc.text(label, margin + 3, y + 4)
+
+    doc.setDrawColor(180,180,180); doc.setLineWidth(0.2)
+    doc.rect(margin, y + 5.5, cW, minH)
+
+    // Lined content
+    doc.setDrawColor(230,230,230); doc.setLineWidth(0.12)
+    for (let ly = y + 5.5 + 5; ly < y + 5.5 + minH; ly += 5) {
+      doc.line(margin + 2, ly, margin + cW - 2, ly)
+    }
+
+    if (content && content !== '-') {
+      doc.setFont(font, 'normal'); doc.setFontSize(7.5); doc.setTextColor(0,0,0)
+      const lines = doc.splitTextToSize(content, cW - 8)
+      doc.text(lines, margin + 4, y + 5.5 + 4.5)
+    }
+    y += 5.5 + minH + 1.5
+  }
+
+  drawSection('ปัญหา / อาการเสีย  (Problem / Symptoms)', data.title || '-', 28)
+  drawSection('วิธีการแก้ไขปัญหา  (Work Performance / Resolution)', data.resolutionNote || '-', 28)
+  drawSection('คำแนะนำ / เพิ่มเติม  (Comment / Remark)', data.comment || '-', 18)
+
+  // ═══════════════════════════════════════════
+  // SPARE PARTS
+  // ═══════════════════════════════════════════
+  doc.setFillColor(248, 248, 248)
+  doc.rect(margin, y, cW, 5.5, 'F')
+  doc.setDrawColor(accent[0], accent[1], accent[2]); doc.setLineWidth(0.5)
+  doc.line(margin, y, margin, y + 5.5)
+  doc.setFont(font, 'bold'); doc.setFontSize(7.5); doc.setTextColor(30,30,30)
+  doc.text('อะไหล่ที่เปลี่ยน  (Spare Parts)', margin + 3, y + 4)
+  y += 5.5
+
+  const hasParts = data.usedSpareParts && data.spareParts.length > 0
+  const spRows = hasParts
+    ? data.spareParts.map((sp, i) => [
+        String(i + 1),
+        sp.equipmentName || sp.deviceName || '-',
+        sp.oldBrandModel || '-',
+        sp.oldSerialNo || '-',
+        sp.newBrandModel || '-',
+        sp.newSerialNo || '-',
+        sp.repairType || '-',
+      ])
+    : [['', 'ไม่มีการเปลี่ยนอะไหล่  (No spare parts used)', '', '', '', '', '']]
+
+  const spColW = (cW - 7) / 6
+  autoTable(doc, {
+    startY: y,
+    head: [['#', 'อุปกรณ์/Equipment', 'Old Brand/Model', 'Old S/N', 'New Brand/Model', 'New S/N', 'ประเภท']],
+    body: spRows,
+    theme: 'grid',
+    styles: { font, fontSize: 6.5, cellPadding: { top: 1, bottom: 1, left: 2, right: 1 }, textColor: [20,20,20], lineColor: [180,180,180], lineWidth: 0.18 },
+    headStyles: { fillColor: [50,50,50], textColor: [255,255,255], fontStyle: 'bold', fontSize: 6.5 },
+    columnStyles: {
+      0: { cellWidth: 7, halign: 'center' },
+      1: { cellWidth: spColW + 4 },
+      2: { cellWidth: spColW },
+      3: { cellWidth: spColW },
+      4: { cellWidth: spColW },
+      5: { cellWidth: spColW },
+      6: { cellWidth: spColW - 4 },
+    },
+    margin: { left: margin, right: margin },
+  })
+  y = (doc as any).lastAutoTable.finalY + 3
+
+  // ═══════════════════════════════════════════
+  // STATUS ROW
+  // ═══════════════════════════════════════════
+  doc.setDrawColor(180,180,180); doc.setLineWidth(0.2)
+  doc.rect(margin, y, cW, 6)
+  doc.setFont(font, 'bold'); doc.setFontSize(7); doc.setTextColor(80,80,80)
+  doc.text('สถานะ / Status:', margin + 3, y + 4)
+  const statusColor: [number,number,number] = data.status?.toLowerCase().includes('clos') || data.status?.toLowerCase().includes('resolv')
+    ? [16, 185, 129] : [234, 179, 8]
+  doc.setTextColor(statusColor[0], statusColor[1], statusColor[2])
+  doc.setFont(font, 'bold'); doc.setFontSize(8)
+  doc.text(data.status || '-', margin + 38, y + 4)
+  y += 8
+
+  // ═══════════════════════════════════════════
+  // SIGNATURES
+  // ═══════════════════════════════════════════
+  doc.setFillColor(248, 248, 248)
+  doc.rect(margin, y, cW, 5.5, 'F')
+  doc.setDrawColor(accent[0], accent[1], accent[2]); doc.setLineWidth(0.5)
+  doc.line(margin, y, margin, y + 5.5)
+  doc.setFont(font, 'bold'); doc.setFontSize(7.5); doc.setTextColor(30,30,30)
+  doc.text('ลายเซ็น  (Signatures)', margin + 3, y + 4)
+  y += 6
+  y = await drawSignatures(doc, font, data, blankSignature, y, margin, cW, data.reportUrl)
+
+  // ═══════════════════════════════════════════
+  // BOTTOM ACCENT + FOOTER
+  // ═══════════════════════════════════════════
+  doc.setDrawColor(accent[0], accent[1], accent[2]); doc.setLineWidth(0.6)
+  doc.line(margin, pageHeight - 10, pageWidth - margin, pageHeight - 10)
+  addFooter(doc, font, data)
+
+  if (!blankSignature) addCopyWatermark(doc, font)
+  applyPdfWatermark(doc, { orgName: data.organizationName, ticketNumber: data.ticketNumber })
+
+  if (returnBlob) return doc.output('blob')
+  doc.save(`service-report-${data.ticketNumber}.pdf`)
+}
+
+// ╔══════════════════════════════════════════════════════════════════╗
 // ║                    PUBLIC API                                    ║
 // ╚══════════════════════════════════════════════════════════════════╝
 
@@ -818,6 +1088,9 @@ export async function generateServiceReportPDF(
   const opts = options || {}
   if (opts.style === 'modern') {
     return generateModernPDF(data, opts)
+  }
+  if (opts.style === 'compact') {
+    return generateCompactPDF(data, opts)
   }
   return generateClassicPDF(data, opts)
 }

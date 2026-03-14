@@ -10,6 +10,8 @@ import {
   UploadedFile,
   Request,
   BadRequestException,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -28,7 +30,7 @@ const UPLOAD_TEMP = './uploads/patches';
 export class VersionController {
   constructor(private readonly versionService: VersionService) {}
 
-  /** GET /version — current version info (all authenticated users) */
+  /** GET /version — current version info */
   @Get()
   getCurrentVersion() {
     return this.versionService.getCurrentVersion();
@@ -48,7 +50,14 @@ export class VersionController {
     return this.versionService.listSnapshots();
   }
 
-  /** POST /version/validate — validate a patch file before installing (SUPER_ADMIN only) */
+  /** GET /version/install-status/:jobId — poll installation progress */
+  @Get('install-status/:jobId')
+  @Roles(UserRole.SUPER_ADMIN)
+  getInstallStatus(@Param('jobId') jobId: string) {
+    return this.versionService.getJobStatus(jobId);
+  }
+
+  /** POST /version/validate — validate a patch file before installing */
   @Post('validate')
   @Roles(UserRole.SUPER_ADMIN)
   @UseInterceptors(
@@ -72,7 +81,7 @@ export class VersionController {
     if (!file) throw new BadRequestException('No patch file uploaded');
     try {
       const result = await this.versionService.validatePatch(file.path);
-      fs.unlinkSync(file.path); // clean up after validation
+      fs.unlinkSync(file.path);
       return result;
     } catch (err) {
       if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
@@ -80,9 +89,13 @@ export class VersionController {
     }
   }
 
-  /** POST /version/install — install a patch (SUPER_ADMIN only) */
+  /**
+   * POST /version/install — upload patch + start async install
+   * Returns { jobId } immediately; poll GET /version/install-status/:jobId for progress
+   */
   @Post('install')
   @Roles(UserRole.SUPER_ADMIN)
+  @HttpCode(HttpStatus.ACCEPTED)
   @UseInterceptors(
     FileInterceptor('patch', {
       storage: diskStorage({
@@ -102,10 +115,11 @@ export class VersionController {
   )
   async installPatch(@UploadedFile() file: Express.Multer.File, @Request() req: any) {
     if (!file) throw new BadRequestException('No patch file uploaded');
-    return this.versionService.installPatch(file.path, req.user.id);
+    const jobId = this.versionService.startInstall(file.path, req.user.id);
+    return { jobId };
   }
 
-  /** POST /version/rollback/:version — rollback to a previous version (SUPER_ADMIN only) */
+  /** POST /version/rollback/:version — rollback to a previous version */
   @Post('rollback/:version')
   @Roles(UserRole.SUPER_ADMIN)
   async rollback(@Param('version') version: string, @Request() req: any) {

@@ -1709,3 +1709,22 @@ model AppVersion {
 
   @@map("app_versions")
 }
+
+model Patch {
+  id            Int       @id @default(autoincrement())
+  version       String                               // e.g. "1.2.3"
+  patchType     String    @map("patch_type")         // "HOTFIX" | "FEATURE" | "SECURITY" | "MAINTENANCE"
+  title         String
+  changelog     String    @db.Text
+  fileName      String    @map("file_name")          // original filename
+  filePath      String    @map("file_path")          // stored path under uploads/patches/
+  fileSize      Int       @map("file_size")          // bytes
+  isPublished   Boolean   @default(false) @map("is_published")
+  publishedAt   DateTime? @map("published_at")
+  emailSentAt   DateTime? @map("email_sent_at")
+  downloadCount Int       @default(0) @map("download_count")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@map("patches")
+}

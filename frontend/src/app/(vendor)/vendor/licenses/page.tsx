@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   Shield, Plus, RefreshCw, LogOut, ChevronDown, ChevronUp,
   CheckCircle, XCircle, Clock, AlertTriangle, Copy, Check,
-  RotateCcw, Ban, Trash2, ArrowUpRight
+  RotateCcw, Ban, Trash2, ArrowUpRight, Package
 } from 'lucide-react'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'
@@ -158,6 +158,13 @@ export default function VendorLicensesPage() {
           <div className="flex items-center gap-2">
             <button onClick={fetchLicenses} className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors">
               <RefreshCw className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => router.push('/vendor/patches')}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-gray-300 text-sm rounded-lg transition-colors border border-slate-600"
+            >
+              <Package className="w-4 h-4" />
+              Patches
             </button>
             <button
               onClick={() => router.push('/vendor/licenses/new')}

@@ -94,6 +94,7 @@ export default function DashboardLayout({
   const router = useRouter()
   const pathname = usePathname()
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [appVersion, setAppVersion] = useState('1.0.0')
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false) // For top-right menu
   const [user, setUser] = useState<any>(null)
   const [orgSettings, setOrgSettings] = useState<OrgSettings | null>(null)
@@ -265,6 +266,17 @@ export default function DashboardLayout({
     }
     fetchTheme()
   }, [pathname])
+
+  // Fetch app version once on mount
+  useEffect(() => {
+    const token = localStorage.getItem('token')
+    if (!token) return
+    axios.get(`${process.env.NEXT_PUBLIC_API_URL}/version`, {
+      headers: { Authorization: `Bearer ${token}` },
+    }).then(res => {
+      if (res.data?.version) setAppVersion(res.data.version)
+    }).catch(() => {})
+  }, [])
 
   // Handle logout
   const handleLogout = async () => {
@@ -484,7 +496,7 @@ export default function DashboardLayout({
           {/* Footer - Version Info */}
           <div className="p-4 border-t border-slate-700/50">
             <div className="text-center">
-              <p className="text-xs text-gray-500">Version 1.0.0</p>
+              <p className="text-xs text-gray-500">Version {appVersion}</p>
             </div>
           </div>
         </div>

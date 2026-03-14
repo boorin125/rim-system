@@ -693,6 +693,20 @@ export class EmailService {
   }
 
   /**
+   * Generic send — used internally by other services (e.g. PatchService)
+   */
+  async sendEmail(data: { to: string; subject: string; html: string }): Promise<void> {
+    const config = await this.getSmtpConfig();
+    const transporter = await this.createTransporter();
+    await transporter.sendMail({
+      from: `"${config.fromName}" <${config.fromEmail || config.user}>`,
+      to: data.to,
+      subject: data.subject,
+      html: data.html,
+    });
+  }
+
+  /**
    * Test email configuration - sends a test email
    */
   async sendTestEmail(to: string, cc?: string): Promise<{ success: boolean; message: string; error?: string }> {

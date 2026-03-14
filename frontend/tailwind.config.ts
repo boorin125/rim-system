@@ -48,6 +48,7 @@ const config: Config = {
         'fade-in': 'fadeIn 0.5s ease-out',
         'slide-in': 'slideIn 0.4s ease-out',
         'flip': 'flip 0.6s ease-out',
+        'shimmer': 'shimmer 1.5s infinite',
       },
       keyframes: {
         fadeIn: {
@@ -61,6 +62,10 @@ const config: Config = {
         flip: {
           '0%': { transform: 'rotateY(0deg)' },
           '100%': { transform: 'rotateY(180deg)' },
+        },
+        shimmer: {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(200%)' },
         },
       },
     },
