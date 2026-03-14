@@ -712,18 +712,33 @@ export class BackupService {
     const defaultPasswordHash = await bcrypt.hash('Password@1', 10);
 
     const tableMap: Record<string, (d: any[]) => Promise<{ count: number }>> = {
-      // Config — use upsert so existing keys (e.g. SMTP) get updated, not skipped
+      // Config — update existing keys first, then insert new ones (avoids sequence/id conflict)
       system_configs: async (d) => {
-        let count = 0;
+        const existingKeys = new Set(
+          (await this.prisma.systemConfig.findMany({ select: { key: true } })).map(r => r.key)
+        );
+        // Update existing
         for (const row of d) {
-          await this.prisma.systemConfig.upsert({
-            where: { key: row.key },
-            update: { value: row.value, description: row.description, isEncrypted: row.isEncrypted ?? false, category: row.category || 'general' },
-            create: { key: row.key, value: row.value, description: row.description, isEncrypted: row.isEncrypted ?? false, category: row.category || 'general' },
-          });
-          count++;
+          if (existingKeys.has(row.key)) {
+            await this.prisma.systemConfig.updateMany({
+              where: { key: row.key },
+              data: { value: row.value, description: row.description, isEncrypted: row.isEncrypted ?? false, category: row.category || 'general' },
+            });
+          }
         }
-        return { count };
+        // Insert new (no explicit id — let DB auto-assign after sequence reset)
+        const newRows = d.filter(row => !existingKeys.has(row.key));
+        if (newRows.length > 0) {
+          // Reset sequence to avoid collision with existing ids
+          await this.prisma.$executeRawUnsafe(
+            `SELECT setval(pg_get_serial_sequence('system_configs', 'id'), COALESCE((SELECT MAX(id) FROM system_configs), 0) + 1, false)`
+          );
+          await this.prisma.systemConfig.createMany({
+            data: newRows.map(row => ({ key: row.key, value: row.value, description: row.description, isEncrypted: row.isEncrypted ?? false, category: row.category || 'general' })),
+            skipDuplicates: true,
+          });
+        }
+        return { count: d.length };
       },
       sla_configs: (d) => this.prisma.slaConfig.createMany({ data: d, skipDuplicates: true }),
       incident_categories: (d) => this.prisma.incidentCategory.createMany({ data: d, skipDuplicates: true }),
