@@ -36,9 +36,9 @@ const LICENSE_FEATURES = {
   },
   PROFESSIONAL: {
     maxUsers: 50,
-    maxStores: 50,
+    maxStores: 300,
     maxIncidentsMonth: 1000,
-    features: ['basic_incidents', 'basic_stores', 'equipment', 'reports', 'sla', 'performance', 'knowledge_base'],
+    features: ['basic_incidents', 'basic_stores', 'equipment', 'reports', 'sla', 'performance', 'knowledge_base', 'realtime_tracking'],
     durationDays: 365,
   },
   ENTERPRISE: {

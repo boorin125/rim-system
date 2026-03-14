@@ -67,9 +67,9 @@ function LicenseExpiredBanner() {
     </div>
   )
 
-  // Trial — Full access (Day 1–30): informational yellow
+  // Trial — Full access (Day 1–30): yellow → red when ≤ 7 days
   if (isTrialFull) return (
-    <div className="fixed top-0 left-0 right-0 z-[35] bg-yellow-500/90 backdrop-blur-sm text-white text-center py-2 text-sm font-medium flex items-center justify-center gap-2">
+    <div className={`fixed top-0 left-0 right-0 z-[35] backdrop-blur-sm text-white text-center py-2 text-sm font-medium flex items-center justify-center gap-2 ${(trialDaysRemaining ?? 99) <= 7 ? 'bg-red-600/90' : 'bg-yellow-500/90'}`}>
       <Shield className="w-4 h-4" />
       ทดลองใช้งาน — เหลือ {trialDaysRemaining} วัน โปรด Activate License เพื่อใช้งานเต็มรูปแบบ
     </div>
