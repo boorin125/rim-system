@@ -486,7 +486,7 @@ export default function SettingsPage() {
       await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/license/deactivate`, {
         licenseKey: deactivateKey,
       }, { headers: { Authorization: `Bearer ${token}` } })
-      toast.success('License ถูกถอนแล้ว — พร้อม Activate ที่ Server ใหม่')
+      toast.success('Deactivate License สำเร็จ — พร้อม Activate ที่ Server ใหม่')
       setShowDeactivateConfirm(false)
       setDeactivateKey('')
       fetchLicense()
@@ -3663,7 +3663,7 @@ export default function SettingsPage() {
                         onClick={() => setShowDeactivateConfirm(true)}
                         className="w-full mt-1 px-3 py-2 bg-slate-700 hover:bg-slate-600 text-gray-300 rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
                       >
-                        <LogOut className="w-4 h-4" /> ถอน License (ย้ายไป Server ใหม่)
+                        <LogOut className="w-4 h-4" /> Deactivate License
                       </button>
                     )}
                   </div>
@@ -3761,14 +3761,14 @@ export default function SettingsPage() {
               <div className="flex items-start gap-3">
                 <AlertTriangle className="w-6 h-6 text-red-400 flex-shrink-0 mt-0.5" />
                 <div>
-                  <h3 className="text-white font-semibold">ถอน License</h3>
+                  <h3 className="text-white font-semibold">Deactivate License</h3>
                   <p className="text-gray-400 text-sm mt-1">
-                    หลังจากถอน License ระบบนี้จะใช้งานไม่ได้จนกว่าจะ Activate ใหม่
+                    หลังจาก Deactivate ระบบนี้จะกลับไปใช้ Trial จนกว่าจะ Activate ใหม่
                   </p>
                 </div>
               </div>
               <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-300">
-                ใช้เมื่อต้องการย้าย License ไปที่ Server ใหม่เท่านั้น
+                ใช้เมื่อต้องการย้าย License ไปติดตั้งที่ Server ใหม่เท่านั้น
               </div>
               <div>
                 <label className="text-xs text-gray-400 mb-1 block">
@@ -3795,7 +3795,7 @@ export default function SettingsPage() {
                   className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {deactivating ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogOut className="w-4 h-4" />}
-                  ยืนยันการถอน
+                  ยืนยัน Deactivate
                 </button>
               </div>
             </div>
