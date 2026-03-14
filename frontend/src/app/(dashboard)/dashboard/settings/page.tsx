@@ -1778,23 +1778,6 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* Company Address (for Service Report) */}
-            <div className="mt-6">
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Company Address (for Service Report)
-              </label>
-              <textarea
-                value={orgSettings.organizationAddress}
-                onChange={(e) => setOrgSettings({ ...orgSettings, organizationAddress: e.target.value })}
-                disabled={!canManage}
-                rows={3}
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 resize-none"
-                placeholder="Enter company address for service report header"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                This address will appear on the Service Report document header.
-              </p>
-            </div>
 
             {/* Save Button */}
             {canManage && (
@@ -2843,26 +2826,22 @@ export default function SettingsPage() {
                       </div>
 
                       {/* Regional Times Display */}
-                      <div className="grid grid-cols-2 gap-4 mt-2">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
                         {/* Bangkok/Metro */}
-                        <div className="flex items-center space-x-4 text-sm">
-                          <span className="text-blue-400 min-w-[100px]">🏙️ กทม./ปริมณฑล</span>
-                          <span className="text-gray-400">
-                            Response: <span className="text-white">{formatMinutesToDisplay(sla.responseTimeMinutes)}</span>
-                          </span>
-                          <span className="text-gray-400">
-                            Resolution: <span className="text-white">{formatMinutesToDisplay(sla.resolutionTimeMinutes)}</span>
-                          </span>
+                        <div className="text-sm space-y-0.5">
+                          <span className="text-blue-400 font-medium">🏙️ กทม./ปริมณฑล</span>
+                          <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-gray-400">
+                            <span>Response: <span className="text-white">{formatMinutesToDisplay(sla.responseTimeMinutes)}</span></span>
+                            <span>Resolution: <span className="text-white">{formatMinutesToDisplay(sla.resolutionTimeMinutes)}</span></span>
+                          </div>
                         </div>
                         {/* Provincial */}
-                        <div className="flex items-center space-x-4 text-sm">
-                          <span className="text-green-400 min-w-[100px]">🌴 ต่างจังหวัด</span>
-                          <span className="text-gray-400">
-                            Response: <span className="text-white">{formatMinutesToDisplay(sla.responseTimeProvincial || 0)}</span>
-                          </span>
-                          <span className="text-gray-400">
-                            Resolution: <span className="text-white">{formatMinutesToDisplay(sla.resolutionTimeProvincial || 0)}</span>
-                          </span>
+                        <div className="text-sm space-y-0.5">
+                          <span className="text-green-400 font-medium">🌴 ต่างจังหวัด</span>
+                          <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-gray-400">
+                            <span>Response: <span className="text-white">{formatMinutesToDisplay(sla.responseTimeProvincial || 0)}</span></span>
+                            <span>Resolution: <span className="text-white">{formatMinutesToDisplay(sla.resolutionTimeProvincial || 0)}</span></span>
+                          </div>
                         </div>
                       </div>
                     </div>
