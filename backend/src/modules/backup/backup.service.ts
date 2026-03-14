@@ -89,11 +89,11 @@ export class BackupService {
    * Block Backup/Restore features for TRIAL licenses
    */
   private async checkBackupFeatureAllowed(): Promise<void> {
+    // Find any active non-TRIAL license — ignore rogue trial records created by machineId changes
     const license = await this.prisma.license.findFirst({
-      where: { status: 'ACTIVE' },
-      orderBy: { activatedAt: 'desc' },
+      where: { status: 'ACTIVE', licenseType: { not: 'TRIAL' } },
     });
-    if (!license || license.licenseType === 'TRIAL') {
+    if (!license) {
       throw new ForbiddenException({
         code: 'TRIAL_RESTRICTED',
         message: 'ฟีเจอร์ Backup/Restore ไม่รองรับใน Trial License กรุณา Activate License เพื่อใช้งาน',

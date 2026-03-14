@@ -416,6 +416,12 @@ export class LicenseService {
    * Auto-create a 30-day TRIAL license for this machine on first install
    */
   private async autoCreateTrial(machineId: string) {
+    // Don't create a new trial if any non-TRIAL active license exists anywhere in the DB
+    const existingPaid = await this.prisma.license.findFirst({
+      where: { status: 'ACTIVE', licenseType: { not: 'TRIAL' } },
+    });
+    if (existingPaid) return existingPaid;
+
     const TRIAL_DAYS = 30;
     const expiresAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
 
