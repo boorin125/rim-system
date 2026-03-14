@@ -1208,6 +1208,7 @@ export default function SettingsPage() {
       setShowRestoreFileModal(false)
       setRestoreFileContent(null)
       setRestoreFilePassword('')
+      setTimeout(() => window.location.reload(), 1000)
     } catch (error: any) {
       const msg = error.response?.data?.message
       if (msg === 'PASSWORD_REQUIRED') toast.error('Backup นี้มีการป้องกัน Password')
