@@ -52,7 +52,9 @@ export function LicenseProvider({ children }: { children: ReactNode }) {
 
   const fetchLicense = useCallback(async () => {
     try {
-      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/license/current`)
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/license/current`, {
+        headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
+      })
       const data = res.data
 
       const trialPhase = data.trialPhase ?? null
@@ -87,9 +89,17 @@ export function LicenseProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     fetchLicense()
-    // Re-check every 30 minutes
-    const interval = setInterval(fetchLicense, 30 * 60 * 1000)
-    return () => clearInterval(interval)
+    // Re-check every 5 minutes
+    const interval = setInterval(fetchLicense, 5 * 60 * 1000)
+    // Re-fetch when user comes back to the tab (important for mobile)
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') fetchLicense()
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
   }, [fetchLicense])
 
   return (
