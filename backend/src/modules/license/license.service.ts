@@ -43,7 +43,7 @@ const LICENSE_FEATURES = {
   },
   ENTERPRISE: {
     maxUsers: 500,
-    maxStores: 500,
+    maxStores: 1000,
     maxIncidentsMonth: null, // unlimited
     features: ['all'],
     durationDays: 365,

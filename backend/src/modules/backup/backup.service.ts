@@ -691,7 +691,17 @@ export class BackupService {
         })),
         skipDuplicates: true,
       }),
-      user_role_assignments: (d) => this.prisma.userRoleAssignment.createMany({ data: d, skipDuplicates: true }),
+      user_role_assignments: async (d) => {
+        // Filter out assignments where userId doesn't exist (user may have been skipped due to duplicate email)
+        const existingUsers = await this.prisma.user.findMany({
+          where: { id: { in: d.map((r: any) => r.userId) } },
+          select: { id: true },
+        });
+        const validIds = new Set(existingUsers.map((u) => u.id));
+        const valid = d.filter((r: any) => validIds.has(r.userId));
+        if (valid.length === 0) return { count: 0 };
+        return this.prisma.userRoleAssignment.createMany({ data: valid, skipDuplicates: true });
+      },
 
       // Stores & equipment
       stores: (d) => this.prisma.store.createMany({ data: d, skipDuplicates: true }),
