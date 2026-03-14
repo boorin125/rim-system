@@ -24,7 +24,7 @@ const DEFAULT_BACKUP_DIR = process.env.BACKUP_DIR || './backups';
 const SCOPE_TABLES = {
   ALL: [
     // Core config (no FK deps)
-    'system_configs', 'sla_configs', 'incident_categories', 'job_types', 'licenses',
+    'system_configs', 'sla_configs', 'incident_categories', 'job_types',
     // Users & roles
     'users', 'user_role_assignments',
     // Stores & equipment
@@ -174,6 +174,21 @@ export class BackupService {
         });
       }
 
+      // Backup logo files as base64 (org logo + service report logo)
+      const logoBackups: Record<string, string> = {};
+      const logoKeys = ['organization_logo', 'sr_provider_logo'];
+      for (const key of logoKeys) {
+        const config = (backupData.system_configs as any[] || []).find((c: any) => c.key === key);
+        if (config?.value) {
+          const logoFilePath = path.join(process.cwd(), config.value.replace(/^\//, ''));
+          try {
+            if (fs.existsSync(logoFilePath)) {
+              logoBackups[key] = fs.readFileSync(logoFilePath).toString('base64');
+            }
+          } catch { /* skip unreadable logo */ }
+        }
+      }
+
       // Determine backup directory based on schedule settings
       const backupDir = this.getBackupDir(
         backup.schedule?.storageType,
@@ -198,6 +213,7 @@ export class BackupService {
           tables: tables,
           totalRecords,
           ...(passwordHash && { passwordHash }),
+          ...(Object.keys(logoBackups).length > 0 && { logos: logoBackups }),
         },
         data: backupData,
       }, null, 2);
@@ -247,7 +263,6 @@ export class BackupService {
       sla_configs: () => this.prisma.slaConfig.findMany(),
       incident_categories: () => this.prisma.incidentCategory.findMany(),
       job_types: () => this.prisma.jobType.findMany(),
-      licenses: () => this.prisma.license.findMany(),
       // Users (exclude sensitive 2FA secret; password set to default on restore)
       users: () => this.prisma.user.findMany({
         select: {
@@ -588,7 +603,7 @@ export class BackupService {
     // Restore order respects foreign key dependencies
     const restoreOrder = [
       // No-FK config first
-      'system_configs', 'sla_configs', 'incident_categories', 'job_types', 'licenses',
+      'system_configs', 'sla_configs', 'incident_categories', 'job_types',
       // Users & roles
       'users', 'user_role_assignments',
       // Stores & equipment
@@ -620,6 +635,23 @@ export class BackupService {
         errors[table] = msg;
         stats[table] = 0;
         console.error(`Error restoring table ${table}:`, msg);
+      }
+    }
+
+    // Restore logo files from base64 in metadata
+    if (metadata.logos && typeof metadata.logos === 'object') {
+      const uploadsLogoDir = path.join(process.cwd(), 'uploads', 'logos');
+      if (!fs.existsSync(uploadsLogoDir)) {
+        fs.mkdirSync(uploadsLogoDir, { recursive: true });
+      }
+      for (const [key, base64] of Object.entries(metadata.logos)) {
+        const config = await this.prisma.systemConfig.findUnique({ where: { key } });
+        if (config?.value) {
+          const logoFilePath = path.join(process.cwd(), config.value.replace(/^\//, ''));
+          try {
+            fs.writeFileSync(logoFilePath, Buffer.from(base64 as string, 'base64'));
+          } catch { /* skip */ }
+        }
       }
     }
 
@@ -660,12 +692,23 @@ export class BackupService {
     const defaultPasswordHash = await bcrypt.hash('Password@1', 10);
 
     const tableMap: Record<string, (d: any[]) => Promise<{ count: number }>> = {
-      // Config
-      system_configs: (d) => this.prisma.systemConfig.createMany({ data: d, skipDuplicates: true }),
+      // Config — use upsert so existing keys (e.g. SMTP) get updated, not skipped
+      system_configs: async (d) => {
+        let count = 0;
+        for (const row of d) {
+          await this.prisma.systemConfig.upsert({
+            where: { key: row.key },
+            update: { value: row.value, description: row.description, isEncrypted: row.isEncrypted ?? false, category: row.category || 'general' },
+            create: { key: row.key, value: row.value, description: row.description, isEncrypted: row.isEncrypted ?? false, category: row.category || 'general' },
+          });
+          count++;
+        }
+        return { count };
+      },
       sla_configs: (d) => this.prisma.slaConfig.createMany({ data: d, skipDuplicates: true }),
       incident_categories: (d) => this.prisma.incidentCategory.createMany({ data: d, skipDuplicates: true }),
       job_types: (d) => this.prisma.jobType.createMany({ data: d, skipDuplicates: true }),
-      licenses: (d) => this.prisma.license.createMany({ data: d, skipDuplicates: true }),
+      // licenses — intentionally excluded from backup/restore (must be activated via key)
 
       // Users (restore with default password since we don't back up hashed passwords)
       users: (d) => this.prisma.user.createMany({
