@@ -413,12 +413,31 @@ export default function SettingsPage() {
     { name: 'Purple', bgStart: '#1a0533', bgEnd: '#2e1065' },
     { name: 'Rose', bgStart: '#2a0a18', bgEnd: '#4c0519' },
     { name: 'Orange', bgStart: '#431407', bgEnd: '#9a3412' },
+    { name: 'Gold', bgStart: '#1c1500', bgEnd: '#3d2900' },
     { name: 'Charcoal', bgStart: '#111111', bgEnd: '#1f1f1f' },
     { name: 'Ocean', bgStart: '#0c1929', bgEnd: '#164e63' },
     { name: 'Midnight', bgStart: '#020617', bgEnd: '#0f172a' },
   ]
+
+  // Adjust hex color brightness: factor 0=darkest, 50=original, 100=lightest
+  const adjustHex = (hex: string, factor: number): string => {
+    const r = parseInt(hex.slice(1, 3), 16)
+    const g = parseInt(hex.slice(3, 5), 16)
+    const b = parseInt(hex.slice(5, 7), 16)
+    if (factor === 50) return hex
+    const clamp = (v: number) => Math.min(255, Math.max(0, Math.round(v)))
+    if (factor < 50) {
+      const t = factor / 50
+      return `#${clamp(r * t).toString(16).padStart(2, '0')}${clamp(g * t).toString(16).padStart(2, '0')}${clamp(b * t).toString(16).padStart(2, '0')}`
+    }
+    const t = (factor - 50) / 50
+    return `#${clamp(r + (255 - r) * t).toString(16).padStart(2, '0')}${clamp(g + (255 - g) * t).toString(16).padStart(2, '0')}${clamp(b + (255 - b) * t).toString(16).padStart(2, '0')}`
+  }
+
   const [selectedTheme, setSelectedTheme] = useState({ bgStart: '#0f172a', bgEnd: '#1e293b' })
   const [savedTheme, setSavedTheme] = useState({ bgStart: '#0f172a', bgEnd: '#1e293b' })
+  const [basePreset, setBasePreset] = useState<{ bgStart: string; bgEnd: string } | null>(null)
+  const [themeBrightness, setThemeBrightness] = useState(50)
 
   // System Info State
   const [systemInfo, setSystemInfo] = useState<SystemInfo>({
@@ -3543,28 +3562,30 @@ export default function SettingsPage() {
             {/* Preset Grid */}
             <div>
               <p className="text-sm text-gray-400 mb-3">เลือก Theme</p>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                 {themePresets.map((preset) => {
-                  const isSelected = selectedTheme.bgStart === preset.bgStart && selectedTheme.bgEnd === preset.bgEnd
+                  const isBaseSelected = basePreset?.bgStart === preset.bgStart && basePreset?.bgEnd === preset.bgEnd
                   return (
                     <button
                       key={preset.name}
-                      onClick={() => setSelectedTheme({ bgStart: preset.bgStart, bgEnd: preset.bgEnd })}
+                      onClick={() => {
+                        setBasePreset({ bgStart: preset.bgStart, bgEnd: preset.bgEnd })
+                        setThemeBrightness(50)
+                        setSelectedTheme({ bgStart: preset.bgStart, bgEnd: preset.bgEnd })
+                      }}
                       className={`relative p-1 rounded-xl transition-all ${
-                        isSelected
+                        isBaseSelected
                           ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-slate-800'
                           : 'hover:ring-1 hover:ring-slate-500'
                       }`}
                     >
                       <div
                         className="h-20 rounded-lg flex items-end justify-center pb-2"
-                        style={{
-                          background: `linear-gradient(135deg, ${preset.bgStart} 0%, ${preset.bgEnd} 100%)`,
-                        }}
+                        style={{ background: `linear-gradient(135deg, ${preset.bgStart} 0%, ${preset.bgEnd} 100%)` }}
                       >
                         <span className="text-white/80 text-xs font-medium">{preset.name}</span>
                       </div>
-                      {isSelected && (
+                      {isBaseSelected && (
                         <div className="absolute top-2 right-2 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
                           <Check className="w-3 h-3 text-white" />
                         </div>
@@ -3574,6 +3595,46 @@ export default function SettingsPage() {
                 })}
               </div>
             </div>
+
+            {/* Brightness Slider — shown when a preset is selected */}
+            {basePreset && (
+              <div className="p-4 bg-slate-700/30 rounded-xl">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm text-gray-300 font-medium">ความสว่าง</p>
+                  <span className="text-xs text-gray-400">
+                    {themeBrightness < 50 ? `เข้มขึ้น ${50 - themeBrightness}%` : themeBrightness > 50 ? `อ่อนลง ${themeBrightness - 50}%` : 'ค่าเริ่มต้น'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-gray-500">เข้ม</span>
+                  <input
+                    type="range"
+                    min={10}
+                    max={90}
+                    value={themeBrightness}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value)
+                      setThemeBrightness(val)
+                      setSelectedTheme({
+                        bgStart: adjustHex(basePreset.bgStart, val),
+                        bgEnd: adjustHex(basePreset.bgEnd, val),
+                      })
+                    }}
+                    className="flex-1 accent-blue-500"
+                  />
+                  <span className="text-xs text-gray-500">อ่อน</span>
+                  <button
+                    onClick={() => {
+                      setThemeBrightness(50)
+                      setSelectedTheme({ bgStart: basePreset.bgStart, bgEnd: basePreset.bgEnd })
+                    }}
+                    className="text-xs text-blue-400 hover:text-blue-300 transition whitespace-nowrap"
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Save Button */}
             {canManage && (
@@ -3590,7 +3651,6 @@ export default function SettingsPage() {
                       )
                       setSavedTheme(selectedTheme)
                       localStorage.setItem('themeStyle', JSON.stringify(selectedTheme))
-                      // Notify layout to apply theme immediately via custom event
                       window.dispatchEvent(new CustomEvent('themeUpdated', { detail: selectedTheme }))
                       toast.success('บันทึก Theme สำเร็จ')
                     } catch {
@@ -3600,11 +3660,11 @@ export default function SettingsPage() {
                     }
                   }}
                   disabled={isSaving || (selectedTheme.bgStart === savedTheme.bgStart && selectedTheme.bgEnd === savedTheme.bgEnd)}
-                  className="flex items-center space-x-2 px-6 py-2.5 hover:brightness-110 disabled:bg-slate-700 disabled:text-gray-500 text-white rounded-xl font-medium transition"
-                  style={{ backgroundColor: themeHighlight }}
+                  className="flex items-center space-x-2 px-6 py-2.5 hover:brightness-110 disabled:bg-slate-700 disabled:text-gray-500 rounded-xl font-medium transition"
+                  style={{ backgroundColor: themeHighlight, color: 'white' }}
                 >
-                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                  <span>บันทึก Theme</span>
+                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'white' }} /> : <Save className="w-4 h-4" style={{ color: 'white' }} />}
+                  <span style={{ color: 'white' }}>บันทึก Theme</span>
                 </button>
               </div>
             )}
