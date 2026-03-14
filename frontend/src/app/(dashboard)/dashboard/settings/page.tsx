@@ -3665,12 +3665,20 @@ export default function SettingsPage() {
                         License ใกล้หมดอายุ กรุณาต่ออายุ
                       </div>
                     )}
-                    {isSuperAdmin && (
+                    {isSuperAdmin && licenseInfo.license?.licenseType !== 'TRIAL' && (
                       <button
                         onClick={() => setShowDeactivateConfirm(true)}
                         className="w-full mt-1 px-3 py-2 bg-slate-700 hover:bg-slate-600 text-gray-300 rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
                       >
                         <LogOut className="w-4 h-4" /> Deactivate License
+                      </button>
+                    )}
+                    {isSuperAdmin && licenseInfo.license?.licenseType === 'TRIAL' && (
+                      <button
+                        onClick={() => setShowActivateModal(true)}
+                        className="w-full mt-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Key className="w-4 h-4" /> Activate License
                       </button>
                     )}
                   </div>
