@@ -164,7 +164,8 @@ export default function DashboardLayout({
 
     if (!token) {
       toast.error('กรุณาเข้าสู่ระบบ')
-      router.push('/login')
+      const next = window.location.pathname + window.location.search
+      router.push(`/login?next=${encodeURIComponent(next)}`)
       return
     }
 
@@ -191,7 +192,8 @@ export default function DashboardLayout({
           localStorage.removeItem('token')
           localStorage.removeItem('refreshToken')
           localStorage.removeItem('user')
-          router.push('/login')
+          const next = window.location.pathname + window.location.search
+          router.push(`/login?next=${encodeURIComponent(next)}`)
         }
       }
     }

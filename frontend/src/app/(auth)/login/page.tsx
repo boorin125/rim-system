@@ -1,14 +1,16 @@
 // app/(auth)/login/page.tsx - Login Page
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Mail, Lock, Eye, EyeOff, User, Phone } from 'lucide-react'
 import toast from 'react-hot-toast'
 import axios from 'axios'
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const nextUrl = searchParams.get('next') || '/dashboard'
   const [isFlipped, setIsFlipped] = useState(false)
   const [showForgot, setShowForgot] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
@@ -53,10 +55,10 @@ export default function LoginPage() {
       localStorage.setItem('user', JSON.stringify(response.data.user))
 
       toast.success('เข้าสู่ระบบสำเร็จ!')
-      
-      // Redirect to dashboard
+
+      // Redirect back to the page the user came from (or dashboard)
       setTimeout(() => {
-        router.push('/dashboard')
+        router.push(nextUrl)
       }, 1000)
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'เข้าสู่ระบบไม่สำเร็จ')
@@ -547,5 +549,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginContent />
+    </Suspense>
   )
 }
