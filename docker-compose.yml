@@ -41,6 +41,7 @@ services:
       NODE_ENV: production
       FRONTEND_URL: ${APP_URL:-http://localhost}
       LICENSE_VENDOR_SECRET: ${LICENSE_VENDOR_SECRET:-rim-vendor-2026}
+      MACHINE_ID: ${MACHINE_ID:-}
     volumes:
       - rim_uploads:/app/uploads
     networks:

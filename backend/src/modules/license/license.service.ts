@@ -83,6 +83,12 @@ export class LicenseService {
    * Get machine ID — uses MAC address + CPU model only (stable across OS reinstalls)
    */
   getMachineId(): string {
+    // Allow pinning via env var — required for Docker deployments where
+    // the container MAC address changes on every rebuild
+    if (process.env.MACHINE_ID) {
+      return crypto.createHash('sha256').update(process.env.MACHINE_ID).digest('hex').substring(0, 32);
+    }
+
     const cpus = os.cpus();
     const networkInterfaces = os.networkInterfaces();
 
