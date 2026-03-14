@@ -43,43 +43,40 @@ function LicenseExpiredBanner() {
   const { isExpired, hasLicense, loading, daysRemaining, isTrialFull, isTrialGrace, isTrialExpired, trialDaysRemaining } = useLicense()
   if (loading) return null
 
-  // Trial — Fully expired (Day 31+)
+  const base = 'w-full px-4 py-1 text-xs font-medium flex items-center justify-center gap-1.5 truncate'
+
   if (isTrialExpired) return (
-    <div className="fixed top-0 left-0 right-0 z-[35] bg-red-600/90 backdrop-blur-sm text-white text-center py-2 text-sm font-medium flex items-center justify-center gap-2">
-      <Lock className="w-4 h-4" />
-      ระยะทดลองใช้งานสิ้นสุดแล้ว — กรุณา Activate License เพื่อใช้งานต่อ (Settings → License)
+    <div className={`${base} bg-red-600/90 text-white`}>
+      <Lock className="w-3 h-3 flex-shrink-0" />
+      <span className="truncate">ระยะทดลองใช้งานสิ้นสุดแล้ว — กรุณา Activate License (Settings → License)</span>
     </div>
   )
 
-  // Paid license expired
   if (isExpired && !isTrialGrace && !isTrialExpired) return (
-    <div className="fixed top-0 left-0 right-0 z-[35] bg-red-600/90 backdrop-blur-sm text-white text-center py-2 text-sm font-medium flex items-center justify-center gap-2">
-      <Lock className="w-4 h-4" />
-      License หมดอายุแล้ว — ฟีเจอร์บางส่วนถูกปิด กรุณาติดต่อผู้ให้บริการเพื่อต่ออายุ
+    <div className={`${base} bg-red-600/90 text-white`}>
+      <Lock className="w-3 h-3 flex-shrink-0" />
+      <span className="truncate">License หมดอายุแล้ว — กรุณาติดต่อผู้ให้บริการเพื่อต่ออายุ</span>
     </div>
   )
 
-  // No license at all
   if (!hasLicense) return (
-    <div className="fixed top-0 left-0 right-0 z-[35] bg-red-600/90 backdrop-blur-sm text-white text-center py-2 text-sm font-medium flex items-center justify-center gap-2">
-      <Lock className="w-4 h-4" />
-      ระบบยังไม่ได้ Activate License — ฟีเจอร์บางส่วนถูกจำกัด กรุณาเข้า Settings → License
+    <div className={`${base} bg-red-600/90 text-white`}>
+      <Lock className="w-3 h-3 flex-shrink-0" />
+      <span className="truncate">ยังไม่ได้ Activate License — ฟีเจอร์บางส่วนถูกจำกัด (Settings → License)</span>
     </div>
   )
 
-  // Trial — Full access (Day 1–30): yellow → red when ≤ 7 days
   if (isTrialFull) return (
-    <div className={`fixed top-0 left-0 right-0 z-[35] backdrop-blur-sm text-white text-center py-2 text-sm font-medium flex items-center justify-center gap-2 ${(trialDaysRemaining ?? 99) <= 7 ? 'bg-red-600/90' : 'bg-yellow-500/90'}`}>
-      <Shield className="w-4 h-4" />
-      ทดลองใช้งาน — เหลือ {trialDaysRemaining} วัน โปรด Activate License เพื่อใช้งานเต็มรูปแบบ
+    <div className={`${base} ${(trialDaysRemaining ?? 99) <= 7 ? 'bg-red-600/90' : 'bg-yellow-500/90'} text-white`}>
+      <Shield className="w-3 h-3 flex-shrink-0" />
+      <span className="truncate">ทดลองใช้งาน — เหลือ {trialDaysRemaining} วัน โปรด Activate License เพื่อใช้งานเต็มรูปแบบ</span>
     </div>
   )
 
-  // Paid license expiring soon (≤ 30 days)
   if (daysRemaining !== null && daysRemaining <= 30) return (
-    <div className="fixed top-0 left-0 right-0 z-[35] bg-amber-500/90 backdrop-blur-sm text-white text-center py-2 text-sm font-medium flex items-center justify-center gap-2">
-      <AlertCircle className="w-4 h-4" />
-      License จะหมดอายุใน {daysRemaining} วัน กรุณาต่ออายุที่ Settings → License
+    <div className={`${base} bg-amber-500/90 text-white`}>
+      <AlertCircle className="w-3 h-3 flex-shrink-0" />
+      <span className="truncate">License จะหมดอายุใน {daysRemaining} วัน — กรุณาต่ออายุที่ Settings → License</span>
     </div>
   )
 
@@ -421,7 +418,6 @@ export default function DashboardLayout({
 
   return (
     <LicenseProvider>
-    <LicenseExpiredBanner />
     <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)' }}>
       {/* Background Pattern */}
       <div className="fixed inset-0 bg-pattern"></div>
@@ -508,6 +504,7 @@ export default function DashboardLayout({
       <div className={`transition-all duration-300 ${isSidebarOpen ? 'lg:ml-64' : ''}`}>
         {/* Top Navbar - FIXED (ไม่เคลื่อนไหว) */}
         <header className="fixed top-0 right-0 left-0 lg:left-64 z-30 glass-card border-b border-slate-700/50">
+          <LicenseExpiredBanner />
           <div className="flex items-center justify-between px-6 py-4">
             {/* Mobile Menu Toggle */}
             <button
