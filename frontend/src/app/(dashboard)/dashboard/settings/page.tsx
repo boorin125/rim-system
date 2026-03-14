@@ -1932,8 +1932,8 @@ export default function SettingsPage() {
                   <p className="text-xs text-gray-400">กำหนดจำนวนวันรับประกันหลังปิดงาน</p>
                 </div>
               </div>
-              <div className="flex items-end gap-4">
-                <div className="flex-1 max-w-xs">
+              <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+                <div className="flex-1 sm:max-w-xs">
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     จำนวนวันรับประกัน (Service Warranty Days)
                   </label>
@@ -1954,7 +1954,7 @@ export default function SettingsPage() {
                   <button
                     onClick={handleSaveWarrantySettings}
                     disabled={isSavingWarranty}
-                    className="px-5 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+                    className="w-full sm:w-auto px-5 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     {isSavingWarranty ? (
                       <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />บันทึก...</>
@@ -2006,7 +2006,7 @@ export default function SettingsPage() {
                   </span>
                 )}
               </div>
-              <div className="mt-4 ml-14 space-y-1 text-sm text-gray-400">
+              <div className="mt-4 sm:ml-14 space-y-1 text-sm text-gray-400">
                 <p>• เมื่อ Helpdesk กด <span className="text-white">Request Onsite</span> ระบบจะตรวจสอบว่ามีช่างเทคนิค INSOURCE ที่รับผิดชอบจังหวัดนั้นกี่คน</p>
                 <p>• ถ้ามี <span className="text-green-400 font-medium">1 คน</span> → จ่ายงานให้ช่างคนนั้นอัตโนมัติ</p>
                 <p>• ถ้ามี <span className="text-yellow-400 font-medium">มากกว่า 1 คน หรือ 0 คน</span> → แจ้ง Supervisor ตามกระบวนการปกติ</p>
@@ -2253,10 +2253,10 @@ export default function SettingsPage() {
 
             {/* Action Buttons */}
             {canManage && (
-              <div className="flex justify-end space-x-3 pt-6 border-t border-slate-700">
+              <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-6 border-t border-slate-700">
                 <button
                   onClick={handleTestEmail}
-                  className="flex items-center space-x-2 px-4 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded-lg transition"
+                  className="flex items-center justify-center gap-2 px-4 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded-lg transition"
                 >
                   <Send className="w-4 h-4" />
                   <span>Send Test Email</span>
@@ -2264,7 +2264,7 @@ export default function SettingsPage() {
                 <button
                   onClick={handleSaveEmailSettings}
                   disabled={isSaving}
-                  className="flex items-center space-x-2 px-6 py-2 hover:brightness-110 text-white rounded-lg transition disabled:opacity-50"
+                  className="flex items-center justify-center gap-2 px-6 py-2 hover:brightness-110 text-white rounded-lg transition disabled:opacity-50"
                   style={{ backgroundColor: themeHighlight }}
                 >
                   {isSaving ? (
@@ -2612,7 +2612,7 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
                 {/* Use Main Theme option */}
                 <button
                   type="button"
@@ -2923,14 +2923,14 @@ export default function SettingsPage() {
                 <span>ฟีเจอร์ <strong>Backup & Restore</strong> ไม่รองรับใน Trial License — กรุณา Activate License เพื่อใช้งาน</span>
               </div>
             )}
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
               <div className="flex items-center space-x-3">
                 <Database className="w-5 h-5 text-purple-400" />
                 <h2 className="text-xl font-semibold text-white">Backup & Restore</h2>
               </div>
 
               {canManage && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   {/* Restore from File */}
                   <input
                     ref={restoreFileRef}
@@ -2942,21 +2942,21 @@ export default function SettingsPage() {
                   <button
                     onClick={() => restoreFileRef.current?.click()}
                     disabled={licenseInfo?.license?.licenseType === 'TRIAL'}
-                    className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="flex items-center gap-2 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed text-sm"
                   >
-                    <FolderOpen className="w-4 h-4" />
-                    <span>Restore from File</span>
+                    <FolderOpen className="w-4 h-4 flex-shrink-0" />
+                    <span>Restore</span>
                   </button>
                   {/* Create Backup */}
                   <button
                     onClick={() => setShowBackupPasswordModal(true)}
                     disabled={isCreatingBackup || licenseInfo?.license?.licenseType === 'TRIAL'}
-                    className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="flex items-center gap-2 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed text-sm"
                   >
                     {isCreatingBackup ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
                     ) : (
-                      <Database className="w-4 h-4" />
+                      <Database className="w-4 h-4 flex-shrink-0" />
                     )}
                     <span>Create Backup</span>
                   </button>
@@ -3184,7 +3184,7 @@ export default function SettingsPage() {
               ) : (
                 // View Mode
                 <div className="space-y-3">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     <div>
                       <p className="text-sm text-gray-400">Schedule</p>
                       <p className="text-white">{formatScheduleFrequency(schedule)}</p>
@@ -3251,22 +3251,22 @@ export default function SettingsPage() {
                 {backups.map((backup) => (
                   <div
                     key={backup.id}
-                    className="flex items-center justify-between p-4 bg-slate-700/30 rounded-xl"
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-slate-700/30 rounded-xl"
                   >
-                    <div className="flex items-center space-x-4">
-                      <div className={`p-2 rounded-lg ${backup.type === 'auto' ? 'bg-green-500/20' : 'bg-blue-500/20'}`}>
+                    <div className="flex items-start sm:items-center gap-3 min-w-0">
+                      <div className={`p-2 rounded-lg flex-shrink-0 ${backup.type === 'auto' ? 'bg-green-500/20' : 'bg-blue-500/20'}`}>
                         {backup.type === 'auto' ? (
                           <RefreshCw className="w-5 h-5 text-green-400" />
                         ) : (
                           <Database className="w-5 h-5 text-blue-400" />
                         )}
                       </div>
-                      <div>
-                        <p className="font-medium text-white">{backup.filename}</p>
-                        <div className="flex items-center space-x-4 text-sm text-gray-400">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-white text-sm break-all leading-snug">{backup.filename}</p>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-gray-400">
                           <span>{backup.size}</span>
                           <span>{new Date(backup.createdAt).toLocaleString('th-TH')}</span>
-                          <span className={`px-2 py-0.5 rounded text-xs ${
+                          <span className={`px-2 py-0.5 rounded ${
                             backup.type === 'auto' ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'
                           }`}>
                             {backup.type === 'auto' ? 'Auto' : 'Manual'}
@@ -3276,7 +3276,7 @@ export default function SettingsPage() {
                     </div>
 
                     {canManage && (
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center gap-1 self-end sm:self-auto flex-shrink-0">
                         <button
                           onClick={() => handleDownloadBackup(backup)}
                           className="p-2 text-blue-400 hover:bg-blue-500/20 rounded-lg transition"
@@ -3615,7 +3615,7 @@ export default function SettingsPage() {
             {/* Preset Grid */}
             <div>
               <p className="text-sm text-gray-400 mb-3">เลือก Theme</p>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
                 {themePresets.map((preset) => {
                   const isBaseSelected = basePreset?.bgStart === preset.bgStart && basePreset?.bgEnd === preset.bgEnd
                   return (
