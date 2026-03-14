@@ -1640,10 +1640,14 @@ export default function SettingsPage() {
             {tabs.map((tab) => (
               <div
                 key={tab.id}
-                style={{ height: 32, scrollSnapAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-                className={`text-sm font-semibold transition-colors ${tab.id === activeTab ? 'text-white' : 'text-gray-600'}`}
+                style={{ height: 32, scrollSnapAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  transform: tab.id === activeTab ? 'scale(1.18)' : 'scale(0.88)',
+                  transition: 'transform 0.2s ease, opacity 0.2s ease',
+                  opacity: tab.id === activeTab ? 1 : 0.45,
+                }}
+                className={`font-semibold ${tab.id === activeTab ? 'text-white text-base' : 'text-gray-500 text-sm'}`}
               >
-                <tab.icon className={`w-4 h-4 flex-shrink-0 ${tab.id === activeTab ? 'text-blue-400' : 'text-gray-700'}`} />
+                <tab.icon className={`flex-shrink-0 ${tab.id === activeTab ? 'w-5 h-5 text-blue-400' : 'w-4 h-4 text-gray-600'}`} />
                 {tab.label}
               </div>
             ))}
