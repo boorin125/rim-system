@@ -46,8 +46,22 @@ export default function LicenseActivateModal({ onClose, onActivated }: LicenseAc
     }
   }
 
+  const copyToClipboard = (text: string) => {
+    if (navigator.clipboard && window.isSecureContext) {
+      return navigator.clipboard.writeText(text)
+    }
+    const el = document.createElement('textarea')
+    el.value = text
+    el.style.cssText = 'position:fixed;opacity:0'
+    document.body.appendChild(el)
+    el.select()
+    document.execCommand('copy')
+    document.body.removeChild(el)
+    return Promise.resolve()
+  }
+
   const copyMachineId = () => {
-    navigator.clipboard.writeText(machineId)
+    copyToClipboard(machineId)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -67,21 +81,22 @@ export default function LicenseActivateModal({ onClose, onActivated }: LicenseAc
     if (e.key === 'Backspace' && keyParts[index] === '' && index > 0) {
       inputRefs[index - 1].current?.focus()
     }
-    if (e.key === 'v' && (e.ctrlKey || e.metaKey)) {
-      // Handle paste into first box — spread across all 4
-      e.preventDefault()
-      navigator.clipboard.readText().then((text) => {
-        const cleaned = text.toUpperCase().replace(/[^A-Z0-9]/g, '')
-        const parts = [
-          cleaned.slice(0, 4),
-          cleaned.slice(4, 8),
-          cleaned.slice(8, 12),
-          cleaned.slice(12, 16),
-        ]
-        setKeyParts(parts)
-        setError(null)
-        inputRefs[3].current?.focus()
-      })
+  }
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    e.preventDefault()
+    const text = e.clipboardData.getData('text')
+    const cleaned = text.toUpperCase().replace(/[^A-Z0-9]/g, '')
+    if (cleaned.length >= 4) {
+      const parts = [
+        cleaned.slice(0, 4),
+        cleaned.slice(4, 8),
+        cleaned.slice(8, 12),
+        cleaned.slice(12, 16),
+      ]
+      setKeyParts(parts)
+      setError(null)
+      inputRefs[3].current?.focus()
     }
   }
 
@@ -188,6 +203,7 @@ export default function LicenseActivateModal({ onClose, onActivated }: LicenseAc
                     value={part}
                     onChange={(e) => handleKeyInput(i, e.target.value)}
                     onKeyDown={(e) => handleKeyDown(i, e)}
+                    onPaste={handlePaste}
                     maxLength={4}
                     className="w-16 text-center font-mono text-lg tracking-widest bg-slate-800 border border-slate-600 rounded-xl py-3 text-white focus:outline-none focus:border-blue-500 uppercase"
                     placeholder="XXXX"

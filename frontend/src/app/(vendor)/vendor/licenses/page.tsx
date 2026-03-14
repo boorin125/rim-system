@@ -107,7 +107,17 @@ export default function VendorLicensesPage() {
   useEffect(() => { fetchLicenses() }, [fetchLicenses])
 
   const copyKey = (key: string) => {
-    navigator.clipboard.writeText(key)
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(key)
+    } else {
+      const el = document.createElement('textarea')
+      el.value = key
+      el.style.cssText = 'position:fixed;opacity:0'
+      document.body.appendChild(el)
+      el.select()
+      document.execCommand('copy')
+      document.body.removeChild(el)
+    }
     setCopiedKey(key)
     setTimeout(() => setCopiedKey(null), 2000)
   }

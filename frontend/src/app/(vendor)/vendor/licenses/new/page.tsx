@@ -131,7 +131,17 @@ export default function NewLicensePage() {
 
   const copyKey = () => {
     if (!createdKey) return
-    navigator.clipboard.writeText(createdKey)
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(createdKey)
+    } else {
+      const el = document.createElement('textarea')
+      el.value = createdKey
+      el.style.cssText = 'position:fixed;opacity:0'
+      document.body.appendChild(el)
+      el.select()
+      document.execCommand('copy')
+      document.body.removeChild(el)
+    }
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
