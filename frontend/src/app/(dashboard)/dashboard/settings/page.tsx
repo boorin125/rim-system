@@ -1612,17 +1612,43 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Tabs — mobile: select dropdown / desktop: tab bar */}
+      {/* Tabs — mobile: iOS scroll picker / desktop: tab bar */}
       <div className="md:hidden mb-4">
-        <select
-          value={activeTab}
-          onChange={(e) => setActiveTab(e.target.value as TabType)}
-          className="w-full bg-slate-700 border border-slate-600 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          {tabs.map((tab) => (
-            <option key={tab.id} value={tab.id}>{tab.label}</option>
-          ))}
-        </select>
+        <div className="relative bg-slate-700/50 border border-slate-600/50 rounded-2xl overflow-hidden" style={{ height: 132 }}>
+          {/* Selection highlight band */}
+          <div className="absolute inset-x-0 pointer-events-none z-10" style={{ top: 44, height: 44, background: 'rgba(255,255,255,0.06)', borderTop: '1px solid rgba(255,255,255,0.12)', borderBottom: '1px solid rgba(255,255,255,0.12)' }} />
+          {/* Fade top */}
+          <div className="absolute inset-x-0 top-0 pointer-events-none z-10" style={{ height: 55, background: 'linear-gradient(to bottom, rgba(15,23,42,0.95) 0%, transparent 100%)' }} />
+          {/* Fade bottom */}
+          <div className="absolute inset-x-0 bottom-0 pointer-events-none z-10" style={{ height: 55, background: 'linear-gradient(to top, rgba(15,23,42,0.95) 0%, transparent 100%)' }} />
+          {/* Scrollable list */}
+          <div
+            className="scrollbar-hide"
+            style={{ height: '100%', overflowY: 'scroll', scrollSnapType: 'y mandatory', paddingTop: 44, paddingBottom: 44 }}
+            onScroll={(e) => {
+              const el = e.currentTarget
+              const idx = Math.round(el.scrollTop / 44)
+              if (idx >= 0 && idx < tabs.length) setActiveTab(tabs[idx].id)
+            }}
+            ref={(el) => {
+              if (el) {
+                const idx = tabs.findIndex(t => t.id === activeTab)
+                if (idx >= 0) el.scrollTop = idx * 44
+              }
+            }}
+          >
+            {tabs.map((tab) => (
+              <div
+                key={tab.id}
+                style={{ height: 44, scrollSnapAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                className={`text-sm font-medium transition-colors ${tab.id === activeTab ? 'text-white' : 'text-gray-500'}`}
+              >
+                <tab.icon className={`w-4 h-4 ${tab.id === activeTab ? 'text-blue-400' : 'text-gray-600'}`} />
+                {tab.label}
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       <div className="hidden md:block border-b border-slate-700 overflow-x-auto scrollbar-hide">
@@ -3549,14 +3575,41 @@ export default function SettingsPage() {
               <p className="text-sm text-gray-400 mb-3">Preview</p>
               <div
                 className="h-24 rounded-xl border border-slate-600/50 flex items-center justify-center"
-                style={{
-                  background: `linear-gradient(135deg, ${selectedTheme.bgStart} 0%, ${selectedTheme.bgEnd} 100%)`,
-                }}
+                style={{ background: `linear-gradient(135deg, ${selectedTheme.bgStart} 0%, ${selectedTheme.bgEnd} 100%)` }}
               >
                 <div className="px-6 py-3 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl">
                   <span className="text-white/90 text-sm font-medium">RIM System Preview</span>
                 </div>
               </div>
+
+              {/* Brightness Slider — shown when a preset is selected */}
+              {basePreset && (
+                <div className="mt-4 pt-4 border-t border-slate-600/50">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm text-gray-300 font-medium">ความสว่าง</p>
+                    <span className="text-xs text-gray-400">
+                      {themeBrightness < 50 ? `เข้มขึ้น ${50 - themeBrightness}%` : themeBrightness > 50 ? `อ่อนลง ${themeBrightness - 50}%` : 'ค่าเริ่มต้น'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-gray-500">เข้ม</span>
+                    <input
+                      type="range" min={10} max={90} value={themeBrightness}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value)
+                        setThemeBrightness(val)
+                        setSelectedTheme({ bgStart: adjustHex(basePreset.bgStart, val), bgEnd: adjustHex(basePreset.bgEnd, val) })
+                      }}
+                      className="flex-1 accent-blue-500"
+                    />
+                    <span className="text-xs text-gray-500">อ่อน</span>
+                    <button
+                      onClick={() => { setThemeBrightness(50); setSelectedTheme({ bgStart: basePreset.bgStart, bgEnd: basePreset.bgEnd }) }}
+                      className="text-xs text-blue-400 hover:text-blue-300 transition whitespace-nowrap"
+                    >Reset</button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Preset Grid */}
@@ -3595,46 +3648,6 @@ export default function SettingsPage() {
                 })}
               </div>
             </div>
-
-            {/* Brightness Slider — shown when a preset is selected */}
-            {basePreset && (
-              <div className="p-4 bg-slate-700/30 rounded-xl">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-sm text-gray-300 font-medium">ความสว่าง</p>
-                  <span className="text-xs text-gray-400">
-                    {themeBrightness < 50 ? `เข้มขึ้น ${50 - themeBrightness}%` : themeBrightness > 50 ? `อ่อนลง ${themeBrightness - 50}%` : 'ค่าเริ่มต้น'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-gray-500">เข้ม</span>
-                  <input
-                    type="range"
-                    min={10}
-                    max={90}
-                    value={themeBrightness}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value)
-                      setThemeBrightness(val)
-                      setSelectedTheme({
-                        bgStart: adjustHex(basePreset.bgStart, val),
-                        bgEnd: adjustHex(basePreset.bgEnd, val),
-                      })
-                    }}
-                    className="flex-1 accent-blue-500"
-                  />
-                  <span className="text-xs text-gray-500">อ่อน</span>
-                  <button
-                    onClick={() => {
-                      setThemeBrightness(50)
-                      setSelectedTheme({ bgStart: basePreset.bgStart, bgEnd: basePreset.bgEnd })
-                    }}
-                    className="text-xs text-blue-400 hover:text-blue-300 transition whitespace-nowrap"
-                  >
-                    Reset
-                  </button>
-                </div>
-              </div>
-            )}
 
             {/* Save Button */}
             {canManage && (
