@@ -4,6 +4,7 @@
 import { formatStore } from '@/utils/formatStore'
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTabState } from '@/hooks/useTabState'
 import {
   Plus,
   Search,
@@ -116,7 +117,7 @@ const TABS: { key: TabKey; label: string; statusFilter: string; icon: React.Comp
 export default function EquipmentPage() {
   const router = useRouter()
   const themeHighlight = useThemeHighlight()
-  const [activeTab, setActiveTab] = useState<TabKey>('ACTIVE')
+  const [activeTab, setActiveTab] = useTabState<TabKey>('ACTIVE')
   const [equipment, setEquipment] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')

@@ -2,6 +2,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useTabState } from '@/hooks/useTabState'
 import {
   User,
   Mail,
@@ -60,7 +61,7 @@ export default function ProfilePage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [isChangingPassword, setIsChangingPassword] = useState(false)
-  const [activeTab, setActiveTab] = useState<'profile' | 'security'>('profile')
+  const [activeTab, setActiveTab] = useTabState<'profile' | 'security'>('profile')
 
   // Profile form
   const [firstName, setFirstName] = useState('')

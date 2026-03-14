@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
+import { useTabState } from '@/hooks/useTabState'
 import {
   ArrowLeft,
   Edit,
@@ -98,7 +99,7 @@ export default function EquipmentDetailPage() {
   const [logs, setLogs] = useState<any[]>([])
   const [statistics, setStatistics] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'info' | 'incidents' | 'history'>('info')
+  const [activeTab, setActiveTab] = useTabState<'info' | 'incidents' | 'history'>('info')
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [retireModalOpen, setRetireModalOpen] = useState(false)
   const [retireReason, setRetireReason] = useState('')

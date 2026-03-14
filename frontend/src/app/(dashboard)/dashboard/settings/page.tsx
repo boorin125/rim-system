@@ -2,6 +2,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useTabState } from '@/hooks/useTabState'
 import { TimeInput } from '@/components/TimeInput'
 import {
   Settings,
@@ -279,13 +280,7 @@ function MobileAppTab() {
 
 export default function SettingsPage() {
   const themeHighlight = useThemeHighlight()
-  const [activeTab, setActiveTab] = useState<TabType>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = sessionStorage.getItem('settings_active_tab') as TabType | null
-      if (saved) { sessionStorage.removeItem('settings_active_tab'); return saved }
-    }
-    return 'organization'
-  })
+  const [activeTab, setActiveTab] = useTabState<TabType>('organization')
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [userRoles, setUserRoles] = useState<string[]>([])
@@ -495,7 +490,6 @@ export default function SettingsPage() {
       toast.success('Deactivate License สำเร็จ — พร้อม Activate ที่ Server ใหม่')
       setShowDeactivateConfirm(false)
       setDeactivateKey('')
-      sessionStorage.setItem('settings_active_tab', activeTab)
       setTimeout(() => window.location.reload(), 1000)
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'เกิดข้อผิดพลาด')
@@ -3766,7 +3760,7 @@ export default function SettingsPage() {
         {showActivateModal && (
           <LicenseActivateModal
             onClose={() => setShowActivateModal(false)}
-            onActivated={() => { sessionStorage.setItem('settings_active_tab', activeTab); setTimeout(() => window.location.reload(), 1000) }}
+            onActivated={() => { setTimeout(() => window.location.reload(), 1000) }}
           />
         )}
 
