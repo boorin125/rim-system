@@ -314,61 +314,68 @@ export default function VendorLicensesPage() {
                             </div>
 
                             {/* Actions */}
-                            <div className="flex flex-wrap gap-2">
-                              {/* Renew */}
-                              {renewId === lic.id ? (
-                                <div className="flex items-center gap-2">
-                                  <input type="date" value={renewDate} onChange={e => setRenewDate(e.target.value)}
-                                    className="bg-gray-700 border border-gray-600 text-white text-sm rounded px-2 py-1 focus:outline-none focus:border-purple-500" />
+                            {lic.status === 'REVOKED' ? (
+                              <div className="flex items-center gap-2 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-lg">
+                                <Ban className="w-4 h-4 text-red-400 flex-shrink-0" />
+                                <span className="text-red-400 text-sm font-medium">License ถูกยกเลิกถาวรแล้ว — ไม่สามารถดำเนินการใดๆ ได้</span>
+                              </div>
+                            ) : (
+                              <div className="flex flex-wrap gap-2">
+                                {/* Renew */}
+                                {renewId === lic.id ? (
+                                  <div className="flex items-center gap-2">
+                                    <input type="date" value={renewDate} onChange={e => setRenewDate(e.target.value)}
+                                      className="bg-gray-700 border border-gray-600 text-white text-sm rounded px-2 py-1 focus:outline-none focus:border-purple-500" />
+                                    <button
+                                      onClick={async () => {
+                                        if (!renewDate) return
+                                        await doAction(lic.id, 'renew', { newExpiresAt: new Date(renewDate).toISOString() })
+                                        setRenewId(null)
+                                        setRenewDate('')
+                                      }}
+                                      disabled={!renewDate || actionLoading === lic.id}
+                                      className="px-3 py-1 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm rounded transition-colors"
+                                    >
+                                      ยืนยัน
+                                    </button>
+                                    <button onClick={() => { setRenewId(null); setRenewDate('') }}
+                                      className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm rounded transition-colors">
+                                      ยกเลิก
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button onClick={() => { setRenewId(lic.id); setRenewDate('') }}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600/20 hover:bg-green-600/30 text-green-400 border border-green-500/30 text-sm rounded-lg transition-colors">
+                                    <ArrowUpRight className="w-3.5 h-3.5" />
+                                    ต่ออายุ
+                                  </button>
+                                )}
+
+                                {/* Force Transfer */}
+                                {lic.activationCount > 0 && (
                                   <button
-                                    onClick={async () => {
-                                      if (!renewDate) return
-                                      await doAction(lic.id, 'renew', { newExpiresAt: new Date(renewDate).toISOString() })
-                                      setRenewId(null)
-                                      setRenewDate('')
-                                    }}
-                                    disabled={!renewDate || actionLoading === lic.id}
-                                    className="px-3 py-1 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm rounded transition-colors"
+                                    onClick={() => doAction(lic.id, 'force-transfer')}
+                                    disabled={actionLoading === lic.id}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 text-sm rounded-lg transition-colors disabled:opacity-50"
                                   >
-                                    ยืนยัน
+                                    <RotateCcw className="w-3.5 h-3.5" />
+                                    Force Transfer
                                   </button>
-                                  <button onClick={() => { setRenewId(null); setRenewDate('') }}
-                                    className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm rounded transition-colors">
-                                    ยกเลิก
+                                )}
+
+                                {/* Suspend */}
+                                {lic.status !== 'SUSPENDED' && (
+                                  <button
+                                    onClick={() => confirm('ระงับ License นี้?') && doAction(lic.id, 'suspend')}
+                                    disabled={actionLoading === lic.id}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-600/20 hover:bg-orange-600/30 text-orange-400 border border-orange-500/30 text-sm rounded-lg transition-colors disabled:opacity-50"
+                                  >
+                                    <AlertTriangle className="w-3.5 h-3.5" />
+                                    ระงับ
                                   </button>
-                                </div>
-                              ) : (
-                                <button onClick={() => { setRenewId(lic.id); setRenewDate('') }}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600/20 hover:bg-green-600/30 text-green-400 border border-green-500/30 text-sm rounded-lg transition-colors">
-                                  <ArrowUpRight className="w-3.5 h-3.5" />
-                                  ต่ออายุ
-                                </button>
-                              )}
+                                )}
 
-                              {/* Force Transfer */}
-                              {lic.activationCount > 0 && (
-                                <button
-                                  onClick={() => doAction(lic.id, 'force-transfer')}
-                                  disabled={actionLoading === lic.id}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 text-sm rounded-lg transition-colors disabled:opacity-50"
-                                >
-                                  <RotateCcw className="w-3.5 h-3.5" />
-                                  Force Transfer
-                                </button>
-                              )}
-
-                              {/* Suspend / Revoke */}
-                              {lic.status !== 'REVOKED' && lic.status !== 'SUSPENDED' && (
-                                <button
-                                  onClick={() => confirm('ระงับ License นี้?') && doAction(lic.id, 'suspend')}
-                                  disabled={actionLoading === lic.id}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-600/20 hover:bg-orange-600/30 text-orange-400 border border-orange-500/30 text-sm rounded-lg transition-colors disabled:opacity-50"
-                                >
-                                  <AlertTriangle className="w-3.5 h-3.5" />
-                                  ระงับ
-                                </button>
-                              )}
-                              {lic.status !== 'REVOKED' && (
+                                {/* Revoke */}
                                 <button
                                   onClick={() => confirm('ยกเลิก License นี้ถาวร? ไม่สามารถย้อนกลับได้') && doAction(lic.id, 'revoke')}
                                   disabled={actionLoading === lic.id}
@@ -377,15 +384,15 @@ export default function VendorLicensesPage() {
                                   <Trash2 className="w-3.5 h-3.5" />
                                   Revoke
                                 </button>
-                              )}
 
-                              {actionLoading === lic.id && (
-                                <div className="flex items-center gap-1 text-gray-400 text-sm">
-                                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                                  กำลังดำเนินการ...
-                                </div>
-                              )}
-                            </div>
+                                {actionLoading === lic.id && (
+                                  <div className="flex items-center gap-1 text-gray-400 text-sm">
+                                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                    กำลังดำเนินการ...
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </td>
                         </tr>
                       )}
