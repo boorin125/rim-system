@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
@@ -85,6 +86,22 @@ export class BackupService {
   }
 
   /**
+   * Block Backup/Restore features for TRIAL licenses
+   */
+  private async checkBackupFeatureAllowed(): Promise<void> {
+    const license = await this.prisma.license.findFirst({
+      where: { status: 'ACTIVE' },
+      orderBy: { activatedAt: 'desc' },
+    });
+    if (!license || license.licenseType === 'TRIAL') {
+      throw new ForbiddenException({
+        code: 'TRIAL_RESTRICTED',
+        message: 'ฟีเจอร์ Backup/Restore ไม่รองรับใน Trial License กรุณา Activate License เพื่อใช้งาน',
+      });
+    }
+  }
+
+  /**
    * Generate checksum for file
    */
   private generateChecksum(filePath: string): string {
@@ -96,6 +113,7 @@ export class BackupService {
    * Create new backup job
    */
   async createBackup(userId: number, dto: CreateBackupDto) {
+    await this.checkBackupFeatureAllowed();
     const jobCode = this.generateJobCode('BKP');
     const scope = dto.scope || 'ALL';
     const tables = scope === 'SELECTIVE'
@@ -443,6 +461,7 @@ export class BackupService {
    * Create restore job
    */
   async createRestore(userId: number, dto: CreateRestoreDto) {
+    await this.checkBackupFeatureAllowed();
     const backup = await this.prisma.backupJob.findUnique({
       where: { id: dto.backupId },
     });
@@ -571,6 +590,7 @@ export class BackupService {
    * Restore from uploaded file content
    */
   async restoreFromFile(userId: number, content: string, password?: string, selectedTables?: string[]) {
+    await this.checkBackupFeatureAllowed();
     let backupData: any;
     try {
       backupData = JSON.parse(content);
@@ -848,6 +868,7 @@ export class BackupService {
    * Create backup schedule
    */
   async createSchedule(userId: number, dto: CreateScheduleDto) {
+    await this.checkBackupFeatureAllowed();
     // Calculate next run time
     const nextRunAt = this.calculateNextRun(dto);
 

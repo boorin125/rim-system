@@ -22,7 +22,7 @@ import { execSync } from 'child_process';
 const LICENSE_FEATURES = {
   TRIAL: {
     maxUsers: 5,
-    maxStores: 3,
+    maxStores: 10,
     maxIncidentsMonth: 50,
     features: ['basic_incidents', 'basic_stores'],
     durationDays: 14,

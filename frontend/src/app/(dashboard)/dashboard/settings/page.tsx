@@ -489,7 +489,7 @@ export default function SettingsPage() {
       toast.success('Deactivate License สำเร็จ — พร้อม Activate ที่ Server ใหม่')
       setShowDeactivateConfirm(false)
       setDeactivateKey('')
-      fetchLicense()
+      setTimeout(() => window.location.reload(), 1000)
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'เกิดข้อผิดพลาด')
     } finally {
@@ -2814,6 +2814,12 @@ export default function SettingsPage() {
         {/* Backup Tab */}
         {activeTab === 'backup' && (
           <div className="space-y-6">
+            {licenseInfo?.license?.licenseType === 'TRIAL' && (
+              <div className="flex items-center gap-3 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 text-sm">
+                <Lock className="w-5 h-5 flex-shrink-0" />
+                <span>ฟีเจอร์ <strong>Backup & Restore</strong> ไม่รองรับใน Trial License — กรุณา Activate License เพื่อใช้งาน</span>
+              </div>
+            )}
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center space-x-3">
                 <Database className="w-5 h-5 text-purple-400" />
@@ -2832,7 +2838,8 @@ export default function SettingsPage() {
                   />
                   <button
                     onClick={() => restoreFileRef.current?.click()}
-                    className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition"
+                    disabled={licenseInfo?.license?.licenseType === 'TRIAL'}
+                    className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <FolderOpen className="w-4 h-4" />
                     <span>Restore from File</span>
@@ -2840,8 +2847,8 @@ export default function SettingsPage() {
                   {/* Create Backup */}
                   <button
                     onClick={() => setShowBackupPasswordModal(true)}
-                    disabled={isCreatingBackup}
-                    className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition disabled:opacity-50"
+                    disabled={isCreatingBackup || licenseInfo?.license?.licenseType === 'TRIAL'}
+                    className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {isCreatingBackup ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -3744,7 +3751,7 @@ export default function SettingsPage() {
         {showActivateModal && (
           <LicenseActivateModal
             onClose={() => setShowActivateModal(false)}
-            onActivated={() => { fetchLicense() }}
+            onActivated={() => { setTimeout(() => window.location.reload(), 1000) }}
           />
         )}
 
