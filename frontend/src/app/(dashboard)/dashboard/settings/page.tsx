@@ -1618,29 +1618,29 @@ export default function SettingsPage() {
 
       {/* Tabs — mobile: iOS scroll picker / desktop: tab bar */}
       <div className="md:hidden mb-4">
-        <div className="relative overflow-hidden" style={{ height: 132 }}>
+        <div className="relative overflow-hidden" style={{ height: 96 }}>
           {/* Fade top/bottom only */}
-          <div className="absolute inset-x-0 top-0 pointer-events-none z-10" style={{ height: 44, background: 'linear-gradient(to bottom, rgba(15,23,42,1) 0%, transparent 100%)' }} />
-          <div className="absolute inset-x-0 bottom-0 pointer-events-none z-10" style={{ height: 44, background: 'linear-gradient(to top, rgba(15,23,42,1) 0%, transparent 100%)' }} />
+          <div className="absolute inset-x-0 top-0 pointer-events-none z-10" style={{ height: 32, background: 'linear-gradient(to bottom, rgba(15,23,42,1) 0%, transparent 100%)' }} />
+          <div className="absolute inset-x-0 bottom-0 pointer-events-none z-10" style={{ height: 32, background: 'linear-gradient(to top, rgba(15,23,42,1) 0%, transparent 100%)' }} />
           <div
             className="scrollbar-hide"
-            style={{ height: '100%', overflowY: 'scroll', scrollSnapType: 'y mandatory', paddingTop: 44, paddingBottom: 44 }}
+            style={{ height: '100%', overflowY: 'scroll', scrollSnapType: 'y mandatory', paddingTop: 32, paddingBottom: 32 }}
             onScroll={(e) => {
               const el = e.currentTarget
-              const idx = Math.round(el.scrollTop / 44)
+              const idx = Math.round(el.scrollTop / 32)
               if (idx >= 0 && idx < tabs.length) setActiveTab(tabs[idx].id)
             }}
             ref={(el) => {
               if (el) {
                 const idx = tabs.findIndex(t => t.id === activeTab)
-                if (idx >= 0) el.scrollTop = idx * 44
+                if (idx >= 0) el.scrollTop = idx * 32
               }
             }}
           >
             {tabs.map((tab) => (
               <div
                 key={tab.id}
-                style={{ height: 44, scrollSnapAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                style={{ height: 32, scrollSnapAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
                 className={`text-sm font-semibold transition-colors ${tab.id === activeTab ? 'text-white' : 'text-gray-600'}`}
               >
                 <tab.icon className={`w-4 h-4 flex-shrink-0 ${tab.id === activeTab ? 'text-blue-400' : 'text-gray-700'}`} />
