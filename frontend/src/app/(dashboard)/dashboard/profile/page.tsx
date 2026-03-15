@@ -637,7 +637,7 @@ export default function ProfilePage() {
             <h2 className="text-2xl font-bold text-white">
               {profile.firstName} {profile.lastName}
             </h2>
-            <p className="text-gray-400">@{profile.username}</p>
+            <p className="text-gray-400">{profile.email}</p>
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               {profile.roles.map((r) => {
                 const roleInfo = roles[r] || { label: r, color: 'bg-gray-500/20 text-gray-400 border-gray-500/30' }
