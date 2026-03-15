@@ -79,13 +79,8 @@ export class SlaMonitorService {
 
       const timeRemaining = this.getTimeRemaining(incident.slaDeadline!);
 
-      // Notify supervisors only (NOT Help Desk)
-      await this.notificationsService.notifyAllSupervisors(
-        NotificationType.SLA_WARNING,
-        '⚠️ SLA Warning',
-        `Incident ${incident.ticketNumber} is approaching SLA deadline in ${timeRemaining}: ${incident.title}`,
-        incident.id,
-      );
+      // Collect direct recipients (technicians + creator) to exclude from supervisor broadcast
+      const directUserIds = new Set<number>();
 
       // Notify all assigned technicians
       const assignedUserIds = (incident as any).assignees?.map((a: any) => a.userId) || [];
@@ -93,6 +88,7 @@ export class SlaMonitorService {
         assignedUserIds.push(incident.assigneeId);
       }
       for (const techId of assignedUserIds) {
+        directUserIds.add(techId);
         await this.notificationsService.createNotification(
           techId,
           NotificationType.SLA_WARNING,
@@ -101,6 +97,15 @@ export class SlaMonitorService {
           incident.id,
         );
       }
+
+      // Notify supervisors, excluding technicians already notified above
+      await this.notificationsService.notifyAllSupervisors(
+        NotificationType.SLA_WARNING,
+        '⚠️ SLA Warning',
+        `Incident ${incident.ticketNumber} is approaching SLA deadline in ${timeRemaining}: ${incident.title}`,
+        incident.id,
+        [...directUserIds],
+      );
 
       this.logger.log(`Sent SLA warning for incident ${incident.ticketNumber}`);
     }
@@ -153,13 +158,8 @@ export class SlaMonitorService {
 
       const overdueDuration = this.getOverdueDuration(incident.slaDeadline!);
 
-      // Notify supervisors
-      await this.notificationsService.notifyAllSupervisors(
-        NotificationType.SLA_BREACH,
-        '🚨 SLA BREACH',
-        `Incident ${incident.ticketNumber} has breached SLA by ${overdueDuration}: ${incident.title}`,
-        incident.id,
-      );
+      // Collect direct recipients to exclude from supervisor broadcast
+      const directUserIds = new Set<number>();
 
       // Notify all assigned technicians
       const breachAssignedIds = (incident as any).assignees?.map((a: any) => a.userId) || [];
@@ -167,6 +167,7 @@ export class SlaMonitorService {
         breachAssignedIds.push(incident.assigneeId);
       }
       for (const techId of breachAssignedIds) {
+        directUserIds.add(techId);
         await this.notificationsService.createNotification(
           techId,
           NotificationType.SLA_BREACH,
@@ -176,8 +177,9 @@ export class SlaMonitorService {
         );
       }
 
-      // Notify incident creator
-      if (incident.createdById) {
+      // Notify incident creator (if not already notified as technician)
+      if (incident.createdById && !directUserIds.has(incident.createdById)) {
+        directUserIds.add(incident.createdById);
         await this.notificationsService.createNotification(
           incident.createdById,
           NotificationType.SLA_BREACH,
@@ -186,6 +188,15 @@ export class SlaMonitorService {
           incident.id,
         );
       }
+
+      // Notify supervisors, excluding all directly-notified users above
+      await this.notificationsService.notifyAllSupervisors(
+        NotificationType.SLA_BREACH,
+        '🚨 SLA BREACH',
+        `Incident ${incident.ticketNumber} has breached SLA by ${overdueDuration}: ${incident.title}`,
+        incident.id,
+        [...directUserIds],
+      );
 
       this.logger.log(`Sent SLA breach notification for incident ${incident.ticketNumber}`);
     }
@@ -270,15 +281,16 @@ export class SlaMonitorService {
   private getOverdueDuration(deadline: Date): string {
     const now = new Date();
     const diff = now.getTime() - deadline.getTime();
-    const minutes = Math.floor(diff / (1000 * 60));
-    const hours = Math.floor(minutes / 60);
-    const days = Math.floor(hours / 24);
+    const totalMinutes = Math.floor(diff / (1000 * 60));
+    const days = Math.floor(totalMinutes / (60 * 24));
+    const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+    const minutes = totalMinutes % 60;
 
     if (days > 0) {
-      return `${days}d ${hours % 24}h`;
+      return `${days}d ${hours}h ${minutes}m`;
     }
     if (hours > 0) {
-      return `${hours}h ${minutes % 60}m`;
+      return `${hours}h ${minutes}m`;
     }
     return `${minutes}m`;
   }

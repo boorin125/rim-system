@@ -202,7 +202,7 @@ export default function UsersPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
         <div className="glass-card p-4 rounded-xl">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-blue-500/20 rounded-lg">
@@ -336,25 +336,25 @@ export default function UsersPage() {
           <table className="w-full">
             <thead className="bg-slate-800/80 border-b border-slate-600">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-200 uppercase tracking-wider">
+                <th className="px-3 md:px-6 py-3 text-left text-xs font-semibold text-gray-200 uppercase tracking-wider">
                   User
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-200 uppercase tracking-wider">
+                <th className="hidden sm:table-cell px-3 md:px-6 py-3 text-left text-xs font-semibold text-gray-200 uppercase tracking-wider">
                   Contact
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-200 uppercase tracking-wider">
+                <th className="px-3 md:px-6 py-3 text-left text-xs font-semibold text-gray-200 uppercase tracking-wider">
                   Role
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-200 uppercase tracking-wider">
+                <th className="hidden lg:table-cell px-6 py-3 text-left text-xs font-semibold text-gray-200 uppercase tracking-wider">
                   Department
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-200 uppercase tracking-wider">
+                <th className="px-3 md:px-6 py-3 text-left text-xs font-semibold text-gray-200 uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-200 uppercase tracking-wider">
+                <th className="hidden md:table-cell px-6 py-3 text-left text-xs font-semibold text-gray-200 uppercase tracking-wider">
                   Last Login
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-200 uppercase tracking-wider">
+                <th className="hidden lg:table-cell px-6 py-3 text-left text-xs font-semibold text-gray-200 uppercase tracking-wider">
                   Created
                 </th>
               </tr>
@@ -372,9 +372,9 @@ export default function UsersPage() {
                     }
                   `}
                 >
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold">
+                  <td className="px-3 md:px-6 py-3 md:py-4">
+                    <div className="flex items-center gap-2 md:gap-3">
+                      <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold shrink-0">
                         {user.firstName?.[0]}{user.lastName?.[0]}
                       </div>
                       <div>
@@ -385,21 +385,21 @@ export default function UsersPage() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="hidden sm:table-cell px-3 md:px-6 py-3 md:py-4">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 text-sm text-gray-300">
-                        <Mail className="w-4 h-4 text-gray-400" />
-                        {user.email}
+                        <Mail className="w-4 h-4 text-gray-400 shrink-0" />
+                        <span className="truncate max-w-[160px]">{user.email}</span>
                       </div>
                       {user.phone && (
                         <div className="flex items-center gap-2 text-sm text-gray-300">
-                          <Phone className="w-4 h-4 text-gray-400" />
+                          <Phone className="w-4 h-4 text-gray-400 shrink-0" />
                           {user.phone}
                         </div>
                       )}
                     </div>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-3 md:px-6 py-3 md:py-4">
                     <div className="flex flex-wrap gap-1">
                       {(user.roles || []).slice(0, 2).map((role, idx) => (
                         <span
@@ -417,24 +417,24 @@ export default function UsersPage() {
                       )}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="hidden lg:table-cell px-6 py-4 whitespace-nowrap">
                     <span className="text-sm text-gray-300">
                       {user.department || '-'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap">
                     <span
                       className={`px-2.5 py-1 rounded-lg text-xs font-semibold border ${getStatusBadge(user.status)}`}
                     >
                       {getStatusLabel(user.status)}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap">
                     <span className="text-sm text-gray-300">
                       {formatDate(user.lastLogin)}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="hidden lg:table-cell px-6 py-4 whitespace-nowrap">
                     <span className="text-sm text-gray-300">
                       {formatDate(user.createdAt)}
                     </span>

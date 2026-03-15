@@ -651,34 +651,34 @@ export default function IncidentsPage() {
             <table className="w-full">
               <thead className="bg-slate-800/80 border-b border-slate-600">
                 <tr>
-                  <th className="text-left py-3 px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">
+                  <th className="text-left py-3 px-3 md:px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="text-left py-3 px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">
+                  <th className="text-left py-3 px-3 md:px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">
                     Incident No.
                   </th>
-                  <th className="text-left py-3 px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">
+                  <th className="hidden sm:table-cell text-left py-3 px-3 md:px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">
                     Store
                   </th>
-                  <th className="text-left py-3 px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">
+                  <th className="hidden lg:table-cell text-left py-3 px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">
                     Province
                   </th>
-                  <th className="text-left py-3 px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">
+                  <th className="text-left py-3 px-3 md:px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">
                     Title
                   </th>
-                  <th className="text-left py-3 px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">
+                  <th className="hidden md:table-cell text-left py-3 px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">
                     Category
                   </th>
-                  <th className="text-left py-3 px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">
+                  <th className="hidden lg:table-cell text-left py-3 px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">
                     Job Type
                   </th>
-                  <th className="text-left py-3 px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">
+                  <th className="hidden sm:table-cell text-left py-3 px-3 md:px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">
                     Priority
                   </th>
-                  <th className="text-left py-3 px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">
+                  <th className="hidden md:table-cell text-left py-3 px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">
                     SLA Result
                   </th>
-                  <th className="text-left py-3 px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">
+                  <th className="hidden md:table-cell text-left py-3 px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">
                     Aging (Days)
                   </th>
                 </tr>
@@ -715,7 +715,7 @@ export default function IncidentsPage() {
                       `}
                     >
                       {/* Status */}
-                      <td className="py-4 px-6">
+                      <td className="py-3 px-3 md:py-4 md:px-6">
                         <div className="flex flex-col gap-1">
                           <span className={statusBadge.class}>
                             {incident.status}
@@ -728,8 +728,8 @@ export default function IncidentsPage() {
                                 ? 'text-blue-400'
                                 : 'text-amber-400'
                             }`}>
-                              {incident.resolutionType === 'PHONE_SUPPORT' ? 'Phone Support'
-                                : incident.resolutionType === 'REMOTE_SUPPORT' ? 'Remote Support'
+                              {incident.resolutionType === 'PHONE_SUPPORT' ? 'Phone'
+                                : incident.resolutionType === 'REMOTE_SUPPORT' ? 'Remote'
                                 : 'Onsite'}
                             </span>
                           )}
@@ -737,39 +737,39 @@ export default function IncidentsPage() {
                       </td>
 
                       {/* Incident No. */}
-                      <td className="py-4 px-6">
-                        <span className="text-sm font-mono text-blue-400 font-semibold">
+                      <td className="py-3 px-3 md:py-4 md:px-6">
+                        <span className="text-xs md:text-sm font-mono text-blue-400 font-semibold whitespace-nowrap">
                           {incident.ticketNumber || `WAT-${String(incident.id).padStart(6, '0')}`}
                         </span>
                       </td>
 
                       {/* Store */}
-                      <td className="py-4 px-6">
+                      <td className="hidden sm:table-cell py-3 px-3 md:py-4 md:px-6">
                         <span className="text-sm text-white">
                           {formatStore(incident.store)}
                         </span>
                       </td>
 
                       {/* Province */}
-                      <td className="py-4 px-6">
+                      <td className="hidden lg:table-cell py-4 px-6">
                         <span className="text-sm text-gray-300">
                           {incident.store?.province || '-'}
                         </span>
                       </td>
 
                       {/* Title */}
-                      <td className="py-4 px-6">
-                        <p className="text-sm font-medium text-white">
+                      <td className="py-3 px-3 md:py-4 md:px-6">
+                        <p className="text-sm font-medium text-white line-clamp-2 md:line-clamp-1 max-w-[160px] md:max-w-[240px] lg:max-w-none">
                           {incident.title}
                         </p>
-                        <p className="text-xs text-gray-400 mt-1">
+                        <p className="hidden md:block text-xs text-gray-400 mt-1">
                           {incident.description?.substring(0, 40)}
                           {incident.description?.length > 40 ? '...' : ''}
                         </p>
                       </td>
 
                       {/* Category */}
-                      <td className="py-4 px-6">
+                      <td className="hidden md:table-cell py-4 px-6">
                         {incident.category ? (
                           <span className="text-sm text-white font-medium">
                             {incident.category}
@@ -780,7 +780,7 @@ export default function IncidentsPage() {
                       </td>
 
                       {/* Job Type */}
-                      <td className="py-4 px-6">
+                      <td className="hidden lg:table-cell py-4 px-6">
                         {incident.jobType ? (
                           <span className="text-sm text-white font-medium">
                             {incident.jobType}
@@ -791,14 +791,14 @@ export default function IncidentsPage() {
                       </td>
 
                       {/* Priority */}
-                      <td className="py-4 px-6">
+                      <td className="hidden sm:table-cell py-3 px-3 md:py-4 md:px-6">
                         <span className={getPriorityBadge(incident.priority)}>
                           {getPriorityDisplayName(incident.priority)}
                         </span>
                       </td>
 
                       {/* SLA Result */}
-                      <td className="py-4 px-6">
+                      <td className="hidden md:table-cell py-4 px-6">
                         {(() => {
                           const slaStatus = getSLAStatus(incident)
                           if (slaStatus.defended) {
@@ -818,7 +818,7 @@ export default function IncidentsPage() {
                       </td>
 
                       {/* Aging */}
-                      <td className="py-4 px-6">
+                      <td className="hidden md:table-cell py-4 px-6">
                         {aging === '-' ? (
                           <span className="text-sm text-gray-500">-</span>
                         ) : (
@@ -841,40 +841,55 @@ export default function IncidentsPage() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between px-6 py-4 border-t border-slate-700/50">
+          <div className="flex items-center justify-between px-3 md:px-6 py-3 md:py-4 border-t border-slate-700/50">
             <button
               onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
               disabled={currentPage === 1}
-              className="px-4 py-2 text-sm text-gray-300 hover:bg-slate-700/50 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 md:px-4 py-2 text-sm text-gray-300 hover:bg-slate-700/50 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Previous
+              ← <span className="hidden sm:inline">Previous</span>
             </button>
-            
-            <div className="flex items-center space-x-2">
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                <button
-                  key={page}
-                  onClick={() => setCurrentPage(page)}
-                  className={`px-3 py-1 text-sm rounded-lg transition duration-200 ${
-                    currentPage === page
-                      ? 'text-white'
-                      : 'text-gray-300 hover:bg-slate-700/50'
-                  }`}
-                  style={currentPage === page ? { backgroundColor: sortActiveBg } : undefined}
-                >
-                  {page}
-                </button>
-              ))}
+
+            <div className="flex items-center space-x-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(page => {
+                  if (totalPages <= 7) return true
+                  if (page === 1 || page === totalPages) return true
+                  return Math.abs(page - currentPage) <= 1
+                })
+                .reduce<(number | string)[]>((acc, page, idx, arr) => {
+                  if (idx > 0 && typeof arr[idx - 1] === 'number' && (page as number) - (arr[idx - 1] as number) > 1) {
+                    acc.push('...')
+                  }
+                  acc.push(page)
+                  return acc
+                }, [])
+                .map((item, idx) =>
+                  item === '...' ? (
+                    <span key={`dots-${idx}`} className="px-1 text-gray-500 text-sm">…</span>
+                  ) : (
+                    <button
+                      key={item}
+                      onClick={() => setCurrentPage(item as number)}
+                      className={`w-8 h-8 text-sm rounded-lg transition duration-200 ${
+                        currentPage === item
+                          ? 'text-white'
+                          : 'text-gray-300 hover:bg-slate-700/50'
+                      }`}
+                      style={currentPage === item ? { backgroundColor: sortActiveBg } : undefined}
+                    >
+                      {item}
+                    </button>
+                  )
+                )}
             </div>
 
             <button
-              onClick={() =>
-                setCurrentPage((prev) => Math.min(totalPages, prev + 1))
-              }
+              onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
               disabled={currentPage === totalPages}
-              className="px-4 py-2 text-sm text-gray-300 hover:bg-slate-700/50 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 md:px-4 py-2 text-sm text-gray-300 hover:bg-slate-700/50 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Next
+              <span className="hidden sm:inline">Next</span> →
             </button>
           </div>
         )}

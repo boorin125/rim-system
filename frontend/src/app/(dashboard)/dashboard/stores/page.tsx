@@ -393,7 +393,7 @@ export default function StoresPage() {
 
       {/* Filters */}
       <div className="glass-card p-6 rounded-2xl sticky top-0 z-10">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           {/* Search */}
           <div className="lg:col-span-1">
             <div className="relative">
@@ -484,34 +484,34 @@ export default function StoresPage() {
           <table className="w-full">
             <thead className="bg-slate-800/80 border-b border-slate-600">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-200 uppercase tracking-wider">
+                <th className="px-3 md:px-6 py-3 text-left text-xs font-semibold text-gray-200 uppercase tracking-wider">
                   Store Code
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-200 uppercase tracking-wider">
+                <th className="px-3 md:px-6 py-3 text-left text-xs font-semibold text-gray-200 uppercase tracking-wider">
                   Store Name
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-200 uppercase tracking-wider">
+                <th className="hidden sm:table-cell px-3 md:px-6 py-3 text-left text-xs font-semibold text-gray-200 uppercase tracking-wider">
                   Province
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-200 uppercase tracking-wider">
+                <th className="hidden lg:table-cell px-6 py-3 text-left text-xs font-semibold text-gray-200 uppercase tracking-wider">
                   Service Center
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-200 uppercase tracking-wider">
+                <th className="hidden sm:table-cell px-3 md:px-6 py-3 text-left text-xs font-semibold text-gray-200 uppercase tracking-wider">
                   Phone
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-200 uppercase tracking-wider">
+                <th className="hidden lg:table-cell px-6 py-3 text-left text-xs font-semibold text-gray-200 uppercase tracking-wider">
                   Location
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-200 uppercase tracking-wider">
+                <th className="hidden md:table-cell px-6 py-3 text-left text-xs font-semibold text-gray-200 uppercase tracking-wider">
                   Operating Hours
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-200 uppercase tracking-wider">
+                <th className="hidden md:table-cell px-6 py-3 text-left text-xs font-semibold text-gray-200 uppercase tracking-wider">
                   Store Type
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-200 uppercase tracking-wider">
+                <th className="px-3 md:px-6 py-3 text-left text-xs font-semibold text-gray-200 uppercase tracking-wider">
                   Store Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-200 uppercase tracking-wider">
+                <th className="hidden lg:table-cell px-6 py-3 text-left text-xs font-semibold text-gray-200 uppercase tracking-wider">
                   Last PM
                 </th>
               </tr>
@@ -546,30 +546,30 @@ export default function StoresPage() {
                       }
                     `}
                   >
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap">
                       <div className="flex items-center gap-2">
-                        <Store className="w-4 h-4 text-yellow-400" />
+                        <Store className="w-4 h-4 text-yellow-400 shrink-0" />
                         <span className="text-sm font-semibold text-blue-400">
                           {store.storeCode}
                         </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm font-medium text-white max-w-xs truncate">
+                    <td className="px-3 md:px-6 py-3 md:py-4">
+                      <div className="text-sm font-medium text-white max-w-[120px] sm:max-w-xs truncate">
                         {store.name}
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="hidden sm:table-cell px-3 md:px-6 py-3 md:py-4">
                       <span className="text-sm text-gray-300">
                         {store.province || '-'}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="hidden lg:table-cell px-6 py-4">
                       <span className="text-sm text-gray-300">
                         {store.serviceCenter || '-'}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="hidden sm:table-cell px-3 md:px-6 py-3 md:py-4">
                       <div className="flex items-center gap-2">
                         {store.phone ? (
                           <>
@@ -591,7 +591,7 @@ export default function StoresPage() {
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="hidden lg:table-cell px-6 py-4">
                       {(store.latitude && store.longitude) || store.googleMapLink ? (
                         <button
                           onClick={(e) => {
@@ -613,7 +613,7 @@ export default function StoresPage() {
                         <span className="text-sm text-gray-500">-</span>
                       )}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="hidden md:table-cell px-6 py-4">
                       {todayHours ? (
                         <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 text-blue-400 rounded-lg text-sm">
                           <span className="text-xs text-blue-300">วันนี้</span>
@@ -625,7 +625,7 @@ export default function StoresPage() {
                         </div>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap">
                       <span
                         className={`px-2 py-1 rounded-lg text-xs font-medium ${
                           store.storeType === 'PERMANENT'
@@ -643,7 +643,7 @@ export default function StoresPage() {
                          store.storeType || '-'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap">
                       <span
                         className={`px-2 py-1 rounded-lg text-xs font-semibold border ${getStatusBadge(
                           store.storeStatus
@@ -652,7 +652,7 @@ export default function StoresPage() {
                         {getStatusLabel(store.storeStatus)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="hidden lg:table-cell px-6 py-4 whitespace-nowrap">
                       {store.lastPmAt ? (
                         <span className="text-xs text-purple-300">
                           {new Date(store.lastPmAt).toLocaleDateString('th-TH', {

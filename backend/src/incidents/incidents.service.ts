@@ -1269,7 +1269,7 @@ export class IncidentsService {
       );
     }
 
-    // Notify all supervisors that an assignment was made
+    // Notify all supervisors that an assignment was made (exclude assignees already notified above)
     const scheduleText = scheduledAt
       ? ` (กำหนดเวลา: ${scheduledAt.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' })} ${scheduledAt.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })})`
       : '';
@@ -1278,6 +1278,7 @@ export class IncidentsService {
       'งานถูกมอบหมายแล้ว',
       `${updated.ticketNumber} - ${updated.title} ถูกมอบหมายให้ ${techNames}${scheduleText}`,
       id,
+      technicianIds,
     );
 
     return updated;
@@ -2866,6 +2867,9 @@ export class IncidentsService {
       description: `ยืนยันปิด Incident ${incident.ticketNumber || id}`,
     });
 
+    // Collect directly-notified user IDs to exclude from supervisor broadcast
+    const directlyNotifiedIds: number[] = [];
+
     // Send notification to technician who resolved
     if (incident.resolvedById && incident.resolvedById !== userId) {
       await this.notificationsService.notifyIncidentConfirmed(
@@ -2874,6 +2878,7 @@ export class IncidentsService {
         updated.ticketNumber,
         updated.title,
       );
+      directlyNotifiedIds.push(incident.resolvedById);
     }
 
     // Send notification to incident creator
@@ -2884,14 +2889,16 @@ export class IncidentsService {
         updated.ticketNumber,
         updated.title,
       );
+      directlyNotifiedIds.push(incident.createdById);
     }
 
-    // Notify all supervisors about incident closure
+    // Notify all supervisors about incident closure (exclude already-notified users)
     await this.notificationsService.notifyAllSupervisors(
       'INCIDENT_CONFIRMED' as any,
       'Incident Closed',
       `Incident ${updated.ticketNumber} has been confirmed and closed: ${updated.title}`,
       id,
+      directlyNotifiedIds,
     );
 
     // Generate rating token for public links
@@ -3141,12 +3148,13 @@ export class IncidentsService {
       );
     }
 
-    // Notify supervisors about new return job
+    // Notify supervisors about new return job (exclude assignee if already notified)
     await this.notificationsService.notifyAllSupervisors(
       'INCIDENT_CREATED' as any,
       'งานคืนอุปกรณ์ใหม่',
       `งานคืนอุปกรณ์ ${ticketNumber}: ${title} (จาก Incident #${parentIncident.ticketNumber})`,
       id,
+      dto.assigneeId ? [dto.assigneeId] : undefined,
     );
 
     return returnJob;

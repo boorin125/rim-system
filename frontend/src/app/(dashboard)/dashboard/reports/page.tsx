@@ -475,7 +475,7 @@ export default function ReportsPage() {
             <span className="flex items-center justify-center w-7 h-7 rounded-full bg-blue-500/20 text-blue-400 text-sm font-bold">2</span>
             Filters
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
             {/* Date Range */}
             <div>
               <label className="block text-gray-400 text-xs font-medium mb-1.5">From</label>

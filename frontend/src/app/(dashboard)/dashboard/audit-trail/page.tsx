@@ -192,7 +192,7 @@ export default function AuditTrailPage() {
           </div>
 
           {/* Filter Row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {/* Module */}
             <select
               value={filterModule}

@@ -505,7 +505,7 @@ export default function KnowledgeBasePage() {
 
       {/* Stats (for admins) */}
       {stats && accessLevel === 'full' && (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
           <div className="glass-card p-4 rounded-xl">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-blue-500/20 rounded-lg">
@@ -575,9 +575,9 @@ export default function KnowledgeBasePage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {/* Sidebar - Categories & Popular */}
-        <div className="lg:col-span-1 space-y-6">
+        <div className="md:col-span-1 space-y-6">
           {/* Search */}
           <div className="glass-card p-4 rounded-xl">
             <div className="relative">
@@ -673,7 +673,7 @@ export default function KnowledgeBasePage() {
         </div>
 
         {/* Main Content - Articles List */}
-        <div className="lg:col-span-3">
+        <div className="md:col-span-3">
           <div className="glass-card rounded-xl overflow-hidden">
             {/* Results header */}
             <div className="p-4 border-b border-gray-700/50 flex items-center justify-between">

@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { ScheduleModule } from '@nestjs/schedule';
 import { IncidentsService } from './incidents.service';
 import { IncidentsController } from './incidents.controller';
 import { IncidentsPublicController } from './incidents-public.controller';
@@ -19,7 +18,7 @@ import { PmModule } from '../modules/pm/pm.module';
 import { LicenseModule } from '../modules/license/license.module';
 
 @Module({
-  imports: [PrismaModule, NotificationsModule, EmailModule, SlaModule, SettingsModule, ScheduleModule.forRoot(), AuditTrailModule, RatingsModule, PmModule, LicenseModule],
+  imports: [PrismaModule, NotificationsModule, EmailModule, SlaModule, SettingsModule, AuditTrailModule, RatingsModule, PmModule, LicenseModule],
   providers: [IncidentsService, IncidentHistoryService, SlaMonitorService, IncidentsAnalyticsService],
   controllers: [IncidentsController, IncidentsAnalyticsController, IncidentsPublicController, ServiceReportPublicController],
   exports: [IncidentHistoryService],

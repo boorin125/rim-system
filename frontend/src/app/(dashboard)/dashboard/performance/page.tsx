@@ -553,7 +553,7 @@ export default function PerformancePage() {
         <div className="space-y-6">
           {/* Incident Stats Cards */}
           {incidentStats && (
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
               <StatCard icon={ClipboardList} label="Total Incident" value={incidentStats.total} color="blue" />
               <StatCard icon={CheckCircle2} label="Closed" value={incidentStats.closed} color="green" />
               <StatCard icon={Clock} label="Pending" value={incidentStats.pending} color="yellow" />

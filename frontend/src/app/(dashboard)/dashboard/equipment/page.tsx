@@ -453,7 +453,7 @@ export default function EquipmentPage() {
 
       {/* Filters */}
       <div className="glass-card p-6 rounded-2xl sticky top-0 z-10">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Search */}
           <div className="lg:col-span-1">
             <div className="relative">

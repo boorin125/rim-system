@@ -293,7 +293,7 @@ export default function OutsourceMarketplacePage() {
       {/* Stats */}
       {isAdmin && stats && (
         (isFinance || isItManager) ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
             <StatCard label="งานทั้งหมด" value={stats.totalJobs} icon={Briefcase} />
             <StatCard label="ส่งเอกสารแล้ว" value={stats.documentSubmittedJobs} icon={FileText} color="cyan" />
             <StatCard label="ตรวจสอบแล้ว" value={stats.verifiedJobs} icon={CheckCircle2} color="teal" />

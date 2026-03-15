@@ -23,6 +23,7 @@ import {
   CheckSquare,
   X,
   Briefcase,
+  XCircle,
 } from 'lucide-react'
 import { useThemeHighlight } from '@/hooks/useThemeHighlight'
 
@@ -191,7 +192,11 @@ export default function DashboardPage() {
 
   // ── Derived role flags ──
   const isTech = userRoles.includes('TECHNICIAN')
+  const isSupervisor = userRoles.includes('SUPERVISOR')
   const canCreate = userRoles.some(r => ['HELP_DESK', 'IT_MANAGER', 'SUPERVISOR', 'SUPER_ADMIN', 'END_USER'].includes(r))
+
+  // Show "งานที่รับผิดชอบ" only for pure technicians (not supervisors/IT managers)
+  const showMyJobs = isTech && !isSupervisor
 
   // ── Fetch ──
   const fetchData = useCallback(async () => {
@@ -254,9 +259,11 @@ export default function DashboardPage() {
   // ── Derived data ──
   const activeIncidents = incidents.filter(i => !['CLOSED', 'CANCELLED'].includes(i.status))
 
-  const needsAttention = isTech
+  const userId = currentUser ? Number(currentUser.id) : null
+
+  const needsAttention = showMyJobs
     ? activeIncidents
-        .filter(i => ['ASSIGNED', 'IN_PROGRESS'].includes(i.status))
+        .filter(i => ['ASSIGNED', 'IN_PROGRESS'].includes(i.status) && Number(i.assignee?.id) === userId)
         .slice(0, 10)
     : activeIncidents
         .filter(i =>
@@ -330,6 +337,16 @@ export default function DashboardPage() {
       iconCls: 'text-green-400',
       status: 'CLOSED',
     },
+    {
+      label: 'งานยกเลิก',
+      count: statusCounts?.byStatus?.cancelled ?? 0,
+      icon: XCircle,
+      color: 'from-red-500/20 to-red-600/10',
+      border: 'border-red-500/30',
+      textCls: 'text-red-200',
+      iconCls: 'text-red-400',
+      status: 'CANCELLED',
+    },
   ]
 
   const displayName = currentUser?.firstName || currentUser?.name || ''
@@ -385,7 +402,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Status Cards ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {statusCards.map((card) => {
           const Icon = card.icon
           return (
@@ -420,7 +437,7 @@ export default function DashboardPage() {
             <div className="flex items-center gap-2">
               <ShieldAlert className="w-[18px] h-[18px]" style={{ color: 'var(--theme-highlight)' }} />
               <span className="font-semibold text-base text-white">
-                {isTech ? 'งานของฉัน' : 'Requires Attention'}
+                {showMyJobs ? 'งานที่รับผิดชอบ' : 'Requires Attention'}
               </span>
               {!isLoading && needsAttention.length > 0 && (
                 <span className="px-1.5 py-0.5 text-xs bg-red-500/20 text-red-300 rounded-full leading-none">

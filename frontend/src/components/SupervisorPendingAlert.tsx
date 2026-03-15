@@ -117,12 +117,15 @@ export default function SupervisorPendingAlert({ userId, onDismiss }: Props) {
     const diffMs = deadline.getTime() - now.getTime()
     if (diffMs < 0) {
       const overMs = -diffMs
-      const overH = Math.floor(overMs / 3600000)
+      const overD = Math.floor(overMs / 86400000)
+      const overH = Math.floor((overMs % 86400000) / 3600000)
       const overM = Math.floor((overMs % 3600000) / 60000)
-      return {
-        label: overH > 0 ? `เกิน SLA ${overH}ชม. ${overM}น.` : `เกิน SLA ${overM}น.`,
-        urgent: true,
-      }
+      const label = overD > 0
+        ? `เกิน SLA ${overD}ว. ${overH}ชม. ${overM}น.`
+        : overH > 0
+        ? `เกิน SLA ${overH}ชม. ${overM}น.`
+        : `เกิน SLA ${overM}น.`
+      return { label, urgent: true }
     }
     const h = Math.floor(diffMs / 3600000)
     const m = Math.floor((diffMs % 3600000) / 60000)

@@ -36,6 +36,7 @@ export class NotificationsService {
     message: string,
     incidentId?: string,
     link?: string,
+    excludeUserIds?: number[],
   ) {
     const itManagers = await this.prisma.user.findMany({
       where: {
@@ -45,33 +46,36 @@ export class NotificationsService {
       select: { id: true },
     });
 
+    const targets = excludeUserIds?.length
+      ? itManagers.filter(u => !excludeUserIds.includes(u.id))
+      : itManagers;
+
     return Promise.all(
-      itManagers.map(u => this.createNotification(u.id, type, title, message, incidentId, link)),
+      targets.map(u => this.createNotification(u.id, type, title, message, incidentId, link)),
     );
   }
 
   /**
-   * Notify all supervisors
+   * Notify all supervisors (excluding specific user IDs to prevent duplicates)
    */
   async notifyAllSupervisors(
     type: NotificationType,
     title: string,
     message: string,
     incidentId?: string,
+    excludeUserIds?: number[],
   ) {
     const supervisors = await this.getSupervisors();
 
-    const notifications = supervisors.map(supervisor =>
-      this.createNotification(
-        supervisor.id,
-        type,
-        title,
-        message,
-        incidentId,
-      )
-    );
+    const targets = excludeUserIds?.length
+      ? supervisors.filter(s => !excludeUserIds.includes(s.id))
+      : supervisors;
 
-    return Promise.all(notifications);
+    return Promise.all(
+      targets.map(supervisor =>
+        this.createNotification(supervisor.id, type, title, message, incidentId),
+      ),
+    );
   }
 
   /**
