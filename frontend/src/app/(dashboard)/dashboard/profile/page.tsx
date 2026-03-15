@@ -245,20 +245,37 @@ export default function ProfilePage() {
     }
   }
 
+  const resizeImage = (file: File, maxSize = 512): Promise<File> => {
+    return new Promise((resolve) => {
+      const img = new Image()
+      const url = URL.createObjectURL(file)
+      img.onload = () => {
+        URL.revokeObjectURL(url)
+        const scale = Math.min(maxSize / img.width, maxSize / img.height, 1)
+        const w = Math.round(img.width * scale)
+        const h = Math.round(img.height * scale)
+        const canvas = document.createElement('canvas')
+        canvas.width = w
+        canvas.height = h
+        canvas.getContext('2d')!.drawImage(img, 0, 0, w, h)
+        canvas.toBlob((blob) => {
+          resolve(new File([blob!], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }))
+        }, 'image/jpeg', 0.88)
+      }
+      img.src = url
+    })
+  }
+
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error('File size must be less than 2MB')
-      return
-    }
-
     try {
       setIsUploadingAvatar(true)
       const token = localStorage.getItem('token')
+      const resized = await resizeImage(file, 512)
       const formData = new FormData()
-      formData.append('avatar', file)
+      formData.append('avatar', resized)
 
       const res = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/auth/profile/avatar`,
