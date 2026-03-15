@@ -89,7 +89,12 @@ export default function ProfilePage() {
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
   const [isUploadingDoc, setIsUploadingDoc] = useState<string | null>(null)
   const [docPreview, setDocPreview] = useState<{ type: string; url: string } | null>(null)
+  const [cropData, setCropData] = useState<{
+    url: string; imgW: number; imgH: number; scale: number; left: number; top: number
+  } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const dragRef = useRef<{ startX: number; startY: number; startLeft: number; startTop: number } | null>(null)
+  const CROP_SIZE = 260
   const bankBookInputRef = useRef<HTMLInputElement>(null)
   const idCardInputRef = useRef<HTMLInputElement>(null)
   const signatureInputRef = useRef<HTMLInputElement>(null)
@@ -245,66 +250,103 @@ export default function ProfilePage() {
     }
   }
 
-  const resizeImage = (file: File, maxSize = 512): Promise<File> => {
-    return new Promise((resolve) => {
-      const img = new Image()
-      const url = URL.createObjectURL(file)
-      img.onload = () => {
-        URL.revokeObjectURL(url)
-        const scale = Math.min(maxSize / img.width, maxSize / img.height, 1)
-        const w = Math.round(img.width * scale)
-        const h = Math.round(img.height * scale)
-        const canvas = document.createElement('canvas')
-        canvas.width = w
-        canvas.height = h
-        canvas.getContext('2d')!.drawImage(img, 0, 0, w, h)
-        canvas.toBlob((blob) => {
-          resolve(new File([blob!], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }))
-        }, 'image/jpeg', 0.88)
+  const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (fileInputRef.current) fileInputRef.current.value = ''
+    const url = URL.createObjectURL(file)
+    const img = new Image()
+    img.onload = () => {
+      const minScale = Math.max(CROP_SIZE / img.naturalWidth, CROP_SIZE / img.naturalHeight)
+      const dispW = img.naturalWidth * minScale
+      const dispH = img.naturalHeight * minScale
+      setCropData({
+        url, imgW: img.naturalWidth, imgH: img.naturalHeight,
+        scale: minScale,
+        left: (CROP_SIZE - dispW) / 2,
+        top: (CROP_SIZE - dispH) / 2,
+      })
+    }
+    img.src = url
+  }
+
+  const applyCropZoom = (newScale: number) => {
+    setCropData(prev => {
+      if (!prev) return prev
+      const minScale = Math.max(CROP_SIZE / prev.imgW, CROP_SIZE / prev.imgH)
+      newScale = Math.min(5, Math.max(minScale, newScale))
+      const ratio = newScale / prev.scale
+      const cx = CROP_SIZE / 2
+      const newLeft = cx - (cx - prev.left) * ratio
+      const newTop = cx - (cx - prev.top) * ratio
+      const dispW = prev.imgW * newScale
+      const dispH = prev.imgH * newScale
+      return {
+        ...prev, scale: newScale,
+        left: Math.min(0, Math.max(CROP_SIZE - dispW, newLeft)),
+        top: Math.min(0, Math.max(CROP_SIZE - dispH, newTop)),
       }
-      img.src = url
     })
   }
 
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  const handleCropPointerDown = (e: React.PointerEvent) => {
+    e.currentTarget.setPointerCapture(e.pointerId)
+    if (!cropData) return
+    dragRef.current = { startX: e.clientX, startY: e.clientY, startLeft: cropData.left, startTop: cropData.top }
+  }
 
+  const handleCropPointerMove = (e: React.PointerEvent) => {
+    if (!dragRef.current || !cropData) return
+    const dx = e.clientX - dragRef.current.startX
+    const dy = e.clientY - dragRef.current.startY
+    const dispW = cropData.imgW * cropData.scale
+    const dispH = cropData.imgH * cropData.scale
+    setCropData(prev => prev ? {
+      ...prev,
+      left: Math.min(0, Math.max(CROP_SIZE - dispW, dragRef.current!.startLeft + dx)),
+      top: Math.min(0, Math.max(CROP_SIZE - dispH, dragRef.current!.startTop + dy)),
+    } : prev)
+  }
+
+  const handleCropConfirm = async () => {
+    if (!cropData) return
     try {
       setIsUploadingAvatar(true)
-      const token = localStorage.getItem('token')
-      const resized = await resizeImage(file, 512)
-      const formData = new FormData()
-      formData.append('avatar', resized)
-
-      const res = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/auth/profile/avatar`,
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'multipart/form-data',
-          },
-        }
+      const data = { ...cropData }
+      setCropData(null)
+      const img = new Image()
+      img.src = data.url
+      await new Promise<void>(r => { img.complete ? r() : (img.onload = () => r()) })
+      const canvas = document.createElement('canvas')
+      canvas.width = 512; canvas.height = 512
+      canvas.getContext('2d')!.drawImage(
+        img,
+        -data.left / data.scale, -data.top / data.scale,
+        CROP_SIZE / data.scale, CROP_SIZE / data.scale,
+        0, 0, 512, 512
       )
-
-      // Update profile with new avatar
-      setProfile((prev) => prev ? { ...prev, avatarPath: res.data.avatarUrl } : prev)
-
-      // Update localStorage
+      URL.revokeObjectURL(data.url)
+      const blob = await new Promise<Blob>(r => canvas.toBlob(b => r(b!), 'image/jpeg', 0.88))
+      const file = new File([blob], 'avatar.jpg', { type: 'image/jpeg' })
+      const token = localStorage.getItem('token')
+      const formData = new FormData()
+      formData.append('avatar', file)
+      const res = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/auth/profile/avatar`, formData,
+        { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' } }
+      )
+      setProfile(prev => prev ? { ...prev, avatarPath: res.data.avatarUrl } : prev)
       const userStr = localStorage.getItem('user')
       if (userStr) {
         const user = JSON.parse(userStr)
         user.avatarPath = res.data.avatarUrl
         localStorage.setItem('user', JSON.stringify(user))
       }
-
       toast.success('Avatar updated successfully')
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to upload avatar')
     } finally {
       setIsUploadingAvatar(false)
-      if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
 
@@ -480,6 +522,60 @@ export default function ProfilePage() {
 
   return (
     <div className="space-y-6 animate-fade-in max-w-4xl mx-auto">
+
+      {/* Avatar Crop Modal */}
+      {cropData && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-slate-800 rounded-2xl p-5 w-full max-w-sm shadow-2xl">
+            <h3 className="text-white font-semibold mb-1 text-center">ปรับตำแหน่งรูปโปรไฟล์</h3>
+            <p className="text-gray-400 text-xs text-center mb-4">ลากเพื่อเลื่อน • เลื่อน scroll หรือใช้ slider เพื่อซูม</p>
+            <div className="flex justify-center mb-4">
+              <div
+                className="relative overflow-hidden rounded-full cursor-move border-2 border-blue-500 select-none"
+                style={{ width: CROP_SIZE, height: CROP_SIZE }}
+                onPointerDown={handleCropPointerDown}
+                onPointerMove={handleCropPointerMove}
+                onPointerUp={() => { dragRef.current = null }}
+                onPointerLeave={() => { dragRef.current = null }}
+                onWheel={(e) => { e.preventDefault(); applyCropZoom(cropData.scale * (1 - e.deltaY * 0.001)) }}
+              >
+                <img
+                  src={cropData.url} alt="crop" draggable={false}
+                  style={{
+                    position: 'absolute',
+                    left: cropData.left, top: cropData.top,
+                    width: cropData.imgW * cropData.scale,
+                    height: cropData.imgH * cropData.scale,
+                    pointerEvents: 'none',
+                  }}
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-3 mb-5 px-1">
+              <span className="text-gray-400 text-xs w-8 text-right">{Math.round(cropData.scale * 100 / Math.max(CROP_SIZE / cropData.imgW, CROP_SIZE / cropData.imgH))}%</span>
+              <input
+                type="range"
+                min={Math.round(Math.max(CROP_SIZE / cropData.imgW, CROP_SIZE / cropData.imgH) * 100)}
+                max={500} step={1}
+                value={Math.round(cropData.scale * 100)}
+                onChange={(e) => applyCropZoom(parseInt(e.target.value) / 100)}
+                className="flex-1 accent-blue-500"
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => { URL.revokeObjectURL(cropData.url); setCropData(null) }}
+                className="flex-1 px-4 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded-xl transition text-sm"
+              >ยกเลิก</button>
+              <button
+                onClick={handleCropConfirm}
+                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition text-sm font-medium"
+              >ยืนยัน</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-white">My Profile</h1>
@@ -533,7 +629,7 @@ export default function ProfilePage() {
               ref={fileInputRef}
               type="file"
               accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
-              onChange={handleAvatarUpload}
+              onChange={handleAvatarSelect}
               className="hidden"
             />
           </div>
