@@ -1701,7 +1701,7 @@ export default function SettingsPage() {
                     value={orgSettings.organizationName}
                     onChange={(e) => setOrgSettings({ ...orgSettings, organizationName: e.target.value })}
                     disabled={!canManage}
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                    className="w-full px-3 py-2.5 md:px-4 md:py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                     placeholder="e.g., Watsons Thailand"
                   />
                   <p className="text-xs text-gray-500 mt-1">This name will be displayed throughout the system</p>
@@ -1721,7 +1721,7 @@ export default function SettingsPage() {
                     }}
                     disabled={!canManage}
                     maxLength={3}
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 font-mono text-lg tracking-wider"
+                    className="w-full px-3 py-2.5 md:px-4 md:py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 font-mono text-lg tracking-wider"
                     placeholder="INC"
                   />
                   <p className="text-xs text-gray-500 mt-1">1-3 uppercase letters (e.g., WAT for Watsons, INC for default)</p>
@@ -1867,29 +1867,29 @@ export default function SettingsPage() {
 
         {/* Incident Tab */}
         {activeTab === 'incident' && (
-          <div className="space-y-6">
-            <div className="flex items-center space-x-3 mb-6">
+          <div className="space-y-4 md:space-y-6">
+            <div className="flex items-center space-x-3 mb-4 md:mb-6">
               <TicketIcon className="w-5 h-5 text-orange-400" />
               <h2 className="text-xl font-semibold text-white">Incident Settings</h2>
             </div>
 
-            <p className="text-sm text-gray-400 mb-6">
+            <p className="text-sm text-gray-400 mb-3 md:mb-6">
               จัดการการตั้งค่าที่เกี่ยวข้องกับ Incident รวมถึง Categories และ Job Types
             </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-6">
               {/* Categories Card */}
               <Link
                 href="/dashboard/settings/categories"
-                className="block p-6 bg-slate-700/30 hover:bg-slate-700/50 border border-slate-600 hover:border-blue-500/50 rounded-xl transition-all group"
+                className="block p-4 md:p-6 bg-slate-700/30 hover:bg-slate-700/50 border border-slate-600 hover:border-blue-500/50 rounded-xl transition-all group"
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="p-3 bg-blue-600/20 rounded-xl">
-                      <Tags className="w-6 h-6 text-blue-400" />
+                  <div className="flex items-center space-x-3 md:space-x-4">
+                    <div className="p-2 md:p-3 bg-blue-600/20 rounded-xl">
+                      <Tags className="w-5 h-5 md:w-6 md:h-6 text-blue-400" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-white group-hover:text-blue-400 transition">
+                      <h3 className="text-base md:text-lg font-semibold text-white group-hover:text-blue-400 transition">
                         Incident Categories
                       </h3>
                       <p className="text-sm text-gray-400">
@@ -1904,15 +1904,15 @@ export default function SettingsPage() {
               {/* Job Types Card */}
               <Link
                 href="/dashboard/settings/job-types"
-                className="block p-6 bg-slate-700/30 hover:bg-slate-700/50 border border-slate-600 hover:border-orange-500/50 rounded-xl transition-all group"
+                className="block p-4 md:p-6 bg-slate-700/30 hover:bg-slate-700/50 border border-slate-600 hover:border-orange-500/50 rounded-xl transition-all group"
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="p-3 bg-orange-600/20 rounded-xl">
-                      <Briefcase className="w-6 h-6 text-orange-400" />
+                  <div className="flex items-center space-x-3 md:space-x-4">
+                    <div className="p-2 md:p-3 bg-orange-600/20 rounded-xl">
+                      <Briefcase className="w-5 h-5 md:w-6 md:h-6 text-orange-400" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-white group-hover:text-orange-400 transition">
+                      <h3 className="text-base md:text-lg font-semibold text-white group-hover:text-orange-400 transition">
                         Job Types
                       </h3>
                       <p className="text-sm text-gray-400">
@@ -1926,7 +1926,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Service Warranty Settings */}
-            <div className="p-6 bg-slate-700/30 border border-slate-600 rounded-xl">
+            <div className="p-4 md:p-6 bg-slate-700/30 border border-slate-600 rounded-xl">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-green-600/20 rounded-lg">
                   <ShieldCheck className="w-5 h-5 text-green-400" />
@@ -1947,7 +1947,7 @@ export default function SettingsPage() {
                     value={warrantyDays}
                     onChange={(e) => setWarrantyDays(Math.max(0, parseInt(e.target.value) || 0))}
                     disabled={!canManage}
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                    className="w-full px-3 py-2.5 md:px-4 md:py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                     placeholder="30"
                   />
                   <p className="text-xs text-gray-500 mt-1">
@@ -1975,7 +1975,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Auto Assign Onsite Setting */}
-            <div className="p-6 bg-slate-700/30 border border-slate-600 rounded-xl">
+            <div className="p-4 md:p-6 bg-slate-700/30 border border-slate-600 rounded-xl">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-purple-600/20 rounded-lg">
@@ -2018,7 +2018,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Info Box */}
-            <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl mt-6">
+            <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl mt-4 md:mt-6">
               <div className="flex items-start space-x-3">
                 <Info className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
                 <div>
@@ -2036,13 +2036,13 @@ export default function SettingsPage() {
 
         {/* Email Tab */}
         {activeTab === 'email' && (
-          <div className="space-y-6">
-            <div className="flex items-center space-x-3 mb-6">
+          <div className="space-y-4 md:space-y-6">
+            <div className="flex items-center space-x-3 mb-4 md:mb-6">
               <Server className="w-5 h-5 text-blue-400" />
               <h2 className="text-xl font-semibold text-white">SMTP Configuration</h2>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-6">
               {/* SMTP Host */}
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -2053,7 +2053,7 @@ export default function SettingsPage() {
                   value={emailSettings.smtpHost}
                   onChange={(e) => setEmailSettings({ ...emailSettings, smtpHost: e.target.value })}
                   disabled={!canManage}
-                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                  className="w-full px-3 py-2.5 md:px-4 md:py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                   placeholder="smtp.example.com"
                 />
               </div>
@@ -2068,7 +2068,7 @@ export default function SettingsPage() {
                   value={emailSettings.smtpPort}
                   onChange={(e) => setEmailSettings({ ...emailSettings, smtpPort: parseInt(e.target.value) || 587 })}
                   disabled={!canManage}
-                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                  className="w-full px-3 py-2.5 md:px-4 md:py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                   placeholder="587"
                 />
               </div>
@@ -2083,7 +2083,7 @@ export default function SettingsPage() {
                   value={emailSettings.smtpUser}
                   onChange={(e) => setEmailSettings({ ...emailSettings, smtpUser: e.target.value })}
                   disabled={!canManage}
-                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                  className="w-full px-3 py-2.5 md:px-4 md:py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                   placeholder="username@example.com"
                 />
               </div>
@@ -2099,7 +2099,7 @@ export default function SettingsPage() {
                     value={emailSettings.smtpPassword}
                     onChange={(e) => setEmailSettings({ ...emailSettings, smtpPassword: e.target.value })}
                     disabled={!canManage}
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 pr-12"
+                    className="w-full px-3 py-2.5 md:px-4 md:py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 pr-12"
                     placeholder="••••••••"
                   />
                   <button
@@ -2122,7 +2122,7 @@ export default function SettingsPage() {
                   value={emailSettings.fromEmail}
                   onChange={(e) => setEmailSettings({ ...emailSettings, fromEmail: e.target.value })}
                   disabled={!canManage}
-                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                  className="w-full px-3 py-2.5 md:px-4 md:py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                   placeholder="noreply@example.com"
                 />
               </div>
@@ -2137,7 +2137,7 @@ export default function SettingsPage() {
                   value={emailSettings.fromName}
                   onChange={(e) => setEmailSettings({ ...emailSettings, fromName: e.target.value })}
                   disabled={!canManage}
-                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                  className="w-full px-3 py-2.5 md:px-4 md:py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                   placeholder="RIM System"
                 />
               </div>
@@ -2158,8 +2158,8 @@ export default function SettingsPage() {
             </div>
 
             {/* Close Notification Section */}
-            <div className="border-t border-slate-700 pt-6 mt-6">
-              <div className="flex items-center space-x-3 mb-6">
+            <div className="border-t border-slate-700 pt-4 mt-4 md:pt-6 md:mt-6">
+              <div className="flex items-center space-x-3 mb-3 md:mb-6">
                 <Send className="w-5 h-5 text-green-400" />
                 <h2 className="text-xl font-semibold text-white">Close Notification Recipients</h2>
               </div>
@@ -2167,7 +2167,7 @@ export default function SettingsPage() {
                 Configure email recipients for automatic notifications when incidents are closed.
               </p>
 
-              <div className="space-y-6">
+              <div className="space-y-4 md:space-y-6">
                 {/* To */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -2178,7 +2178,7 @@ export default function SettingsPage() {
                     value={emailSettings.closeNotificationTo}
                     onChange={(e) => setEmailSettings({ ...emailSettings, closeNotificationTo: e.target.value })}
                     disabled={!canManage}
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                    className="w-full px-3 py-2.5 md:px-4 md:py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                     placeholder="manager@example.com, admin@example.com"
                   />
                   <p className="text-xs text-gray-500 mt-1">Separate multiple emails with commas</p>
@@ -2209,7 +2209,7 @@ export default function SettingsPage() {
                           value={email}
                           onChange={(e) => handleCcEmailChange(index, e.target.value)}
                           disabled={!canManage}
-                          className="flex-1 px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                          className="flex-1 px-3 py-2.5 md:px-4 md:py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                           placeholder="email@example.com"
                         />
                         {canManage && (
@@ -2257,7 +2257,7 @@ export default function SettingsPage() {
 
             {/* Action Buttons */}
             {canManage && (
-              <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-6 border-t border-slate-700">
+              <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-4 md:pt-6 border-t border-slate-700">
                 <button
                   onClick={handleTestEmail}
                   className="flex items-center justify-center gap-2 px-4 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded-lg transition"
@@ -2285,19 +2285,19 @@ export default function SettingsPage() {
 
         {/* Service Report Tab - SUPER_ADMIN only */}
         {activeTab === 'service-report' && isSuperAdmin && (
-          <div className="space-y-6">
-            <div className="flex items-center space-x-3 mb-6">
+          <div className="space-y-4 md:space-y-6">
+            <div className="flex items-center space-x-3 mb-4 md:mb-6">
               <FileText className="w-5 h-5 text-teal-400" />
               <h2 className="text-xl font-semibold text-white">Service Report Settings</h2>
             </div>
 
-            <p className="text-sm text-gray-400 mb-6">
+            <p className="text-sm text-gray-400 mb-3 md:mb-6">
               ตั้งค่าข้อมูลบริษัทผู้ให้บริการ และโลโก้ที่จะแสดงในหัวเอกสาร Service Report (เอกสารปิดงาน)
             </p>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8">
               {/* Left Column - Provider Info */}
-              <div className="space-y-5">
+              <div className="space-y-4 md:space-y-5">
                 {/* Provider Name */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -2307,7 +2307,7 @@ export default function SettingsPage() {
                     type="text"
                     value={srSettings.providerName}
                     onChange={(e) => setSrSettings({ ...srSettings, providerName: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    className="w-full px-3 py-2.5 md:px-4 md:py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
                     placeholder="e.g., บริษัท ไอที โซลูชั่น จำกัด"
                   />
                 </div>
@@ -2321,7 +2321,7 @@ export default function SettingsPage() {
                     value={srSettings.providerAddress}
                     onChange={(e) => setSrSettings({ ...srSettings, providerAddress: e.target.value })}
                     rows={3}
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+                    className="w-full px-3 py-2.5 md:px-4 md:py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
                     placeholder="เลขที่ ถนน แขวง/ตำบล เขต/อำเภอ จังหวัด รหัสไปรษณีย์"
                   />
                 </div>
@@ -2336,7 +2336,7 @@ export default function SettingsPage() {
                       type="text"
                       value={srSettings.providerPhone}
                       onChange={(e) => setSrSettings({ ...srSettings, providerPhone: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      className="w-full px-3 py-2.5 md:px-4 md:py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
                       placeholder="02-xxx-xxxx"
                     />
                   </div>
@@ -2348,7 +2348,7 @@ export default function SettingsPage() {
                       type="email"
                       value={srSettings.providerEmail}
                       onChange={(e) => setSrSettings({ ...srSettings, providerEmail: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      className="w-full px-3 py-2.5 md:px-4 md:py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
                       placeholder="contact@company.com"
                     />
                   </div>
@@ -2363,7 +2363,7 @@ export default function SettingsPage() {
                     type="text"
                     value={srSettings.providerTaxId}
                     onChange={(e) => setSrSettings({ ...srSettings, providerTaxId: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono"
+                    className="w-full px-3 py-2.5 md:px-4 md:py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono"
                     placeholder="0-xxxx-xxxxx-xx-x"
                   />
                 </div>
@@ -2920,14 +2920,14 @@ export default function SettingsPage() {
 
         {/* Backup Tab */}
         {activeTab === 'backup' && (
-          <div className="space-y-6">
+          <div className="space-y-4 md:space-y-6">
             {licenseInfo?.license?.licenseType === 'TRIAL' && (
               <div className="flex items-center gap-3 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 text-sm">
                 <Lock className="w-5 h-5 flex-shrink-0" />
                 <span>ฟีเจอร์ <strong>Backup & Restore</strong> ไม่รองรับใน Trial License — กรุณา Activate License เพื่อใช้งาน</span>
               </div>
             )}
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4 md:mb-6">
               <div className="flex items-center space-x-3">
                 <Database className="w-5 h-5 text-purple-400" />
                 <h2 className="text-xl font-semibold text-white">Backup & Restore</h2>
