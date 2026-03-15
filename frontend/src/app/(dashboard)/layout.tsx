@@ -502,7 +502,7 @@ export default function DashboardLayout({
       </aside>
 
       {/* Main Content */}
-      <div className={`transition-all duration-300 ${isSidebarOpen ? 'lg:ml-64' : ''}`}>
+      <div className="transition-all duration-300 lg:ml-64">
         {/* Top Navbar - FIXED (ไม่เคลื่อนไหว) */}
         <header className="fixed top-0 right-0 left-0 lg:left-64 z-30 glass-card border-b border-slate-700/50">
           <LicenseExpiredBanner />
