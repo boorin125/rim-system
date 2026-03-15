@@ -1203,18 +1203,18 @@ SLA Breach Time: ${slaBreachText}`
       <BackButton href="/dashboard/incidents" label="กลับไปหน้า Incidents" />
 
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <div>
-            <h1 className="text-2xl font-bold text-white">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex items-center space-x-4 min-w-0">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold text-white truncate">
               Incident #{incident.ticketNumber || incident.id}
             </h1>
-            <p className="text-gray-400 mt-1">{incident.title}</p>
+            <p className="text-gray-400 mt-1 text-sm sm:text-base line-clamp-2">{incident.title}</p>
           </div>
         </div>
 
         {/* ✅ STEP 5: เพิ่มปุ่มตาม workflow */}
-        <div className="flex items-center space-x-3 flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-2 sm:justify-end">
           {/* Request Onsite Button */}
           {canRequestOnsite && (
             <button
@@ -1416,45 +1416,43 @@ SLA Breach Time: ${slaBreachText}`
               </a>
           )}
 
-          {/* Assign Button - Show if NOT assigned yet AND resolutionType is ONSITE AND no active outsource job */}
+          {/* Assign + Outsource - Show together as a group on mobile */}
           {canAssign && !incident.assignee && incident?.resolutionType === 'ONSITE' && (
             incident.status === 'PENDING' ||
             incident.status === 'OPEN'
           ) && !(incident.outsourceJobs?.some((oj: any) => oj.status !== 'CANCELLED')) && (
-            <button
-              onClick={() => {
-                setAssignMode('assign')
-                setAssignModalOpen(true)
-              }}
-              className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition duration-200"
-            >
-              <UserPlus className="w-4 h-4" />
-              <span>Assign</span>
-            </button>
-          )}
+            <div className="flex w-full sm:w-auto gap-2">
+              <button
+                onClick={() => {
+                  setAssignMode('assign')
+                  setAssignModalOpen(true)
+                }}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition duration-200 font-medium text-sm"
+              >
+                <UserPlus className="w-4 h-4 shrink-0" />
+                <span>Assign</span>
+              </button>
 
-          {/* Send to Outsource Marketplace - SUPERVISOR, ONSITE, PENDING/OPEN, not assigned, no active outsource job */}
-          {isSupervisor && !incident.assignee && incident?.resolutionType === 'ONSITE' && (
-            incident.status === 'PENDING' ||
-            incident.status === 'OPEN'
-          ) && !(incident.outsourceJobs?.some((oj: any) => oj.status !== 'CANCELLED')) && (
-            <button
-              onClick={() => router.push(`/dashboard/outsource/create?incidentId=${incident.id}`)}
-              className="flex items-center space-x-2 px-4 py-2 hover:brightness-110 text-white rounded-lg transition duration-200"
-              style={{ backgroundColor: themeHighlight }}
-            >
-              <Briefcase className="w-4 h-4" />
-              <span>ส่งไป Outsource</span>
-            </button>
+              {isSupervisor && (
+                <button
+                  onClick={() => router.push(`/dashboard/outsource/create?incidentId=${incident.id}`)}
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 hover:brightness-110 text-white rounded-lg transition duration-200 font-medium text-sm"
+                  style={{ backgroundColor: themeHighlight }}
+                >
+                  <Briefcase className="w-4 h-4 shrink-0" />
+                  <span>ส่งไป Outsource</span>
+                </button>
+              )}
+            </div>
           )}
           
           {/* Request Reassignment Button - IT_MANAGER, HELP_DESK, SUPERVISOR */}
           {canRequestReassign && (
             <button
               onClick={() => setShowReassignmentModal(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition duration-200"
+              className="flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition duration-200 text-sm font-medium"
             >
-              <UserPlus className="w-4 h-4" />
+              <UserPlus className="w-4 h-4 shrink-0" />
               <span>Request Reassign</span>
             </button>
           )}
@@ -1466,30 +1464,28 @@ SLA Breach Time: ${slaBreachText}`
                 setAssignMode('reassign')
                 setAssignModalOpen(true)
               }}
-              className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition duration-200"
+              className="flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition duration-200 text-sm font-medium"
             >
-              <UserPlus className="w-4 h-4" />
+              <UserPlus className="w-4 h-4 shrink-0" />
               <span>Direct Reassign</span>
             </button>
           )}
-          
+
           {canEdit && (
             <button
-              onClick={() =>
-                router.push(`/dashboard/incidents/${incident.id}/edit`)
-              }
-              className="flex items-center space-x-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition duration-200"
+              onClick={() => router.push(`/dashboard/incidents/${incident.id}/edit`)}
+              className="flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition duration-200 text-sm font-medium"
             >
-              <Edit className="w-4 h-4" />
+              <Edit className="w-4 h-4 shrink-0" />
               <span>Edit</span>
             </button>
           )}
           {canCancel && incident.status !== 'CANCELLED' && (
             <button
               onClick={() => setCancelModalOpen(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition duration-200"
+              className="flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition duration-200 text-sm font-medium"
             >
-              <X className="w-4 h-4" />
+              <X className="w-4 h-4 shrink-0" />
               <span>Cancel</span>
             </button>
           )}
