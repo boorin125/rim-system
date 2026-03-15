@@ -532,12 +532,12 @@ export default function ProfilePage() {
             <div className="flex justify-center mb-4">
               <div
                 className="relative overflow-hidden rounded-full cursor-move border-2 border-blue-500 select-none"
-                style={{ width: CROP_SIZE, height: CROP_SIZE }}
+                style={{ width: CROP_SIZE, height: CROP_SIZE, touchAction: 'none' }}
                 onPointerDown={handleCropPointerDown}
                 onPointerMove={handleCropPointerMove}
                 onPointerUp={() => { dragRef.current = null }}
                 onPointerLeave={() => { dragRef.current = null }}
-                onWheel={(e) => { e.preventDefault(); applyCropZoom(cropData.scale * (1 - e.deltaY * 0.001)) }}
+                onWheel={(e) => { applyCropZoom(cropData.scale * (1 - e.deltaY * 0.001)) }}
               >
                 <img
                   src={cropData.url} alt="crop" draggable={false}
