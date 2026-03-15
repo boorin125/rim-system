@@ -120,11 +120,11 @@ export default function SupervisorPendingAlert({ userId, onDismiss }: Props) {
       const overD = Math.floor(overMs / 86400000)
       const overH = Math.floor((overMs % 86400000) / 3600000)
       const overM = Math.floor((overMs % 3600000) / 60000)
-      const label = overD > 0
-        ? `เกิน SLA ${overD}ว. ${overH}ชม. ${overM}น.`
-        : overH > 0
-        ? `เกิน SLA ${overH}ชม. ${overM}น.`
-        : `เกิน SLA ${overM}น.`
+      const parts: string[] = []
+      if (overD > 0) parts.push(`${overD} วัน`)
+      if (overH > 0) parts.push(`${overH} ชั่วโมง`)
+      parts.push(`${overM} นาที`)
+      const label = `เกิน SLA ${parts.join(' ')}`
       return { label, urgent: true }
     }
     const h = Math.floor(diffMs / 3600000)
@@ -158,27 +158,29 @@ export default function SupervisorPendingAlert({ userId, onDismiss }: Props) {
       {/* Modal Card */}
       <div className="relative w-full max-w-2xl glass-card rounded-2xl shadow-2xl flex flex-col max-h-[85vh] border border-amber-500/30">
         {/* Header */}
-        <div className="flex items-start justify-between p-5 border-b border-slate-700/50 flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-amber-500/20 rounded-xl">
-              <AlertTriangle className="w-6 h-6 text-amber-400" />
+        <div className="flex items-center justify-between px-4 py-3 sm:p-5 border-b border-slate-700/50 flex-shrink-0 gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="p-2 sm:p-2.5 bg-amber-500/20 rounded-xl shrink-0">
+              <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 text-amber-400" />
             </div>
-            <div>
-              <h2 className="text-lg font-bold text-white">
-                งานค้างในระบบ
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-base sm:text-lg font-bold text-white whitespace-nowrap">
+                  งานค้างในระบบ
+                </h2>
                 {!loading && (
-                  <span className="ml-2 px-2.5 py-0.5 text-sm bg-amber-500/20 text-amber-400 rounded-full border border-amber-500/30">
+                  <span className="px-2 py-0.5 text-xs sm:text-sm bg-amber-500/20 text-amber-400 rounded-full border border-amber-500/30 whitespace-nowrap">
                     {incidents.length} งาน
                   </span>
                 )}
-              </h2>
+              </div>
               <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
-                <Clock className="w-3 h-3" />
-                ตรวจสอบเมื่อ {formatCheckedAt(checkedAt)}
+                <Clock className="w-3 h-3 shrink-0" />
+                <span className="truncate">ตรวจสอบเมื่อ {formatCheckedAt(checkedAt)}</span>
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             <button
               onClick={fetchPendingIncidents}
               className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-slate-700/50 transition-colors"
