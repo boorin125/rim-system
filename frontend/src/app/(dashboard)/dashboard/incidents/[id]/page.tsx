@@ -1209,7 +1209,6 @@ SLA Breach Time: ${slaBreachText}`
             <h1 className="text-xl sm:text-2xl font-bold text-white truncate">
               Incident #{incident.ticketNumber || incident.id}
             </h1>
-            <p className="text-gray-400 mt-1 text-sm sm:text-base line-clamp-2">{incident.title}</p>
           </div>
         </div>
 
