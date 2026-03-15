@@ -1616,46 +1616,8 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Tabs — mobile: iOS scroll picker / desktop: tab bar */}
-      <div className="md:hidden mb-4">
-        <div className="relative overflow-hidden" style={{ height: 96 }}>
-          {/* Fade top/bottom only */}
-          <div className="absolute inset-x-0 top-0 pointer-events-none z-10" style={{ height: 32, background: 'linear-gradient(to bottom, rgba(15,23,42,1) 0%, transparent 100%)' }} />
-          <div className="absolute inset-x-0 bottom-0 pointer-events-none z-10" style={{ height: 32, background: 'linear-gradient(to top, rgba(15,23,42,1) 0%, transparent 100%)' }} />
-          <div
-            className="scrollbar-hide"
-            style={{ height: '100%', overflowY: 'scroll', scrollSnapType: 'y mandatory', paddingTop: 32, paddingBottom: 32 }}
-            onScroll={(e) => {
-              const el = e.currentTarget
-              const idx = Math.round(el.scrollTop / 32)
-              if (idx >= 0 && idx < tabs.length) setActiveTab(tabs[idx].id)
-            }}
-            ref={(el) => {
-              if (el) {
-                const idx = tabs.findIndex(t => t.id === activeTab)
-                if (idx >= 0) el.scrollTop = idx * 32
-              }
-            }}
-          >
-            {tabs.map((tab) => (
-              <div
-                key={tab.id}
-                style={{ height: 32, scrollSnapAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  transform: tab.id === activeTab ? 'scale(1.18)' : 'scale(0.88)',
-                  transition: 'transform 0.2s ease, opacity 0.2s ease',
-                  opacity: tab.id === activeTab ? 1 : 0.45,
-                }}
-                className={`font-semibold ${tab.id === activeTab ? 'text-white text-base' : 'text-gray-500 text-sm'}`}
-              >
-                <tab.icon className={`flex-shrink-0 ${tab.id === activeTab ? 'w-5 h-5 text-blue-400' : 'w-4 h-4 text-gray-600'}`} />
-                {tab.label}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="hidden md:block border-b border-slate-700 overflow-x-auto scrollbar-hide">
+      {/* Tabs — horizontal scroll on all screen sizes */}
+      <div className="border-b border-slate-700 overflow-x-auto scrollbar-hide">
         <div className="flex gap-2 min-w-max">
           {tabs.map((tab) => (
             <button
