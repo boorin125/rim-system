@@ -94,7 +94,6 @@ function LoginContent() {
           firstName: registerData.firstName,
           lastName: registerData.lastName,
           phone: registerData.phone,
-          role: registerData.role,
         }
       )
 
