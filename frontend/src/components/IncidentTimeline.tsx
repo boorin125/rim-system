@@ -205,8 +205,8 @@ export default function IncidentTimeline({ incidentId }: IncidentTimelineProps) 
   }
 
   return (
-    <div className="glass-card p-6 rounded-2xl">
-      <div className="flex items-center gap-2 mb-6">
+    <div className="glass-card p-4 sm:p-6 rounded-2xl">
+      <div className="flex items-center gap-2 mb-4 sm:mb-6">
         <Activity className="w-5 h-5 text-blue-400" />
         <h2 className="text-lg font-semibold text-white">Timeline</h2>
         <span className="text-sm text-gray-400">({history.length} events)</span>
@@ -220,65 +220,65 @@ export default function IncidentTimeline({ incidentId }: IncidentTimelineProps) 
       ) : (
         <div className="relative">
           {/* Timeline Line */}
-          <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-slate-700/50" />
+          <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-700/50" />
 
           {/* Timeline Entries */}
-          <div className="space-y-6">
+          <div className="space-y-4">
             {history.map((entry, index) => (
-              <div key={entry.id} className="relative pl-16">
+              <div key={entry.id} className="relative pl-11">
                 {/* Timeline Dot */}
                 <div
-                  className={`absolute left-0 w-12 h-12 rounded-full border-2 ${getActionColor(
+                  className={`absolute left-0 w-9 h-9 rounded-full border-2 ${getActionColor(
                     entry.action
-                  )} flex items-center justify-center text-2xl backdrop-blur-sm`}
+                  )} flex items-center justify-center text-base backdrop-blur-sm`}
                 >
                   {getActionIcon(entry.action)}
                 </div>
 
                 {/* Content Card */}
                 <div
-                  className={`p-4 rounded-lg border ${
+                  className={`p-3 sm:p-4 rounded-lg border ${
                     index === 0
                       ? 'bg-blue-900/10 border-blue-700/30'
                       : 'bg-slate-800/30 border-slate-700/50'
                   }`}
                 >
                   {/* Header */}
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
+                  <div className="flex flex-col gap-0.5 mb-2">
+                    <div className="flex items-start justify-between gap-2">
                       <h3
-                        className={`font-semibold ${
+                        className={`font-semibold text-sm ${
                           index === 0 ? 'text-blue-300' : 'text-white'
                         }`}
                       >
                         {formatAction(entry.action)}
                       </h3>
-                      {entry.user && (
-                        <div className="flex items-center gap-2 mt-1">
-                          <User className="w-3 h-3 text-gray-400" />
-                          <p className="text-xs text-gray-400">
-                            by {entry.user.firstName} {entry.user.lastName}
-                            <span className="ml-1 text-gray-500">({entry.user.role})</span>
-                          </p>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-1 text-xs text-gray-400 shrink-0">
+                        <Clock className="w-3 h-3" />
+                        <span className="whitespace-nowrap">
+                          {formatDateTime(entry.createdAt)}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1 text-xs text-gray-400">
-                      <Clock className="w-3 h-3" />
-                      <span>
-                        {formatDateTime(entry.createdAt)}
-                      </span>
-                    </div>
+                    {entry.user && (
+                      <div className="flex items-center gap-1.5">
+                        <User className="w-3 h-3 text-gray-500 shrink-0" />
+                        <p className="text-xs text-gray-400">
+                          {entry.user.firstName} {entry.user.lastName}
+                          <span className="ml-1 text-gray-500">({entry.user.role})</span>
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Status Change */}
                   {entry.oldStatus && entry.newStatus && (
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="px-2 py-1 bg-slate-700/50 text-gray-300 text-xs rounded">
+                    <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                      <span className="px-2 py-0.5 bg-slate-700/50 text-gray-300 text-xs rounded">
                         {formatStatus(entry.oldStatus)}
                       </span>
-                      <span className="text-gray-500">→</span>
-                      <span className="px-2 py-1 bg-blue-700/30 text-blue-300 text-xs rounded font-medium">
+                      <span className="text-gray-500 text-xs">→</span>
+                      <span className="px-2 py-0.5 bg-blue-700/30 text-blue-300 text-xs rounded font-medium">
                         {formatStatus(entry.newStatus)}
                       </span>
                     </div>
