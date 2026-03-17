@@ -56,7 +56,7 @@ export class EquipmentService {
         : null,
     };
 
-    // Create equipment and log in transaction
+    // Create equipment and equipment log in transaction
     const equipment = await this.prisma.$transaction(async (tx) => {
       const newEquipment = await tx.equipment.create({
         data: equipmentData,
@@ -73,7 +73,7 @@ export class EquipmentService {
         },
       });
 
-      // Create log entry
+      // Create equipment log entry
       await tx.equipmentLog.create({
         data: {
           equipmentId: newEquipment.id,
@@ -89,19 +89,21 @@ export class EquipmentService {
         },
       });
 
-      // Audit trail
-      await this.auditTrailService.log(tx, {
+      return newEquipment;
+    });
+
+    // Audit trail (outside transaction to prevent blocking equipment creation)
+    try {
+      await this.auditTrailService.logDirect({
         module: AuditModule.EQUIPMENT,
         action: AuditAction.CREATE,
         entityType: 'Equipment',
-        entityId: newEquipment.id,
+        entityId: equipment.id,
         userId,
-        description: `สร้างอุปกรณ์ "${newEquipment.name}" (SN: ${newEquipment.serialNumber})`,
-        newValue: { name: newEquipment.name, category: newEquipment.category, storeId: newEquipment.storeId },
+        description: `สร้างอุปกรณ์ "${equipment.name}" (SN: ${equipment.serialNumber})`,
+        newValue: { name: equipment.name, category: equipment.category, storeId: equipment.storeId },
       });
-
-      return newEquipment;
-    });
+    } catch (_) {}
 
     return equipment;
   }
@@ -360,13 +362,17 @@ export class EquipmentService {
         },
       });
 
-      // Audit trail
+      return updated;
+    });
+
+    // Audit trail (outside transaction to prevent blocking equipment update)
+    try {
       const auditAction = logAction === EquipmentLogAction.STATUS_CHANGED
         ? AuditAction.STATUS_CHANGE
         : logAction === EquipmentLogAction.TRANSFERRED
           ? AuditAction.TRANSFER
           : AuditAction.UPDATE;
-      await this.auditTrailService.log(tx, {
+      await this.auditTrailService.logDirect({
         module: AuditModule.EQUIPMENT,
         action: auditAction,
         entityType: 'Equipment',
@@ -374,9 +380,7 @@ export class EquipmentService {
         userId,
         description: `อัพเดตอุปกรณ์ "${equipment.name}" - ${logDescription}`,
       });
-
-      return updated;
-    });
+    } catch (_) {}
 
     return updatedEquipment;
   }
@@ -447,8 +451,13 @@ export class EquipmentService {
         // 6. Delete retirement requests
         await tx.equipmentRetirementRequest.deleteMany({ where: { equipmentId: id } });
 
-        // 7. Audit trail
-        await this.auditTrailService.log(tx, {
+        // 7. Hard delete the equipment record
+        await tx.equipment.delete({ where: { id } });
+      });
+
+      // Audit trail (outside transaction)
+      try {
+        await this.auditTrailService.logDirect({
           module: AuditModule.EQUIPMENT,
           action: AuditAction.DELETE,
           entityType: 'Equipment',
@@ -457,10 +466,7 @@ export class EquipmentService {
           description: `ลบอุปกรณ์ "${equipment.name}" (SN: ${equipment.serialNumber}) ออกจากระบบอย่างถาวร`,
           oldValue: { status: equipment.status, name: equipment.name },
         });
-
-        // 8. Hard delete the equipment record
-        await tx.equipment.delete({ where: { id } });
-      });
+      } catch (_) {}
 
       return { message: `อุปกรณ์ "${equipment.name}" ถูกลบออกจากระบบเรียบร้อยแล้ว` };
     }
@@ -500,8 +506,12 @@ export class EquipmentService {
         },
       });
 
-      // Audit trail
-      await this.auditTrailService.log(tx, {
+      return updated;
+    });
+
+    // Audit trail (outside transaction)
+    try {
+      await this.auditTrailService.logDirect({
         module: AuditModule.EQUIPMENT,
         action: AuditAction.DELETE,
         entityType: 'Equipment',
@@ -510,9 +520,7 @@ export class EquipmentService {
         description: `ลบอุปกรณ์ "${equipment.name}" (SN: ${equipment.serialNumber})`,
         oldValue: { status: equipment.status },
       });
-
-      return updated;
-    });
+    } catch (_) {}
 
     return retired;
   }
@@ -671,8 +679,11 @@ export class EquipmentService {
         },
       });
 
-      // Audit trail
-      await this.auditTrailService.log(tx, {
+    });
+
+    // Audit trail (outside transaction)
+    try {
+      await this.auditTrailService.logDirect({
         module: AuditModule.EQUIPMENT,
         action: AuditAction.DELETE,
         entityType: 'Equipment',
@@ -682,7 +693,7 @@ export class EquipmentService {
         oldValue: { status: request.equipment.status },
         newValue: { status: EquipmentStatus.RETIRED },
       });
-    });
+    } catch (_) {}
 
     // Notify requester
     await this.prisma.notification.create({
