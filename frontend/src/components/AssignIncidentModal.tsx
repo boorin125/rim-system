@@ -99,20 +99,20 @@ export default function AssignIncidentModal({
   }
 
   const filteredTechnicians = useMemo(() => {
+    // Always filter by province first (province match OR no province defined)
+    const provinceFiltered = incidentProvince
+      ? technicians.filter(coversProvince)
+      : technicians
+
     const q = searchQuery.trim().toLowerCase()
-    if (q) {
-      // Search mode: find in ALL technicians (allows cross-province)
-      return technicians.filter((tech) => {
-        const fullName = `${tech.firstName || ''} ${tech.lastName || ''}`.toLowerCase()
-        const email = (tech.email || '').toLowerCase()
-        return fullName.includes(q) || email.includes(q)
-      })
-    }
-    // Default mode: show only technicians covering this province
-    if (incidentProvince) {
-      return technicians.filter(coversProvince)
-    }
-    return technicians
+    if (!q) return provinceFiltered
+
+    // Search within province-filtered list by name or email
+    return provinceFiltered.filter((tech) => {
+      const fullName = `${tech.firstName || ''} ${tech.lastName || ''}`.toLowerCase()
+      const email = (tech.email || '').toLowerCase()
+      return fullName.includes(q) || email.includes(q)
+    })
   }, [technicians, searchQuery, incidentProvince])
 
   const toggleTechnician = (techId: number) => {
@@ -251,10 +251,8 @@ export default function AssignIncidentModal({
             {incidentProvince && (
               <p className="text-xs text-gray-500 mb-2 flex items-center gap-1">
                 <MapPin className="w-3 h-3" />
-                {searchQuery
-                  ? 'ค้นหาช่างเทคนิคทั้งหมด (รวมข้ามเขต)'
-                  : `แสดงเฉพาะช่างที่รับผิดชอบ: ${incidentProvince} — พิมพ์เพื่อค้นหาข้ามเขต`
-                }
+                แสดงช่างที่รับผิดชอบ: <span className="text-blue-400">{incidentProvince}</span>
+                <span className="text-gray-600 ml-1">(รวมช่างที่ไม่ระบุพื้นที่)</span>
               </p>
             )}
 
@@ -272,7 +270,7 @@ export default function AssignIncidentModal({
                       ? 'ไม่มีช่างเทคนิค Inhouse กรุณาตรวจสอบว่ามีผู้ใช้ที่มี role TECHNICIAN และ type INSOURCE'
                       : searchQuery
                         ? 'ไม่พบช่างเทคนิค Inhouse ที่ค้นหา'
-                        : `ไม่มีช่างเทคนิคที่รับผิดชอบจังหวัด${incidentProvince ? ` ${incidentProvince}` : ''} — พิมพ์เพื่อค้นหาข้ามเขต`}
+                        : `ไม่มีช่างเทคนิคที่รับผิดชอบจังหวัด${incidentProvince ? ` ${incidentProvince}` : ''}`}
                   </div>
                 ) : (
                   filteredTechnicians.map((tech) => {
@@ -301,11 +299,14 @@ export default function AssignIncidentModal({
                         <div className="flex-1 min-w-0">
                           <p className="text-sm text-white truncate">
                             {tech.firstName} {tech.lastName}
-                            {!isProvince && incidentProvince && (
-                              <span className="ml-2 text-xs text-amber-400">(ข้ามเขต)</span>
-                            )}
                           </p>
                           <p className="text-xs text-gray-400 truncate">{tech.email}</p>
+                          <p className="text-xs text-gray-500 truncate">
+                            {tech.responsibleProvinces?.length > 0
+                              ? <span className="text-emerald-500/80">{tech.responsibleProvinces.join(', ')}</span>
+                              : <span className="text-gray-600">ทุกจังหวัด</span>
+                            }
+                          </p>
                         </div>
                       </label>
                     )
