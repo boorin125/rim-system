@@ -39,6 +39,7 @@ export default function EditIncidentPage() {
   const themeHighlight = useThemeHighlight()
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [ticketNumber, setTicketNumber] = useState<string>('')
   const [stores, setStores] = useState<any[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [jobTypes, setJobTypes] = useState<JobType[]>([])
@@ -75,6 +76,7 @@ export default function EditIncidentPage() {
       ])
 
       const incident = incidentRes.data
+      setTicketNumber(incident.ticketNumber || incident.id)
 
       // Backend returns { data: [...], meta: {...} }
       const storesData = storesRes.data?.data || storesRes.data || []
@@ -175,7 +177,7 @@ export default function EditIncidentPage() {
 
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-white">Edit Incident #{params.id}</h1>
+        <h1 className="text-2xl font-bold text-white">Edit Incident #{ticketNumber || params.id}</h1>
         <p className="text-gray-400 mt-1">Update incident details</p>
       </div>
 
