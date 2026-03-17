@@ -99,20 +99,19 @@ export default function AssignIncidentModal({
   }
 
   const filteredTechnicians = useMemo(() => {
-    // Always filter by province first (province match OR no province defined)
-    const provinceFiltered = incidentProvince
-      ? technicians.filter(coversProvince)
-      : technicians
-
     const q = searchQuery.trim().toLowerCase()
-    if (!q) return provinceFiltered
 
-    // Search within province-filtered list by name or email
-    return provinceFiltered.filter((tech) => {
-      const fullName = `${tech.firstName || ''} ${tech.lastName || ''}`.toLowerCase()
-      const email = (tech.email || '').toLowerCase()
-      return fullName.includes(q) || email.includes(q)
-    })
+    if (q) {
+      // When searching: show ALL technicians matching the query (ignore province filter)
+      return technicians.filter((tech) => {
+        const fullName = `${tech.firstName || ''} ${tech.lastName || ''}`.toLowerCase()
+        const email = (tech.email || '').toLowerCase()
+        return fullName.includes(q) || email.includes(q)
+      })
+    }
+
+    // No search query: show only province-matched + no-province technicians
+    return incidentProvince ? technicians.filter(coversProvince) : technicians
   }, [technicians, searchQuery, incidentProvince])
 
   const toggleTechnician = (techId: number) => {
