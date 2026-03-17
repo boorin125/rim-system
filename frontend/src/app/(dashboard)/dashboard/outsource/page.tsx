@@ -149,7 +149,9 @@ export default function OutsourceMarketplacePage() {
       const parsed = JSON.parse(userStr)
       setUser(parsed)
       const roles = getUserRoles(parsed)
-      if (roles.includes('HELP_DESK')) {
+      const higherRoles = ['SUPER_ADMIN', 'IT_MANAGER', 'FINANCE_ADMIN', 'SUPERVISOR']
+      const hasHigherRole = roles.some(r => higherRoles.includes(r))
+      if (roles.includes('HELP_DESK') && !hasHigherRole) {
         router.replace('/dashboard')
       }
     }

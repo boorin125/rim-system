@@ -272,10 +272,12 @@ export default function PerformancePage() {
   }, [])
 
   const userRoles = getUserRoles(currentUser)
-  const isTechnician = userRoles.includes('TECHNICIAN')
+  const higherRoles = ['SUPER_ADMIN', 'IT_MANAGER', 'FINANCE_ADMIN', 'SUPERVISOR', 'HELP_DESK']
+  const hasHigherRole = userRoles.some(r => higherRoles.includes(r))
+  const isTechnician = userRoles.includes('TECHNICIAN') && !hasHigherRole
   const accessLevel = getAccessLevel(currentUser, '/dashboard/performance')
   const isManager = accessLevel === 'full'
-  const isSelfOnly = accessLevel === 'self'
+  const isSelfOnly = accessLevel === 'self' && !hasHigherRole
 
   const loadData = useCallback(async () => {
     if (!currentUser) return
