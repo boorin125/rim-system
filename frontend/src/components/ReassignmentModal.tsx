@@ -202,45 +202,42 @@ export default function ReassignmentModal({
           </button>
         </div>
 
-        {/* Current Assignee(s) */}
+        {/* Current Assignee(s) — fixed */}
         {currentAssigneeNames && (
-          <div className="mb-4 p-3 bg-slate-800/50 rounded-lg">
+          <div className="mb-3 p-3 bg-slate-800/50 rounded-lg flex-shrink-0">
             <p className="text-sm text-gray-400 mb-1">Technician ปัจจุบัน</p>
             <p className="text-white font-medium">{currentAssigneeNames}</p>
           </div>
         )}
 
-        <div className="flex flex-col flex-1 min-h-0">
-          {/* Search */}
+        {/* Search — fixed */}
+        <div className="flex-shrink-0">
           <div className="relative mb-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="ค้นหา Technician..."
-              className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
+              className="w-full pl-9 pr-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
             />
           </div>
           {incidentProvince && (
-            <p className="text-xs text-gray-500 mb-3 flex items-center gap-1">
+            <p className="text-xs text-gray-500 mb-2 flex items-center gap-1">
               <MapPin className="w-3 h-3" />
               แสดงช่างที่รับผิดชอบ: <span className="text-orange-400">{incidentProvince}</span>
               <span className="text-gray-600 ml-1">(รวมช่างที่ไม่ระบุพื้นที่)</span>
             </p>
           )}
-
-          {/* Selected count badge */}
           {selectedTechnicianIds.length > 0 && (
-            <div className="mb-3">
-              <span className="px-3 py-1 bg-orange-500/20 text-orange-400 rounded-full text-sm">
-                เลือกแล้ว {selectedTechnicianIds.length} คน
-              </span>
-            </div>
+            <p className="text-xs text-orange-400 mb-2">เลือกแล้ว {selectedTechnicianIds.length} คน</p>
           )}
+        </div>
 
-          {/* Technician List with Checkboxes */}
-          <div className="overflow-y-auto mb-4 min-h-[150px] max-h-[220px] border border-slate-700 rounded-lg divide-y divide-slate-700/50">
+        {/* Scrollable middle: tech list + reason + info */}
+        <div className="flex-1 min-h-0 overflow-y-auto space-y-3 pr-1">
+          {/* Technician List */}
+          <div className="border border-slate-700 rounded-lg divide-y divide-slate-700/50">
             {isLoading ? (
               <div className="flex items-center justify-center h-32">
                 <div className="spinner"></div>
@@ -301,50 +298,37 @@ export default function ReassignmentModal({
           </div>
 
           {/* Reason */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">
               เหตุผลในการเปลี่ยน <span className="text-red-400">*</span>
             </label>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="กรุณาใส่เหตุผล (อย่างน้อย 10 ตัวอักษร)..."
-              rows={3}
-              className="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
+              rows={2}
+              className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none text-sm"
             />
-            <p className="text-xs text-gray-500 mt-1">
-              {reason.length}/10 ตัวอักษรขั้นต่ำ
-            </p>
+            <p className="text-xs text-gray-500 mt-0.5">{reason.length}/10 ตัวอักษรขั้นต่ำ</p>
           </div>
 
           {/* Info Box */}
-          <div className={`mb-4 p-3 border rounded-lg ${
-            isUnassigning
-              ? 'bg-red-500/10 border-red-500/20'
-              : 'bg-blue-500/10 border-blue-500/20'
+          <div className={`p-3 border rounded-lg ${
+            isUnassigning ? 'bg-red-500/10 border-red-500/20' : 'bg-blue-500/10 border-blue-500/20'
           }`}>
             <div className="flex items-start gap-2">
-              <AlertTriangle className={`w-5 h-5 flex-shrink-0 mt-0.5 ${isUnassigning ? 'text-red-400' : 'text-blue-400'}`} />
+              <AlertTriangle className={`w-4 h-4 flex-shrink-0 mt-0.5 ${isUnassigning ? 'text-red-400' : 'text-blue-400'}`} />
               {isUnassigning ? (
-                <div className="text-sm text-red-300">
-                  <p className="font-medium mb-1">ยกเลิกการมอบหมาย:</p>
-                  <p className="text-red-300/80">Incident จะกลับสู่สถานะ <span className="font-semibold text-red-300">OPEN</span> และยกเลิกการมอบหมายทั้งหมด</p>
-                </div>
+                <p className="text-xs text-red-300">Incident จะกลับสู่สถานะ <span className="font-semibold">OPEN</span> และยกเลิกการมอบหมายทั้งหมด</p>
               ) : (
-                <div className="text-sm text-blue-300">
-                  <p className="font-medium mb-1">การเปลี่ยน Technician:</p>
-                  <ul className="list-disc list-inside text-blue-300/80 space-y-1">
-                    <li>Incident จะถูกมอบหมายให้ Technician ที่เลือกทั้งหมด</li>
-                    <li>Technician ทุกคนจะได้รับ Notification</li>
-                    <li>เหตุผลการเปลี่ยนจะถูกบันทึกไว้ใน Timeline</li>
-                  </ul>
-                </div>
+                <p className="text-xs text-blue-300">Incident จะถูกมอบหมายให้ Technician ที่เลือก และทุกคนจะได้รับ Notification</p>
               )}
             </div>
           </div>
+        </div>
 
-          {/* Actions */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-700 flex-shrink-0">
+        {/* Actions — fixed bottom */}
+        <div className="flex items-center justify-end gap-3 pt-3 mt-3 border-t border-slate-700 flex-shrink-0">
             <button
               type="button"
               onClick={onClose}
@@ -381,7 +365,6 @@ export default function ReassignmentModal({
               )}
             </button>
           </div>
-        </div>
       </div>
     </div>
   )
