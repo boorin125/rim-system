@@ -925,11 +925,16 @@ SLA Breach Time: ${slaBreachText}`
   const userRoles = currentUser?.roles || [currentUser?.role].filter(Boolean)
   const hasRole = (role: string) => userRoles.includes(role)
 
-  const canEdit = hasRole('HELP_DESK') && incident?.status !== 'CLOSED' && incident?.status !== 'CANCELLED'
-  const canCancel = hasRole('HELP_DESK') && incident?.status !== 'CLOSED' && incident?.status !== 'CANCELLED'
+  // Higher-role hierarchy: higher roles override lower ones
+  const _higherThanHelpDesk = ['SUPER_ADMIN', 'IT_MANAGER', 'FINANCE_ADMIN', 'SUPERVISOR']
+  const _higherThanTech = [..._higherThanHelpDesk, 'HELP_DESK']
+  const _hasHigherThanHelpDesk = userRoles.some((r: string) => _higherThanHelpDesk.includes(r))
 
-  // Assign permission - SUPERVISOR only!
-  const canAssign = hasRole('SUPERVISOR')
+  const canEdit = (hasRole('HELP_DESK') || hasRole('IT_MANAGER')) && incident?.status !== 'CLOSED' && incident?.status !== 'CANCELLED'
+  const canCancel = (hasRole('HELP_DESK') || hasRole('IT_MANAGER')) && incident?.status !== 'CLOSED' && incident?.status !== 'CANCELLED'
+
+  // Assign permission - SUPERVISOR or IT_MANAGER
+  const canAssign = hasRole('SUPERVISOR') || hasRole('IT_MANAGER')
 
   // Reassign permission - SUPERVISOR only, not for CLOSED/CANCELLED/RESOLVED
   const canRequestReassign =
@@ -953,9 +958,9 @@ SLA Breach Time: ${slaBreachText}`
   const isAssignedToMe = incident?.assignees?.some((a: any) => Number(a.user?.id || a.userId) === currentUserId)
     || (assignedTechId != null && Number(assignedTechId) === currentUserId)
 
-  // Helper: Check role using roles array (supports both single role and roles array)
-  const isTechnician = hasRole('TECHNICIAN')
-  const isHelpDesk = hasRole('HELP_DESK')
+  // Role flags — highest role wins: TECHNICIAN/HELP_DESK flags suppressed when higher role exists
+  const isTechnician = hasRole('TECHNICIAN') && !userRoles.some((r: string) => _higherThanTech.includes(r))
+  const isHelpDesk = hasRole('HELP_DESK') && !_hasHigherThanHelpDesk
   const isSupervisor = hasRole('SUPERVISOR')
   const isITManager = hasRole('IT_MANAGER')
 

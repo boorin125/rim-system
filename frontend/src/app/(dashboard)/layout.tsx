@@ -373,8 +373,11 @@ export default function DashboardLayout({
   // Filter navigation items based on user's role permissions
   const navItems = useMemo(() => {
     if (!user) return []
+    const roles = getUserRoles(user)
+    const higherThanTech = ['SUPER_ADMIN', 'IT_MANAGER', 'FINANCE_ADMIN', 'SUPERVISOR', 'HELP_DESK']
     const isOutsourceTech =
-      getUserRoles(user).includes('TECHNICIAN') &&
+      roles.includes('TECHNICIAN') &&
+      !roles.some(r => higherThanTech.includes(r)) &&
       user?.technicianType === 'OUTSOURCE'
     return allNavItems
       .filter(item => hasMenuAccess(user, item.href))

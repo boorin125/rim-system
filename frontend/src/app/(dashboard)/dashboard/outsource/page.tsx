@@ -315,7 +315,7 @@ export default function OutsourceMarketplacePage() {
       )}
 
       {/* Filters */}
-      {isAdmin && !isSupervisor && (
+      {isAdmin && (!isSupervisor || isItManager || isFinance) && (
         <div className="bg-slate-800/70 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-4">
           <div className="flex flex-wrap items-center gap-4">
             <Filter className="h-5 w-5 text-gray-400" />

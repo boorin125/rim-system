@@ -10,6 +10,37 @@ export type UserRole =
   | 'END_USER'
   | 'READ_ONLY'
 
+// Role hierarchy: higher number = higher privilege
+export const ROLE_HIERARCHY: Record<string, number> = {
+  SUPER_ADMIN: 8,
+  IT_MANAGER: 7,
+  FINANCE_ADMIN: 6,
+  SUPERVISOR: 5,
+  HELP_DESK: 4,
+  TECHNICIAN: 3,
+  END_USER: 2,
+  READ_ONLY: 1,
+}
+
+/** Returns the single highest-privilege role the user has */
+export function getHighestRole(user: any): string | null {
+  const roles = getUserRoles(user)
+  if (roles.length === 0) return null
+  return roles.reduce((highest, role) => {
+    return (ROLE_HIERARCHY[role] || 0) > (ROLE_HIERARCHY[highest] || 0) ? role : highest
+  })
+}
+
+/** True only when TECHNICIAN is the user's highest role (no HELP_DESK or above) */
+export function isPureTechnician(user: any): boolean {
+  return getHighestRole(user) === 'TECHNICIAN'
+}
+
+/** True only when HELP_DESK is the user's highest role (no SUPERVISOR or above) */
+export function isPureHelpDesk(user: any): boolean {
+  return getHighestRole(user) === 'HELP_DESK'
+}
+
 export type AccessLevel = 'full' | 'view' | 'create_view' | 'self' | 'none'
 
 export interface MenuPermission {

@@ -89,7 +89,8 @@ export default function OutsourceJobDetailPage() {
   const isITManager = userRoles.includes('IT_MANAGER')
   const isSupervisor = userRoles.includes('SUPERVISOR')
   const isFinance = userRoles.some((r: string) => ['FINANCE_ADMIN', 'IT_MANAGER'].includes(r))
-  const isTechnician = userRoles.includes('TECHNICIAN')
+  const _higherThanTech = ['SUPER_ADMIN', 'IT_MANAGER', 'FINANCE_ADMIN', 'SUPERVISOR', 'HELP_DESK']
+  const isTechnician = userRoles.includes('TECHNICIAN') && !userRoles.some(r => _higherThanTech.includes(r))
   const isOutsource = user?.technicianType === 'OUTSOURCE'
 
   const fetchJob = async () => {
