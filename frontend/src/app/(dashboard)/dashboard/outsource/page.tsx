@@ -158,7 +158,9 @@ export default function OutsourceMarketplacePage() {
   }, [])
 
   const userRoles = getUserRoles(user)
-  const isTechnician = userRoles.includes('TECHNICIAN')
+  const higherRoles = ['SUPER_ADMIN', 'IT_MANAGER', 'FINANCE_ADMIN', 'SUPERVISOR']
+  const hasHigherRole = userRoles.some(r => higherRoles.includes(r))
+  const isTechnician = userRoles.includes('TECHNICIAN') && !hasHigherRole
   const isOutsource = user?.technicianType === 'OUTSOURCE'
   const isFinance = userRoles.includes('FINANCE_ADMIN')
   const isItManager = userRoles.includes('IT_MANAGER')
