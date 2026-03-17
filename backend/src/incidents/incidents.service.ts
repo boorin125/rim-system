@@ -858,12 +858,17 @@ export class IncidentsService {
     }
 
     // Apply filters
-    if (filterDto.status) {
-      where.status = filterDto.status;
+    if (filterDto.statusGroup === 'PENDING') {
+      where.status = { notIn: ['CLOSED', 'CANCELLED'] };
+    } else if (filterDto.status) {
+      // Support comma-separated values (e.g. "PENDING,ASSIGNED")
+      const statuses = filterDto.status.split(',').filter(Boolean);
+      where.status = statuses.length === 1 ? statuses[0] : { in: statuses };
     }
 
     if (filterDto.priority) {
-      where.priority = filterDto.priority;
+      const priorities = filterDto.priority.split(',').filter(Boolean);
+      where.priority = priorities.length === 1 ? priorities[0] : { in: priorities };
     }
 
     if (filterDto.storeId) {
@@ -875,7 +880,8 @@ export class IncidentsService {
     }
 
     if (filterDto.category) {
-      where.category = filterDto.category;
+      const cats = filterDto.category.split(',').filter(Boolean);
+      where.category = cats.length === 1 ? cats[0] : { in: cats };
     }
 
     if (filterDto.search) {
@@ -886,61 +892,83 @@ export class IncidentsService {
       ];
     }
 
-    const incidents = await this.prisma.incident.findMany({
-      where,
-      include: {
-        store: true,
-        equipment: true,
-        assignee: {
-          select: {
-            id: true,
-            username: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            roles: { select: { role: true } },
-          },
-        },
-        assignees: {
-          select: {
-            id: true,
-            userId: true,
-            assignedAt: true,
-            checkedInAt: true,
-            checkInLatitude: true,
-            checkInLongitude: true,
-            user: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-                phone: true,
-              },
+    // Pagination
+    const page = Math.max(1, parseInt(filterDto.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(filterDto.limit) || 50));
+    const skip = (page - 1) * limit;
+
+    // Date range filter
+    if (filterDto.dateFrom || filterDto.dateTo) {
+      const dateFilter: any = {};
+      if (filterDto.dateFrom) dateFilter.gte = new Date(filterDto.dateFrom);
+      if (filterDto.dateTo) {
+        const to = new Date(filterDto.dateTo);
+        to.setHours(23, 59, 59, 999);
+        dateFilter.lte = to;
+      }
+      where.createdAt = dateFilter;
+    }
+
+    // Sort
+    const sortField = filterDto.sortField || 'createdAt';
+    const sortOrder = filterDto.sortOrder === 'asc' ? 'asc' : 'desc';
+    const orderBy: any = { [sortField]: sortOrder };
+
+    const [total, incidents] = await Promise.all([
+      this.prisma.incident.count({ where }),
+      this.prisma.incident.findMany({
+        where,
+        include: {
+          store: {
+            select: {
+              id: true, storeCode: true, name: true,
+              province: true, storeStatus: true,
             },
           },
-          orderBy: { assignedAt: 'asc' as const },
-        },
-        createdBy: {
-          select: {
-            id: true,
-            username: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            roles: { select: { role: true } },
+          equipment: {
+            select: { id: true, name: true, serialNumber: true, category: true },
+          },
+          assignee: {
+            select: {
+              id: true, username: true, firstName: true, lastName: true,
+              email: true, roles: { select: { role: true } },
+            },
+          },
+          assignees: {
+            select: {
+              id: true, userId: true, assignedAt: true, checkedInAt: true,
+              checkInLatitude: true, checkInLongitude: true,
+              user: {
+                select: { id: true, firstName: true, lastName: true, email: true, phone: true },
+              },
+            },
+            orderBy: { assignedAt: 'asc' as const },
+          },
+          createdBy: {
+            select: {
+              id: true, username: true, firstName: true, lastName: true,
+              email: true, roles: { select: { role: true } },
+            },
+          },
+          slaDefenses: {
+            select: { id: true, status: true, reason: true },
+            orderBy: { createdAt: 'desc' as const },
+            take: 1,
           },
         },
-        slaDefenses: {
-          select: { id: true, status: true, reason: true },
-          orderBy: { createdAt: 'desc' as const },
-          take: 1,
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+        orderBy,
+        skip,
+        take: limit,
+      }),
+    ]);
 
-    return incidents;
+    return {
+      data: incidents,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   /**

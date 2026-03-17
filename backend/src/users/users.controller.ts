@@ -48,6 +48,11 @@ export class UsersController {
     return this.usersService.findAll({ role, technicianType, status });
   }
 
+  @Get('technicians/locations')
+  findTechnicianLocations() {
+    return this.usersService.findTechnicianLocations();
+  }
+
   @Get('pending')
   @Roles('SUPER_ADMIN', 'IT_MANAGER')
   @UseGuards(RolesGuard)

@@ -40,6 +40,9 @@ interface UserProfile {
   phone?: string
   department?: string
   address?: string
+  subDistrict?: string
+  district?: string
+  province?: string
   avatarPath?: string
   bankBookPath?: string
   idCardPath?: string
@@ -69,6 +72,9 @@ export default function ProfilePage() {
   const [phone, setPhone] = useState('')
   const [department, setDepartment] = useState('')
   const [address, setAddress] = useState('')
+  const [subDistrict, setSubDistrict] = useState('')
+  const [district, setDistrict] = useState('')
+  const [province, setProvince] = useState('')
 
   // Responsible Provinces (Outsource only)
   const [responsibleProvinces, setResponsibleProvinces] = useState<string[]>([])
@@ -130,6 +136,9 @@ export default function ProfilePage() {
       setPhone(response.data.phone || '')
       setDepartment(response.data.department || '')
       setAddress(response.data.address || '')
+      setSubDistrict(response.data.subDistrict || '')
+      setDistrict(response.data.district || '')
+      setProvince(response.data.province || '')
       setResponsibleProvinces(response.data.responsibleProvinces || [])
     } catch (error) {
       toast.error('Failed to load profile')
@@ -190,7 +199,7 @@ export default function ProfilePage() {
       const token = localStorage.getItem('token')
       const response = await axios.put(
         `${process.env.NEXT_PUBLIC_API_URL}/auth/profile`,
-        { firstName, lastName, phone, department, address },
+        { firstName, lastName, phone, department, address, subDistrict, district, province },
         { headers: { Authorization: `Bearer ${token}` } }
       )
 
@@ -205,6 +214,9 @@ export default function ProfilePage() {
         user.phone = phone
         user.department = department
         user.address = address
+        user.subDistrict = subDistrict
+        user.district = district
+        user.province = province
         localStorage.setItem('user', JSON.stringify(user))
       }
 
@@ -495,7 +507,10 @@ export default function ProfilePage() {
     lastName !== (profile.lastName || '') ||
     phone !== (profile.phone || '') ||
     department !== (profile.department || '') ||
-    address !== (profile.address || '')
+    address !== (profile.address || '') ||
+    subDistrict !== (profile.subDistrict || '') ||
+    district !== (profile.district || '') ||
+    province !== (profile.province || '')
   )
 
   if (isLoading) {
@@ -745,18 +760,51 @@ export default function ProfilePage() {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+              {/* Address section */}
+              <div className="space-y-3">
+                <label className="block text-sm font-medium text-gray-300">
                   <MapPin className="w-4 h-4 inline mr-1" />
-                  Address
+                  ที่อยู่
                 </label>
                 <textarea
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
-                  rows={3}
+                  rows={2}
                   className="w-full px-4 py-2.5 bg-slate-800 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                  placeholder="Enter your address"
+                  placeholder="บ้านเลขที่ ถนน ซอย หมู่บ้าน"
                 />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1.5">ตำบล / แขวง</label>
+                    <input
+                      type="text"
+                      value={subDistrict}
+                      onChange={(e) => setSubDistrict(e.target.value)}
+                      className="w-full px-3 py-2.5 bg-slate-800 border border-slate-600 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="ตำบล / แขวง"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1.5">อำเภอ / เขต</label>
+                    <input
+                      type="text"
+                      value={district}
+                      onChange={(e) => setDistrict(e.target.value)}
+                      className="w-full px-3 py-2.5 bg-slate-800 border border-slate-600 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="อำเภอ / เขต"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1.5">จังหวัด</label>
+                    <input
+                      type="text"
+                      value={province}
+                      onChange={(e) => setProvince(e.target.value)}
+                      className="w-full px-3 py-2.5 bg-slate-800 border border-slate-600 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="จังหวัด"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div>

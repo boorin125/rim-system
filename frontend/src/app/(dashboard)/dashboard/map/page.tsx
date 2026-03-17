@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import axios from 'axios'
 import toast from 'react-hot-toast'
-import { RefreshCw, MapPin, Calendar, ChevronLeft, ChevronRight, User } from 'lucide-react'
+import { RefreshCw, MapPin, Calendar, ChevronLeft, ChevronRight, User, Users } from 'lucide-react'
 import { useLicense } from '@/context/LicenseContext'
 import LicenseLock from '@/components/LicenseLock'
 
@@ -23,6 +23,8 @@ function useThemeHighlight() {
   }, [])
   return color
 }
+
+import type { TechnicianLocation } from '@/components/map/MapView'
 
 const MapView = dynamic(() => import('@/components/map/MapView'), {
   ssr: false,
@@ -78,6 +80,9 @@ export default function MapPage() {
   const [filterStatus, setFilterStatus] = useState('')
   const [filterTechnician, setFilterTechnician] = useState('')
   const [selectedDate, setSelectedDate] = useState(getTodayStr())
+  const [showTechnicianLocations, setShowTechnicianLocations] = useState(false)
+  const [technicianLocations, setTechnicianLocations] = useState<TechnicianLocation[]>([])
+  const [loadingTechs, setLoadingTechs] = useState(false)
   const themeHighlight = useThemeHighlight()
 
   const fetchCheckins = async () => {
@@ -100,6 +105,29 @@ export default function MapPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const fetchTechnicianLocations = async () => {
+    try {
+      setLoadingTechs(true)
+      const token = localStorage.getItem('token')
+      const res = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/users/technicians/locations`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      setTechnicianLocations(res.data || [])
+    } catch {
+      toast.error('ไม่สามารถโหลดข้อมูลช่างได้')
+    } finally {
+      setLoadingTechs(false)
+    }
+  }
+
+  const handleToggleTechnicianLocations = () => {
+    if (!showTechnicianLocations && technicianLocations.length === 0) {
+      fetchTechnicianLocations()
+    }
+    setShowTechnicianLocations(prev => !prev)
   }
 
   useEffect(() => {
@@ -192,6 +220,28 @@ export default function MapPage() {
               </button>
             )}
           </div>
+          {/* Show All Technicians toggle */}
+          <button
+            onClick={handleToggleTechnicianLocations}
+            disabled={loadingTechs}
+            title="แสดงตำแหน่งช่างทั้งหมด"
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition ${
+              showTechnicianLocations
+                ? 'bg-teal-600/30 border border-teal-500/50 text-teal-400 hover:bg-teal-600/40'
+                : 'bg-slate-700 hover:bg-slate-600 text-gray-300'
+            }`}
+          >
+            {loadingTechs
+              ? <RefreshCw className="h-4 w-4 animate-spin" />
+              : <Users className="h-4 w-4" />
+            }
+            <span className="hidden sm:inline">ช่างทั้งหมด</span>
+            {showTechnicianLocations && technicianLocations.length > 0 && (
+              <span className="bg-teal-500/30 text-teal-300 text-xs px-1.5 py-0.5 rounded-full">
+                {technicianLocations.filter(t => t.province && t.province in ({} as any)).length || technicianLocations.length}
+              </span>
+            )}
+          </button>
           {/* Refresh */}
           <button
             onClick={fetchCheckins}
@@ -251,9 +301,26 @@ export default function MapPage() {
         </div>
       </div>
 
+      {/* Technician location hint */}
+      {showTechnicianLocations && (
+        <div className="bg-teal-900/30 border border-teal-500/30 rounded-xl px-4 py-2 flex items-center gap-2 text-sm text-teal-300">
+          <Users className="w-4 h-4 shrink-0" />
+          แสดงหมุด <strong>{technicianLocations.filter(t => t.province).length}</strong> คน
+          ตามจังหวัดที่บันทึกไว้ในโปรไฟล์
+          {technicianLocations.filter(t => !t.province).length > 0 && (
+            <span className="text-teal-500 text-xs ml-1">
+              ({technicianLocations.filter(t => !t.province).length} คนยังไม่ระบุจังหวัด)
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Map Container */}
       <div className="h-[calc(100vh-14rem)] bg-slate-800/70 backdrop-blur-xl border border-slate-700/50 rounded-2xl overflow-hidden">
-        <MapView checkins={filteredCheckins} />
+        <MapView
+          checkins={filteredCheckins}
+          technicianLocations={showTechnicianLocations ? technicianLocations : []}
+        />
       </div>
     </div>
   )

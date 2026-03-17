@@ -20,6 +20,9 @@ model User {
   serviceCenter               String?                      @map("service_center")
   responsibleProvinces        String[]                     @default([]) @map("responsible_provinces")
   address                     String?                      @db.Text
+  subDistrict                 String?                      @map("sub_district")
+  district                    String?
+  province                    String?
   avatarPath                  String?                      @map("avatar_path")
   bankBookPath                String?                      @map("bank_book_path")
   idCardPath                  String?                      @map("id_card_path")

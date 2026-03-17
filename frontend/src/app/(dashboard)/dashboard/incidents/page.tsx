@@ -1,8 +1,8 @@
-// app/(dashboard)/dashboard/incidents/page.tsx - Incident Management
+// app/(dashboard)/dashboard/incidents/page.tsx - Incident Management (Server-side pagination)
 'use client'
 
 import { formatStore } from '@/utils/formatStore'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Plus,
@@ -24,12 +24,14 @@ import { formatDateTime } from '@/utils/dateUtils'
 export default function IncidentsPage() {
   const router = useRouter()
   const [incidents, setIncidents] = useState<any[]>([])
-  const [filteredIncidents, setFilteredIncidents] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState('ALL')
   const [filterCategory, setFilterCategory] = useState('ALL')
   const [currentPage, setCurrentPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [incidentToDelete, setIncidentToDelete] = useState<any>(null)
   const [currentUser, setCurrentUser] = useState<any>(null)
@@ -44,89 +46,117 @@ export default function IncidentsPage() {
   const [sortField, setSortField] = useState<string>('createdAt')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [slaConfigs, setSlaConfigs] = useState<any[]>([])
+  const [categories, setCategories] = useState<string[]>([])
+  const [userReady, setUserReady] = useState(false)
+  const isSuperAdmin = useRef(false)
 
-  // Theme highlight color for active sort buttons (reads CSS variable set by layout)
+  const itemsPerPage = 50
+
+  // Theme highlight color
   const [sortActiveBg, setSortActiveBg] = useState('#3b82f6')
   useEffect(() => {
     const readTheme = () => {
       const val = getComputedStyle(document.documentElement).getPropertyValue('--theme-highlight').trim()
       if (val) setSortActiveBg(val)
     }
-    // Read initial value (may already be set by layout)
     readTheme()
-    // Also listen for theme updates (layout sets CSS vars async after API fetch)
     const observer = new MutationObserver(() => readTheme())
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] })
     return () => observer.disconnect()
   }, [])
 
-  const itemsPerPage = 10
-
-  // Categories list (fetched from API)
-  const [categories, setCategories] = useState<string[]>([])
-
-  const fetchCategories = async () => {
-    try {
-      const token = localStorage.getItem('token')
-      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/categories`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (Array.isArray(res.data)) {
-        setCategories(res.data.filter((c: any) => c.isActive !== false).map((c: any) => c.name))
-      }
-    } catch {
-      // Fallback
-      setCategories(['POS', 'Network', 'Hardware', 'Software', 'Printer', 'Monitor', 'Other'])
-    }
-  }
-
+  // Debounce search term (400ms)
   useEffect(() => {
-    // Get current user from localStorage
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm)
+      setCurrentPage(1)
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [searchTerm])
+
+  // Reset page when filters change (not search — handled by debounce above)
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [filterStatus, filterCategory, sortField, sortOrder, advancedFilters])
+
+  // Fetch user on mount
+  useEffect(() => {
     const userStr = localStorage.getItem('user')
     if (userStr) {
       const user = JSON.parse(userStr)
       setCurrentUser(user)
-      
-      // Check if SUPER_ADMIN
-      if (getUserRoles(user).includes('SUPER_ADMIN')) {
-        setIsLoading(false)
-        return
-      }
+      isSuperAdmin.current = getUserRoles(user).includes('SUPER_ADMIN')
     }
-    
-    fetchIncidents()
     fetchSlaConfigs()
     fetchCategories()
+    setUserReady(true)
   }, [])
 
+  // Main fetch effect — runs when page, filters, or sort changes
   useEffect(() => {
-    filterIncidents()
-  }, [incidents, searchTerm, filterStatus, filterCategory, advancedFilters, sortField, sortOrder])
+    if (!userReady) return
+    if (isSuperAdmin.current) {
+      setIsLoading(false)
+      return
+    }
+    fetchIncidents()
+  }, [userReady, currentPage, debouncedSearch, filterStatus, filterCategory, sortField, sortOrder, advancedFilters])
+
+  const buildParams = (overrides?: Record<string, any>) => {
+    const params: Record<string, any> = {
+      page: currentPage,
+      limit: itemsPerPage,
+      sortField,
+      sortOrder,
+    }
+
+    if (debouncedSearch) params.search = debouncedSearch
+
+    // Status filter (basic dropdown)
+    if (filterStatus === 'PENDING') {
+      // handled server-side as "not CLOSED/CANCELLED" — pass special value
+      params.statusGroup = 'PENDING'
+    } else if (filterStatus !== 'ALL') {
+      params.status = filterStatus
+    }
+
+    if (filterCategory !== 'ALL') params.category = filterCategory
+
+    // Advanced filters
+    if (advancedFilters.status.length > 0) params.status = advancedFilters.status.join(',')
+    if (advancedFilters.priority.length > 0) params.priority = advancedFilters.priority.join(',')
+    if (advancedFilters.category.length > 0) params.category = advancedFilters.category.join(',')
+    if (advancedFilters.dateRange.from) params.dateFrom = advancedFilters.dateRange.from
+    if (advancedFilters.dateRange.to) params.dateTo = advancedFilters.dateRange.to
+
+    return { ...params, ...overrides }
+  }
 
   const fetchIncidents = async () => {
     try {
       setIsLoading(true)
       const token = localStorage.getItem('token')
-      
+      const params = buildParams()
+
       const response = await axios.get(
         `${process.env.NEXT_PUBLIC_API_URL}/incidents`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+        { headers: { Authorization: `Bearer ${token}` }, params }
       )
 
-      // Handle both array and object responses
       const data = response.data
-      if (Array.isArray(data)) {
-        setIncidents(data)
-      } else if (data && Array.isArray(data.incidents)) {
-        setIncidents(data.incidents)
-      } else if (data && Array.isArray(data.data)) {
+      if (data && Array.isArray(data.data)) {
         setIncidents(data.data)
+        setTotal(data.total ?? data.data.length)
+        setTotalPages(data.totalPages ?? 1)
+      } else if (Array.isArray(data)) {
+        // Fallback: old response format (plain array)
+        setIncidents(data)
+        setTotal(data.length)
+        setTotalPages(1)
       } else {
-        console.error('Unexpected response format:', data)
         setIncidents([])
-        toast.error('Unexpected data format from server')
+        setTotal(0)
+        setTotalPages(1)
       }
     } catch (error: any) {
       toast.error('Failed to load incidents')
@@ -142,23 +172,31 @@ export default function IncidentsPage() {
       const token = localStorage.getItem('token')
       const response = await axios.get(
         `${process.env.NEXT_PUBLIC_API_URL}/sla`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       )
       setSlaConfigs(response.data)
-    } catch (error) {
-      console.error('Failed to fetch SLA configs:', error)
+    } catch {}
+  }
+
+  const fetchCategories = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/categories`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (Array.isArray(res.data)) {
+        setCategories(res.data.filter((c: any) => c.isActive !== false).map((c: any) => c.name))
+      }
+    } catch {
+      setCategories(['POS', 'Network', 'Hardware', 'Software', 'Printer', 'Monitor', 'Other'])
     }
   }
 
-  // Get priority display name from SLA config
   const getPriorityDisplayName = (priority: string): string => {
     const config = slaConfigs.find((c: any) => c.priority === priority)
     return config?.name || priority
   }
 
-  // Calculate SLA status for an incident
   const getSLAStatus = (incident: any): { label: string; color: string; defended?: boolean } => {
     if (!incident.slaDeadline) {
       return { label: 'N/A', color: 'text-gray-400 bg-gray-500/20' }
@@ -168,7 +206,6 @@ export default function IncidentsPage() {
     const now = new Date()
     const hasApprovedDefense = incident.slaDefenses?.some((d: any) => d.status === 'APPROVED')
 
-    // If incident is CLOSED or RESOLVED
     if (incident.status === 'CLOSED' || incident.status === 'RESOLVED') {
       const completedAt = incident.resolvedAt
         ? new Date(incident.resolvedAt)
@@ -185,12 +222,10 @@ export default function IncidentsPage() {
       }
     }
 
-    // If incident is CANCELLED
     if (incident.status === 'CANCELLED') {
       return { label: 'N/A', color: 'text-gray-400 bg-gray-500/20' }
     }
 
-    // If incident is still open
     if (now > slaDeadline) {
       return { label: 'Breached', color: 'text-red-400 bg-red-500/20' }
     } else {
@@ -198,196 +233,97 @@ export default function IncidentsPage() {
     }
   }
 
-  const filterIncidents = () => {
-    // Check if incidents is array
-    if (!Array.isArray(incidents)) {
-      setFilteredIncidents([])
-      return
-    }
+  const handleExport = async (format: 'csv' | 'excel') => {
+    try {
+      const token = localStorage.getItem('token')
+      const params = buildParams({ page: 1, limit: 10000 })
 
-    let filtered = [...incidents]
-
-    // Search filter
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (incident) =>
-          incident.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          incident.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          incident.ticketNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          incident.id?.toString().includes(searchTerm)
+      const response = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/incidents`,
+        { headers: { Authorization: `Bearer ${token}` }, params }
       )
-    }
 
-    // Basic filters (backward compatibility)
-    if (filterStatus === 'PENDING') {
-      // "Pending" = all non-closed/cancelled incidents
-      filtered = filtered.filter((incident) => !['CLOSED', 'CANCELLED'].includes(incident.status))
-    } else if (filterStatus !== 'ALL') {
-      filtered = filtered.filter((incident) => incident.status === filterStatus)
-    }
-
-    if (filterCategory !== 'ALL') {
-      filtered = filtered.filter((incident) => incident.category === filterCategory)
-    }
-
-    // Advanced filters
-    if (advancedFilters.status.length > 0) {
-      filtered = filtered.filter((incident) =>
-        advancedFilters.status.includes(incident.status)
-      )
-    }
-
-    if (advancedFilters.priority.length > 0) {
-      filtered = filtered.filter((incident) =>
-        advancedFilters.priority.includes(incident.priority)
-      )
-    }
-
-    if (advancedFilters.category.length > 0) {
-      filtered = filtered.filter((incident) =>
-        advancedFilters.category.includes(incident.category)
-      )
-    }
-
-    // Date range filter
-    if (advancedFilters.dateRange.from) {
-      const fromDate = new Date(advancedFilters.dateRange.from)
-      filtered = filtered.filter((incident) =>
-        new Date(incident.createdAt) >= fromDate
-      )
-    }
-
-    if (advancedFilters.dateRange.to) {
-      const toDate = new Date(advancedFilters.dateRange.to)
-      toDate.setHours(23, 59, 59, 999) // End of day
-      filtered = filtered.filter((incident) =>
-        new Date(incident.createdAt) <= toDate
-      )
-    }
-
-    // Sorting
-    filtered.sort((a, b) => {
-      let aValue = a[sortField]
-      let bValue = b[sortField]
-
-      // Handle date fields
-      if (sortField === 'createdAt' || sortField === 'updatedAt' || sortField === 'slaDeadline') {
-        aValue = new Date(aValue).getTime()
-        bValue = new Date(bValue).getTime()
+      const allData = response.data?.data || response.data || []
+      if (!Array.isArray(allData) || allData.length === 0) {
+        toast.error('No data to export')
+        return
       }
 
-      // Handle string fields
-      if (typeof aValue === 'string') {
-        aValue = aValue.toLowerCase()
-        bValue = bValue?.toLowerCase() || ''
-      }
+      const exportData = allData.map((incident: any) => ({
+        'Ticket Number': incident.ticketNumber || incident.id,
+        'Title': incident.title,
+        'Description': incident.description,
+        'Status': incident.status,
+        'Priority': getPriorityDisplayName(incident.priority),
+        'Category': incident.category,
+        'Store': formatStore(incident.store),
+        'Province': incident.store?.province || '',
+        'Assignee': incident.assignees?.length > 0
+          ? incident.assignees.map((a: any) => `${a.user?.firstName || ''} ${a.user?.lastName || ''}`).join(', ')
+          : incident.assignee ? `${incident.assignee.firstName} ${incident.assignee.lastName}` : 'Unassigned',
+        'Created At': formatDateTime(incident.createdAt),
+        'Updated At': formatDateTime(incident.updatedAt),
+        'SLA Deadline': incident.slaDeadline ? formatDateTime(incident.slaDeadline) : 'N/A',
+      }))
 
-      if (sortOrder === 'asc') {
-        return aValue > bValue ? 1 : -1
+      const headers = Object.keys(exportData[0])
+
+      if (format === 'csv') {
+        const csvContent = [
+          headers.map(h => `"${h}"`).join(','),
+          ...exportData.map((row: any) =>
+            headers.map(header => {
+              const value = row[header as keyof typeof row]
+              const stringValue = value != null ? String(value) : ''
+              return `"${stringValue.replace(/"/g, '""')}"`
+            }).join(',')
+          )
+        ].join('\n')
+
+        const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
+        const link = document.createElement('a')
+        link.href = URL.createObjectURL(blob)
+        link.download = `incidents_${new Date().toISOString().split('T')[0]}.csv`
+        link.click()
+        toast.success('CSV file downloaded')
       } else {
-        return aValue < bValue ? 1 : -1
+        const csvContent = [
+          headers.join('\t'),
+          ...exportData.map((row: any) =>
+            headers.map(header => {
+              const value = row[header as keyof typeof row]
+              const stringValue = value != null ? String(value) : ''
+              return stringValue.replace(/\t/g, ' ').replace(/\n/g, ' ')
+            }).join('\t')
+          )
+        ].join('\n')
+
+        const blob = new Blob(['\uFEFF' + csvContent], { type: 'application/vnd.ms-excel;charset=utf-8;' })
+        const link = document.createElement('a')
+        link.href = URL.createObjectURL(blob)
+        link.download = `incidents_${new Date().toISOString().split('T')[0]}.xls`
+        link.click()
+        toast.success('Excel file downloaded')
       }
-    })
-
-    setFilteredIncidents(filtered)
-    setCurrentPage(1)
-  }
-
-  const handleExport = (format: 'csv' | 'excel') => {
-    if (filteredIncidents.length === 0) {
-      toast.error('No data to export')
-      return
-    }
-
-    // Prepare data (using Gregorian year for reports)
-    const exportData = filteredIncidents.map(incident => ({
-      'Ticket Number': incident.ticketNumber || incident.id,
-      'Title': incident.title,
-      'Description': incident.description,
-      'Status': incident.status,
-      'Priority': getPriorityDisplayName(incident.priority),
-      'Category': incident.category,
-      'Store': formatStore(incident.store),
-      'Province': incident.store?.province || '',
-      'Assignee': incident.assignees?.length > 0
-        ? incident.assignees.map((a: any) => `${a.user?.firstName || ''} ${a.user?.lastName || ''}`).join(', ')
-        : incident.assignee ? `${incident.assignee.firstName} ${incident.assignee.lastName}` : 'Unassigned',
-      'Created At': formatDateTime(incident.createdAt),
-      'Updated At': formatDateTime(incident.updatedAt),
-      'SLA Deadline': incident.slaDeadline ? formatDateTime(incident.slaDeadline) : 'N/A',
-    }))
-
-    if (format === 'csv') {
-      // Convert to CSV with proper escaping
-      const headers = Object.keys(exportData[0])
-      const csvContent = [
-        // Headers wrapped in quotes
-        headers.map(h => `"${h}"`).join(','),
-        // Data rows
-        ...exportData.map(row =>
-          headers.map(header => {
-            const value = row[header as keyof typeof row]
-            // Convert to string and escape
-            const stringValue = value != null ? String(value) : ''
-            // Wrap all values in quotes and escape existing quotes
-            return `"${stringValue.replace(/"/g, '""')}"`
-          }).join(',')
-        )
-      ].join('\n')
-
-      // Download CSV
-      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
-      const link = document.createElement('a')
-      link.href = URL.createObjectURL(blob)
-      link.download = `incidents_${new Date().toISOString().split('T')[0]}.csv`
-      link.click()
-      toast.success('CSV file downloaded')
-    } else {
-      // For Excel, use tab-separated format with proper escaping
-      const headers = Object.keys(exportData[0])
-      const csvContent = [
-        // Headers
-        headers.join('\t'),
-        // Data rows
-        ...exportData.map(row =>
-          headers.map(header => {
-            const value = row[header as keyof typeof row]
-            // Convert to string, escape tabs and newlines
-            const stringValue = value != null ? String(value) : ''
-            return stringValue.replace(/\t/g, ' ').replace(/\n/g, ' ')
-          }).join('\t')
-        )
-      ].join('\n')
-
-      const blob = new Blob(['\uFEFF' + csvContent], { type: 'application/vnd.ms-excel;charset=utf-8;' })
-      const link = document.createElement('a')
-      link.href = URL.createObjectURL(blob)
-      link.download = `incidents_${new Date().toISOString().split('T')[0]}.xls`
-      link.click()
-      toast.success('Excel file downloaded')
+    } catch {
+      toast.error('Failed to export')
     }
   }
 
   const handleDelete = async () => {
     if (!incidentToDelete) return
-
     try {
       const token = localStorage.getItem('token')
-
       await axios.delete(
         `${process.env.NEXT_PUBLIC_API_URL}/incidents/${incidentToDelete.id}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       )
-
       toast.success('Incident deleted successfully')
       setDeleteModalOpen(false)
       setIncidentToDelete(null)
       fetchIncidents()
     } catch (error: any) {
       toast.error('Failed to delete incident')
-      console.error(error)
     }
   }
 
@@ -402,39 +338,15 @@ export default function IncidentsPage() {
 
   const getStatusBadge = (status: string) => {
     const badges: any = {
-      PENDING: { 
-        class: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-400 border border-blue-500/30', 
-        icon: Clock 
-      },
-      ASSIGNED: { 
-        class: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-purple-500/20 text-purple-400 border border-purple-500/30', 
-        icon: Clock 
-      },
-      IN_PROGRESS: { 
-        class: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30', 
-        icon: Clock 
-      },
-      RESOLVED: {
-        class: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30',
-        icon: CheckCircle2
-      },
-      CLOSED: { 
-        class: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-500/20 text-green-400 border border-green-500/30', 
-        icon: CheckCircle2 
-      },
-      CANCELLED: {
-        class: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gray-500/20 text-gray-400 border border-gray-500/30',
-        icon: XCircle
-      },
-      OUTSOURCED: {
-        class: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30',
-        icon: Briefcase
-      },
+      PENDING: { class: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-400 border border-blue-500/30', icon: Clock },
+      ASSIGNED: { class: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-purple-500/20 text-purple-400 border border-purple-500/30', icon: Clock },
+      IN_PROGRESS: { class: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30', icon: Clock },
+      RESOLVED: { class: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30', icon: CheckCircle2 },
+      CLOSED: { class: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-500/20 text-green-400 border border-green-500/30', icon: CheckCircle2 },
+      CANCELLED: { class: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gray-500/20 text-gray-400 border border-gray-500/30', icon: XCircle },
+      OUTSOURCED: { class: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30', icon: Briefcase },
     }
-    return badges[status] || { 
-      class: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-400 border border-blue-500/30', 
-      icon: Clock 
-    }
+    return badges[status] || { class: 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-400 border border-blue-500/30', icon: Clock }
   }
 
   const getPriorityBadge = (priority: string) => {
@@ -447,13 +359,11 @@ export default function IncidentsPage() {
     return badges[priority] || badges.MEDIUM
   }
 
-  // Pagination
-  const totalPages = Math.ceil(filteredIncidents.length / itemsPerPage)
-  const startIndex = (currentPage - 1) * itemsPerPage
-  const endIndex = startIndex + itemsPerPage
-  const currentIncidents = filteredIncidents.slice(startIndex, endIndex)
+  // Pagination display info
+  const startIndex = (currentPage - 1) * itemsPerPage + 1
+  const endIndex = Math.min(currentPage * itemsPerPage, total)
 
-  if (isLoading) {
+  if (isLoading && incidents.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
@@ -464,7 +374,6 @@ export default function IncidentsPage() {
     )
   }
 
-  // Check if SUPER_ADMIN (no access to incidents)
   if (getUserRoles(currentUser).includes('SUPER_ADMIN')) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -472,18 +381,13 @@ export default function IncidentsPage() {
           <div className="p-4 bg-red-500/20 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
             <AlertCircle className="w-8 h-8 text-red-400" />
           </div>
-          <h2 className="text-xl font-semibold text-white mb-2">
-            ไม่มีสิทธิ์ใช้งานฟีเจอร์นี้
-          </h2>
-          <p className="text-gray-400">
-            Super Admin ไม่สามารถเข้าถึงระบบจัดการ Incidents ได้
-          </p>
+          <h2 className="text-xl font-semibold text-white mb-2">ไม่มีสิทธิ์ใช้งานฟีเจอร์นี้</h2>
+          <p className="text-gray-400">Super Admin ไม่สามารถเข้าถึงระบบจัดการ Incidents ได้</p>
         </div>
       </div>
     )
   }
 
-  // Check permissions using role-based access
   const viewOnly = isViewOnly(currentUser, '/dashboard/incidents')
   const canCreate = canPerformAction(currentUser, '/dashboard/incidents', 'create')
 
@@ -493,9 +397,7 @@ export default function IncidentsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Incident Management</h1>
-          <p className="text-gray-400 mt-1">
-            Manage and track all IT incidents
-          </p>
+          <p className="text-gray-400 mt-1">Manage and track all IT incidents</p>
         </div>
         <div className="flex items-center gap-3">
           {viewOnly && (
@@ -521,7 +423,6 @@ export default function IncidentsPage() {
         <div className="flex flex-col gap-4">
           {/* Top Row - Search and Advanced Filter */}
           <div className="flex gap-4">
-            {/* Search */}
             <div className="flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -534,105 +435,70 @@ export default function IncidentsPage() {
                 />
               </div>
             </div>
-
-            {/* Advanced Filter Component */}
             <AdvancedIncidentFilter
-              onFilterChange={setAdvancedFilters}
+              onFilterChange={(filters) => {
+                setAdvancedFilters(filters)
+              }}
               onExport={handleExport}
             />
           </div>
 
           {/* Bottom Row - Quick Filters */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Status Filter */}
-            <div>
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 [&>option]:bg-slate-800 [&>option]:text-white"
-              >
-                <option value="ALL">All Status</option>
-                <option value="PENDING">Pending</option>
-                <option value="CLOSED">Closed</option>
-                <option value="CANCELLED">Cancelled</option>
-              </select>
-            </div>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 [&>option]:bg-slate-800 [&>option]:text-white"
+            >
+              <option value="ALL">All Status</option>
+              <option value="PENDING">Pending</option>
+              <option value="CLOSED">Closed</option>
+              <option value="CANCELLED">Cancelled</option>
+            </select>
 
-            {/* Category Filter */}
-            <div>
-              <select
-                value={filterCategory}
-                onChange={(e) => setFilterCategory(e.target.value)}
-                className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 [&>option]:bg-slate-800 [&>option]:text-white"
-              >
-                <option value="ALL">All Category</option>
-                {categories.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <select
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+              className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 [&>option]:bg-slate-800 [&>option]:text-white"
+            >
+              <option value="ALL">All Category</option>
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
           </div>
         </div>
 
         {/* Stats */}
         <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-700/50">
           <p className="text-sm text-gray-400">
-            Showing {startIndex + 1}-{Math.min(endIndex, filteredIncidents.length)} of{' '}
-            {filteredIncidents.length} incidents
+            {total > 0
+              ? `Showing ${startIndex}–${endIndex} of ${total} incidents`
+              : 'No incidents found'}
+            {isLoading && <span className="ml-2 text-gray-500">Loading...</span>}
           </p>
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-500">Sort by:</span>
-            <button
-              onClick={() => toggleSort('createdAt')}
-              className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                sortField === 'createdAt'
-                  ? 'text-white'
-                  : 'bg-slate-700/50 text-gray-300 hover:bg-slate-700'
-              }`}
-              style={sortField === 'createdAt' ? { backgroundColor: sortActiveBg } : undefined}
-            >
-              Date
-              {sortField === 'createdAt' && (
-                <ArrowUpDown className="w-3 h-3" />
-              )}
-            </button>
-            <button
-              onClick={() => toggleSort('priority')}
-              className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                sortField === 'priority'
-                  ? 'text-white'
-                  : 'bg-slate-700/50 text-gray-300 hover:bg-slate-700'
-              }`}
-              style={sortField === 'priority' ? { backgroundColor: sortActiveBg } : undefined}
-            >
-              Priority
-              {sortField === 'priority' && (
-                <ArrowUpDown className="w-3 h-3" />
-              )}
-            </button>
-            <button
-              onClick={() => toggleSort('status')}
-              className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                sortField === 'status'
-                  ? 'text-white'
-                  : 'bg-slate-700/50 text-gray-300 hover:bg-slate-700'
-              }`}
-              style={sortField === 'status' ? { backgroundColor: sortActiveBg } : undefined}
-            >
-              Status
-              {sortField === 'status' && (
-                <ArrowUpDown className="w-3 h-3" />
-              )}
-            </button>
+            {(['createdAt', 'priority', 'status'] as const).map((field) => (
+              <button
+                key={field}
+                onClick={() => toggleSort(field)}
+                className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                  sortField === field ? 'text-white' : 'bg-slate-700/50 text-gray-300 hover:bg-slate-700'
+                }`}
+                style={sortField === field ? { backgroundColor: sortActiveBg } : undefined}
+              >
+                {field === 'createdAt' ? 'Date' : field.charAt(0).toUpperCase() + field.slice(1)}
+                {sortField === field && <ArrowUpDown className="w-3 h-3" />}
+              </button>
+            ))}
           </div>
         </div>
       </div>
 
       {/* Incidents Table */}
       <div className="glass-card rounded-2xl overflow-hidden">
-        {currentIncidents.length === 0 ? (
+        {incidents.length === 0 && !isLoading ? (
           <div className="text-center py-12">
             <AlertCircle className="w-12 h-12 text-gray-600 mx-auto mb-4" />
             <p className="text-gray-400">No incidents found</p>
@@ -651,53 +517,26 @@ export default function IncidentsPage() {
             <table className="w-full">
               <thead className="bg-slate-800/80 border-b border-slate-600">
                 <tr>
-                  <th className="text-left py-3 px-3 md:px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="text-left py-3 px-3 md:px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">
-                    Incident No.
-                  </th>
-                  <th className="hidden sm:table-cell text-left py-3 px-3 md:px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">
-                    Store
-                  </th>
-                  <th className="hidden lg:table-cell text-left py-3 px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">
-                    Province
-                  </th>
-                  <th className="text-left py-3 px-3 md:px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">
-                    Title
-                  </th>
-                  <th className="hidden md:table-cell text-left py-3 px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">
-                    Category
-                  </th>
-                  <th className="hidden lg:table-cell text-left py-3 px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">
-                    Job Type
-                  </th>
-                  <th className="hidden sm:table-cell text-left py-3 px-3 md:px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">
-                    Priority
-                  </th>
-                  <th className="hidden md:table-cell text-left py-3 px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">
-                    SLA Result
-                  </th>
-                  <th className="hidden md:table-cell text-left py-3 px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">
-                    Aging (Days)
-                  </th>
+                  <th className="text-left py-3 px-3 md:px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">Status</th>
+                  <th className="text-left py-3 px-3 md:px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">Incident No.</th>
+                  <th className="hidden sm:table-cell text-left py-3 px-3 md:px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">Store</th>
+                  <th className="hidden lg:table-cell text-left py-3 px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">Province</th>
+                  <th className="text-left py-3 px-3 md:px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">Title</th>
+                  <th className="hidden md:table-cell text-left py-3 px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">Category</th>
+                  <th className="hidden lg:table-cell text-left py-3 px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">Job Type</th>
+                  <th className="hidden sm:table-cell text-left py-3 px-3 md:px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">Priority</th>
+                  <th className="hidden md:table-cell text-left py-3 px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">SLA Result</th>
+                  <th className="hidden md:table-cell text-left py-3 px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">Aging (Days)</th>
                 </tr>
               </thead>
               <tbody>
-                {currentIncidents.map((incident, index) => {
+                {incidents.map((incident, index) => {
                   const statusBadge = getStatusBadge(incident.status)
-                  const StatusIcon = statusBadge.icon
 
-                  // Calculate aging (days since creation, only if not Closed/Cancelled)
                   const calculateAging = () => {
-                    if (incident.status === 'CLOSED' || incident.status === 'CANCELLED') {
-                      return '-'
-                    }
-                    const createdAt = new Date(incident.createdAt)
-                    const now = new Date()
-                    const diffTime = Math.abs(now.getTime() - createdAt.getTime())
-                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-                    return diffDays
+                    if (incident.status === 'CLOSED' || incident.status === 'CANCELLED') return '-'
+                    const diffMs = Math.abs(new Date().getTime() - new Date(incident.createdAt).getTime())
+                    return Math.ceil(diffMs / (1000 * 60 * 60 * 24))
                   }
 
                   const aging = calculateAging()
@@ -706,27 +545,20 @@ export default function IncidentsPage() {
                     <tr
                       key={incident.id}
                       onClick={() => router.push(`/dashboard/incidents/${incident.id}`)}
-                      className={`
-                        border-b border-slate-700/30 cursor-pointer transition-all duration-200
-                        ${index % 2 === 0 
-                          ? 'bg-slate-800/30 hover:bg-slate-700/50' 
+                      className={`border-b border-slate-700/30 cursor-pointer transition-all duration-200 ${
+                        index % 2 === 0
+                          ? 'bg-slate-800/30 hover:bg-slate-700/50'
                           : 'bg-slate-700/50 hover:bg-slate-600/60'
-                        }
-                      `}
+                      }`}
                     >
-                      {/* Status */}
                       <td className="py-3 px-3 md:py-4 md:px-6">
                         <div className="flex flex-col gap-1">
-                          <span className={statusBadge.class}>
-                            {incident.status}
-                          </span>
+                          <span className={statusBadge.class}>{incident.status}</span>
                           {incident.resolutionType && (
                             <span className={`text-[10px] ${
-                              incident.resolutionType === 'PHONE_SUPPORT'
-                                ? 'text-emerald-400'
-                                : incident.resolutionType === 'REMOTE_SUPPORT'
-                                ? 'text-blue-400'
-                                : 'text-amber-400'
+                              incident.resolutionType === 'PHONE_SUPPORT' ? 'text-emerald-400'
+                              : incident.resolutionType === 'REMOTE_SUPPORT' ? 'text-blue-400'
+                              : 'text-amber-400'
                             }`}>
                               {incident.resolutionType === 'PHONE_SUPPORT' ? 'Phone'
                                 : incident.resolutionType === 'REMOTE_SUPPORT' ? 'Remote'
@@ -735,69 +567,40 @@ export default function IncidentsPage() {
                           )}
                         </div>
                       </td>
-
-                      {/* Incident No. */}
                       <td className="py-3 px-3 md:py-4 md:px-6">
                         <span className="text-xs md:text-sm font-mono text-blue-400 font-semibold whitespace-nowrap">
                           {incident.ticketNumber || `WAT-${String(incident.id).padStart(6, '0')}`}
                         </span>
                       </td>
-
-                      {/* Store */}
                       <td className="hidden sm:table-cell py-3 px-3 md:py-4 md:px-6">
-                        <span className="text-sm text-white">
-                          {formatStore(incident.store)}
-                        </span>
+                        <span className="text-sm text-white">{formatStore(incident.store)}</span>
                       </td>
-
-                      {/* Province */}
                       <td className="hidden lg:table-cell py-4 px-6">
-                        <span className="text-sm text-gray-300">
-                          {incident.store?.province || '-'}
-                        </span>
+                        <span className="text-sm text-gray-300">{incident.store?.province || '-'}</span>
                       </td>
-
-                      {/* Title */}
                       <td className="py-3 px-3 md:py-4 md:px-6">
                         <p className="text-sm font-medium text-white line-clamp-2 md:line-clamp-1 max-w-[160px] md:max-w-[240px] lg:max-w-none">
                           {incident.title}
                         </p>
                         <p className="hidden md:block text-xs text-gray-400 mt-1">
-                          {incident.description?.substring(0, 40)}
-                          {incident.description?.length > 40 ? '...' : ''}
+                          {incident.description?.substring(0, 40)}{incident.description?.length > 40 ? '...' : ''}
                         </p>
                       </td>
-
-                      {/* Category */}
                       <td className="hidden md:table-cell py-4 px-6">
-                        {incident.category ? (
-                          <span className="text-sm text-white font-medium">
-                            {incident.category}
-                          </span>
-                        ) : (
-                          <span className="text-sm text-gray-500">-</span>
-                        )}
+                        {incident.category
+                          ? <span className="text-sm text-white font-medium">{incident.category}</span>
+                          : <span className="text-sm text-gray-500">-</span>}
                       </td>
-
-                      {/* Job Type */}
                       <td className="hidden lg:table-cell py-4 px-6">
-                        {incident.jobType ? (
-                          <span className="text-sm text-white font-medium">
-                            {incident.jobType}
-                          </span>
-                        ) : (
-                          <span className="text-sm text-gray-500">-</span>
-                        )}
+                        {incident.jobType
+                          ? <span className="text-sm text-white font-medium">{incident.jobType}</span>
+                          : <span className="text-sm text-gray-500">-</span>}
                       </td>
-
-                      {/* Priority */}
                       <td className="hidden sm:table-cell py-3 px-3 md:py-4 md:px-6">
                         <span className={getPriorityBadge(incident.priority)}>
                           {getPriorityDisplayName(incident.priority)}
                         </span>
                       </td>
-
-                      {/* SLA Result */}
                       <td className="hidden md:table-cell py-4 px-6">
                         {(() => {
                           const slaStatus = getSLAStatus(incident)
@@ -816,16 +619,14 @@ export default function IncidentsPage() {
                           )
                         })()}
                       </td>
-
-                      {/* Aging */}
                       <td className="hidden md:table-cell py-4 px-6">
                         {aging === '-' ? (
                           <span className="text-sm text-gray-500">-</span>
                         ) : (
                           <span className={`text-sm font-semibold ${
-                            aging > 7 ? 'text-red-400' :
-                            aging > 3 ? 'text-yellow-400' :
-                            'text-green-400'
+                            (aging as number) > 7 ? 'text-red-400'
+                            : (aging as number) > 3 ? 'text-yellow-400'
+                            : 'text-green-400'
                           }`}>
                             {aging} {aging === 1 ? 'day' : 'days'}
                           </span>
@@ -844,7 +645,7 @@ export default function IncidentsPage() {
           <div className="flex items-center justify-between px-3 md:px-6 py-3 md:py-4 border-t border-slate-700/50">
             <button
               onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-              disabled={currentPage === 1}
+              disabled={currentPage === 1 || isLoading}
               className="px-3 md:px-4 py-2 text-sm text-gray-300 hover:bg-slate-700/50 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               ← <span className="hidden sm:inline">Previous</span>
@@ -872,9 +673,7 @@ export default function IncidentsPage() {
                       key={item}
                       onClick={() => setCurrentPage(item as number)}
                       className={`w-8 h-8 text-sm rounded-lg transition duration-200 ${
-                        currentPage === item
-                          ? 'text-white'
-                          : 'text-gray-300 hover:bg-slate-700/50'
+                        currentPage === item ? 'text-white' : 'text-gray-300 hover:bg-slate-700/50'
                       }`}
                       style={currentPage === item ? { backgroundColor: sortActiveBg } : undefined}
                     >
@@ -886,7 +685,7 @@ export default function IncidentsPage() {
 
             <button
               onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-              disabled={currentPage === totalPages}
+              disabled={currentPage === totalPages || isLoading}
               className="px-3 md:px-4 py-2 text-sm text-gray-300 hover:bg-slate-700/50 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <span className="hidden sm:inline">Next</span> →
@@ -904,26 +703,17 @@ export default function IncidentsPage() {
                 <AlertCircle className="w-6 h-6 text-red-400" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-white">
-                  Delete Incident
-                </h3>
-                <p className="text-sm text-gray-400">
-                  This action cannot be undone
-                </p>
+                <h3 className="text-lg font-semibold text-white">Delete Incident</h3>
+                <p className="text-sm text-gray-400">This action cannot be undone</p>
               </div>
             </div>
-
             <p className="text-gray-300 mb-6">
               Are you sure you want to delete incident{' '}
               <span className="font-semibold">#{incidentToDelete?.id}</span>?
             </p>
-
             <div className="flex items-center justify-end space-x-3">
               <button
-                onClick={() => {
-                  setDeleteModalOpen(false)
-                  setIncidentToDelete(null)
-                }}
+                onClick={() => { setDeleteModalOpen(false); setIncidentToDelete(null) }}
                 className="px-4 py-2 text-gray-300 hover:bg-slate-700/50 rounded-lg transition duration-200"
               >
                 Cancel

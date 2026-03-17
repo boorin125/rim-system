@@ -86,6 +86,38 @@ export class UsersService {
   }
 
   /**
+   * Get all TECHNICIAN users with their location (province) for map display
+   */
+  async findTechnicianLocations() {
+    const users = await this.prisma.user.findMany({
+      where: {
+        roles: { some: { role: 'TECHNICIAN' as any } },
+        status: 'ACTIVE' as any,
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+        technicianType: true,
+        serviceCenter: true,
+        address: true,
+        subDistrict: true,
+        district: true,
+        province: true,
+        avatarPath: true,
+        responsibleProvinces: true,
+        roles: { select: { role: true } },
+      },
+      orderBy: { firstName: 'asc' },
+    });
+    return users.map((u) => ({
+      ...u,
+      roles: u.roles.map((r: any) => r.role),
+    }));
+  }
+
+  /**
    * Get all users, with optional role and technicianType filters
    */
   async findAll(filters?: { role?: string; technicianType?: string; status?: string }) {

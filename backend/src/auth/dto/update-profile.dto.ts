@@ -28,6 +28,21 @@ export class UpdateProfileDto {
   address?: string;
 
   @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  subDistrict?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  district?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  province?: string;
+
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
   responsibleProvinces?: string[];
