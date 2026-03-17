@@ -47,7 +47,6 @@ export default function IncidentsPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [slaConfigs, setSlaConfigs] = useState<any[]>([])
   const [categories, setCategories] = useState<string[]>([])
-  const [userReady, setUserReady] = useState(false)
   const isSuperAdmin = useRef(false)
 
   const itemsPerPage = 50
@@ -79,7 +78,7 @@ export default function IncidentsPage() {
     setCurrentPage(1)
   }, [filterStatus, filterCategory, sortField, sortOrder, advancedFilters])
 
-  // Fetch user on mount — restore cache immediately so page feels instant
+  // Mount: restore cache + kick off all fetches in parallel
   useEffect(() => {
     const userStr = localStorage.getItem('user')
     if (userStr) {
@@ -87,7 +86,7 @@ export default function IncidentsPage() {
       setCurrentUser(user)
       isSuperAdmin.current = getUserRoles(user).includes('SUPER_ADMIN')
     }
-    // Restore cached incidents so the list appears immediately (stale-while-revalidate)
+    // Show cached incidents immediately (stale-while-revalidate)
     try {
       const cached = sessionStorage.getItem('incidents_cache')
       if (cached) {
@@ -98,20 +97,19 @@ export default function IncidentsPage() {
         setIsLoading(false)
       }
     } catch {}
+    // Start all background fetches in parallel — no render-cycle gap
+    if (!isSuperAdmin.current) fetchIncidents()
     fetchSlaConfigs()
     fetchCategories()
-    setUserReady(true)
   }, [])
 
-  // Main fetch effect — runs when page, filters, or sort changes
+  // Re-fetch when filters/pagination change (skip initial mount — handled above)
+  const isFirstRender = useRef(true)
   useEffect(() => {
-    if (!userReady) return
-    if (isSuperAdmin.current) {
-      setIsLoading(false)
-      return
-    }
+    if (isFirstRender.current) { isFirstRender.current = false; return }
+    if (isSuperAdmin.current) { setIsLoading(false); return }
     fetchIncidents()
-  }, [userReady, currentPage, debouncedSearch, filterStatus, filterCategory, sortField, sortOrder, advancedFilters])
+  }, [currentPage, debouncedSearch, filterStatus, filterCategory, sortField, sortOrder, advancedFilters])
 
   const buildParams = (overrides?: Record<string, any>) => {
     const params: Record<string, any> = {

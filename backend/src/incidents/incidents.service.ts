@@ -931,7 +931,7 @@ export class IncidentsService {
           assignee: {
             select: {
               id: true, username: true, firstName: true, lastName: true,
-              email: true, roles: { select: { role: true } },
+              email: true,
             },
           },
           assignees: {
@@ -947,7 +947,7 @@ export class IncidentsService {
           createdBy: {
             select: {
               id: true, username: true, firstName: true, lastName: true,
-              email: true, roles: { select: { role: true } },
+              email: true,
             },
           },
           slaDefenses: {

@@ -213,11 +213,28 @@ export default function DashboardPage() {
     if (!token) return
     const h = { Authorization: `Bearer ${token}` }
 
+    // Determine incident query from user role (read from localStorage — state not yet set on first call)
+    const userStr = localStorage.getItem('user')
+    const user = userStr ? JSON.parse(userStr) : null
+    const roles: string[] = user?.roles || (user?.role ? [user.role] : [])
+    const ROLE_LEVEL: Record<string, number> = {
+      SUPER_ADMIN: 7, IT_MANAGER: 6, FINANCE_ADMIN: 5,
+      HELP_DESK: 4, SUPERVISOR: 3, TECHNICIAN: 2, END_USER: 1, READ_ONLY: 0,
+    }
+    const highestRole = roles.reduce<string>((best, r) =>
+      (ROLE_LEVEL[r] ?? -1) > (ROLE_LEVEL[best] ?? -1) ? r : best, roles[0] ?? '')
+    const isPureTech = highestRole === 'TECHNICIAN'
+
+    // Pure technician: fetch only their own assigned incidents (faster, less data)
+    const incidentUrl = isPureTech
+      ? `${process.env.NEXT_PUBLIC_API_URL}/incidents?limit=30&assigneeId=${user.id}&statusGroup=PENDING`
+      : `${process.env.NEXT_PUBLIC_API_URL}/incidents?limit=60`
+
     setIsLoading(true)
     try {
       const [statsRes, incRes, notifsRes, unreadRes] = await Promise.allSettled([
         axios.get(`${process.env.NEXT_PUBLIC_API_URL}/incidents/analytics/stats`, { headers: h }),
-        axios.get(`${process.env.NEXT_PUBLIC_API_URL}/incidents?limit=60`, { headers: h }),
+        axios.get(incidentUrl, { headers: h }),
         axios.get(`${process.env.NEXT_PUBLIC_API_URL}/notifications?limit=12`, { headers: h }),
         axios.get(`${process.env.NEXT_PUBLIC_API_URL}/notifications/unread-count`, { headers: h }),
       ])
