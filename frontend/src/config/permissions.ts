@@ -237,8 +237,11 @@ export function getUserRoles(user: any): UserRole[] {
   // 3. user.roles = [{role: {name: 'ADMIN'}}] (nested objects)
   // 4. user.role = 'ADMIN' (single role as string - legacy format)
 
-  // Legacy format: single role as string
-  if (user?.role && typeof user.role === 'string') {
+  // Prefer roles array over legacy single role string
+  if (user?.roles && Array.isArray(user.roles) && user.roles.length > 0) {
+    // handled below
+  } else if (user?.role && typeof user.role === 'string') {
+    // Legacy format: single role as string
     return [user.role as UserRole]
   }
 
