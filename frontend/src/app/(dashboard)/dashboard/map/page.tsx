@@ -305,11 +305,11 @@ export default function MapPage() {
       {showTechnicianLocations && (
         <div className="bg-teal-900/30 border border-teal-500/30 rounded-xl px-4 py-2 flex items-center gap-2 text-sm text-teal-300">
           <Users className="w-4 h-4 shrink-0" />
-          แสดงหมุด <strong>{technicianLocations.filter(t => t.province).length}</strong> คน
-          ตามจังหวัดที่บันทึกไว้ในโปรไฟล์
-          {technicianLocations.filter(t => !t.province).length > 0 && (
+          แสดงหมุด <strong>{technicianLocations.filter(t => t.province || (t.responsibleProvinces && t.responsibleProvinces.length > 0)).length}</strong> คน
+          ตามจังหวัดที่บันทึกไว้
+          {technicianLocations.filter(t => !t.province && !(t.responsibleProvinces && t.responsibleProvinces.length > 0)).length > 0 && (
             <span className="text-teal-500 text-xs ml-1">
-              ({technicianLocations.filter(t => !t.province).length} คนยังไม่ระบุจังหวัด)
+              ({technicianLocations.filter(t => !t.province && !(t.responsibleProvinces && t.responsibleProvinces.length > 0)).length} คนยังไม่ระบุจังหวัด)
             </span>
           )}
         </div>

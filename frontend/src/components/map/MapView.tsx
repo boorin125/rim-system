@@ -359,8 +359,12 @@ export default function MapView({ checkins, technicianLocations = [] }: MapViewP
 
         {/* Technician home location markers */}
         {technicianLocations.map((tech) => {
-          const coords = tech.province ? PROVINCE_COORDS[tech.province] : null
+          // Use tech.province first; fall back to responsibleProvinces[0] for outsource techs
+          const displayProvince = tech.province ||
+            (tech.responsibleProvinces && tech.responsibleProvinces.length > 0 ? tech.responsibleProvinces[0] : null)
+          const coords = displayProvince ? PROVINCE_COORDS[displayProvince] : null
           if (!coords) return null
+          const usingFallback = !tech.province && !!displayProvince
           const initials = `${tech.firstName?.[0] || ''}${tech.lastName?.[0] || ''}`.toUpperCase()
           // Slight jitter to avoid exact overlap when multiple techs in same province
           const jitter = (tech.id % 20) * 0.015 - 0.15
@@ -375,7 +379,8 @@ export default function MapView({ checkins, technicianLocations = [] }: MapViewP
                 <div style={{ fontSize: '12px', lineHeight: '1.5' }}>
                   <strong>{tech.firstName} {tech.lastName}</strong>
                   <br />
-                  {tech.province}{tech.district ? ` • ${tech.district}` : ''}
+                  {displayProvince}{tech.district ? ` • ${tech.district}` : ''}
+                  {usingFallback && <span style={{ color: '#9ca3af' }}> (พื้นที่รับผิดชอบ)</span>}
                 </div>
               </Tooltip>
               <Popup>
@@ -409,11 +414,15 @@ export default function MapView({ checkins, technicianLocations = [] }: MapViewP
                           <td style={{ paddingBottom: '3px' }}>{tech.phone}</td>
                         </tr>
                       )}
-                      {tech.province && (
+                      {displayProvince && (
                         <tr>
-                          <td style={{ color: '#888', paddingRight: '8px', paddingBottom: '3px', whiteSpace: 'nowrap' }}>ที่อยู่</td>
+                          <td style={{ color: '#888', paddingRight: '8px', paddingBottom: '3px', whiteSpace: 'nowrap' }}>
+                            {usingFallback ? 'พื้นที่รับผิดชอบ' : 'ที่อยู่'}
+                          </td>
                           <td style={{ paddingBottom: '3px' }}>
-                            {[tech.subDistrict, tech.district, tech.province].filter(Boolean).join(', ')}
+                            {tech.province
+                              ? [tech.subDistrict, tech.district, tech.province].filter(Boolean).join(', ')
+                              : displayProvince}
                           </td>
                         </tr>
                       )}
