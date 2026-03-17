@@ -9,6 +9,7 @@ import {
   User,
   AlertTriangle,
   Check,
+  MapPin,
 } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
@@ -19,6 +20,7 @@ interface Technician {
   lastName: string
   email: string
   technicianType?: 'INSOURCE' | 'OUTSOURCE'
+  responsibleProvinces?: string[]
 }
 
 interface ReassignmentModalProps {
@@ -28,6 +30,7 @@ interface ReassignmentModalProps {
     id: string
     ticketNumber: string
     title: string
+    store?: { province?: string }
     assignee?: {
       id: number
       firstName: string
@@ -90,14 +93,36 @@ export default function ReassignmentModal({
     }
   }
 
+  const incidentProvince = incident?.store?.province
+
+  const coversProvince = (tech: Technician) => {
+    if (!incidentProvince) return true
+    const rp = tech.responsibleProvinces || []
+    return rp.length === 0 || rp.includes(incidentProvince)
+  }
+
+  const getProvinceDisplay = (tech: Technician) => {
+    const rp = tech.responsibleProvinces || []
+    if (rp.length === 0) return { label: 'ทุกจังหวัด', outOfArea: false }
+    if (incidentProvince && rp.includes(incidentProvince)) {
+      return { label: incidentProvince, outOfArea: false }
+    }
+    return { label: rp.slice(0, 3).join(', ') + (rp.length > 3 ? '...' : ''), outOfArea: true }
+  }
+
   const filteredTechnicians = useMemo(() => {
-    if (!searchQuery.trim()) return technicians
-    const query = searchQuery.toLowerCase()
-    return technicians.filter((tech) => {
-      const fullName = `${tech.firstName} ${tech.lastName}`.toLowerCase()
-      return fullName.includes(query) || tech.email.toLowerCase().includes(query)
-    })
-  }, [technicians, searchQuery])
+    const q = searchQuery.trim().toLowerCase()
+
+    if (q) {
+      const matched = technicians.filter((tech) => {
+        const fullName = `${tech.firstName} ${tech.lastName}`.toLowerCase()
+        return fullName.includes(q) || tech.email.toLowerCase().includes(q)
+      })
+      return [...matched].sort((a, b) => (coversProvince(a) ? 0 : 1) - (coversProvince(b) ? 0 : 1))
+    }
+
+    return incidentProvince ? technicians.filter(coversProvince) : technicians
+  }, [technicians, searchQuery, incidentProvince])
 
   const toggleTechnician = (techId: number) => {
     setSelectedTechnicianIds(prev =>
@@ -187,7 +212,7 @@ export default function ReassignmentModal({
 
         <div className="flex flex-col flex-1 overflow-hidden">
           {/* Search */}
-          <div className="relative mb-3">
+          <div className="relative mb-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
@@ -197,6 +222,13 @@ export default function ReassignmentModal({
               className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
             />
           </div>
+          {incidentProvince && (
+            <p className="text-xs text-gray-500 mb-3 flex items-center gap-1">
+              <MapPin className="w-3 h-3" />
+              แสดงช่างที่รับผิดชอบ: <span className="text-orange-400">{incidentProvince}</span>
+              <span className="text-gray-600 ml-1">(รวมช่างที่ไม่ระบุพื้นที่)</span>
+            </p>
+          )}
 
           {/* Selected count badge */}
           {selectedTechnicianIds.length > 0 && (
@@ -221,6 +253,7 @@ export default function ReassignmentModal({
             ) : (
               filteredTechnicians.map((tech) => {
                 const isSelected = selectedTechnicianIds.includes(tech.id)
+                const { label: provinceLabel, outOfArea } = getProvinceDisplay(tech)
                 return (
                   <label
                     key={tech.id}
@@ -242,7 +275,7 @@ export default function ReassignmentModal({
                       className="sr-only"
                     />
                     <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                      className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
                         isSelected ? 'bg-orange-500/30' : 'bg-slate-700'
                       }`}
                     >
@@ -252,19 +285,15 @@ export default function ReassignmentModal({
                       <p className="text-white font-medium truncate">
                         {tech.firstName} {tech.lastName}
                       </p>
-                      <p className="text-sm text-gray-400 truncate">{tech.email}</p>
+                      <p className="text-xs truncate flex items-center gap-1">
+                        <span className={outOfArea ? 'text-orange-400/70' : 'text-emerald-500/80'}>
+                          {provinceLabel}
+                        </span>
+                        {outOfArea && (
+                          <span className="text-orange-400/50">(นอกพื้นที่)</span>
+                        )}
+                      </p>
                     </div>
-                    {tech.technicianType && (
-                      <span
-                        className={`px-2 py-1 text-xs rounded-full flex-shrink-0 ${
-                          tech.technicianType === 'INSOURCE'
-                            ? 'bg-blue-500/20 text-blue-400'
-                            : 'bg-purple-500/20 text-purple-400'
-                        }`}
-                      >
-                        {tech.technicianType === 'INSOURCE' ? 'In-house' : 'Outsource'}
-                      </span>
-                    )}
                   </label>
                 )
               })

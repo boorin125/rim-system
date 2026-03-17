@@ -2435,6 +2435,7 @@ SLA Breach Time: ${slaBreachText}`
           id: incident.id,
           ticketNumber: incident.ticketNumber || `INC-${incident.id}`,
           title: incident.title,
+          store: incident.store,
           assignee: incident.assignee || incident.assignedTo,
           assignees: incident.assignees,
         }}
