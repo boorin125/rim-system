@@ -190,13 +190,22 @@ export default function DashboardPage() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [showPendingModal, setShowPendingModal] = useState(false)
 
+  // ── Role hierarchy (higher = more privileged) ──
+  const ROLE_LEVEL: Record<string, number> = {
+    SUPER_ADMIN: 7, IT_MANAGER: 6, FINANCE_ADMIN: 5,
+    HELP_DESK: 4, SUPERVISOR: 3, TECHNICIAN: 2, END_USER: 1, READ_ONLY: 0,
+  }
+  const highestRole = userRoles.reduce<string>((best, r) =>
+    (ROLE_LEVEL[r] ?? -1) > (ROLE_LEVEL[best] ?? -1) ? r : best
+  , userRoles[0] ?? '')
+
   // ── Derived role flags ──
   const isTech = userRoles.includes('TECHNICIAN')
-  const isSupervisor = userRoles.includes('SUPERVISOR')
+  const isPureTechnician = highestRole === 'TECHNICIAN'  // TECHNICIAN with no higher role
   const canCreate = userRoles.some(r => ['HELP_DESK', 'IT_MANAGER', 'SUPERVISOR', 'SUPER_ADMIN', 'END_USER'].includes(r))
 
-  // Show "งานที่รับผิดชอบ" only for pure technicians (not supervisors/IT managers)
-  const showMyJobs = isTech && !isSupervisor
+  // Show "งานที่รับผิดชอบ" only for pure technicians (no higher role)
+  const showMyJobs = isPureTechnician
 
   // ── Fetch ──
   const fetchData = useCallback(async () => {
@@ -237,9 +246,9 @@ export default function DashboardPage() {
     fetchData()
   }, [fetchData])
 
-  // ── Show pending tasks modal once per session for Technicians ──
+  // ── Show pending tasks modal once per session — only for pure Technicians ──
   useEffect(() => {
-    if (isLoading || !currentUser || !userRoles.includes('TECHNICIAN') || incidents.length === 0) return
+    if (isLoading || !currentUser || !isPureTechnician || incidents.length === 0) return
 
     const sessionKey = `pendingAlertShown_${currentUser.id}`
     if (sessionStorage.getItem(sessionKey)) return
@@ -350,7 +359,7 @@ export default function DashboardPage() {
   ]
 
   const displayName = currentUser?.firstName || currentUser?.name || ''
-  const roleName = ROLE_LABELS[userRoles[0] ?? ''] ?? userRoles[0] ?? ''
+  const roleName = ROLE_LABELS[highestRole] ?? highestRole ?? ''
   const dateStr = new Date().toLocaleDateString('th-TH', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
   })
@@ -700,7 +709,7 @@ export default function DashboardPage() {
     {/* ── Pending Tasks Modal (Technician login alert) ── */}
 
     {(() => {
-      if (!showPendingModal || !isTech || !currentUser) return null
+      if (!showPendingModal || !isPureTechnician || !currentUser) return null
       const userId = Number(currentUser.id)
       const pendingItems = incidents.filter(i => {
         const assigneeId = Number(i.assignee?.id)
