@@ -79,7 +79,7 @@ export default function IncidentsPage() {
     setCurrentPage(1)
   }, [filterStatus, filterCategory, sortField, sortOrder, advancedFilters])
 
-  // Fetch user on mount
+  // Fetch user on mount — restore cache immediately so page feels instant
   useEffect(() => {
     const userStr = localStorage.getItem('user')
     if (userStr) {
@@ -87,6 +87,17 @@ export default function IncidentsPage() {
       setCurrentUser(user)
       isSuperAdmin.current = getUserRoles(user).includes('SUPER_ADMIN')
     }
+    // Restore cached incidents so the list appears immediately (stale-while-revalidate)
+    try {
+      const cached = sessionStorage.getItem('incidents_cache')
+      if (cached) {
+        const { data, total: t, totalPages: tp } = JSON.parse(cached)
+        setIncidents(data)
+        setTotal(t)
+        setTotalPages(tp)
+        setIsLoading(false)
+      }
+    } catch {}
     fetchSlaConfigs()
     fetchCategories()
     setUserReady(true)
@@ -148,6 +159,16 @@ export default function IncidentsPage() {
         setIncidents(data.data)
         setTotal(data.total ?? data.data.length)
         setTotalPages(data.totalPages ?? 1)
+        // Cache only page 1 with default filters (most common "back" scenario)
+        if (currentPage === 1) {
+          try {
+            sessionStorage.setItem('incidents_cache', JSON.stringify({
+              data: data.data,
+              total: data.total ?? data.data.length,
+              totalPages: data.totalPages ?? 1,
+            }))
+          } catch {}
+        }
       } else if (Array.isArray(data)) {
         // Fallback: old response format (plain array)
         setIncidents(data)
@@ -169,23 +190,30 @@ export default function IncidentsPage() {
 
   const fetchSlaConfigs = async () => {
     try {
+      const cached = sessionStorage.getItem('sla_configs_cache')
+      if (cached) setSlaConfigs(JSON.parse(cached))
       const token = localStorage.getItem('token')
       const response = await axios.get(
         `${process.env.NEXT_PUBLIC_API_URL}/sla`,
         { headers: { Authorization: `Bearer ${token}` } }
       )
       setSlaConfigs(response.data)
+      try { sessionStorage.setItem('sla_configs_cache', JSON.stringify(response.data)) } catch {}
     } catch {}
   }
 
   const fetchCategories = async () => {
     try {
+      const cached = sessionStorage.getItem('categories_cache')
+      if (cached) setCategories(JSON.parse(cached))
       const token = localStorage.getItem('token')
       const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/categories`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       if (Array.isArray(res.data)) {
-        setCategories(res.data.filter((c: any) => c.isActive !== false).map((c: any) => c.name))
+        const cats = res.data.filter((c: any) => c.isActive !== false).map((c: any) => c.name)
+        setCategories(cats)
+        try { sessionStorage.setItem('categories_cache', JSON.stringify(cats)) } catch {}
       }
     } catch {
       setCategories(['POS', 'Network', 'Hardware', 'Software', 'Printer', 'Monitor', 'Other'])
