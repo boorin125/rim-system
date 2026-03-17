@@ -300,7 +300,6 @@ export default function AssignIncidentModal({
                           <p className="text-sm text-white truncate">
                             {tech.firstName} {tech.lastName}
                           </p>
-                          <p className="text-xs text-gray-400 truncate">{tech.email}</p>
                           <p className="text-xs text-gray-500 truncate">
                             {tech.responsibleProvinces?.length > 0
                               ? <span className="text-emerald-500/80">{tech.responsibleProvinces.join(', ')}</span>
