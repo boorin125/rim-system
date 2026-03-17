@@ -102,17 +102,28 @@ export default function AssignIncidentModal({
     const q = searchQuery.trim().toLowerCase()
 
     if (q) {
-      // When searching: show ALL technicians matching the query (ignore province filter)
-      return technicians.filter((tech) => {
+      // When searching: show ALL matching techs, province-matching ones sorted to top
+      const matched = technicians.filter((tech) => {
         const fullName = `${tech.firstName || ''} ${tech.lastName || ''}`.toLowerCase()
         const email = (tech.email || '').toLowerCase()
         return fullName.includes(q) || email.includes(q)
       })
+      return [...matched].sort((a, b) => (coversProvince(a) ? 0 : 1) - (coversProvince(b) ? 0 : 1))
     }
 
     // No search query: show only province-matched + no-province technicians
     return incidentProvince ? technicians.filter(coversProvince) : technicians
   }, [technicians, searchQuery, incidentProvince])
+
+  // Show only the relevant province name (not all provinces)
+  const getProvinceDisplay = (tech: any) => {
+    const rp: string[] = tech.responsibleProvinces || []
+    if (rp.length === 0) return { label: 'ทุกจังหวัด', outOfArea: false }
+    if (incidentProvince && rp.includes(incidentProvince)) {
+      return { label: incidentProvince, outOfArea: false }
+    }
+    return { label: rp.slice(0, 3).join(', ') + (rp.length > 3 ? '...' : ''), outOfArea: true }
+  }
 
   const toggleTechnician = (techId: number) => {
     setSelectedTechnicianIds(prev =>
@@ -274,7 +285,7 @@ export default function AssignIncidentModal({
                 ) : (
                   filteredTechnicians.map((tech) => {
                     const isSelected = selectedTechnicianIds.includes(tech.id)
-                    const isProvince = coversProvince(tech)
+                    const { label: provinceLabel, outOfArea } = getProvinceDisplay(tech)
                     return (
                       <label
                         key={tech.id}
@@ -299,11 +310,13 @@ export default function AssignIncidentModal({
                           <p className="text-sm text-white truncate">
                             {tech.firstName} {tech.lastName}
                           </p>
-                          <p className="text-xs text-gray-500 truncate">
-                            {tech.responsibleProvinces?.length > 0
-                              ? <span className="text-emerald-500/80">{tech.responsibleProvinces.join(', ')}</span>
-                              : <span className="text-gray-600">ทุกจังหวัด</span>
-                            }
+                          <p className="text-xs truncate flex items-center gap-1">
+                            <span className={outOfArea ? 'text-orange-400/70' : 'text-emerald-500/80'}>
+                              {provinceLabel}
+                            </span>
+                            {outOfArea && (
+                              <span className="text-orange-400/50">(นอกพื้นที่)</span>
+                            )}
                           </p>
                         </div>
                       </label>
