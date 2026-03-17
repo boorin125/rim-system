@@ -26,7 +26,7 @@ interface Incident {
   title: string
   status: string
   priority?: string
-  store: { id: number; name: string; storeCode: string; address?: string }
+  store: { id: number; name: string; storeCode: string; address?: string; province?: string }
   category?: string
 }
 
@@ -35,6 +35,7 @@ interface OutsourceTechnician {
   firstName: string
   lastName: string
   email: string
+  responsibleProvinces?: string[]
   phone?: string
 }
 
@@ -103,13 +104,15 @@ export default function CreateOutsourceJobPage() {
         // fallback: keep default options
       }
     }
-    // Load outsource technicians for DIRECT_ASSIGN
+    // Load outsource technicians for DIRECT_ASSIGN (with responsibleProvinces)
     const loadTechs = async () => {
       try {
-        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/users`, authHeader)
+        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/users`, {
+          ...authHeader,
+          params: { technicianType: 'OUTSOURCE', status: 'ACTIVE' },
+        })
         const allUsers = Array.isArray(res.data) ? res.data : res.data.data || []
-        const outsource = allUsers.filter((u: any) => u.technicianType === 'OUTSOURCE' && u.status === 'ACTIVE')
-        setOutsourceTechs(outsource)
+        setOutsourceTechs(allUsers)
       } catch {
         // ignore
       }
@@ -135,7 +138,7 @@ export default function CreateOutsourceJobPage() {
               ticketNumber: inc.ticketNumber,
               title: inc.title,
               status: inc.status,
-              store: inc.store,
+              store: { ...inc.store, province: inc.store?.province },
               category: inc.category,
             }
             setSelectedIncident(mapped)
@@ -455,20 +458,38 @@ export default function CreateOutsourceJobPage() {
 
                   {/* Dropdown list */}
                   {showTechDropdown && !selectedTechId && (() => {
-                    const filtered = outsourceTechs.filter(t => {
-                      if (!techSearch.trim()) return true
-                      const q = techSearch.toLowerCase()
-                      return (
-                        t.firstName?.toLowerCase().includes(q) ||
-                        t.lastName?.toLowerCase().includes(q) ||
-                        t.email?.toLowerCase().includes(q) ||
-                        t.phone?.includes(q)
-                      )
-                    })
+                    const incidentProvince = selectedIncident?.store?.province
+                    // Filter by province: match OR no province defined
+                    const provinceFiltered = incidentProvince
+                      ? outsourceTechs.filter(t => {
+                          const rp = t.responsibleProvinces || []
+                          return rp.length === 0 || rp.includes(incidentProvince)
+                        })
+                      : outsourceTechs
+                    // Then filter by search query
+                    const filtered = techSearch.trim()
+                      ? provinceFiltered.filter(t => {
+                          const q = techSearch.toLowerCase()
+                          return (
+                            t.firstName?.toLowerCase().includes(q) ||
+                            t.lastName?.toLowerCase().includes(q) ||
+                            t.phone?.includes(q)
+                          )
+                        })
+                      : provinceFiltered
                     return (
                       <div className="absolute z-50 w-full mt-1 bg-slate-700 border border-slate-600 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                        {incidentProvince && (
+                          <div className="px-3 py-1.5 text-xs text-gray-500 border-b border-slate-600 flex items-center gap-1">
+                            <MapPin className="w-3 h-3" />
+                            แสดงช่างที่รับผิดชอบ: <span className="text-blue-400 ml-1">{incidentProvince}</span>
+                            <span className="text-gray-600 ml-1">(รวมช่างที่ไม่ระบุพื้นที่)</span>
+                          </div>
+                        )}
                         {filtered.length === 0 ? (
-                          <div className="p-4 text-center text-gray-400 text-sm">ไม่พบช่างที่ตรงกับ "{techSearch}"</div>
+                          <div className="p-4 text-center text-gray-400 text-sm">
+                            {outsourceTechs.length === 0 ? 'ไม่มีช่าง Outsource' : `ไม่พบช่างที่รับผิดชอบจังหวัด${incidentProvince ? ` ${incidentProvince}` : ''}`}
+                          </div>
                         ) : (
                           filtered.map((tech) => (
                             <button
@@ -482,7 +503,12 @@ export default function CreateOutsourceJobPage() {
                               </div>
                               <div className="flex-1">
                                 <p className="text-sm font-medium text-white">{tech.firstName} {tech.lastName}</p>
-                                <p className="text-xs text-gray-400">{tech.email}{tech.phone ? ` | ${tech.phone}` : ''}</p>
+                                <p className="text-xs text-gray-500">
+                                  {(tech.responsibleProvinces?.length ?? 0) > 0
+                                    ? <span className="text-emerald-500/80">{tech.responsibleProvinces!.join(', ')}</span>
+                                    : <span className="text-gray-600">ทุกจังหวัด</span>
+                                  }
+                                </p>
                               </div>
                             </button>
                           ))
