@@ -178,7 +178,7 @@ export default function ReassignmentModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="glass-card p-6 rounded-2xl max-w-lg w-full animate-fade-in max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="glass-card p-6 rounded-2xl max-w-lg w-full animate-fade-in max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
@@ -210,7 +210,7 @@ export default function ReassignmentModal({
           </div>
         )}
 
-        <div className="flex flex-col flex-1 overflow-hidden">
+        <div className="flex flex-col flex-1 min-h-0">
           {/* Search */}
           <div className="relative mb-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -240,7 +240,7 @@ export default function ReassignmentModal({
           )}
 
           {/* Technician List with Checkboxes */}
-          <div className="flex-1 overflow-y-auto mb-4 min-h-[200px] max-h-[250px] border border-slate-700 rounded-lg divide-y divide-slate-700/50">
+          <div className="overflow-y-auto mb-4 min-h-[150px] max-h-[220px] border border-slate-700 rounded-lg divide-y divide-slate-700/50">
             {isLoading ? (
               <div className="flex items-center justify-center h-32">
                 <div className="spinner"></div>
@@ -344,7 +344,7 @@ export default function ReassignmentModal({
           </div>
 
           {/* Actions */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-700">
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-700 flex-shrink-0">
             <button
               type="button"
               onClick={onClose}
