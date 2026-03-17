@@ -44,6 +44,8 @@ export default function EditIncidentPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [jobTypes, setJobTypes] = useState<JobType[]>([])
   const [priorities, setPriorities] = useState<SlaConfig[]>([])
+  const [equipment, setEquipment] = useState<any[]>([])
+  const [loadingEquipment, setLoadingEquipment] = useState(false)
 
   const [formData, setFormData] = useState({
     title: '',
@@ -52,6 +54,7 @@ export default function EditIncidentPage() {
     category: '',
     jobType: '',
     storeId: '',
+    equipmentId: '',
   })
 
   useEffect(() => {
@@ -89,14 +92,21 @@ export default function EditIncidentPage() {
       setPriorities(activePriorities)
 
       // Set form data
+      const storeId = incident.storeId?.toString() || ''
       setFormData({
         title: incident.title || '',
         description: incident.description || '',
         priority: incident.priority || 'MEDIUM',
         category: incident.category || '',
         jobType: incident.jobType || '',
-        storeId: incident.storeId?.toString() || '',
+        storeId,
+        equipmentId: incident.equipmentId?.toString() || '',
       })
+
+      // Load equipment for this store
+      if (storeId) {
+        fetchEquipmentByStore(storeId, token)
+      }
     } catch (error: any) {
       toast.error('Failed to load incident')
       console.error(error)
@@ -104,6 +114,28 @@ export default function EditIncidentPage() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const fetchEquipmentByStore = async (storeId: string, token?: string | null) => {
+    if (!storeId) { setEquipment([]); return }
+    setLoadingEquipment(true)
+    try {
+      const t = token || localStorage.getItem('token')
+      const res = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/equipment?storeId=${storeId}&limit=1000&status=ACTIVE`,
+        { headers: { Authorization: `Bearer ${t}` } }
+      )
+      setEquipment(res.data?.data || res.data || [])
+    } catch {
+      setEquipment([])
+    } finally {
+      setLoadingEquipment(false)
+    }
+  }
+
+  const handleStoreChange = (storeId: string) => {
+    setFormData(prev => ({ ...prev, storeId, equipmentId: '' }))
+    fetchEquipmentByStore(storeId)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -131,14 +163,12 @@ export default function EditIncidentPage() {
         storeId: parseInt(formData.storeId),
       }
 
-      // Add category if provided
-      if (formData.category) {
-        payload.category = formData.category
-      }
-
-      // Add jobType if provided
-      if (formData.jobType) {
-        payload.jobType = formData.jobType
+      if (formData.category) payload.category = formData.category
+      if (formData.jobType) payload.jobType = formData.jobType
+      if (formData.equipmentId) {
+        payload.equipmentId = parseInt(formData.equipmentId)
+      } else {
+        payload.equipmentId = null
       }
 
       await axios.patch(
@@ -309,9 +339,7 @@ export default function EditIncidentPage() {
             </label>
             <select
               value={formData.storeId}
-              onChange={(e) =>
-                setFormData({ ...formData, storeId: e.target.value })
-              }
+              onChange={(e) => handleStoreChange(e.target.value)}
               className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             >
@@ -325,6 +353,28 @@ export default function EditIncidentPage() {
             <p className="text-xs text-gray-400 mt-2">
               💡 To assign or reassign technician, use the Assign/Reassign button on the detail page
             </p>
+          </div>
+
+          {/* Equipment */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              อุปกรณ์ที่เกี่ยวข้อง
+            </label>
+            <select
+              value={formData.equipmentId}
+              onChange={(e) => setFormData({ ...formData, equipmentId: e.target.value })}
+              disabled={!formData.storeId || loadingEquipment}
+              className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+            >
+              <option value="">
+                {loadingEquipment ? 'กำลังโหลด...' : !formData.storeId ? 'เลือกสาขาก่อน' : 'ไม่ระบุอุปกรณ์'}
+              </option>
+              {equipment.map((eq) => (
+                <option key={eq.id} value={eq.id}>
+                  {eq.name}{eq.serialNumber ? ` (S/N: ${eq.serialNumber})` : ''}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
