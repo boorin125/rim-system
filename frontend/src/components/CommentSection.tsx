@@ -7,6 +7,7 @@ import { MessageSquare, Send, Edit2, Trash2, Lock, User, AlertCircle } from 'luc
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { formatDateTime } from '@/utils/dateUtils';
+import { getUserRoles } from '@/config/permissions';
 
 interface Comment {
   id: number;
@@ -144,15 +145,18 @@ export default function CommentSection({ incidentId, currentUser }: CommentSecti
   };
 
   const canDeleteComment = (comment: Comment) => {
+    const roles = getUserRoles(currentUser);
     return (
       comment.user.id === currentUser?.id ||
-      currentUser?.role === 'HELP_DESK' ||
-      currentUser?.role === 'IT_MANAGER'
+      roles.includes('HELP_DESK') ||
+      roles.includes('IT_MANAGER') ||
+      roles.includes('SUPER_ADMIN')
     );
   };
 
   const isStaffUser = () => {
-    return currentUser?.role !== 'END_USER';
+    const roles = getUserRoles(currentUser);
+    return !roles.every(r => r === 'END_USER' || r === 'READ_ONLY');
   };
 
   if (isLoading) {

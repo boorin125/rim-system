@@ -10,7 +10,7 @@ import toast from 'react-hot-toast'
 import BackButton from '@/components/BackButton'
 import { TimeInput } from '@/components/TimeInput'
 import { useThemeHighlight } from '@/hooks/useThemeHighlight'
-import { canPerformAction } from '@/config/permissions'
+import { canPerformAction, getUserRoles } from '@/config/permissions'
 import ParseLineMessageModal from '@/components/ParseLineMessageModal'
 import type { ParsedLineMessage } from '@/utils/lineMessageParser'
 
@@ -966,15 +966,13 @@ export default function CreateIncidentPage() {
                   >
                     <option value="" className="bg-slate-800">ยังไม่มอบหมาย</option>
                     {users
-                      .filter(
-                        (user) =>
-                          user.role === 'TECHNICIAN' ||
-                          user.role === 'SUPERVISOR' ||
-                          user.role === 'IT_MANAGER'
-                      )
+                      .filter((user) => {
+                        const roles = getUserRoles(user)
+                        return roles.some(r => ['TECHNICIAN', 'SUPERVISOR', 'IT_MANAGER'].includes(r))
+                      })
                       .map((user) => (
                         <option key={user.id} value={user.id} className="bg-slate-800">
-                          {user.firstName} {user.lastName} ({user.role})
+                          {user.firstName} {user.lastName} ({getUserRoles(user).join(', ')})
                         </option>
                       ))}
                   </select>

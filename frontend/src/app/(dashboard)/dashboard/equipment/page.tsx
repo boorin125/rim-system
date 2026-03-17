@@ -38,7 +38,7 @@ import {
 } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
-import { isViewOnly, canPerformAction } from '@/config/permissions'
+import { isViewOnly, canPerformAction, getUserRoles } from '@/config/permissions'
 import ImportEquipmentModal from '@/components/ImportEquipmentModal'
 import { useThemeHighlight } from '@/hooks/useThemeHighlight'
 
@@ -148,17 +148,17 @@ export default function EquipmentPage() {
       const user = JSON.parse(userStr)
       setCurrentUser(user)
 
-      // Block Outsource and Insource technicians from accessing this page
-      const roles: string[] = (user.roles || []).map((r: any) =>
-        typeof r === 'string' ? r : r?.role ?? ''
-      )
-      if (roles.includes('TECHNICIAN')) {
+      const roles = getUserRoles(user)
+      const higherRoles = ['SUPER_ADMIN', 'IT_MANAGER', 'HELP_DESK', 'SUPERVISOR', 'FINANCE_ADMIN']
+
+      // Block pure technicians (no higher role) from accessing this page
+      if (roles.includes('TECHNICIAN') && !roles.some(r => higherRoles.includes(r))) {
         router.replace('/dashboard/incidents')
         return
       }
 
       // Check if SUPER_ADMIN
-      if (user.role === 'SUPER_ADMIN') {
+      if (roles.includes('SUPER_ADMIN')) {
         setIsLoading(false)
         return
       }
@@ -342,7 +342,7 @@ export default function EquipmentPage() {
   }
 
   // Check if SUPER_ADMIN
-  if (currentUser?.role === 'SUPER_ADMIN') {
+  if (getUserRoles(currentUser).includes('SUPER_ADMIN')) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
@@ -840,7 +840,7 @@ export default function EquipmentPage() {
         onClose={() => setShowImportModal(false)}
         onSuccess={handleImportSuccess}
         stores={stores}
-        userRole={currentUser?.role}
+        userRoles={getUserRoles(currentUser)}
       />
 
       {/* Image Lightbox */}

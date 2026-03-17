@@ -38,6 +38,8 @@ interface ImportEquipmentModalProps {
   onClose: () => void
   onSuccess: () => void
   stores?: Store[]
+  userRoles?: string[]
+  /** @deprecated use userRoles instead */
   userRole?: string
 }
 
@@ -88,6 +90,7 @@ export default function ImportEquipmentModal({
   onClose,
   onSuccess,
   stores = [],
+  userRoles,
   userRole,
 }: ImportEquipmentModalProps) {
   const [file, setFile] = useState<File | null>(null)
@@ -119,7 +122,8 @@ export default function ImportEquipmentModal({
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  const isSuperAdmin = userRole === 'SUPER_ADMIN'
+  const allRoles = userRoles ?? (userRole ? [userRole] : [])
+  const isSuperAdmin = allRoles.includes('SUPER_ADMIN')
 
   const selectedStore = stores.find((s) => s.id.toString() === selectedStoreId)
 

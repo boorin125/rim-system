@@ -274,7 +274,12 @@ export function hasMenuAccess(user: any, menuPath: string): boolean {
 
   if (!permission) return false
 
-  if (userRoles.includes('TECHNICIAN')) {
+  // Apply technician-type restrictions ONLY when the user has no higher-privilege role.
+  // A user with IT_MANAGER/SUPERVISOR/HELP_DESK + TECHNICIAN should not be restricted.
+  const higherRoles: UserRole[] = ['SUPER_ADMIN', 'IT_MANAGER', 'FINANCE_ADMIN', 'HELP_DESK', 'SUPERVISOR']
+  const hasHigherRole = userRoles.some(r => higherRoles.includes(r))
+
+  if (userRoles.includes('TECHNICIAN') && !hasHigherRole) {
     const isOutsourceTech = user?.technicianType === 'OUTSOURCE'
     const isInsourceTech = user?.technicianType === 'INSOURCE' || !isOutsourceTech
 

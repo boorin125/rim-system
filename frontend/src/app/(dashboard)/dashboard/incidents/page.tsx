@@ -18,7 +18,7 @@ import {
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import AdvancedIncidentFilter from '@/components/AdvancedIncidentFilter'
-import { isViewOnly, canPerformAction } from '@/config/permissions'
+import { isViewOnly, canPerformAction, getUserRoles } from '@/config/permissions'
 import { formatDateTime } from '@/utils/dateUtils'
 
 export default function IncidentsPage() {
@@ -88,7 +88,7 @@ export default function IncidentsPage() {
       setCurrentUser(user)
       
       // Check if SUPER_ADMIN
-      if (user.role === 'SUPER_ADMIN') {
+      if (getUserRoles(user).includes('SUPER_ADMIN')) {
         setIsLoading(false)
         return
       }
@@ -465,7 +465,7 @@ export default function IncidentsPage() {
   }
 
   // Check if SUPER_ADMIN (no access to incidents)
-  if (currentUser?.role === 'SUPER_ADMIN') {
+  if (getUserRoles(currentUser).includes('SUPER_ADMIN')) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="glass-card p-8 rounded-2xl max-w-md text-center">
