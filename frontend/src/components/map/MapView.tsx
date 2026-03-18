@@ -35,6 +35,8 @@ export interface TechnicianLocation {
   subDistrict?: string
   avatarPath?: string
   responsibleProvinces?: string[]
+  isOnline?: boolean
+  firstLoginTodayAt?: string | null
 }
 
 interface MapViewProps {
@@ -107,15 +109,22 @@ const statusLabelMap: Record<string, string> = {
   CANCELLED: 'ยกเลิก',
 }
 
-// Insource = teal, Outsource = purple
+// Insource = teal, Outsource = purple — online=dark, offline=light
 const TECH_COLORS = {
-  INSOURCE:  { grad0: '#5eead4', grad1: '#0d9488', text: '#0d9488' },
-  OUTSOURCE: { grad0: '#d8b4fe', grad1: '#7c3aed', text: '#7c3aed' },
+  INSOURCE:  {
+    online:  { grad0: '#5eead4', grad1: '#0d9488', text: '#0d9488' },
+    offline: { grad0: '#cbd5e1', grad1: '#94a3b8', text: '#94a3b8' },
+  },
+  OUTSOURCE: {
+    online:  { grad0: '#d8b4fe', grad1: '#7c3aed', text: '#7c3aed' },
+    offline: { grad0: '#cbd5e1', grad1: '#94a3b8', text: '#94a3b8' },
+  },
 }
 
-function createTechnicianHomeIcon(initials: string, techType?: string): L.DivIcon {
-  const colors = techType === 'OUTSOURCE' ? TECH_COLORS.OUTSOURCE : TECH_COLORS.INSOURCE
-  const gradId = `pin-tech-${techType === 'OUTSOURCE' ? 'out' : 'in'}`
+function createTechnicianHomeIcon(initials: string, techType?: string, isOnline?: boolean): L.DivIcon {
+  const typeKey = techType === 'OUTSOURCE' ? 'OUTSOURCE' : 'INSOURCE'
+  const colors = isOnline ? TECH_COLORS[typeKey].online : TECH_COLORS[typeKey].offline
+  const gradId = `pin-tech-${typeKey}-${isOnline ? 'on' : 'off'}`
 
   // Always show initials on the pin (avatar shown in popup instead)
   const svgPin = `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="36" viewBox="0 0 38 52" style="display:block;">
@@ -427,7 +436,7 @@ export default function MapView({ checkins, technicianLocations = [] }: MapViewP
             <Marker
               key={`tech-${tech.id}`}
               position={pos}
-              icon={createTechnicianHomeIcon(initials, tech.technicianType)}
+              icon={createTechnicianHomeIcon(initials, tech.technicianType, tech.isOnline)}
             >
               <Tooltip direction="top" offset={[0, -34]} opacity={0.95}>
                 <div style={{ fontSize: '12px', lineHeight: '1.5' }}>
@@ -457,6 +466,28 @@ export default function MapView({ checkins, technicianLocations = [] }: MapViewP
                     }}>
                       {isOutsource ? 'ช่าง Outsource' : 'ช่างเทคนิค'}
                     </span>
+                  </div>
+                  {/* Online status badge */}
+                  <div style={{ marginBottom: '6px' }}>
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '5px',
+                      padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: 600,
+                      backgroundColor: tech.isOnline ? '#dcfce7' : '#f1f5f9',
+                      color: tech.isOnline ? '#16a34a' : '#64748b',
+                      border: `1px solid ${tech.isOnline ? '#86efac' : '#cbd5e1'}`,
+                    }}>
+                      <span style={{
+                        width: '7px', height: '7px', borderRadius: '50%',
+                        backgroundColor: tech.isOnline ? '#22c55e' : '#94a3b8',
+                        display: 'inline-block',
+                      }} />
+                      {tech.isOnline ? 'Online' : 'Offline'}
+                    </span>
+                    {tech.firstLoginTodayAt && (
+                      <span style={{ marginLeft: '6px', fontSize: '11px', color: '#94a3b8' }}>
+                        เข้าระบบ {new Date(tech.firstLoginTodayAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', hour12: false })} น.
+                      </span>
+                    )}
                   </div>
                   {/* Avatar + ชื่อ */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>

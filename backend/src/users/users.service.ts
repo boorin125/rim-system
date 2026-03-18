@@ -107,6 +107,8 @@ export class UsersService {
         province: true,
         avatarPath: true,
         responsibleProvinces: true,
+        isOnline: true,
+        firstLoginTodayAt: true,
         roles: { select: { role: true } },
       },
       orderBy: { firstName: 'asc' },

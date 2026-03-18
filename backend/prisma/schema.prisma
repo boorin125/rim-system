@@ -36,6 +36,8 @@ model User {
   failedLoginAttempts         Int                          @default(0) @map("failed_login_attempts")
   lockedUntil                 DateTime?                    @map("locked_until")
   lastLogin                   DateTime?                    @map("last_login")
+  isOnline                    Boolean                      @default(false) @map("is_online")
+  firstLoginTodayAt           DateTime?                    @map("first_login_today_at")
   lastPasswordChange          DateTime?                    @map("last_password_change")
   createdAt                   DateTime                     @default(now()) @map("created_at")
   updatedAt                   DateTime                     @updatedAt @map("updated_at")

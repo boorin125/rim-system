@@ -211,12 +211,18 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Reset failed login attempts and update last login
+    // Reset failed login attempts, update last login, set online status
+    const now = new Date()
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const isFirstLoginToday = !user.lastLogin || user.lastLogin < todayStart
+
     await this.prisma.user.update({
       where: { id: user.id },
       data: {
         failedLoginAttempts: 0,
-        lastLogin: new Date(),
+        lastLogin: now,
+        isOnline: true,
+        ...(isFirstLoginToday && { firstLoginTodayAt: now }),
       },
     });
 
@@ -327,13 +333,27 @@ export class AuthService {
   }
 
   /**
-   * Logout - invalidate refresh token
+   * Logout - invalidate refresh token and set user offline
    */
   async logout(refreshToken: string) {
     if (refreshToken) {
+      // Find userId from refresh token before deleting
+      const tokenRecord = await this.prisma.refreshToken.findUnique({
+        where: { token: refreshToken },
+        select: { userId: true },
+      })
+
       await this.prisma.refreshToken.deleteMany({
         where: { token: refreshToken },
-      });
+      })
+
+      // Mark user offline
+      if (tokenRecord?.userId) {
+        await this.prisma.user.update({
+          where: { id: tokenRecord.userId },
+          data: { isOnline: false },
+        })
+      }
     }
 
     return { message: 'Logged out successfully' };
