@@ -918,40 +918,40 @@ export class IncidentsService {
       this.prisma.incident.count({ where }),
       this.prisma.incident.findMany({
         where,
-        include: {
+        select: {
+          id: true,
+          ticketNumber: true,
+          title: true,
+          description: true,
+          category: true,
+          jobType: true,
+          priority: true,
+          status: true,
+          resolutionType: true,
+          incidentType: true,
+          createdAt: true,
+          updatedAt: true,
+          resolvedAt: true,
+          slaDeadline: true,
+          storeId: true,
+          assigneeId: true,
           store: {
             select: {
               id: true, storeCode: true, name: true,
               province: true, storeStatus: true,
             },
           },
-          equipment: {
-            select: { id: true, name: true, serialNumber: true, category: true },
-          },
-          assignee: {
-            select: {
-              id: true, username: true, firstName: true, lastName: true,
-              email: true,
-            },
-          },
           assignees: {
             select: {
-              id: true, userId: true, assignedAt: true, checkedInAt: true,
-              checkInLatitude: true, checkInLongitude: true,
+              userId: true, assignedAt: true,
               user: {
-                select: { id: true, firstName: true, lastName: true, email: true, phone: true },
+                select: { id: true, firstName: true, lastName: true },
               },
             },
             orderBy: { assignedAt: 'asc' as const },
           },
-          createdBy: {
-            select: {
-              id: true, username: true, firstName: true, lastName: true,
-              email: true,
-            },
-          },
           slaDefenses: {
-            select: { id: true, status: true, reason: true },
+            select: { id: true, status: true },
             orderBy: { createdAt: 'desc' as const },
             take: 1,
           },

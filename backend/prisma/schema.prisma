@@ -366,6 +366,14 @@ model Incident {
   pmRecord        PmRecord?
 
   @@index([ratingToken])
+  @@index([status])
+  @@index([createdAt])
+  @@index([priority])
+  @@index([storeId])
+  @@index([category])
+  @@index([assigneeId])
+  @@index([status, createdAt])
+  @@index([status, priority])
   @@map("incidents")
 }
 
