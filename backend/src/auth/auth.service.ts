@@ -446,6 +446,8 @@ export class AuthService {
       data: {
         firstName: dto.firstName,
         lastName: dto.lastName,
+        ...(dto.firstNameEn !== undefined && { firstNameEn: dto.firstNameEn }),
+        ...(dto.lastNameEn !== undefined && { lastNameEn: dto.lastNameEn }),
         phone: dto.phone,
         department: dto.department,
         address: dto.address,
@@ -460,6 +462,8 @@ export class AuthService {
         email: true,
         firstName: true,
         lastName: true,
+        firstNameEn: true,
+        lastNameEn: true,
         phone: true,
         department: true,
         technicianType: true,

@@ -28,6 +28,8 @@ export interface TechnicianLocation {
   id: number
   firstName: string
   lastName: string
+  firstNameEn?: string | null
+  lastNameEn?: string | null
   phone?: string
   technicianType?: string
   province?: string
@@ -426,7 +428,11 @@ export default function MapView({ checkins, technicianLocations = [] }: MapViewP
           const coords = displayProvince ? PROVINCE_COORDS[displayProvince] : null
           if (!coords) return null
           const usingFallback = !tech.province && !!displayProvince
-          const initials = `${tech.firstName?.[0] || ''}${tech.lastName?.[0] || ''}`.toUpperCase()
+          // Use English initials when available, fall back to Thai
+          const initials = (
+            (tech.firstNameEn?.[0] || tech.firstName?.[0] || '') +
+            (tech.lastNameEn?.[0] || tech.lastName?.[0] || '')
+          ).toUpperCase()
           const isOutsource = tech.technicianType === 'OUTSOURCE'
           const pinColor = isOutsource ? '#7c3aed' : '#0d9488'
           // Slight jitter to avoid exact overlap when multiple techs in same province

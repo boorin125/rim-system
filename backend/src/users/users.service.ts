@@ -98,6 +98,8 @@ export class UsersService {
         id: true,
         firstName: true,
         lastName: true,
+        firstNameEn: true,
+        lastNameEn: true,
         phone: true,
         technicianType: true,
         serviceCenter: true,

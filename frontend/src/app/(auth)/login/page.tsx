@@ -1,11 +1,19 @@
 // app/(auth)/login/page.tsx - Login Page
 'use client'
 
-import { useState, Suspense } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Mail, Lock, Eye, EyeOff, User, Phone } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, Phone } from 'lucide-react'
 import toast from 'react-hot-toast'
 import axios from 'axios'
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
+
+interface Branding {
+  organizationName: string
+  logoPath: string
+  theme: { bgStart: string; bgEnd: string }
+}
 
 function LoginContent() {
   const router = useRouter()
@@ -13,6 +21,29 @@ function LoginContent() {
   const nextUrl = searchParams.get('next') || '/dashboard'
   const [isFlipped, setIsFlipped] = useState(false)
   const [showForgot, setShowForgot] = useState(false)
+  const [branding, setBranding] = useState<Branding>({
+    organizationName: '',
+    logoPath: '',
+    theme: { bgStart: '#0f172a', bgEnd: '#1e293b' },
+  })
+
+  useEffect(() => {
+    fetch(`${API_URL}/settings/public/branding`)
+      .then((r) => r.json())
+      .then((data) => { if (data?.theme) setBranding(data) })
+      .catch(() => {})
+  }, [])
+
+  // Derive display values
+  const themeColor = branding.theme.bgStart
+  const appTitle = branding.organizationName
+    ? `${branding.organizationName} Incident Management`
+    : 'Rubjobb Incident Management'
+  const logoUrl = branding.logoPath ? `${API_URL.replace('/api', '')}${branding.logoPath}` : ''
+
+  // Button style using theme color
+  const btnStyle = { backgroundColor: themeColor }
+  const btnHoverClass = 'transition duration-200 hover:opacity-90'
   const [showPassword, setShowPassword] = useState(false)
   const [showRegPassword, setShowRegPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
@@ -161,12 +192,20 @@ function LoginContent() {
         {/* Logo & Header */}
         <div className="text-center mb-3">
           <div className="mb-2">
-            <h1 className="logo-rim">RIM</h1>
-            <p className="logo-system">System</p>
+            {logoUrl ? (
+              <img
+                src={logoUrl}
+                alt="Organization Logo"
+                className="h-16 w-auto mx-auto object-contain"
+              />
+            ) : (
+              <>
+                <h1 className="logo-rim">RIM</h1>
+                <p className="logo-system">System</p>
+              </>
+            )}
           </div>
-          <p className="text-lg text-gray-300 font-light">
-            Rubjobb Incident Management
-          </p>
+          <p className="text-lg text-gray-300 font-light">{appTitle}</p>
         </div>
 
         {/* Flip Container */}
@@ -250,7 +289,8 @@ function LoginContent() {
                     <button
                       type="button"
                       onClick={() => setShowForgot(true)}
-                      className="text-sm text-blue-400 hover:text-blue-300 transition duration-200"
+                      style={{ color: themeColor }}
+                      className="text-sm hover:opacity-80 transition duration-200"
                     >
                       ลืมรหัสผ่าน?
                     </button>
@@ -260,7 +300,8 @@ function LoginContent() {
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={btnStyle}
+                    className={`w-full py-3 px-4 text-white font-medium rounded-lg ${btnHoverClass} flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     {isLoading ? (
                       <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -276,7 +317,8 @@ function LoginContent() {
                       <button
                         type="button"
                         onClick={() => setIsFlipped(true)}
-                        className="text-blue-400 hover:text-blue-300 font-medium transition duration-200"
+                        style={{ color: themeColor }}
+                        className="font-medium hover:opacity-80 transition duration-200"
                       >
                         สมัครสมาชิก
                       </button>
@@ -482,7 +524,8 @@ function LoginContent() {
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={btnStyle}
+                    className={`w-full py-3 px-4 text-white font-medium rounded-lg ${btnHoverClass} flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     {isLoading ? (
                       <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -498,7 +541,8 @@ function LoginContent() {
                       <button
                         type="button"
                         onClick={() => setIsFlipped(false)}
-                        className="text-blue-400 hover:text-blue-300 font-medium transition duration-200"
+                        style={{ color: themeColor }}
+                        className="font-medium hover:opacity-80 transition duration-200"
                       >
                         เข้าสู่ระบบ
                       </button>
@@ -544,7 +588,8 @@ function LoginContent() {
                   {/* Submit Button */}
                   <button
                     type="submit"
-                    className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition duration-200"
+                    style={btnStyle}
+                    className={`w-full py-3 px-4 text-white font-medium rounded-lg ${btnHoverClass}`}
                   >
                     ส่งลิงก์รีเซ็ตรหัสผ่าน
                   </button>
@@ -554,7 +599,8 @@ function LoginContent() {
                     <button
                       type="button"
                       onClick={() => setShowForgot(false)}
-                      className="text-blue-400 hover:text-blue-300 font-medium transition duration-200"
+                      style={{ color: themeColor }}
+                      className="font-medium hover:opacity-80 transition duration-200"
                     >
                       ← กลับสู่หน้าเข้าสู่ระบบ
                     </button>
