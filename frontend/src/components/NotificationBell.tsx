@@ -34,6 +34,10 @@ export default function NotificationBell() {
     if (typeof window === 'undefined') return true;
     return localStorage.getItem('notif_sound') !== 'off';
   });
+  const [vibrateEnabled, setVibrateEnabled] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem('notif_vibrate') !== 'off';
+  });
   const prevUnreadRef = useRef<number | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -61,6 +65,24 @@ export default function NotificationBell() {
     setSoundEnabled(prev => {
       const next = !prev;
       localStorage.setItem('notif_sound', next ? 'on' : 'off');
+      return next;
+    });
+  };
+
+  const vibrateDevice = () => {
+    try {
+      if ('vibrate' in navigator) {
+        // Double-pulse pattern: vibrate 200ms, pause 100ms, vibrate 200ms
+        navigator.vibrate([200, 100, 200]);
+      }
+    } catch { /* browser blocked vibration */ }
+  };
+
+  const toggleVibrate = () => {
+    setVibrateEnabled(prev => {
+      const next = !prev;
+      localStorage.setItem('notif_vibrate', next ? 'on' : 'off');
+      if (next) navigator.vibrate?.([100]); // short test pulse when enabling
       return next;
     });
   };
@@ -99,8 +121,9 @@ export default function NotificationBell() {
         }
       );
       const newCount = response.data.count;
-      if (prevUnreadRef.current !== null && newCount > prevUnreadRef.current && soundEnabled) {
-        playNotificationSound();
+      if (prevUnreadRef.current !== null && newCount > prevUnreadRef.current) {
+        if (soundEnabled) playNotificationSound();
+        if (vibrateEnabled) vibrateDevice();
       }
       prevUnreadRef.current = newCount;
       setUnreadCount(newCount);
@@ -255,6 +278,13 @@ export default function NotificationBell() {
                 title={soundEnabled ? 'ปิดเสียงแจ้งเตือน' : 'เปิดเสียงแจ้งเตือน'}
               >
                 {soundEnabled ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
+              </button>
+              <button
+                onClick={toggleVibrate}
+                className={`p-1.5 rounded-lg transition-colors text-sm ${vibrateEnabled ? 'text-blue-400 hover:bg-slate-700/50' : 'text-gray-600 hover:text-gray-400 hover:bg-slate-700/50'}`}
+                title={vibrateEnabled ? 'ปิดการสั่น' : 'เปิดการสั่น'}
+              >
+                📳
               </button>
               <button
                 onClick={() => setIsOpen(false)}
