@@ -378,10 +378,10 @@ export default function MapPage() {
         </div>
       )}
 
-      {/* ── Map ──────────────────────────────────────────────── */}
+      {/* ── Map — portrait ratio to match Thailand's shape ───── */}
       <div
-        className="bg-slate-800/70 backdrop-blur-xl border border-slate-700/50 rounded-2xl overflow-hidden"
-        style={{ height: 'min(65vh, 520px)', minHeight: '320px' }}
+        className="bg-slate-800/70 backdrop-blur-xl border border-slate-700/50 rounded-2xl overflow-hidden w-full"
+        style={{ aspectRatio: '3 / 4', maxHeight: '82vh', minHeight: '340px' }}
       >
         <MapView
           checkins={filteredCheckins}

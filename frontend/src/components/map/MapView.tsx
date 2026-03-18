@@ -1,7 +1,7 @@
 // components/map/MapView.tsx - Leaflet Map with Check-in Markers + Thailand Regions
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { MapContainer, TileLayer, Marker, Tooltip, Popup, GeoJSON } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -213,37 +213,74 @@ function regionStyle(feature: any) {
   }
 }
 
-// Region legend component
+// Region legend — collapsible on mobile, always-open on desktop
 function RegionLegend() {
+  const [open, setOpen] = useState(false)
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 640
+
   return (
     <div style={{
       position: 'absolute',
-      bottom: '24px',
-      right: '12px',
+      bottom: '12px',
+      right: '10px',
       zIndex: 1000,
-      background: 'rgba(255,255,255,0.92)',
-      borderRadius: '10px',
-      padding: '10px 14px',
-      fontSize: '12px',
-      lineHeight: '1.8',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-      border: '1px solid #e2e8f0',
     }}>
-      <div style={{ fontWeight: 700, marginBottom: '4px', color: '#334155' }}>ภูมิภาค</div>
-      {Object.values(regionColors).map((r) => (
-        <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{
-            width: '14px',
-            height: '14px',
-            borderRadius: '3px',
-            backgroundColor: r.fill,
-            border: '1px solid #cbd5e1',
-            display: 'inline-block',
-            flexShrink: 0,
-          }} />
-          <span style={{ color: '#475569' }}>{r.labelTh}</span>
-        </div>
-      ))}
+      {/* Toggle button — visible only on mobile */}
+      <button
+        onClick={() => setOpen(v => !v)}
+        style={{
+          display: isMobile ? 'flex' : 'none',
+          alignItems: 'center',
+          gap: '5px',
+          background: 'rgba(255,255,255,0.95)',
+          border: '1px solid #e2e8f0',
+          borderRadius: '8px',
+          padding: '5px 10px',
+          fontSize: '11px',
+          fontWeight: 700,
+          color: '#334155',
+          cursor: 'pointer',
+          boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+          marginBottom: open ? '6px' : '0',
+        }}
+      >
+        <span style={{
+          width: '10px', height: '10px', borderRadius: '2px',
+          background: 'linear-gradient(135deg,#86efac,#6366f1)',
+          display: 'inline-block',
+        }} />
+        ภูมิภาค {open ? '▲' : '▼'}
+      </button>
+
+      {/* Legend body */}
+      <div style={{
+        display: isMobile ? (open ? 'block' : 'none') : 'block',
+        background: 'rgba(255,255,255,0.95)',
+        borderRadius: '8px',
+        padding: isMobile ? '7px 10px' : '10px 14px',
+        fontSize: isMobile ? '11px' : '12px',
+        lineHeight: '1.7',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+        border: '1px solid #e2e8f0',
+      }}>
+        {!isMobile && (
+          <div style={{ fontWeight: 700, marginBottom: '4px', color: '#334155' }}>ภูมิภาค</div>
+        )}
+        {Object.values(regionColors).map((r) => (
+          <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <span style={{
+              width: isMobile ? '10px' : '13px',
+              height: isMobile ? '10px' : '13px',
+              borderRadius: '2px',
+              backgroundColor: r.fill,
+              border: '1px solid #cbd5e1',
+              display: 'inline-block',
+              flexShrink: 0,
+            }} />
+            <span style={{ color: '#475569' }}>{r.labelTh}</span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
