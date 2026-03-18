@@ -107,8 +107,17 @@ const statusLabelMap: Record<string, string> = {
   CANCELLED: 'ยกเลิก',
 }
 
-function createTechnicianHomeIcon(initials: string, avatarUrl?: string | null): L.DivIcon {
+// Insource = teal, Outsource = purple
+const TECH_COLORS = {
+  INSOURCE:  { grad0: '#5eead4', grad1: '#0d9488', text: '#0d9488' },
+  OUTSOURCE: { grad0: '#d8b4fe', grad1: '#7c3aed', text: '#7c3aed' },
+}
+
+function createTechnicianHomeIcon(initials: string, avatarUrl?: string | null, techType?: string): L.DivIcon {
   const apiBase = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || ''
+  const colors = techType === 'OUTSOURCE' ? TECH_COLORS.OUTSOURCE : TECH_COLORS.INSOURCE
+  const gradId = `pin-tech-${techType === 'OUTSOURCE' ? 'out' : 'in'}`
+
   const innerContent = avatarUrl
     ? `<foreignObject x="3" y="2" width="22" height="22">
         <div xmlns="http://www.w3.org/1999/xhtml" style="width:22px;height:22px;border-radius:50%;overflow:hidden;">
@@ -116,22 +125,22 @@ function createTechnicianHomeIcon(initials: string, avatarUrl?: string | null): 
         </div>
       </foreignObject>`
     : `<text x="19" y="18" text-anchor="middle" dominant-baseline="central"
-            font-size="11" font-weight="700" fill="#0d9488"
+            font-size="11" font-weight="700" fill="${colors.text}"
             font-family="Arial,Helvetica,sans-serif">${initials}</text>`
-  // Same SVG viewBox, smaller rendered size (≈70% of original)
+
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="26" height="36" viewBox="0 0 38 52">
       <defs>
-        <linearGradient id="pin-tech-home" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style="stop-color:#5eead4;stop-opacity:1" />
-          <stop offset="100%" style="stop-color:#0d9488;stop-opacity:1" />
+        <linearGradient id="${gradId}" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:${colors.grad0};stop-opacity:1" />
+          <stop offset="100%" style="stop-color:${colors.grad1};stop-opacity:1" />
         </linearGradient>
         <filter id="shadow-tech-home" x="-20%" y="-10%" width="140%" height="130%">
           <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="rgba(0,0,0,0.35)"/>
         </filter>
       </defs>
       <path d="M19 0C8.51 0 0 8.51 0 19c0 14.25 19 33 19 33s19-18.75 19-33C38 8.51 29.49 0 19 0z"
-            fill="url(#pin-tech-home)" filter="url(#shadow-tech-home)" />
+            fill="url(#${gradId})" filter="url(#shadow-tech-home)" />
       <circle cx="19" cy="18" r="16" fill="white" opacity="0.9"/>
       ${innerContent}
     </svg>`
@@ -414,6 +423,8 @@ export default function MapView({ checkins, technicianLocations = [] }: MapViewP
           if (!coords) return null
           const usingFallback = !tech.province && !!displayProvince
           const initials = `${tech.firstName?.[0] || ''}${tech.lastName?.[0] || ''}`.toUpperCase()
+          const isOutsource = tech.technicianType === 'OUTSOURCE'
+          const pinColor = isOutsource ? '#7c3aed' : '#0d9488'
           // Slight jitter to avoid exact overlap when multiple techs in same province
           const jitter = (tech.id % 20) * 0.015 - 0.15
           const pos: [number, number] = [coords[0] + jitter, coords[1] + jitter]
@@ -421,11 +432,12 @@ export default function MapView({ checkins, technicianLocations = [] }: MapViewP
             <Marker
               key={`tech-${tech.id}`}
               position={pos}
-              icon={createTechnicianHomeIcon(initials, tech.avatarPath)}
+              icon={createTechnicianHomeIcon(initials, tech.avatarPath, tech.technicianType)}
             >
               <Tooltip direction="top" offset={[0, -34]} opacity={0.95}>
                 <div style={{ fontSize: '12px', lineHeight: '1.5' }}>
                   <strong>{tech.firstName} {tech.lastName}</strong>
+                  {isOutsource && <span style={{ color: '#a78bfa', marginLeft: '4px', fontSize: '10px' }}>(Outsource)</span>}
                   <br />
                   {displayProvince}{tech.district ? ` • ${tech.district}` : ''}
                   {usingFallback && <span style={{ color: '#9ca3af' }}> (พื้นที่รับผิดชอบ)</span>}
@@ -436,19 +448,19 @@ export default function MapView({ checkins, technicianLocations = [] }: MapViewP
                   minWidth: '200px',
                   fontSize: '13px',
                   lineHeight: '1.6',
-                  borderLeft: '4px solid #0d9488',
+                  borderLeft: `4px solid ${pinColor}`,
                   paddingLeft: '12px',
                 }}>
                   <div style={{ marginBottom: '6px' }}>
                     <span style={{
-                      backgroundColor: '#0d9488',
+                      backgroundColor: pinColor,
                       color: 'white',
                       padding: '2px 10px',
                       borderRadius: '9999px',
                       fontSize: '11px',
                       fontWeight: 600,
                     }}>
-                      ช่างเทคนิค
+                      {isOutsource ? 'ช่าง Outsource' : 'ช่างเทคนิค'}
                     </span>
                   </div>
                   <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '4px' }}>

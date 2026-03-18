@@ -504,6 +504,89 @@ export default function MapPage() {
         </div>
       )}
 
+      {/* ── Technician Location List (shown when toggle is on) ─── */}
+      {showTechnicianLocations && filteredTechLocations.length > 0 && (
+        <div className="bg-slate-800/70 backdrop-blur-xl border border-slate-700/50 rounded-2xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-700/50 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+              <Users className="w-4 h-4 text-teal-400" />
+              รายชื่อช่างเทคนิค
+              <span className="text-xs font-normal text-gray-400 ml-1">ตำแหน่งตาม Profile</span>
+            </h2>
+            <span className="text-xs text-gray-400">{filteredTechLocations.length} คน</span>
+          </div>
+
+          {/* Table: desktop */}
+          <div className="hidden sm:block overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-xs text-gray-400 border-b border-slate-700/50">
+                  <th className="px-4 py-2.5 text-left w-8">#</th>
+                  <th className="px-4 py-2.5 text-left">ชื่อช่าง</th>
+                  <th className="px-4 py-2.5 text-left">ประเภท</th>
+                  <th className="px-4 py-2.5 text-left">อำเภอ</th>
+                  <th className="px-4 py-2.5 text-left">จังหวัด</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-700/30">
+                {filteredTechLocations.map((t, idx) => {
+                  const isOut = t.technicianType === 'OUTSOURCE'
+                  const province = t.province || (t.responsibleProvinces?.[0] ?? '-')
+                  return (
+                    <tr key={t.id} className="hover:bg-slate-700/20 transition">
+                      <td className="px-4 py-2.5 text-gray-500 text-xs">{idx + 1}</td>
+                      <td className="px-4 py-2.5 text-white font-medium whitespace-nowrap">
+                        {t.firstName} {t.lastName}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                          isOut
+                            ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                            : 'bg-teal-500/20 text-teal-300 border border-teal-500/30'
+                        }`}>
+                          {isOut ? 'Outsource' : 'Inhouse'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-gray-300">{t.district || '-'}</td>
+                      <td className="px-4 py-2.5 text-gray-300">{province}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Cards: mobile */}
+          <div className="sm:hidden divide-y divide-slate-700/30">
+            {filteredTechLocations.map((t, idx) => {
+              const isOut = t.technicianType === 'OUTSOURCE'
+              const province = t.province || (t.responsibleProvinces?.[0] ?? '-')
+              return (
+                <div key={t.id} className="px-4 py-3 flex items-center gap-3">
+                  <span className="text-gray-500 text-xs w-5 shrink-0">{idx + 1}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-white font-medium text-sm">{t.firstName} {t.lastName}</span>
+                      <span className={`px-1.5 py-0.5 rounded-full text-xs ${
+                        isOut
+                          ? 'bg-purple-500/20 text-purple-300'
+                          : 'bg-teal-500/20 text-teal-300'
+                      }`}>
+                        {isOut ? 'Outsource' : 'Inhouse'}
+                      </span>
+                    </div>
+                    <div className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
+                      <MapPin className="w-3 h-3 shrink-0" />
+                      {t.district ? `${t.district} · ` : ''}{province}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }
