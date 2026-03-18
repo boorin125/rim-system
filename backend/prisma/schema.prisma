@@ -111,7 +111,25 @@ model User {
   // Version management
   appliedVersions AppVersion[]
 
+  // Web Push subscriptions
+  pushSubscriptions PushSubscription[]
+
   @@map("users")
+}
+
+model PushSubscription {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  endpoint  String   @unique
+  p256dh    String   @map("p256dh")
+  auth      String   @map("auth")
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
 }
 
 // User Role Assignment (Many-to-Many)

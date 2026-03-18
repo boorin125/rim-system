@@ -4,12 +4,16 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationType, UserRole } from '@prisma/client';
 import Expo, { ExpoPushMessage } from 'expo-server-sdk';
+import { PushService } from '../modules/push/push.service';
 
 const expo = new Expo()
 
 @Injectable()
 export class NotificationsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private pushService: PushService,
+  ) {}
 
   /**
    * Send Expo push notification to a user's device (fire-and-forget)
@@ -142,11 +146,16 @@ export class NotificationsService {
       },
     });
 
-    // Send push notification to device (fire-and-forget)
-    this.sendExpoPush(userId, title, message, {
-      incidentId: incidentId ?? null,
-      type,
-    })
+    // Send Expo push (mobile app) — fire-and-forget
+    this.sendExpoPush(userId, title, message, { incidentId: incidentId ?? null, type })
+
+    // Send Web Push (browser on mobile/desktop) — fire-and-forget
+    this.pushService.sendToUser(userId, {
+      title,
+      body: message,
+      url: link || (incidentId ? `/dashboard/incidents/${incidentId}` : '/dashboard'),
+      tag: incidentId ? `incident-${incidentId}` : `rim-${type}`,
+    }).catch(() => {})
 
     return notification
   }

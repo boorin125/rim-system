@@ -32,6 +32,7 @@ import SupervisorPendingAlert from '@/components/SupervisorPendingAlert'
 import SingleTabGuard from '@/components/SingleTabGuard'
 import { hasMenuAccess, getUserRoles } from '@/config/permissions'
 import { LicenseProvider, useLicense } from '@/context/LicenseContext'
+import { usePushNotification } from '@/hooks/usePushNotification'
 
 // Organization settings interface
 interface OrgSettings {
@@ -91,6 +92,7 @@ export default function DashboardLayout({
 }) {
   const router = useRouter()
   const pathname = usePathname()
+  usePushNotification()
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [appVersion, setAppVersion] = useState('1.0.0')
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false) // For top-right menu

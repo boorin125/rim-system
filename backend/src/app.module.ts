@@ -26,6 +26,7 @@ import { AuditTrailModule } from './modules/audit-trail/audit-trail.module';
 import { PmModule } from './modules/pm/pm.module';
 import { VersionModule } from './modules/version/version.module';
 import { AppMobileModule } from './modules/app-mobile/app-mobile.module';
+import { PushModule } from './modules/push/push.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { AppMobileModule } from './modules/app-mobile/app-mobile.module';
     PmModule,
     VersionModule,
     AppMobileModule,
+    PushModule,
   ],
 })
 export class AppModule {}
