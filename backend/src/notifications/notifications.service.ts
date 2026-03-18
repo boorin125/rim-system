@@ -3,10 +3,43 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationType, UserRole } from '@prisma/client';
+import Expo, { ExpoPushMessage } from 'expo-server-sdk';
+
+const expo = new Expo()
 
 @Injectable()
 export class NotificationsService {
   constructor(private prisma: PrismaService) {}
+
+  /**
+   * Send Expo push notification to a user's device (fire-and-forget)
+   * Silently ignores errors so DB notification always saves even if push fails
+   */
+  private async sendExpoPush(userId: number, title: string, body: string, data?: Record<string, unknown>): Promise<void> {
+    try {
+      const token = await this.getPushToken(userId)
+      if (!token || !Expo.isExpoPushToken(token)) return
+
+      const message: ExpoPushMessage = {
+        to: token,
+        title,
+        body,
+        sound: 'default',
+        badge: 1,
+        channelId: 'rim-notifications',
+        data: data ?? {},
+      }
+
+      const chunks = expo.chunkPushNotifications([message])
+      for (const chunk of chunks) {
+        expo.sendPushNotificationsAsync(chunk).catch(() => {
+          // Non-critical: log but don't throw
+        })
+      }
+    } catch {
+      // Push is best-effort — never block the main flow
+    }
+  }
 
   /**
    * Get all active supervisors
@@ -89,7 +122,7 @@ export class NotificationsService {
     incidentId?: string,
     link?: string,
   ) {
-    return this.prisma.notification.create({
+    const notification = await this.prisma.notification.create({
       data: {
         userId,
         type,
@@ -108,6 +141,14 @@ export class NotificationsService {
         },
       },
     });
+
+    // Send push notification to device (fire-and-forget)
+    this.sendExpoPush(userId, title, message, {
+      incidentId: incidentId ?? null,
+      type,
+    })
+
+    return notification
   }
 
   /**
