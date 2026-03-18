@@ -30,6 +30,7 @@ import {
 } from 'lucide-react'
 import { useRef } from 'react'
 import { useThemeHighlight } from '@/hooks/useThemeHighlight'
+import { getHighestRole } from '@/config/permissions'
 
 // ─── Status & urgency maps ─────────────────────────────────────────
 const statusColors: Record<string, string> = {
@@ -83,14 +84,14 @@ export default function OutsourceJobDetailPage() {
   const token = () => localStorage.getItem('token')
   const config = () => ({ headers: { Authorization: `Bearer ${token()}` } })
 
-  const getRoleName = (r: any): string => (typeof r === 'string' ? r : r?.role?.name || r?.role || '')
-  const userRoles = (user?.roles || []).map(getRoleName)
-  const isAdmin = userRoles.some((r: string) => ['IT_MANAGER', 'HELP_DESK', 'SUPERVISOR'].includes(r))
-  const isITManager = userRoles.includes('IT_MANAGER')
-  const isSupervisor = userRoles.includes('SUPERVISOR')
-  const isFinance = userRoles.some((r: string) => ['FINANCE_ADMIN', 'IT_MANAGER'].includes(r))
-  const _higherThanTech = ['SUPER_ADMIN', 'IT_MANAGER', 'FINANCE_ADMIN', 'SUPERVISOR', 'HELP_DESK']
-  const isTechnician = userRoles.includes('TECHNICIAN') && !userRoles.some((r: string) => _higherThanTech.includes(r))
+  const highestRole = getHighestRole(user) || ''
+  // Role flags derived from highest-ranking role so multi-role users always
+  // behave according to their most privileged role.
+  const isITManager = ['SUPER_ADMIN', 'IT_MANAGER'].includes(highestRole)
+  const isSupervisor = highestRole === 'SUPERVISOR'
+  const isFinance = highestRole === 'FINANCE_ADMIN' || isITManager
+  const isAdmin = isITManager || isSupervisor || isFinance || highestRole === 'HELP_DESK'
+  const isTechnician = !isAdmin && highestRole === 'TECHNICIAN'
   const isOutsource = user?.technicianType === 'OUTSOURCE'
 
   const fetchJob = async () => {

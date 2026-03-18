@@ -23,7 +23,7 @@ import {
   Calendar,
   FileText,
 } from 'lucide-react'
-import { isViewOnly, canPerformAction, getUserRoles } from '@/config/permissions'
+import { isViewOnly, canPerformAction, getUserRoles, getHighestRole } from '@/config/permissions'
 import { useThemeHighlight } from '@/hooks/useThemeHighlight'
 
 interface OutsourceJob {
@@ -158,16 +158,15 @@ export default function OutsourceMarketplacePage() {
   }, [])
 
   const userRoles = getUserRoles(user)
-  const higherRoles = ['SUPER_ADMIN', 'IT_MANAGER', 'FINANCE_ADMIN', 'SUPERVISOR']
-  const hasHigherRole = userRoles.some(r => higherRoles.includes(r))
-  const isTechnician = userRoles.includes('TECHNICIAN') && !hasHigherRole
+  const highestRole = getHighestRole(user) || ''
+  // Role flags derived from the highest-ranking role so multi-role users
+  // always behave according to their most privileged role.
+  const isItManager = ['SUPER_ADMIN', 'IT_MANAGER'].includes(highestRole)
+  const isSupervisor = highestRole === 'SUPERVISOR'
+  const isFinance = highestRole === 'FINANCE_ADMIN'
+  const isAdmin = isItManager || isSupervisor || isFinance || highestRole === 'HELP_DESK'
+  const isTechnician = !isAdmin && !isFinance && highestRole === 'TECHNICIAN'
   const isOutsource = user?.technicianType === 'OUTSOURCE'
-  const isFinance = userRoles.includes('FINANCE_ADMIN')
-  const isItManager = userRoles.includes('IT_MANAGER')
-  const isSupervisor = userRoles.includes('SUPERVISOR')
-  const isAdmin = userRoles.some((r: string) =>
-    ['IT_MANAGER', 'HELP_DESK', 'SUPERVISOR', 'FINANCE_ADMIN'].includes(r)
-  )
 
   const viewOnly = isViewOnly(user, '/dashboard/outsource')
   const canCreate = canPerformAction(user, '/dashboard/outsource', 'create')

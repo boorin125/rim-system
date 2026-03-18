@@ -334,13 +334,15 @@ export function getAccessLevel(user: any, menuPath: string): AccessLevel {
 
   if (!permission) return 'none'
 
-  // Return highest access level among user's roles
-  const accessLevels: AccessLevel[] = ['full', 'create_view', 'self', 'view', 'none']
+  // Use the access level of the highest-ranking role the user has.
+  // This ensures IT_MANAGER (rank 7) wins over SUPERVISOR (rank 5), etc.
+  const sortedRoles = [...userRoles].sort(
+    (a, b) => (ROLE_HIERARCHY[b] || 0) - (ROLE_HIERARCHY[a] || 0)
+  )
 
-  for (const level of accessLevels) {
-    if (userRoles.some(role => permission.accessLevel[role] === level)) {
-      return level
-    }
+  for (const role of sortedRoles) {
+    const level = permission.accessLevel[role]
+    if (level && level !== 'none') return level
   }
 
   return 'none'
