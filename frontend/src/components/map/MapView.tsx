@@ -113,12 +113,11 @@ const TECH_COLORS = {
   OUTSOURCE: { grad0: '#d8b4fe', grad1: '#7c3aed', text: '#7c3aed' },
 }
 
-function createTechnicianHomeIcon(initials: string, avatarUrl?: string | null, techType?: string): L.DivIcon {
-  const apiBase = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || ''
+function createTechnicianHomeIcon(initials: string, techType?: string): L.DivIcon {
   const colors = techType === 'OUTSOURCE' ? TECH_COLORS.OUTSOURCE : TECH_COLORS.INSOURCE
   const gradId = `pin-tech-${techType === 'OUTSOURCE' ? 'out' : 'in'}`
 
-  // SVG pin shape — no innerContent, avatar/initials overlaid as HTML
+  // Always show initials on the pin (avatar shown in popup instead)
   const svgPin = `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="36" viewBox="0 0 38 52" style="display:block;">
     <defs>
       <linearGradient id="${gradId}" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -132,20 +131,12 @@ function createTechnicianHomeIcon(initials: string, avatarUrl?: string | null, t
     <path d="M19 0C8.51 0 0 8.51 0 19c0 14.25 19 33 19 33s19-18.75 19-33C38 8.51 29.49 0 19 0z"
           fill="url(#${gradId})" filter="url(#shadow-th)" />
     <circle cx="19" cy="18" r="16" fill="white" opacity="0.9"/>
-    ${!avatarUrl ? `<text x="19" y="18" text-anchor="middle" dominant-baseline="central"
+    <text x="19" y="18" text-anchor="middle" dominant-baseline="central"
         font-size="11" font-weight="700" fill="${colors.text}"
-        font-family="Arial,Helvetica,sans-serif">${initials}</text>` : ''}
+        font-family="Arial,Helvetica,sans-serif">${initials}</text>
   </svg>`
 
-  // Avatar image overlaid with absolute positioning (avoids foreignObject browser issues)
-  const avatarHtml = avatarUrl
-    ? `<img src="${apiBase}${avatarUrl}"
-          style="position:absolute;top:2px;left:3px;width:20px;height:20px;
-                 border-radius:50%;object-fit:cover;pointer-events:none;"
-          onerror="this.style.display='none'" />`
-    : ''
-
-  const html = `<div style="position:relative;width:26px;height:36px;">${svgPin}${avatarHtml}</div>`
+  const html = `<div style="position:relative;width:26px;height:36px;">${svgPin}</div>`
 
   return L.divIcon({
     className: 'custom-marker',
@@ -436,7 +427,7 @@ export default function MapView({ checkins, technicianLocations = [] }: MapViewP
             <Marker
               key={`tech-${tech.id}`}
               position={pos}
-              icon={createTechnicianHomeIcon(initials, tech.avatarPath, tech.technicianType)}
+              icon={createTechnicianHomeIcon(initials, tech.technicianType)}
             >
               <Tooltip direction="top" offset={[0, -34]} opacity={0.95}>
                 <div style={{ fontSize: '12px', lineHeight: '1.5' }}>
@@ -467,8 +458,32 @@ export default function MapView({ checkins, technicianLocations = [] }: MapViewP
                       {isOutsource ? 'ช่าง Outsource' : 'ช่างเทคนิค'}
                     </span>
                   </div>
-                  <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '4px' }}>
-                    {tech.firstName} {tech.lastName}
+                  {/* Avatar + ชื่อ */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                    {tech.avatarPath ? (
+                      <img
+                        src={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || ''}${tech.avatarPath}`}
+                        alt={`${tech.firstName} ${tech.lastName}`}
+                        style={{
+                          width: '44px', height: '44px', borderRadius: '50%',
+                          objectFit: 'cover', border: `2px solid ${pinColor}`,
+                          flexShrink: 0,
+                        }}
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                      />
+                    ) : (
+                      <div style={{
+                        width: '44px', height: '44px', borderRadius: '50%',
+                        backgroundColor: pinColor, display: 'flex',
+                        alignItems: 'center', justifyContent: 'center',
+                        color: 'white', fontWeight: 700, fontSize: '16px', flexShrink: 0,
+                      }}>
+                        {initials}
+                      </div>
+                    )}
+                    <div style={{ fontWeight: 700, fontSize: '14px' }}>
+                      {tech.firstName} {tech.lastName}
+                    </div>
                   </div>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <tbody>
