@@ -78,6 +78,12 @@ const THAILAND_BOUNDS: [[number, number], [number, number]] = [
   [20.5, 105.7], // Northeast - northern tip
 ]
 
+// maxBounds: slightly padded so Thailand always stays in view, no scrolling to far areas
+const THAILAND_MAX_BOUNDS: [[number, number], [number, number]] = [
+  [4.0, 95.5],   // SW with padding
+  [21.5, 107.5], // NE with padding
+]
+
 // Colors matching Incident detail page status badges
 const statusColorMap: Record<string, { hex: string; text: string }> = {
   OPEN: { hex: '#3b82f6', text: '#60a5fa' },         // blue
@@ -256,6 +262,10 @@ export default function MapView({ checkins, technicianLocations = [] }: MapViewP
     <div style={{ position: 'relative', height: '100%', width: '100%' }}>
       <MapContainer
         bounds={THAILAND_BOUNDS}
+        maxBounds={THAILAND_MAX_BOUNDS}
+        maxBoundsViscosity={1.0}
+        minZoom={5}
+        maxZoom={16}
         className="h-full w-full rounded-2xl"
         style={{ background: '#f8fafc' }}
       >
