@@ -104,16 +104,17 @@ const statusLabelMap: Record<string, string> = {
 function createTechnicianHomeIcon(initials: string, avatarUrl?: string | null): L.DivIcon {
   const apiBase = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || ''
   const innerContent = avatarUrl
-    ? `<foreignObject x="3" y="2" width="32" height="32">
-        <div xmlns="http://www.w3.org/1999/xhtml" style="width:32px;height:32px;border-radius:50%;overflow:hidden;">
+    ? `<foreignObject x="3" y="2" width="22" height="22">
+        <div xmlns="http://www.w3.org/1999/xhtml" style="width:22px;height:22px;border-radius:50%;overflow:hidden;">
           <img src="${apiBase}${avatarUrl}" style="width:100%;height:100%;object-fit:cover;" />
         </div>
       </foreignObject>`
     : `<text x="19" y="18" text-anchor="middle" dominant-baseline="central"
-            font-size="13" font-weight="700" fill="#0d9488"
+            font-size="11" font-weight="700" fill="#0d9488"
             font-family="Arial,Helvetica,sans-serif">${initials}</text>`
+  // Same SVG viewBox, smaller rendered size (≈70% of original)
   const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="38" height="52" viewBox="0 0 38 52">
+    <svg xmlns="http://www.w3.org/2000/svg" width="26" height="36" viewBox="0 0 38 52">
       <defs>
         <linearGradient id="pin-tech-home" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" style="stop-color:#5eead4;stop-opacity:1" />
@@ -131,9 +132,9 @@ function createTechnicianHomeIcon(initials: string, avatarUrl?: string | null): 
   return L.divIcon({
     className: 'custom-marker',
     html: svg,
-    iconSize: [38, 52],
-    iconAnchor: [19, 52],
-    popupAnchor: [0, -48],
+    iconSize: [26, 36],
+    iconAnchor: [13, 36],
+    popupAnchor: [0, -34],
   })
 }
 
@@ -375,7 +376,7 @@ export default function MapView({ checkins, technicianLocations = [] }: MapViewP
               position={pos}
               icon={createTechnicianHomeIcon(initials, tech.avatarPath)}
             >
-              <Tooltip direction="top" offset={[0, -48]} opacity={0.95}>
+              <Tooltip direction="top" offset={[0, -34]} opacity={0.95}>
                 <div style={{ fontSize: '12px', lineHeight: '1.5' }}>
                   <strong>{tech.firstName} {tech.lastName}</strong>
                   <br />
