@@ -282,6 +282,24 @@ function LoginContent() {
                       </button>
                     </p>
                   </div>
+
+                  {/* Chrome tip */}
+                  <div className="flex items-start gap-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2.5 text-xs text-amber-300">
+                    <span className="text-base leading-none mt-0.5">💡</span>
+                    <span>
+                      <span className="font-semibold">แนะนำสำหรับ Chrome:</span>{' '}
+                      ไปที่{' '}
+                      <code
+                        className="bg-amber-500/20 px-1 py-0.5 rounded cursor-pointer hover:bg-amber-500/30 transition"
+                        onClick={() => { navigator.clipboard?.writeText('chrome://settings/onStartup') }}
+                        title="คลิกเพื่อคัดลอก"
+                      >
+                        chrome://settings/onStartup
+                      </code>
+                      {' '}แล้วเลือก <strong>"Open the New Tab page"</strong>{' '}
+                      เพื่อป้องกันแอปเปิดซ้ำเมื่อเปิด Chrome ใหม่
+                    </span>
+                  </div>
                 </form>
               </div>
             </div>

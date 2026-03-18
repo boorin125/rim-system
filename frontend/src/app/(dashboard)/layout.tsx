@@ -29,6 +29,7 @@ import toast from 'react-hot-toast'
 import axios from 'axios'
 import NotificationBell from '@/components/NotificationBell'
 import SupervisorPendingAlert from '@/components/SupervisorPendingAlert'
+import SingleTabGuard from '@/components/SingleTabGuard'
 import { hasMenuAccess, getUserRoles } from '@/config/permissions'
 import { LicenseProvider, useLicense } from '@/context/LicenseContext'
 
@@ -422,6 +423,9 @@ export default function DashboardLayout({
   return (
     <LicenseProvider>
     <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)' }}>
+      {/* Single Tab Guard — warns when app is open in multiple tabs */}
+      <SingleTabGuard />
+
       {/* Background Pattern */}
       <div className="fixed inset-0 bg-pattern"></div>
 
