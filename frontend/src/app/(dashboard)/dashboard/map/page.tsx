@@ -29,7 +29,7 @@ import type { TechnicianLocation } from '@/components/map/MapView'
 const MapView = dynamic(() => import('@/components/map/MapView'), {
   ssr: false,
   loading: () => (
-    <div className="h-[calc(100vh-14rem)] bg-slate-800/70 backdrop-blur-xl border border-slate-700/50 rounded-2xl flex items-center justify-center">
+    <div className="h-full bg-slate-800/70 backdrop-blur-xl border border-slate-700/50 rounded-2xl flex items-center justify-center">
       <div className="text-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
         <p className="text-gray-400">Loading map...</p>
@@ -73,6 +73,11 @@ function formatDateThai(dateStr: string) {
   return d.toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+function formatDateThaiShort(dateStr: string) {
+  const d = new Date(dateStr + 'T00:00:00')
+  return d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
+}
+
 export default function MapPage() {
   const { isExpired, hasLicense, isTrialGrace, isTrialExpired, trialDaysRemaining } = useLicense()
   const [checkins, setCheckins] = useState<MapCheckin[]>([])
@@ -89,12 +94,8 @@ export default function MapPage() {
     try {
       setLoading(true)
       const token = localStorage.getItem('token')
-      const params: Record<string, string> = {
-        from: selectedDate,
-        to: selectedDate,
-      }
+      const params: Record<string, string> = { from: selectedDate, to: selectedDate }
       if (filterStatus) params.status = filterStatus
-
       const res = await axios.get(
         `${process.env.NEXT_PUBLIC_API_URL}/incidents/analytics/map-checkins`,
         { headers: { Authorization: `Bearer ${token}` }, params }
@@ -142,7 +143,6 @@ export default function MapPage() {
 
   const isToday = selectedDate === getTodayStr()
 
-  // Unique technicians for dropdown
   const uniqueTechnicians = useMemo(() => {
     const seen = new Set<string>()
     return checkins
@@ -151,17 +151,19 @@ export default function MapPage() {
       .sort()
   }, [checkins])
 
-  // Filter checkins by technician (client-side)
   const filteredCheckins = useMemo(() => {
     if (!filterTechnician) return checkins
     return checkins.filter(c => c.technicianName === filterTechnician)
   }, [checkins, filterTechnician])
 
-  // Count by status (from filtered list)
   const statusCounts = filteredCheckins.reduce((acc, c) => {
     acc[c.status] = (acc[c.status] || 0) + 1
     return acc
   }, {} as Record<string, number>)
+
+  const activeTechsWithLocation = technicianLocations.filter(
+    t => t.province || (t.responsibleProvinces && t.responsibleProvinces.length > 0)
+  ).length
 
   if (isExpired || !hasLicense) return (
     <LicenseLock
@@ -172,30 +174,38 @@ export default function MapPage() {
   )
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col gap-3 h-full">
+
+      {/* ── Header ───────────────────────────────────────────── */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {/* Title */}
         <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <MapPin className="h-6 w-6 text-blue-400" />
+          <h1 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
+            <MapPin className="h-5 w-5 sm:h-6 sm:w-6 text-blue-400 shrink-0" />
             Check-in Map
           </h1>
-          <p className="mt-1 text-sm text-gray-400">
+          <p className="mt-0.5 text-xs sm:text-sm text-gray-400">
             แสดงตำแหน่ง Check-in ของช่างบนแผนที่ ({filteredCheckins.length} จุด)
           </p>
         </div>
+
+        {/* Controls row */}
         <div className="flex items-center gap-2">
           {/* Date navigation */}
-          <div className="flex items-center gap-1 bg-slate-800/70 border border-slate-700/50 rounded-xl px-2 py-1">
+          <div className="flex items-center flex-1 sm:flex-none bg-slate-800/70 border border-slate-700/50 rounded-xl overflow-hidden">
             <button
               onClick={() => changeDate(-1)}
-              className="p-1.5 rounded-lg hover:bg-slate-600/50 text-gray-300 transition"
+              className="p-3 sm:p-2 hover:bg-slate-600/50 text-gray-300 transition active:bg-slate-500/50"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <div className="relative flex items-center gap-2 px-2">
-              <Calendar className="h-4 w-4 text-blue-400" />
-              <span className="text-sm text-white font-medium">{formatDateThai(selectedDate)}</span>
+
+            <div className="relative flex items-center gap-1.5 px-2 flex-1 sm:flex-none sm:px-3 min-w-0">
+              <Calendar className="h-4 w-4 text-blue-400 shrink-0" />
+              <span className="text-xs sm:text-sm text-white font-medium truncate">
+                <span className="sm:hidden">{formatDateThaiShort(selectedDate)}</span>
+                <span className="hidden sm:inline">{formatDateThai(selectedDate)}</span>
+              </span>
               <input
                 type="date"
                 value={selectedDate}
@@ -204,89 +214,95 @@ export default function MapPage() {
                 className="absolute inset-0 opacity-0 cursor-pointer"
               />
             </div>
+
             <button
               onClick={() => changeDate(1)}
               disabled={isToday}
-              className="p-1.5 rounded-lg hover:bg-slate-600/50 text-gray-300 transition disabled:opacity-30"
+              className="p-3 sm:p-2 hover:bg-slate-600/50 text-gray-300 transition disabled:opacity-30 active:bg-slate-500/50"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
+
             {!isToday && (
               <button
                 onClick={() => setSelectedDate(getTodayStr())}
-                className="px-2 py-1 rounded-lg bg-blue-600/20 text-blue-400 text-xs font-medium hover:bg-blue-600/30 transition"
+                className="px-3 py-3 sm:py-2 bg-blue-600/20 text-blue-400 text-xs font-medium hover:bg-blue-600/30 transition border-l border-slate-700/50"
               >
                 วันนี้
               </button>
             )}
           </div>
+
           {/* Show All Technicians toggle */}
           <button
             onClick={handleToggleTechnicianLocations}
             disabled={loadingTechs}
             title="แสดงตำแหน่งช่างทั้งหมด"
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition ${
+            className={`flex items-center gap-1.5 px-3 py-3 sm:py-2 rounded-xl text-sm font-medium transition active:scale-95 ${
               showTechnicianLocations
-                ? 'bg-teal-600/30 border border-teal-500/50 text-teal-400 hover:bg-teal-600/40'
-                : 'bg-slate-700 hover:bg-slate-600 text-gray-300'
+                ? 'bg-teal-600/30 border border-teal-500/50 text-teal-400'
+                : 'bg-slate-800/70 border border-slate-700/50 text-gray-300 hover:bg-slate-700/70'
             }`}
           >
             {loadingTechs
               ? <RefreshCw className="h-4 w-4 animate-spin" />
               : <Users className="h-4 w-4" />
             }
-            <span className="hidden sm:inline">ช่างทั้งหมด</span>
+            <span className="hidden sm:inline text-sm">ช่างทั้งหมด</span>
             {showTechnicianLocations && technicianLocations.length > 0 && (
               <span className="bg-teal-500/30 text-teal-300 text-xs px-1.5 py-0.5 rounded-full">
-                {technicianLocations.filter(t => t.province && t.province in ({} as any)).length || technicianLocations.length}
+                {activeTechsWithLocation || technicianLocations.length}
               </span>
             )}
           </button>
+
           {/* Refresh */}
           <button
             onClick={fetchCheckins}
             disabled={loading}
-            className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-gray-300 transition disabled:opacity-50"
+            className="p-3 sm:p-2 rounded-xl bg-slate-800/70 border border-slate-700/50 hover:bg-slate-700/70 text-gray-300 transition disabled:opacity-50 active:scale-95"
           >
-            <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 sm:h-5 sm:w-5 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="bg-slate-800/70 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-4">
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Status filters */}
-          {statusFilters.map((sf) => (
-            <button
-              key={sf.value}
-              onClick={() => setFilterStatus(sf.value)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition flex items-center gap-2 ${
-                filterStatus === sf.value
-                  ? 'text-white'
-                  : 'bg-slate-700/50 text-gray-300 hover:bg-slate-600/50'
-              }`}
-              style={filterStatus === sf.value ? { backgroundColor: themeHighlight } : undefined}
-            >
-              {sf.color && <span className={`w-2.5 h-2.5 rounded-full ${sf.color}`}></span>}
-              {sf.label}
-              {sf.value === '' && filteredCheckins.length > 0 && (
-                <span className="bg-slate-600 px-1.5 py-0.5 rounded-full text-xs">{filteredCheckins.length}</span>
-              )}
-              {sf.value && statusCounts[sf.value] ? (
-                <span className="bg-slate-600 px-1.5 py-0.5 rounded-full text-xs">{statusCounts[sf.value]}</span>
-              ) : null}
-            </button>
-          ))}
+      {/* ── Filters ──────────────────────────────────────────── */}
+      <div className="bg-slate-800/70 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+          {/* Status filters — scrollable row on mobile */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 sm:flex-wrap scrollbar-hide">
+            {statusFilters.map((sf) => (
+              <button
+                key={sf.value}
+                onClick={() => setFilterStatus(sf.value)}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium transition whitespace-nowrap active:scale-95 ${
+                  filterStatus === sf.value
+                    ? 'text-white'
+                    : 'bg-slate-700/50 text-gray-300 hover:bg-slate-600/50'
+                }`}
+                style={filterStatus === sf.value ? { backgroundColor: themeHighlight } : undefined}
+              >
+                {sf.color && <span className={`w-2 h-2 rounded-full shrink-0 ${sf.color}`} />}
+                {sf.label}
+                {sf.value === '' && filteredCheckins.length > 0 && (
+                  <span className="bg-white/20 px-1.5 py-0.5 rounded-full text-xs">{filteredCheckins.length}</span>
+                )}
+                {sf.value && statusCounts[sf.value] ? (
+                  <span className="bg-white/20 px-1.5 py-0.5 rounded-full text-xs">{statusCounts[sf.value]}</span>
+                ) : null}
+              </button>
+            ))}
+          </div>
 
-          {/* Technician filter */}
+          {/* Technician filter — full width on mobile */}
           {uniqueTechnicians.length > 0 && (
-            <div className="flex items-center gap-2 ml-2 pl-2 border-l border-slate-600/50">
+            <div className="flex items-center gap-2 sm:ml-2 sm:pl-2 sm:border-l sm:border-slate-600/50">
               <User className="w-4 h-4 text-gray-400 shrink-0" />
               <select
                 value={filterTechnician}
                 onChange={(e) => setFilterTechnician(e.target.value)}
-                className="bg-slate-700/50 border border-slate-600/50 text-sm text-gray-300 rounded-full px-3 py-1.5 focus:outline-none focus:border-slate-500 cursor-pointer"
+                className="flex-1 sm:flex-none bg-slate-700/50 border border-slate-600/50 text-sm text-gray-300 rounded-full px-3 py-2 focus:outline-none focus:border-slate-500 cursor-pointer"
               >
                 <option value="">ช่างทั้งหมด ({checkins.length})</option>
                 {uniqueTechnicians.map(name => {
@@ -301,27 +317,29 @@ export default function MapPage() {
         </div>
       </div>
 
-      {/* Technician location hint */}
+      {/* ── Technician hint ──────────────────────────────────── */}
       {showTechnicianLocations && (
-        <div className="bg-teal-900/30 border border-teal-500/30 rounded-xl px-4 py-2 flex items-center gap-2 text-sm text-teal-300">
+        <div className="bg-teal-900/30 border border-teal-500/30 rounded-xl px-3 py-2 flex items-center gap-2 text-sm text-teal-300">
           <Users className="w-4 h-4 shrink-0" />
-          แสดงหมุด <strong>{technicianLocations.filter(t => t.province || (t.responsibleProvinces && t.responsibleProvinces.length > 0)).length}</strong> คน
-          ตามจังหวัดที่บันทึกไว้
-          {technicianLocations.filter(t => !t.province && !(t.responsibleProvinces && t.responsibleProvinces.length > 0)).length > 0 && (
-            <span className="text-teal-500 text-xs ml-1">
-              ({technicianLocations.filter(t => !t.province && !(t.responsibleProvinces && t.responsibleProvinces.length > 0)).length} คนยังไม่ระบุจังหวัด)
-            </span>
-          )}
+          <span>
+            แสดงหมุด <strong>{activeTechsWithLocation}</strong> คน ตามจังหวัดที่บันทึกไว้
+            {technicianLocations.filter(t => !t.province && !(t.responsibleProvinces && t.responsibleProvinces.length > 0)).length > 0 && (
+              <span className="text-teal-500 text-xs ml-1">
+                ({technicianLocations.filter(t => !t.province && !(t.responsibleProvinces && t.responsibleProvinces.length > 0)).length} คนยังไม่ระบุจังหวัด)
+              </span>
+            )}
+          </span>
         </div>
       )}
 
-      {/* Map Container */}
-      <div className="h-[calc(100vh-14rem)] bg-slate-800/70 backdrop-blur-xl border border-slate-700/50 rounded-2xl overflow-hidden">
+      {/* ── Map ──────────────────────────────────────────────── */}
+      <div className="flex-1 min-h-[55vh] sm:min-h-0 bg-slate-800/70 backdrop-blur-xl border border-slate-700/50 rounded-2xl overflow-hidden">
         <MapView
           checkins={filteredCheckins}
           technicianLocations={showTechnicianLocations ? technicianLocations : []}
         />
       </div>
+
     </div>
   )
 }
