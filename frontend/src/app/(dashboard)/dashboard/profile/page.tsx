@@ -88,6 +88,8 @@ export default function ProfilePage() {
   // Profile form
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
+  const [firstNameEn, setFirstNameEn] = useState('')
+  const [lastNameEn, setLastNameEn] = useState('')
   const [phone, setPhone] = useState('')
   const [department, setDepartment] = useState('')
   const [address, setAddress] = useState('')
@@ -152,6 +154,8 @@ export default function ProfilePage() {
       setProfile(response.data)
       setFirstName(response.data.firstName || '')
       setLastName(response.data.lastName || '')
+      setFirstNameEn(response.data.firstNameEn || '')
+      setLastNameEn(response.data.lastNameEn || '')
       setPhone(response.data.phone || '')
       setDepartment(response.data.department || '')
       setAddress(response.data.address || '')
@@ -218,7 +222,7 @@ export default function ProfilePage() {
       const token = localStorage.getItem('token')
       const response = await axios.put(
         `${process.env.NEXT_PUBLIC_API_URL}/auth/profile`,
-        { firstName, lastName, phone, department, address, subDistrict, district, province },
+        { firstName, lastName, firstNameEn, lastNameEn, phone, department, address, subDistrict, district, province },
         { headers: { Authorization: `Bearer ${token}` } }
       )
 
@@ -749,6 +753,33 @@ export default function ProfilePage() {
                     onChange={(e) => setLastName(e.target.value)}
                     className="w-full px-4 py-2.5 bg-slate-800 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Enter last name"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    First Name (English)
+                  </label>
+                  <input
+                    type="text"
+                    value={firstNameEn}
+                    onChange={(e) => setFirstNameEn(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-800 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="e.g. Somchai"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Last Name (English)
+                  </label>
+                  <input
+                    type="text"
+                    value={lastNameEn}
+                    onChange={(e) => setLastNameEn(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-800 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="e.g. Jaidee"
                   />
                 </div>
               </div>
