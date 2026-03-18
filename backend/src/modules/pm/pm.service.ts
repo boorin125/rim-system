@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { EquipmentLogAction, EquipmentStatus } from '@prisma/client';
+import { EquipmentLogAction, EquipmentLogSource, EquipmentStatus } from '@prisma/client';
 import { UpdatePmEquipmentRecordDto, SignInventoryListDto } from './dto/index';
 
 @Injectable()
@@ -170,6 +170,14 @@ export class PmService {
 
     const now = new Date();
 
+    // Fetch current equipment data (brand/model/serial/status) for oldValue comparison
+    const equipmentIds = pmRecord.equipmentRecords.map((r) => r.equipmentId);
+    const currentEquipments = await this.prisma.equipment.findMany({
+      where: { id: { in: equipmentIds } },
+      select: { id: true, brand: true, model: true, serialNumber: true, status: true },
+    });
+    const equipmentMap = new Map(currentEquipments.map((e) => [e.id, e]));
+
     await this.prisma.$transaction(async (tx) => {
       // Update PmRecord
       await tx.pmRecord.update({
@@ -183,34 +191,64 @@ export class PmService {
         data: { lastPmAt: now },
       });
 
-      // Apply equipment updates if provided
+      // Apply equipment updates per record
       for (const rec of pmRecord.equipmentRecords) {
-        const hasUpdate = rec.updatedBrand || rec.updatedModel || rec.updatedSerial;
-        if (!hasUpdate) continue;
+        const current = equipmentMap.get(rec.equipmentId);
+        if (!current) continue;
 
         const updateData: any = {};
-        if (rec.updatedBrand) updateData.brand = rec.updatedBrand;
-        if (rec.updatedModel) updateData.model = rec.updatedModel;
-        if (rec.updatedSerial) updateData.serialNumber = rec.updatedSerial;
+        const changes: string[] = [];
 
-        await tx.equipment.update({
-          where: { id: rec.equipmentId },
-          data: updateData,
-        });
+        // Brand / Model / Serial updates
+        if (rec.updatedBrand) { updateData.brand = rec.updatedBrand; changes.push(`Brand: ${current.brand} → ${rec.updatedBrand}`); }
+        if (rec.updatedModel) { updateData.model = rec.updatedModel; changes.push(`Model: ${current.model} → ${rec.updatedModel}`); }
+        if (rec.updatedSerial) { updateData.serialNumber = rec.updatedSerial; changes.push(`Serial: ${current.serialNumber} → ${rec.updatedSerial}`); }
 
-        // Create equipment log
+        // Condition → auto-update Equipment.status
+        let newStatus: EquipmentStatus | null = null;
+        if (rec.condition === 'REPLACED' && current.status !== EquipmentStatus.RETIRED) {
+          newStatus = EquipmentStatus.RETIRED;
+          updateData.status = newStatus;
+          changes.push(`Status: ${current.status} → RETIRED (เปลี่ยนอุปกรณ์แล้ว)`);
+        } else if (rec.condition === 'NEEDS_REPAIR' && current.status === EquipmentStatus.ACTIVE) {
+          newStatus = EquipmentStatus.MAINTENANCE;
+          updateData.status = newStatus;
+          changes.push(`Status: ${current.status} → MAINTENANCE (ต้องซ่อม)`);
+        } else if (rec.condition === 'GOOD' && current.status === EquipmentStatus.MAINTENANCE) {
+          newStatus = EquipmentStatus.ACTIVE;
+          updateData.status = newStatus;
+          changes.push(`Status: MAINTENANCE → ACTIVE (ผ่านการตรวจสอบ)`);
+        }
+
+        if (Object.keys(updateData).length === 0) continue;
+
+        await tx.equipment.update({ where: { id: rec.equipmentId }, data: updateData });
+
+        // Determine action type
+        const action = newStatus && Object.keys(updateData).length === 1
+          ? EquipmentLogAction.STATUS_CHANGED
+          : newStatus
+            ? EquipmentLogAction.UPDATED
+            : EquipmentLogAction.UPDATED;
+
+        const oldVal: any = { brand: current.brand, model: current.model, serialNumber: current.serialNumber, status: current.status };
+        const newVal: any = {
+          brand: rec.updatedBrand ?? current.brand,
+          model: rec.updatedModel ?? current.model,
+          serialNumber: rec.updatedSerial ?? current.serialNumber,
+          status: newStatus ?? current.status,
+        };
+
         await tx.equipmentLog.create({
           data: {
             equipmentId: rec.equipmentId,
-            action: EquipmentLogAction.UPDATED,
-            description: `PM Update: ${[
-              rec.updatedBrand ? `Brand → ${rec.updatedBrand}` : '',
-              rec.updatedModel ? `Model → ${rec.updatedModel}` : '',
-              rec.updatedSerial ? `Serial → ${rec.updatedSerial}` : '',
-            ]
-              .filter(Boolean)
-              .join(', ')}`,
+            action,
+            source: EquipmentLogSource.PM,
+            sourceId: incidentId,
+            description: `PM: ${changes.join(', ')}`,
             changedBy: userId,
+            oldValue: oldVal,
+            newValue: newVal,
           },
         });
       }

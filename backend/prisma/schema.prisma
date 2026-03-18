@@ -14,6 +14,8 @@ model User {
   password                    String
   firstName                   String?                      @map("first_name")
   lastName                    String?                      @map("last_name")
+  firstNameEn                 String?                      @map("first_name_en")
+  lastNameEn                  String?                      @map("last_name_en")
   phone                       String?
   department                  String?                      @map("department")
   technicianType              TechnicianType?              @map("technician_type")
@@ -232,10 +234,12 @@ model EquipmentLog {
   id          Int                @id @default(autoincrement())
   equipmentId Int                @map("equipment_id")
   action      EquipmentLogAction
+  source      EquipmentLogSource @default(MANUAL) @map("source")
+  sourceId    String?            @map("source_id") // incidentId หรือ pmRecordId
   description String
   changedBy   Int                @map("changed_by")
-  oldValue    String?            @map("old_value")
-  newValue    String?            @map("new_value")
+  oldValue    Json?              @map("old_value")
+  newValue    Json?              @map("new_value")
   createdAt   DateTime           @default(now()) @map("created_at")
   equipment   Equipment          @relation(fields: [equipmentId], references: [id])
   user        User               @relation(fields: [changedBy], references: [id])
@@ -243,6 +247,7 @@ model EquipmentLog {
   @@index([equipmentId])
   @@index([changedBy])
   @@index([createdAt])
+  @@index([source])
   @@map("equipment_logs")
 }
 
@@ -542,6 +547,15 @@ enum EquipmentLogAction {
   MAINTENANCE_COMPLETED
   REPLACED_OUT // ถูกถอดออกจาก Incident (อุปกรณ์เดิม)
   REPLACED_IN // ถูกใส่เข้าไปใน Incident (อุปกรณ์ใหม่)
+  COMPONENT_REPLACED // ชิ้นส่วนภายในถูกเปลี่ยน
+}
+
+enum EquipmentLogSource {
+  MANUAL     // แก้ไขโดยตรงใน Equipment module
+  PM         // เปลี่ยนแปลงจาก PM Submit
+  INCIDENT   // เปลี่ยนแปลงจาก Incident (SparePart / Resolve)
+  IMPORT     // นำเข้าจาก Excel
+  RETIREMENT // การยกเลิกใช้งาน
 }
 
 enum Priority {

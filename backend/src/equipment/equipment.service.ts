@@ -8,7 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateEquipmentDto } from './dto/create-equipment.dto';
 import { UpdateEquipmentDto } from './dto/update-equipment.dto';
 import { FilterEquipmentDto } from './dto/filter-equipment.dto';
-import { EquipmentStatus, EquipmentLogAction, AuditModule, AuditAction } from '@prisma/client';
+import { EquipmentStatus, EquipmentLogAction, EquipmentLogSource, AuditModule, AuditAction } from '@prisma/client';
 import * as ExcelJS from 'exceljs';
 import { AuditTrailService } from '../modules/audit-trail/audit-trail.service';
 
@@ -78,14 +78,15 @@ export class EquipmentService {
         data: {
           equipmentId: newEquipment.id,
           action: EquipmentLogAction.CREATED,
+          source: EquipmentLogSource.MANUAL,
           description: `Equipment "${newEquipment.name}" (SN: ${newEquipment.serialNumber}) created`,
           changedBy: userId,
-          newValue: JSON.stringify({
+          newValue: {
             name: newEquipment.name,
             category: newEquipment.category,
             status: newEquipment.status,
             storeId: newEquipment.storeId,
-          }),
+          },
         },
       });
 
@@ -350,15 +351,25 @@ export class EquipmentService {
         },
       });
 
-      // Create log entry
+      // Create log entry — structured oldValue/newValue (only changed fields)
+      const changedFields = Object.keys(updateData).filter(
+        (k) => updateData[k] !== undefined && String(updateData[k]) !== String((equipment as any)[k]),
+      );
+      const oldVal: any = {};
+      const newVal: any = {};
+      for (const k of changedFields) {
+        oldVal[k] = (equipment as any)[k];
+        newVal[k] = updateData[k];
+      }
       await tx.equipmentLog.create({
         data: {
           equipmentId: id,
           action: logAction,
+          source: EquipmentLogSource.MANUAL,
           description: logDescription,
           changedBy: userId,
-          oldValue: JSON.stringify(equipment),
-          newValue: JSON.stringify(updateData),
+          oldValue: changedFields.length > 0 ? oldVal : null,
+          newValue: changedFields.length > 0 ? newVal : null,
         },
       });
 
@@ -499,10 +510,11 @@ export class EquipmentService {
         data: {
           equipmentId: id,
           action: EquipmentLogAction.RETIRED,
+          source: EquipmentLogSource.RETIREMENT,
           description: `Equipment retired`,
           changedBy: userId,
-          oldValue: JSON.stringify({ status: equipment.status }),
-          newValue: JSON.stringify({ status: EquipmentStatus.RETIRED }),
+          oldValue: { status: equipment.status },
+          newValue: { status: EquipmentStatus.RETIRED },
         },
       });
 
@@ -577,6 +589,7 @@ export class EquipmentService {
       data: {
         equipmentId,
         action: EquipmentLogAction.UPDATED,
+        source: EquipmentLogSource.RETIREMENT,
         description: `ส่งคำขอปลดระวาง โดย ${requesterName}: ${reason}`,
         changedBy: userId,
       },
@@ -672,10 +685,11 @@ export class EquipmentService {
         data: {
           equipmentId: request.equipmentId,
           action: EquipmentLogAction.RETIRED,
+          source: EquipmentLogSource.RETIREMENT,
           description: `อนุมัติปลดระวางโดย ${approverName}${note ? ` หมายเหตุ: ${note}` : ''}`,
           changedBy: approverId,
-          oldValue: JSON.stringify({ status: request.equipment.status }),
-          newValue: JSON.stringify({ status: EquipmentStatus.RETIRED }),
+          oldValue: { status: request.equipment.status },
+          newValue: { status: EquipmentStatus.RETIRED },
         },
       });
 
@@ -746,6 +760,7 @@ export class EquipmentService {
       data: {
         equipmentId: request.equipmentId,
         action: EquipmentLogAction.UPDATED,
+        source: EquipmentLogSource.RETIREMENT,
         description: `ปฏิเสธคำขอปลดระวางโดย ${approverName}${note ? ` เหตุผล: ${note}` : ''}`,
         changedBy: approverId,
       },
@@ -1616,6 +1631,7 @@ export class EquipmentService {
             data: {
               equipmentId: created.id,
               action: EquipmentLogAction.CREATED,
+              source: EquipmentLogSource.IMPORT,
               description: `Bulk imported to ${store.storeCode}`,
               changedBy: userId,
             },
@@ -1823,14 +1839,15 @@ export class EquipmentService {
             data: {
               equipmentId: newEquipment.id,
               action: EquipmentLogAction.CREATED,
+              source: EquipmentLogSource.IMPORT,
               description: `Equipment "${newEquipment.name}" imported from Excel`,
               changedBy: userId,
-              newValue: JSON.stringify({
+              newValue: {
                 name: newEquipment.name,
                 category: newEquipment.category,
                 serialNumber: newEquipment.serialNumber,
                 storeId: newEquipment.storeId,
-              }),
+              },
             },
           });
         });
@@ -2306,10 +2323,11 @@ export class EquipmentService {
               data: {
                 equipmentId: existing.id,
                 action: EquipmentLogAction.UPDATED,
+                source: EquipmentLogSource.IMPORT,
                 description: `Equipment "${updated.name}" updated from Excel import`,
                 changedBy: userId,
-                oldValue: JSON.stringify(oldData),
-                newValue: JSON.stringify({
+                oldValue: oldData as any,
+                newValue: {
                   name: updated.name,
                   category: updated.category,
                   brand: updated.brand,
@@ -2317,7 +2335,7 @@ export class EquipmentService {
                   status: updated.status,
                   purchaseDate: updated.purchaseDate,
                   warrantyExpiry: updated.warrantyExpiry,
-                }),
+                },
               },
             });
           });
@@ -2344,14 +2362,15 @@ export class EquipmentService {
               data: {
                 equipmentId: newEquipment.id,
                 action: EquipmentLogAction.CREATED,
+                source: EquipmentLogSource.IMPORT,
                 description: `Equipment "${newEquipment.name}" imported from Excel`,
                 changedBy: userId,
-                newValue: JSON.stringify({
+                newValue: {
                   name: newEquipment.name,
                   category: newEquipment.category,
                   serialNumber: newEquipment.serialNumber,
                   storeId: newEquipment.storeId,
-                }),
+                },
               },
             });
           });

@@ -8,7 +8,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateIncidentDto } from './dto/create-incident.dto';
 import { UpdateIncidentDto } from './dto/update-incident.dto';
-import { IncidentStatus, Priority, UserRole, IncidentAction, IncidentType, EquipmentStatus, EquipmentLogAction, RepairType, AuditModule, AuditAction, NotificationType, SlaDefenseStatus, SlaRegion } from '@prisma/client';
+import { IncidentStatus, Priority, UserRole, IncidentAction, IncidentType, EquipmentStatus, EquipmentLogAction, EquipmentLogSource, RepairType, AuditModule, AuditAction, NotificationType, SlaDefenseStatus, SlaRegion } from '@prisma/client';
 import { ResolveIncidentDto, UpdateResolveDto } from './dto/resolve-incident.dto';
 import { SubmitResponseDto } from './dto/submit-response.dto';
 import { IncidentHistoryService } from './incident-history.service';
@@ -457,9 +457,31 @@ export class IncidentsService {
     storeId: number,
     ticketNumber: string,
     userId: number,
+    incidentId?: string,
   ) {
     // Only process EQUIPMENT_REPLACEMENT type
-    if (transformedSp.repairType === 'COMPONENT_REPLACEMENT') return;
+    if (transformedSp.repairType === 'COMPONENT_REPLACEMENT') {
+      // Log component replacement on parent equipment
+      const parentId = originalSp.parentEquipmentId || null;
+      if (parentId) {
+        const parentEquip = await prisma.equipment.findUnique({ where: { id: parentId } });
+        if (parentEquip) {
+          await prisma.equipmentLog.create({
+            data: {
+              equipmentId: parentId,
+              action: EquipmentLogAction.COMPONENT_REPLACED,
+              source: EquipmentLogSource.INCIDENT,
+              sourceId: incidentId ?? null,
+              description: `เปลี่ยนชิ้นส่วน "${originalSp.componentName ?? 'ไม่ระบุ'}" จาก Incident ${ticketNumber} — Serial: ${originalSp.oldComponentSerial ?? '-'} → ${originalSp.newComponentSerial ?? '-'}`,
+              changedBy: userId,
+              oldValue: { componentName: originalSp.componentName, serial: originalSp.oldComponentSerial ?? null },
+              newValue: { componentName: originalSp.componentName, serial: originalSp.newComponentSerial ?? null },
+            },
+          });
+        }
+      }
+      return;
+    }
 
     const oldSerial = transformedSp.oldSerialNo;
     const newSerial = transformedSp.newSerialNo;
@@ -470,16 +492,12 @@ export class IncidentsService {
 
     // If no equipment IDs provided, look up by serial number
     if (!oldEquipmentId && oldSerial) {
-      const oldEquip = await prisma.equipment.findUnique({
-        where: { serialNumber: oldSerial },
-      });
+      const oldEquip = await prisma.equipment.findUnique({ where: { serialNumber: oldSerial } });
       if (oldEquip) oldEquipmentId = oldEquip.id;
     }
 
     if (!newEquipmentId && newSerial) {
-      const newEquip = await prisma.equipment.findUnique({
-        where: { serialNumber: newSerial },
-      });
+      const newEquip = await prisma.equipment.findUnique({ where: { serialNumber: newSerial } });
       if (newEquip) newEquipmentId = newEquip.id;
     }
 
@@ -496,10 +514,12 @@ export class IncidentsService {
           data: {
             equipmentId: oldEquipmentId,
             action: EquipmentLogAction.REPLACED_OUT,
+            source: EquipmentLogSource.INCIDENT,
+            sourceId: incidentId ?? null,
             description: `ถูกถอดออกจาก Incident ${ticketNumber} และเปลี่ยนเป็นอุปกรณ์ใหม่`,
             changedBy: userId,
-            oldValue: JSON.stringify({ status: oldEquip.status, storeId: oldEquip.storeId }),
-            newValue: JSON.stringify({ status: 'INACTIVE' }),
+            oldValue: { status: oldEquip.status, storeId: oldEquip.storeId, serialNumber: oldEquip.serialNumber },
+            newValue: { status: 'INACTIVE' },
           },
         });
       }
@@ -517,34 +537,25 @@ export class IncidentsService {
         // Inherit name/position from old equipment if available
         if (oldEquipmentId) {
           const oldEquip = await prisma.equipment.findUnique({ where: { id: oldEquipmentId } });
-          if (oldEquip && oldEquip.name) {
-            updateData.name = oldEquip.name;
-          }
+          if (oldEquip && oldEquip.name) updateData.name = oldEquip.name;
         }
 
-        // Update brand/model from spare part if provided
-        if (originalSp.newBrand !== undefined) {
-          updateData.brand = originalSp.newBrand || null;
-        }
-        if (originalSp.newModel !== undefined) {
-          updateData.model = originalSp.newModel || null;
-        } else if (originalSp.newDeviceName) {
-          updateData.model = originalSp.newDeviceName;
-        }
+        if (originalSp.newBrand !== undefined) updateData.brand = originalSp.newBrand || null;
+        if (originalSp.newModel !== undefined) updateData.model = originalSp.newModel || null;
+        else if (originalSp.newDeviceName) updateData.model = originalSp.newDeviceName;
 
-        await prisma.equipment.update({
-          where: { id: newEquipmentId },
-          data: updateData,
-        });
+        await prisma.equipment.update({ where: { id: newEquipmentId }, data: updateData });
 
         await prisma.equipmentLog.create({
           data: {
             equipmentId: newEquipmentId,
             action: EquipmentLogAction.REPLACED_IN,
+            source: EquipmentLogSource.INCIDENT,
+            sourceId: incidentId ?? null,
             description: `ถูกติดตั้งแทนที่อุปกรณ์เดิมใน Incident ${ticketNumber} ที่ Store ID ${storeId}`,
             changedBy: userId,
-            oldValue: JSON.stringify({ status: newEquip.status, storeId: newEquip.storeId }),
-            newValue: JSON.stringify({ status: 'ACTIVE', storeId: storeId }),
+            oldValue: { status: newEquip.status, storeId: newEquip.storeId, serialNumber: newEquip.serialNumber },
+            newValue: { status: 'ACTIVE', storeId: storeId, brand: updateData.brand, model: updateData.model },
           },
         });
       }
@@ -554,42 +565,24 @@ export class IncidentsService {
     if (oldEquipmentId && !newEquipmentId && newSerial) {
       const oldEquip = await prisma.equipment.findUnique({ where: { id: oldEquipmentId } });
       if (oldEquip) {
-        // Build update data: serial + brand/model from new device name
-        const updateData: any = {
-          serialNumber: newSerial,
-          status: EquipmentStatus.ACTIVE,
-        };
+        const updateData: any = { serialNumber: newSerial, status: EquipmentStatus.ACTIVE };
 
-        // Update brand/model from spare part fields
-        if (originalSp.newBrand !== undefined) {
-          updateData.brand = originalSp.newBrand || null;
-        }
-        if (originalSp.newModel !== undefined) {
-          updateData.model = originalSp.newModel || null;
-        } else if (originalSp.newDeviceName) {
-          updateData.model = originalSp.newDeviceName;
-        }
+        if (originalSp.newBrand !== undefined) updateData.brand = originalSp.newBrand || null;
+        if (originalSp.newModel !== undefined) updateData.model = originalSp.newModel || null;
+        else if (originalSp.newDeviceName) updateData.model = originalSp.newDeviceName;
 
-        const oldValues: any = { serialNumber: oldSerial };
-        const newValues: any = { serialNumber: newSerial };
-        if (oldEquip.brand) oldValues.brand = oldEquip.brand;
-        if (oldEquip.model) oldValues.model = oldEquip.model;
-        if (updateData.model) newValues.model = updateData.model;
-
-        // Reactivate old equipment record with new serial and device info (same slot/position)
-        await prisma.equipment.update({
-          where: { id: oldEquipmentId },
-          data: updateData,
-        });
+        await prisma.equipment.update({ where: { id: oldEquipmentId }, data: updateData });
 
         await prisma.equipmentLog.create({
           data: {
             equipmentId: oldEquipmentId,
             action: EquipmentLogAction.UPDATED,
+            source: EquipmentLogSource.INCIDENT,
+            sourceId: incidentId ?? null,
             description: `เปลี่ยนอุปกรณ์จาก Incident ${ticketNumber} — Serial: ${oldSerial} → ${newSerial}${originalSp.newDeviceName ? ` | Device: ${originalSp.newDeviceName}` : ''}`,
             changedBy: userId,
-            oldValue: JSON.stringify(oldValues),
-            newValue: JSON.stringify(newValues),
+            oldValue: { serialNumber: oldSerial, brand: oldEquip.brand, model: oldEquip.model, status: oldEquip.status },
+            newValue: { serialNumber: newSerial, brand: updateData.brand, model: updateData.model, status: 'ACTIVE' },
           },
         });
       }
@@ -2864,7 +2857,6 @@ export class IncidentsService {
     // ✅ Sync Equipment records now that Helpdesk has confirmed close
     const spareParts = await this.prisma.sparePart.findMany({ where: { incidentId: id } });
     for (const sp of spareParts) {
-      if (sp.repairType !== RepairType.EQUIPMENT_REPLACEMENT) continue;
       const originalSp = {
         oldEquipmentId: sp.oldEquipmentId,
         newEquipmentId: sp.newEquipmentId,
@@ -2873,6 +2865,11 @@ export class IncidentsService {
         newDeviceName: sp.deviceName?.includes(' → ')
           ? sp.deviceName.split(' → ')[1]?.trim()
           : sp.deviceName,
+        // Component replacement fields
+        parentEquipmentId: sp.parentEquipmentId,
+        componentName: sp.componentName,
+        oldComponentSerial: sp.oldComponentSerial,
+        newComponentSerial: sp.newComponentSerial,
       };
       const transformedSp = {
         repairType: sp.repairType,
@@ -2881,7 +2878,7 @@ export class IncidentsService {
       };
       await this.syncEquipmentFromSparePart(
         this.prisma, originalSp, transformedSp,
-        incident.storeId, incident.ticketNumber, userId,
+        incident.storeId, incident.ticketNumber, userId, id,
       );
     }
 
