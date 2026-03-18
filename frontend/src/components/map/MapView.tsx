@@ -118,35 +118,38 @@ function createTechnicianHomeIcon(initials: string, avatarUrl?: string | null, t
   const colors = techType === 'OUTSOURCE' ? TECH_COLORS.OUTSOURCE : TECH_COLORS.INSOURCE
   const gradId = `pin-tech-${techType === 'OUTSOURCE' ? 'out' : 'in'}`
 
-  const innerContent = avatarUrl
-    ? `<foreignObject x="3" y="2" width="22" height="22">
-        <div xmlns="http://www.w3.org/1999/xhtml" style="width:22px;height:22px;border-radius:50%;overflow:hidden;">
-          <img src="${apiBase}${avatarUrl}" style="width:100%;height:100%;object-fit:cover;" />
-        </div>
-      </foreignObject>`
-    : `<text x="19" y="18" text-anchor="middle" dominant-baseline="central"
-            font-size="11" font-weight="700" fill="${colors.text}"
-            font-family="Arial,Helvetica,sans-serif">${initials}</text>`
+  // SVG pin shape — no innerContent, avatar/initials overlaid as HTML
+  const svgPin = `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="36" viewBox="0 0 38 52" style="display:block;">
+    <defs>
+      <linearGradient id="${gradId}" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" style="stop-color:${colors.grad0};stop-opacity:1" />
+        <stop offset="100%" style="stop-color:${colors.grad1};stop-opacity:1" />
+      </linearGradient>
+      <filter id="shadow-th" x="-20%" y="-10%" width="140%" height="130%">
+        <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="rgba(0,0,0,0.35)"/>
+      </filter>
+    </defs>
+    <path d="M19 0C8.51 0 0 8.51 0 19c0 14.25 19 33 19 33s19-18.75 19-33C38 8.51 29.49 0 19 0z"
+          fill="url(#${gradId})" filter="url(#shadow-th)" />
+    <circle cx="19" cy="18" r="16" fill="white" opacity="0.9"/>
+    ${!avatarUrl ? `<text x="19" y="18" text-anchor="middle" dominant-baseline="central"
+        font-size="11" font-weight="700" fill="${colors.text}"
+        font-family="Arial,Helvetica,sans-serif">${initials}</text>` : ''}
+  </svg>`
 
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="26" height="36" viewBox="0 0 38 52">
-      <defs>
-        <linearGradient id="${gradId}" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style="stop-color:${colors.grad0};stop-opacity:1" />
-          <stop offset="100%" style="stop-color:${colors.grad1};stop-opacity:1" />
-        </linearGradient>
-        <filter id="shadow-tech-home" x="-20%" y="-10%" width="140%" height="130%">
-          <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="rgba(0,0,0,0.35)"/>
-        </filter>
-      </defs>
-      <path d="M19 0C8.51 0 0 8.51 0 19c0 14.25 19 33 19 33s19-18.75 19-33C38 8.51 29.49 0 19 0z"
-            fill="url(#${gradId})" filter="url(#shadow-tech-home)" />
-      <circle cx="19" cy="18" r="16" fill="white" opacity="0.9"/>
-      ${innerContent}
-    </svg>`
+  // Avatar image overlaid with absolute positioning (avoids foreignObject browser issues)
+  const avatarHtml = avatarUrl
+    ? `<img src="${apiBase}${avatarUrl}"
+          style="position:absolute;top:2px;left:3px;width:20px;height:20px;
+                 border-radius:50%;object-fit:cover;pointer-events:none;"
+          onerror="this.style.display='none'" />`
+    : ''
+
+  const html = `<div style="position:relative;width:26px;height:36px;">${svgPin}${avatarHtml}</div>`
+
   return L.divIcon({
     className: 'custom-marker',
-    html: svg,
+    html,
     iconSize: [26, 36],
     iconAnchor: [13, 36],
     popupAnchor: [0, -34],
@@ -157,36 +160,37 @@ function createPinIcon(status: string, initials: string, avatarUrl?: string | nu
   const color = statusColorMap[status] || statusColorMap['PENDING']
   const apiBase = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || ''
 
-  // Inner content: avatar image or initials text
-  const innerContent = avatarUrl
-    ? `<foreignObject x="3" y="2" width="32" height="32">
-        <div xmlns="http://www.w3.org/1999/xhtml" style="width:32px;height:32px;border-radius:50%;overflow:hidden;">
-          <img src="${apiBase}${avatarUrl}" style="width:100%;height:100%;object-fit:cover;" />
-        </div>
-      </foreignObject>`
-    : `<text x="19" y="18" text-anchor="middle" dominant-baseline="central"
-            font-size="14" font-weight="700" fill="${color.hex}"
-            font-family="Arial,Helvetica,sans-serif">${initials}</text>`
+  // SVG pin shape — initials stay in SVG, avatar overlaid as HTML <img>
+  const svgPin = `<svg xmlns="http://www.w3.org/2000/svg" width="38" height="52" viewBox="0 0 38 52" style="display:block;">
+    <defs>
+      <linearGradient id="pin-${status}" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" style="stop-color:${color.text};stop-opacity:1" />
+        <stop offset="100%" style="stop-color:${color.hex};stop-opacity:1" />
+      </linearGradient>
+      <filter id="shadow-${status}" x="-20%" y="-10%" width="140%" height="130%">
+        <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="rgba(0,0,0,0.35)"/>
+      </filter>
+    </defs>
+    <path d="M19 0C8.51 0 0 8.51 0 19c0 14.25 19 33 19 33s19-18.75 19-33C38 8.51 29.49 0 19 0z"
+          fill="url(#pin-${status})" filter="url(#shadow-${status})" />
+    <circle cx="19" cy="18" r="16" fill="white" opacity="0.9"/>
+    ${!avatarUrl ? `<text x="19" y="18" text-anchor="middle" dominant-baseline="central"
+        font-size="14" font-weight="700" fill="${color.hex}"
+        font-family="Arial,Helvetica,sans-serif">${initials}</text>` : ''}
+  </svg>`
 
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="38" height="52" viewBox="0 0 38 52">
-      <defs>
-        <linearGradient id="pin-${status}" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style="stop-color:${color.text};stop-opacity:1" />
-          <stop offset="100%" style="stop-color:${color.hex};stop-opacity:1" />
-        </linearGradient>
-        <filter id="shadow-${status}" x="-20%" y="-10%" width="140%" height="130%">
-          <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="rgba(0,0,0,0.35)"/>
-        </filter>
-      </defs>
-      <path d="M19 0C8.51 0 0 8.51 0 19c0 14.25 19 33 19 33s19-18.75 19-33C38 8.51 29.49 0 19 0z"
-            fill="url(#pin-${status})" filter="url(#shadow-${status})" />
-      <circle cx="19" cy="18" r="16" fill="white" opacity="0.9"/>
-      ${innerContent}
-    </svg>`
+  const avatarHtml = avatarUrl
+    ? `<img src="${apiBase}${avatarUrl}"
+          style="position:absolute;top:2px;left:3px;width:32px;height:32px;
+                 border-radius:50%;object-fit:cover;pointer-events:none;"
+          onerror="this.style.display='none'" />`
+    : ''
+
+  const html = `<div style="position:relative;width:38px;height:52px;">${svgPin}${avatarHtml}</div>`
+
   return L.divIcon({
     className: 'custom-marker',
-    html: svg,
+    html,
     iconSize: [38, 52],
     iconAnchor: [19, 52],
     popupAnchor: [0, -48],
