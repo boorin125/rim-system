@@ -15,6 +15,43 @@ import {
   SubmitFeedbackDto,
   RecordUsageDto,
 } from './dto';
+import { UserRole } from '@prisma/client';
+
+// Role rank — higher number = higher privilege
+const ROLE_RANK: Record<UserRole, number> = {
+  READ_ONLY: 1,
+  END_USER: 2,
+  TECHNICIAN: 3,
+  SUPERVISOR: 4,
+  FINANCE_ADMIN: 5,
+  HELP_DESK: 6,
+  IT_MANAGER: 7,
+  SUPER_ADMIN: 8,
+};
+
+/**
+ * Returns all UserRole values that have rank <= the given role's rank.
+ * An article tagged [TECHNICIAN] is visible to TECHNICIAN, SUPERVISOR, … SUPER_ADMIN.
+ * A user at rank N can see articles whose minimum tagged role has rank <= N.
+ * We pass the "accessible roles" (rank <= userRank) so Prisma hasSome works correctly.
+ */
+function getAccessibleRoles(userRole: UserRole): UserRole[] {
+  const userRank = ROLE_RANK[userRole] ?? 0;
+  return (Object.keys(ROLE_RANK) as UserRole[]).filter(
+    (r) => ROLE_RANK[r] <= userRank,
+  );
+}
+
+/** Prisma where clause to filter by role visibility */
+function visibilityFilter(userRole: UserRole) {
+  const accessible = getAccessibleRoles(userRole);
+  return {
+    OR: [
+      { visibleToRoles: { isEmpty: true } },
+      { visibleToRoles: { hasSome: accessible } },
+    ],
+  };
+}
 
 @Injectable()
 export class KnowledgeBaseService {
@@ -242,6 +279,7 @@ export class KnowledgeBaseService {
         authorId,
         relatedArticleIds: dto.relatedArticleIds || [],
         attachments: dto.attachments || [],
+        visibleToRoles: dto.visibleToRoles || [],
       },
       include: {
         category: true,
@@ -253,41 +291,46 @@ export class KnowledgeBaseService {
   }
 
   /**
-   * Get all articles
+   * Get all articles (filtered by user's role)
    */
-  async getArticles(query?: {
-    page?: number;
-    limit?: number;
-    categoryId?: number;
-    search?: string;
-    isPublished?: boolean;
-    authorId?: number;
-  }) {
+  async getArticles(
+    userRole: UserRole,
+    query?: {
+      page?: number;
+      limit?: number;
+      categoryId?: number;
+      search?: string;
+      isPublished?: boolean;
+      authorId?: number;
+    },
+  ) {
     const page = query?.page || 1;
     const limit = query?.limit || 20;
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const where: any = { AND: [visibilityFilter(userRole)] };
 
     if (query?.categoryId) {
-      where.categoryId = query.categoryId;
+      where.AND.push({ categoryId: query.categoryId });
     }
 
     if (query?.isPublished !== undefined) {
-      where.isPublished = query.isPublished;
+      where.AND.push({ isPublished: query.isPublished });
     }
 
     if (query?.authorId) {
-      where.authorId = query.authorId;
+      where.AND.push({ authorId: query.authorId });
     }
 
     if (query?.search) {
-      where.OR = [
-        { title: { contains: query.search, mode: 'insensitive' } },
-        { summary: { contains: query.search, mode: 'insensitive' } },
-        { content: { contains: query.search, mode: 'insensitive' } },
-        { keywords: { has: query.search.toLowerCase() } },
-      ];
+      where.AND.push({
+        OR: [
+          { title: { contains: query.search, mode: 'insensitive' } },
+          { summary: { contains: query.search, mode: 'insensitive' } },
+          { content: { contains: query.search, mode: 'insensitive' } },
+          { keywords: { has: query.search.toLowerCase() } },
+        ],
+      });
     }
 
     const [articles, total] = await Promise.all([
@@ -324,17 +367,22 @@ export class KnowledgeBaseService {
   }
 
   /**
-   * Search articles (full-text)
+   * Search articles (full-text, filtered by role)
    */
-  async searchArticles(query: string, limit = 10) {
+  async searchArticles(userRole: UserRole, query: string, limit = 10) {
     const articles = await this.prisma.knowledgeArticle.findMany({
       where: {
         isPublished: true,
-        OR: [
-          { title: { contains: query, mode: 'insensitive' } },
-          { summary: { contains: query, mode: 'insensitive' } },
-          { content: { contains: query, mode: 'insensitive' } },
-          { keywords: { has: query.toLowerCase() } },
+        AND: [
+          visibilityFilter(userRole),
+          {
+            OR: [
+              { title: { contains: query, mode: 'insensitive' } },
+              { summary: { contains: query, mode: 'insensitive' } },
+              { content: { contains: query, mode: 'insensitive' } },
+              { keywords: { has: query.toLowerCase() } },
+            ],
+          },
         ],
       },
       include: {
@@ -350,11 +398,11 @@ export class KnowledgeBaseService {
   }
 
   /**
-   * Get popular articles
+   * Get popular articles (filtered by role)
    */
-  async getPopularArticles(limit = 10) {
+  async getPopularArticles(userRole: UserRole, limit = 10) {
     return this.prisma.knowledgeArticle.findMany({
-      where: { isPublished: true },
+      where: { isPublished: true, AND: [visibilityFilter(userRole)] },
       include: {
         category: {
           select: { id: true, name: true, slug: true },
@@ -691,16 +739,25 @@ export class KnowledgeBaseService {
   }
 
   /**
-   * Get suggested articles for incident
+   * Get suggested articles for incident (filtered by role)
    */
-  async getSuggestedArticles(incidentCategory: string, keywords: string[]) {
+  async getSuggestedArticles(
+    userRole: UserRole,
+    incidentCategory: string,
+    keywords: string[],
+  ) {
     const articles = await this.prisma.knowledgeArticle.findMany({
       where: {
         isPublished: true,
-        OR: [
-          { category: { name: { contains: incidentCategory, mode: 'insensitive' } } },
-          { keywords: { hasSome: keywords.map((k) => k.toLowerCase()) } },
-          { title: { contains: incidentCategory, mode: 'insensitive' } },
+        AND: [
+          visibilityFilter(userRole),
+          {
+            OR: [
+              { category: { name: { contains: incidentCategory, mode: 'insensitive' } } },
+              { keywords: { hasSome: keywords.map((k) => k.toLowerCase()) } },
+              { title: { contains: incidentCategory, mode: 'insensitive' } },
+            ],
+          },
         ],
       },
       include: {

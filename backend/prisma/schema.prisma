@@ -1179,9 +1179,10 @@ model KnowledgeArticle {
   keywords   String[] @default([]) // Search keywords
 
   // Visibility
-  isPublic    Boolean   @default(true) @map("is_public") // Public to all users
-  isPublished Boolean   @default(false) @map("is_published")
-  publishedAt DateTime? @map("published_at")
+  isPublic       Boolean   @default(true) @map("is_public") // Public to all users
+  isPublished    Boolean   @default(false) @map("is_published")
+  publishedAt    DateTime? @map("published_at")
+  visibleToRoles UserRole[] @default([]) @map("visible_to_roles") // Empty = visible to all roles
 
   // Authorship
   authorId       Int  @map("author_id")

@@ -12,6 +12,7 @@ import {
   MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { UserRole } from '@prisma/client';
 
 // Category DTOs
 export class CreateCategoryDto {
@@ -129,6 +130,11 @@ export class CreateArticleDto {
   @IsArray()
   @IsString({ each: true })
   attachments?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsEnum(UserRole, { each: true })
+  visibleToRoles?: UserRole[];
 }
 
 export class UpdateArticleDto {
@@ -174,6 +180,11 @@ export class UpdateArticleDto {
   @IsArray()
   @IsString({ each: true })
   attachments?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsEnum(UserRole, { each: true })
+  visibleToRoles?: UserRole[];
 }
 
 // Feedback DTO

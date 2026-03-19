@@ -73,6 +73,7 @@ interface Article {
   isPublic: boolean
   isPublished: boolean
   publishedAt?: string
+  visibleToRoles: string[]
   viewCount: number
   helpfulCount: number
   notHelpfulCount: number
@@ -169,6 +170,7 @@ export default function KnowledgeBasePage() {
     keywords: '',
     isPublic: true,
     isPublished: false,
+    visibleToRoles: [] as string[],
   })
   const [isSaving, setIsSaving] = useState(false)
 
@@ -417,6 +419,7 @@ export default function KnowledgeBasePage() {
       keywords: '',
       isPublic: true,
       isPublished: false,
+      visibleToRoles: [],
     })
   }
 
@@ -431,6 +434,7 @@ export default function KnowledgeBasePage() {
       keywords: article.keywords.join(', '),
       isPublic: article.isPublic,
       isPublished: article.isPublished,
+      visibleToRoles: article.visibleToRoles || [],
     })
     setShowCreateModal(true)
   }
@@ -929,6 +933,36 @@ export default function KnowledgeBasePage() {
                   placeholder="คั่นด้วยเครื่องหมาย comma เช่น: printer, กระดาษติด, error"
                   className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
+              </div>
+
+              {/* Visible To Roles */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  จำกัดการมองเห็น (เว้นว่าง = ทุก Role เห็นได้)
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {(['END_USER', 'TECHNICIAN', 'SUPERVISOR', 'HELP_DESK', 'FINANCE_ADMIN', 'IT_MANAGER', 'SUPER_ADMIN'] as const).map(role => (
+                    <label key={role} className="flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.visibleToRoles.includes(role)}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          visibleToRoles: e.target.checked
+                            ? [...prev.visibleToRoles, role]
+                            : prev.visibleToRoles.filter(r => r !== role),
+                        }))}
+                        className="w-3.5 h-3.5 rounded border-gray-600 bg-gray-700 text-blue-500 focus:ring-blue-500"
+                      />
+                      <span className="text-xs text-gray-300">{role}</span>
+                    </label>
+                  ))}
+                </div>
+                {formData.visibleToRoles.length > 0 && (
+                  <p className="text-xs text-amber-400 mt-1">
+                    บทความนี้จะมองเห็นได้เฉพาะ: {formData.visibleToRoles.join(', ')} และ Role ที่สูงกว่า
+                  </p>
+                )}
               </div>
 
               {/* Options */}
