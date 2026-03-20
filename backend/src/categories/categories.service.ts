@@ -53,7 +53,8 @@ export class CategoriesService {
         icon: dto.icon,
         isActive: dto.isActive ?? true,
         sortOrder: dto.sortOrder ?? 0,
-        jobTypeId: dto.jobTypeId ?? null,
+        // @Type(() => Number) converts null → 0; treat 0 as no job type
+        jobTypeId: (dto.jobTypeId && dto.jobTypeId > 0) ? dto.jobTypeId : null,
       },
       include: { jobType: { select: { id: true, name: true, color: true } } },
     });
@@ -79,7 +80,13 @@ export class CategoriesService {
 
     return this.prisma.incidentCategory.update({
       where: { id },
-      data: dto,
+      data: {
+        ...dto,
+        // @Type(() => Number) converts null → 0; treat 0 as no job type
+        jobTypeId: dto.jobTypeId !== undefined
+          ? (dto.jobTypeId && dto.jobTypeId > 0 ? dto.jobTypeId : null)
+          : undefined,
+      },
       include: { jobType: { select: { id: true, name: true, color: true } } },
     });
   }
