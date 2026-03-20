@@ -345,7 +345,7 @@ export default function JobTypesSettingsPage() {
 
   return (
     <div className="space-y-6 animate-fade-in max-w-4xl mx-auto">
-      <BackButton href="/dashboard/settings" label="กลับไปหน้า Settings" />
+      <BackButton />
 
       {/* Header */}
       <div className="flex items-center justify-between">
