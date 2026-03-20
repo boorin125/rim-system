@@ -24,7 +24,7 @@ const DEFAULT_BACKUP_DIR = process.env.BACKUP_DIR || './Backup';
 // Backup config file path (stores externalCopyPath etc.)
 const BACKUP_CONFIG_FILE = path.join(process.cwd(), 'backup-config.json');
 
-interface BackupConfig {
+export interface BackupConfig {
   externalCopyPath?: string;
 }
 
