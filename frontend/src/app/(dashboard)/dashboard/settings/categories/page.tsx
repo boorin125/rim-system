@@ -1,7 +1,7 @@
 // app/(dashboard)/dashboard/settings/categories/page.tsx - Incident Category Management
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   Tags,
   Plus,
@@ -24,6 +24,7 @@ import {
   MoreHorizontal,
   Smartphone,
   ScanBarcode,
+  Router,
 } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
@@ -31,7 +32,7 @@ import BackButton from '@/components/BackButton'
 import { useThemeHighlight } from '@/hooks/useThemeHighlight'
 
 const iconMap: Record<string, React.ComponentType<any>> = {
-  Monitor, Wifi, HardDrive, Code, Printer, Camera, MoreHorizontal, Tags, Smartphone, ScanBarcode,
+  Monitor, Wifi, HardDrive, Code, Printer, Camera, MoreHorizontal, Tags, Smartphone, ScanBarcode, Router,
 }
 
 interface JobType {
@@ -63,6 +64,7 @@ export default function CategoriesSettingsPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [isSeeding, setIsSeeding] = useState(false)
   const [userRoles, setUserRoles] = useState<string[]>([])
+  const [showNameDropdown, setShowNameDropdown] = useState(false)
 
   const [formData, setFormData] = useState({
     name: '',
@@ -72,6 +74,17 @@ export default function CategoriesSettingsPage() {
     isActive: true,
     jobTypeId: '' as string, // '' = ไม่ระบุ
   })
+
+  // Live suggestions: categories matching what user is typing (create form only)
+  const nameSuggestions = useMemo(() => {
+    const q = formData.name.trim().toLowerCase()
+    if (!q) return []
+    return categories.filter(c => c.name.toLowerCase().includes(q)).slice(0, 6)
+  }, [formData.name, categories])
+
+  const nameExactMatch = categories.some(
+    c => c.name.toLowerCase() === formData.name.trim().toLowerCase()
+  )
 
   useEffect(() => {
     const userStr = localStorage.getItem('user')
@@ -237,6 +250,7 @@ export default function CategoriesSettingsPage() {
   const iconOptions = [
     { name: 'Monitor', label: 'POS/Monitor' },
     { name: 'Wifi', label: 'Network' },
+    { name: 'Router', label: 'Access Point' },
     { name: 'HardDrive', label: 'Hardware' },
     { name: 'Code', label: 'Software' },
     { name: 'Printer', label: 'Printer' },
@@ -256,13 +270,39 @@ export default function CategoriesSettingsPage() {
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div>
         <label className="block text-sm text-gray-400 mb-1">ชื่อ Category *</label>
-        <input
-          type="text"
-          value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          className={`w-full px-4 py-2 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${isEdit ? 'bg-slate-600/50 border-slate-500' : 'bg-slate-700/50 border-slate-600'}`}
-          placeholder="เช่น POS, Network, Hardware"
-        />
+        <div className="relative">
+          <input
+            type="text"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            onFocus={() => !isEdit && setShowNameDropdown(true)}
+            onBlur={() => setTimeout(() => setShowNameDropdown(false), 150)}
+            className={`w-full px-4 py-2 border rounded-lg text-white focus:outline-none focus:ring-2 ${
+              !isEdit && nameExactMatch ? 'border-orange-500 focus:ring-orange-500' : 'focus:ring-blue-500'
+            } ${isEdit ? 'bg-slate-600/50 border-slate-500' : 'bg-slate-700/50 border-slate-600'}`}
+            placeholder="เช่น POS, Network, Hardware"
+          />
+          {!isEdit && nameExactMatch && (
+            <p className="text-xs text-orange-400 mt-0.5 flex items-center gap-1">
+              <AlertCircle className="w-3 h-3" /> มี Category นี้อยู่แล้ว
+            </p>
+          )}
+          {!isEdit && showNameDropdown && nameSuggestions.length > 0 && (
+            <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl overflow-hidden">
+              {nameSuggestions.map(c => (
+                <div
+                  key={c.id}
+                  onMouseDown={() => { setFormData({ ...formData, name: c.name }); setShowNameDropdown(false) }}
+                  className="flex items-center gap-2 px-3 py-2 hover:bg-slate-700 cursor-pointer"
+                >
+                  <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: c.color }} />
+                  <span className="text-white text-sm flex-1">{c.name}</span>
+                  <span className="text-xs text-orange-400">มีอยู่แล้ว</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
       <div>
         <label className="block text-sm text-gray-400 mb-1">คำอธิบาย</label>
@@ -427,7 +467,7 @@ export default function CategoriesSettingsPage() {
           </div>
         ) : (
           <div className="divide-y divide-slate-700/50">
-            {categories.map((category) => (
+            {[...categories].sort((a, b) => a.name.localeCompare(b.name, 'th')).map((category) => (
               <div
                 key={category.id}
                 className={`p-4 ${!category.isActive ? 'opacity-50' : ''} ${
