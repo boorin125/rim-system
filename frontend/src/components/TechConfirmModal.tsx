@@ -32,7 +32,7 @@ export default function TechConfirmModal({
   const pendingOnlineSignature = hasOnlineSR && !hasCustomerSignature;
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/70 flex items-start sm:items-center justify-center z-50 p-4 pt-20 sm:pt-4">
       <div className="bg-gray-800 rounded-2xl w-full max-w-lg border border-gray-700 shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-gray-700">

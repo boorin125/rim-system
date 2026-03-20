@@ -362,8 +362,8 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="glass-card border border-slate-700/50 rounded-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 pt-20 sm:pt-4 bg-black/50 backdrop-blur-sm">
+      <div className="glass-card border border-slate-700/50 rounded-xl w-full max-w-4xl max-h-[calc(100vh-88px)] sm:max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-slate-700/50 bg-slate-800/30">
           <h2 className="text-2xl font-bold text-white">Resolve Incident</h2>
