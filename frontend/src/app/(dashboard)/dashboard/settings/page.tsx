@@ -4058,15 +4058,15 @@ export default function SettingsPage() {
                   </div>
 
                   {/* Disk Stats */}
-                  <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-4 text-sm">
                     {[
                       { label: 'ทั้งหมด', value: diskInfo.total, color: 'text-white' },
                       { label: 'ใช้งาน', value: diskInfo.used, color: diskInfo.usedPercent >= diskAlertThreshold ? 'text-red-400' : 'text-amber-400' },
                       { label: 'ว่าง', value: diskInfo.free, color: 'text-green-400' },
                     ].map(({ label, value, color }) => (
-                      <div key={label} className="text-center p-3 bg-slate-800/50 rounded-lg">
+                      <div key={label} className="text-center p-2 sm:p-3 bg-slate-800/50 rounded-lg">
                         <p className="text-gray-400 text-xs mb-1">{label}</p>
-                        <p className={`font-semibold ${color}`}>
+                        <p className={`text-sm sm:text-base font-semibold ${color} break-all`}>
                           {value >= 1_073_741_824
                             ? `${(value / 1_073_741_824).toFixed(1)} GB`
                             : `${(value / 1_048_576).toFixed(0)} MB`}
@@ -4110,13 +4110,13 @@ export default function SettingsPage() {
                   <div>
                     <p className="text-sm text-gray-400 mb-2">ส่ง Email แจ้งเตือนไปที่</p>
                     <p className="text-xs text-gray-500 mb-2">ใช้ SMTP เดียวกับ Email Settings — ส่งทุก 1 ชั่วโมงเมื่อพื้นที่เกินกำหนด (ไม่ส่งซ้ำภายใน 6 ชม.)</p>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
                       <input
                         type="email"
                         placeholder="admin@company.com"
                         value={diskAlertEmailInput}
                         onChange={(e) => setDiskAlertEmailInput(e.target.value)}
-                        className="flex-1 max-w-xs px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500 placeholder-gray-500"
+                        className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500 placeholder-gray-500"
                       />
                       <button
                         onClick={handleSaveDiskEmail}

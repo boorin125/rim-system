@@ -1,7 +1,7 @@
 // app/(auth)/login/page.tsx - Login Page
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Mail, Lock, Eye, EyeOff, Phone } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -69,6 +69,7 @@ function LoginContent() {
   const [showRegPassword, setShowRegPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const isSubmitting = useRef(false)
 
   // Login form state
   const [loginData, setLoginData] = useState({
@@ -93,6 +94,8 @@ function LoginContent() {
   // Handle Login
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (isSubmitting.current) return
+    isSubmitting.current = true
     setIsLoading(true)
 
     try {
@@ -108,14 +111,12 @@ function LoginContent() {
 
       toast.success('เข้าสู่ระบบสำเร็จ!')
 
-      // Redirect back to the page the user came from (or dashboard)
-      setTimeout(() => {
-        router.push(nextUrl)
-      }, 1000)
+      // Keep button disabled until redirect completes
+      router.push(nextUrl)
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'เข้าสู่ระบบไม่สำเร็จ')
-    } finally {
       setIsLoading(false)
+      isSubmitting.current = false
     }
   }
 

@@ -483,7 +483,8 @@ export class BackupService {
     });
 
     if (!backup) {
-      throw new NotFoundException(`Backup not found: ${id}`);
+      // Already deleted or never existed — treat as success (idempotent)
+      return { id, deleted: true };
     }
 
     // Delete file if exists
