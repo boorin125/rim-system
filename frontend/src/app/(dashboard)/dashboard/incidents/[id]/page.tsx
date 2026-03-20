@@ -1217,25 +1217,27 @@ SLA Breach Time: ${slaBreachText}`
           </div>
         </div>
 
-        {/* ✅ STEP 5: เพิ่มปุ่มตาม workflow */}
-        <div className="flex flex-wrap items-center gap-2 sm:gap-2 sm:justify-end">
+        {/* Action Buttons */}
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end gap-2">
+
           {/* Request Onsite Button */}
           {canRequestOnsite && (
             <button
               onClick={handleRequestOnsite}
-              className="flex items-center space-x-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition duration-200"
+              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition duration-200 text-sm font-medium"
             >
-              <MapPin className="w-4 h-4" />
+              <MapPin className="w-4 h-4 shrink-0" />
               <span>Request Onsite</span>
             </button>
           )}
+
           {/* Helpdesk Direct Close Button */}
           {canDirectClose && (
             <button
               onClick={() => setShowDirectClose(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition duration-200"
+              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition duration-200 text-sm font-medium"
             >
-              <CheckCircle2 className="w-4 h-4" />
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
               <span>ปิดงานโดย Helpdesk</span>
             </button>
           )}
@@ -1244,9 +1246,9 @@ SLA Breach Time: ${slaBreachText}`
           {canResponse && (
             <button
               onClick={() => setShowResponse(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition duration-200"
+              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition duration-200 text-sm font-medium"
             >
-              <MessageSquare className="w-4 h-4" />
+              <MessageSquare className="w-4 h-4 shrink-0" />
               <span>Response</span>
             </button>
           )}
@@ -1255,10 +1257,10 @@ SLA Breach Time: ${slaBreachText}`
           {canCheckIn && (
             <button
               onClick={() => setShowCheckIn(true)}
-              className="flex items-center space-x-2 px-4 py-2 hover:brightness-110 text-white rounded-lg transition duration-200"
+              className="flex items-center justify-center gap-2 px-4 py-2.5 hover:brightness-110 text-white rounded-lg transition duration-200 text-sm font-medium"
               style={{ backgroundColor: themeHighlight }}
             >
-              <Camera className="w-4 h-4" />
+              <Camera className="w-4 h-4 shrink-0" />
               <span>Check In & Start</span>
             </button>
           )}
@@ -1267,9 +1269,9 @@ SLA Breach Time: ${slaBreachText}`
           {canAddBeforePhotos && (
             <button
               onClick={() => setShowAddBeforePhotos(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg transition duration-200"
+              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-600 hover:bg-slate-700 text-white rounded-lg transition duration-200 text-sm font-medium"
             >
-              <Camera className="w-4 h-4" />
+              <Camera className="w-4 h-4 shrink-0" />
               <span>เพิ่มรูปก่อนทำ ({currentBeforePhotosCount}/5)</span>
             </button>
           )}
@@ -1278,9 +1280,9 @@ SLA Breach Time: ${slaBreachText}`
           {canResolve && (
             <button
               onClick={() => setShowResolve(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition duration-200"
+              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition duration-200 text-sm font-medium"
             >
-              <CheckCircle className="w-4 h-4" />
+              <CheckCircle className="w-4 h-4 shrink-0" />
               <span>Resolve Incident</span>
             </button>
           )}
@@ -1289,9 +1291,9 @@ SLA Breach Time: ${slaBreachText}`
           {canUpdate && (
             <button
               onClick={() => setShowUpdate(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition duration-200"
+              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition duration-200 text-sm font-medium"
             >
-              <Edit3 className="w-4 h-4" />
+              <Edit3 className="w-4 h-4 shrink-0" />
               <span>Update Resolution</span>
             </button>
           )}
@@ -1300,31 +1302,20 @@ SLA Breach Time: ${slaBreachText}`
           {canTechConfirm && (
             <button
               onClick={() => setShowTechConfirm(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition duration-200"
+              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition duration-200 text-sm font-medium"
             >
-              <CheckCircle className="w-4 h-4" />
+              <CheckCircle className="w-4 h-4 shrink-0" />
               <span>ยืนยันปิดงาน</span>
             </button>
-          )}
-
-          {/* Helpdesk info: waiting for tech to confirm */}
-          {incident?.status === 'RESOLVED' && isHelpDesk && !incident?.techConfirmedAt && (
-            <div className="flex items-start gap-3 p-3 bg-amber-900/20 border border-amber-700/50 rounded-lg">
-              <Clock className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
-              <div className="text-sm text-amber-200">
-                <p className="font-medium">รอช่างเทคนิคยืนยันปิดงาน</p>
-                <p className="text-xs text-amber-200/60 mt-0.5">คุณจะได้รับแจ้งเตือนเมื่อช่างยืนยันแล้ว</p>
-              </div>
-            </div>
           )}
 
           {/* Confirm & Close Button - RESOLVED → CLOSED (Help Desk only) */}
           {canConfirm && (
             <button
               onClick={() => setShowConfirm(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition duration-200"
+              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition duration-200 text-sm font-medium"
             >
-              <CheckCircle2 className="w-4 h-4" />
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
               <span>Confirm & Close</span>
             </button>
           )}
@@ -1333,30 +1324,76 @@ SLA Breach Time: ${slaBreachText}`
           {canReopen && (
             <button
               onClick={() => setShowReopen(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition duration-200"
+              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition duration-200 text-sm font-medium"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
               <span>Reopen Incident</span>
             </button>
           )}
 
-          {/* Service Report - TECHNICIAN: full dropdown (Online, Download, Send) */}
+          {/* Request Reassignment Button */}
+          {canRequestReassign && (
+            <button
+              onClick={() => setShowReassignmentModal(true)}
+              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition duration-200 text-sm font-medium"
+            >
+              <UserPlus className="w-4 h-4 shrink-0" />
+              <span>Request Reassign</span>
+            </button>
+          )}
+
+          {/* Direct Reassign Button - SUPERVISOR only (legacy) */}
+          {canReassign && incident.assignee && !canRequestReassign && (
+            <button
+              onClick={() => {
+                setAssignMode('reassign')
+                setAssignModalOpen(true)
+              }}
+              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition duration-200 text-sm font-medium"
+            >
+              <UserPlus className="w-4 h-4 shrink-0" />
+              <span>Direct Reassign</span>
+            </button>
+          )}
+
+          {/* Edit Button */}
+          {canEdit && (
+            <button
+              onClick={() => router.push(`/dashboard/incidents/${incident.id}/edit`)}
+              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition duration-200 text-sm font-medium"
+            >
+              <Edit className="w-4 h-4 shrink-0" />
+              <span>Edit</span>
+            </button>
+          )}
+
+          {/* Cancel Button */}
+          {canCancel && incident.status !== 'CANCELLED' && (
+            <button
+              onClick={() => setCancelModalOpen(true)}
+              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg transition duration-200 text-sm font-medium"
+            >
+              <X className="w-4 h-4 shrink-0" />
+              <span>Cancel</span>
+            </button>
+          )}
+
+          {/* Service Report - TECHNICIAN: full dropdown */}
           {(incident.status === 'RESOLVED' || incident.status === 'CLOSED') && isTechnician && (
-            <div className="relative" ref={srMenuRef}>
+            <div className="col-span-2 sm:col-span-1 relative" ref={srMenuRef}>
               <button
                 onClick={() => setShowSrMenu(!showSrMenu)}
-                className="flex items-center space-x-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition duration-200"
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition duration-200 text-sm font-medium"
               >
-                <FileText className="w-4 h-4" />
+                <FileText className="w-4 h-4 shrink-0" />
                 <span>Service Report</span>
                 <ChevronDown className={`w-4 h-4 transition-transform ${showSrMenu ? 'rotate-180' : ''}`} />
               </button>
 
               {showSrMenu && (
                 <div className="absolute right-0 mt-2 w-64 bg-slate-800 border border-slate-600 rounded-lg shadow-xl z-50 py-1 animate-fade-in">
-                  {/* เปิด Service Report (Online) */}
                   {incident.serviceReportToken ? (
                     <a
                       href={`/service-report/${incident.serviceReportToken}`}
@@ -1378,7 +1415,6 @@ SLA Breach Time: ${slaBreachText}`
                     </button>
                   )}
 
-                  {/* Download blank-signature PDF */}
                   <button
                     onClick={() => { handleDownloadBlankServiceReport(); setShowSrMenu(false) }}
                     disabled={isGeneratingBlankPdf}
@@ -1388,7 +1424,6 @@ SLA Breach Time: ${slaBreachText}`
                     <span>{isGeneratingBlankPdf ? 'กำลังสร้าง PDF...' : 'Download SR (ลายเซ็นเปล่า)'}</span>
                   </button>
 
-                  {/* Send PDF to store email */}
                   {incident.store?.email && (
                     <button
                       onClick={() => { handleSendServiceReportEmail(); setShowSrMenu(false) }}
@@ -1404,7 +1439,7 @@ SLA Breach Time: ${slaBreachText}`
             </div>
           )}
 
-          {/* Service Report - Other roles: view-only after tech confirmed */}
+          {/* Service Report - Other roles: view-only */}
           {(incident.status === 'RESOLVED' || incident.status === 'CLOSED') &&
             !isTechnician && (isHelpDesk || isITManager || isSupervisor) &&
             !!incident.techConfirmedAt && incident.serviceReportToken && (
@@ -1412,26 +1447,26 @@ SLA Breach Time: ${slaBreachText}`
                 href={`/service-report/${incident.serviceReportToken}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center space-x-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition duration-200"
+                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition duration-200 text-sm font-medium"
               >
-                <FileText className="w-4 h-4" />
+                <FileText className="w-4 h-4 shrink-0" />
                 <span>ดู Service Report</span>
                 <ExternalLink className="w-3 h-3" />
               </a>
           )}
 
-          {/* Assign + Outsource - Show together as a group on mobile */}
+          {/* Assign + Outsource */}
           {canAssign && !incident.assignee && incident?.resolutionType === 'ONSITE' && (
             incident.status === 'PENDING' ||
             incident.status === 'OPEN'
           ) && !(incident.outsourceJobs?.some((oj: any) => oj.status !== 'CANCELLED')) && (
-            <div className="flex w-full sm:w-auto gap-2">
+            <>
               <button
                 onClick={() => {
                   setAssignMode('assign')
                   setAssignModalOpen(true)
                 }}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition duration-200 font-medium text-sm"
+                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition duration-200 text-sm font-medium"
               >
                 <UserPlus className="w-4 h-4 shrink-0" />
                 <span>Assign</span>
@@ -1440,59 +1475,27 @@ SLA Breach Time: ${slaBreachText}`
               {isSupervisor && (
                 <button
                   onClick={() => router.push(`/dashboard/outsource/create?incidentId=${incident.id}`)}
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 hover:brightness-110 text-white rounded-lg transition duration-200 font-medium text-sm"
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 hover:brightness-110 text-white rounded-lg transition duration-200 text-sm font-medium"
                   style={{ backgroundColor: themeHighlight }}
                 >
                   <Briefcase className="w-4 h-4 shrink-0" />
                   <span>ส่งไป Outsource</span>
                 </button>
               )}
+            </>
+          )}
+
+          {/* Helpdesk info: waiting for tech to confirm */}
+          {incident?.status === 'RESOLVED' && isHelpDesk && !incident?.techConfirmedAt && (
+            <div className="col-span-2 sm:col-span-1 flex items-start gap-3 p-3 bg-amber-900/20 border border-amber-700/50 rounded-lg">
+              <Clock className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-amber-200">
+                <p className="font-medium">รอช่างเทคนิคยืนยันปิดงาน</p>
+                <p className="text-xs text-amber-200/60 mt-0.5">คุณจะได้รับแจ้งเตือนเมื่อช่างยืนยันแล้ว</p>
+              </div>
             </div>
           )}
-          
-          {/* Request Reassignment Button - IT_MANAGER, HELP_DESK, SUPERVISOR */}
-          {canRequestReassign && (
-            <button
-              onClick={() => setShowReassignmentModal(true)}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition duration-200 text-sm font-medium"
-            >
-              <UserPlus className="w-4 h-4 shrink-0" />
-              <span>Request Reassign</span>
-            </button>
-          )}
 
-          {/* Direct Reassign Button - SUPERVISOR only (legacy) */}
-          {canReassign && incident.assignee && !canRequestReassign && (
-            <button
-              onClick={() => {
-                setAssignMode('reassign')
-                setAssignModalOpen(true)
-              }}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition duration-200 text-sm font-medium"
-            >
-              <UserPlus className="w-4 h-4 shrink-0" />
-              <span>Direct Reassign</span>
-            </button>
-          )}
-
-          {canEdit && (
-            <button
-              onClick={() => router.push(`/dashboard/incidents/${incident.id}/edit`)}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition duration-200 text-sm font-medium"
-            >
-              <Edit className="w-4 h-4 shrink-0" />
-              <span>Edit</span>
-            </button>
-          )}
-          {canCancel && incident.status !== 'CANCELLED' && (
-            <button
-              onClick={() => setCancelModalOpen(true)}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition duration-200 text-sm font-medium"
-            >
-              <X className="w-4 h-4 shrink-0" />
-              <span>Cancel</span>
-            </button>
-          )}
         </div>
       </div>
 
