@@ -1289,8 +1289,21 @@ export default function SettingsPage() {
     }
   }
 
+  const fetchBackups = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const res = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/settings/backups`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      setBackups(res.data || [])
+    } catch {
+      setBackups([])
+    }
+  }
+
   const handleDeleteBackup = async (backup: BackupInfo) => {
-    if (!confirm(`Delete backup "${backup.filename}"?`)) return
+    if (!confirm(`ยืนยันการลบ Backup "${backup.filename}" หรือไม่?`)) return
 
     try {
       const token = localStorage.getItem('token')
@@ -1298,10 +1311,12 @@ export default function SettingsPage() {
         `${process.env.NEXT_PUBLIC_API_URL}/settings/backups/${backup.id}`,
         { headers: { Authorization: `Bearer ${token}` } }
       )
-      toast.success('Backup deleted')
-      fetchData()
+      toast.success('ลบ Backup สำเร็จ')
+      await fetchBackups()
     } catch (error: any) {
-      toast.error('Failed to delete backup')
+      const msg = error?.response?.data?.message || 'ไม่สามารถลบ Backup ได้'
+      toast.error(msg)
+      await fetchBackups()
     }
   }
 
