@@ -720,23 +720,29 @@ model IncidentCategory {
   icon        String? // ชื่อ icon (e.g., "Monitor", "Wifi", "Printer")
   isActive    Boolean  @default(true) @map("is_active")
   sortOrder   Int      @default(0) @map("sort_order")
+  jobTypeId   Int?     @map("job_type_id") // FK ไปยัง JobType (optional)
+  jobType     JobType? @relation(fields: [jobTypeId], references: [id], onDelete: SetNull)
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@index([isActive])
   @@index([sortOrder])
+  @@index([jobTypeId])
   @@map("incident_categories")
 }
 
 model JobType {
-  id          Int      @id @default(autoincrement())
-  name        String   @unique
-  description String?
-  color       String? // สีสำหรับแสดงใน UI
-  isActive    Boolean  @default(true) @map("is_active")
-  sortOrder   Int      @default(0) @map("sort_order")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id              Int                @id @default(autoincrement())
+  name            String             @unique
+  description     String?
+  color           String? // สีสำหรับแสดงใน UI
+  isActive        Boolean            @default(true) @map("is_active")
+  sortOrder       Int                @default(0) @map("sort_order")
+  defaultPriority Priority?          @map("default_priority") // Priority เริ่มต้น (optional)
+  ignoreSla       Boolean            @default(false) @map("ignore_sla") // ไม่คำนวณ SLA
+  categories      IncidentCategory[] // Categories ที่อยู่ใต้ Job Type นี้
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
 
   @@index([isActive])
   @@index([sortOrder])

@@ -2,9 +2,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import {
-  Settings,
   Tags,
   Plus,
   Pencil,
@@ -14,10 +12,9 @@ import {
   Loader2,
   AlertCircle,
   CheckCircle,
-  ArrowLeft,
-  GripVertical,
   Power,
   Sparkles,
+  Briefcase,
   Monitor,
   Wifi,
   HardDrive,
@@ -33,18 +30,15 @@ import toast from 'react-hot-toast'
 import BackButton from '@/components/BackButton'
 import { useThemeHighlight } from '@/hooks/useThemeHighlight'
 
-// Icon mapping for categories
 const iconMap: Record<string, React.ComponentType<any>> = {
-  Monitor,
-  Wifi,
-  HardDrive,
-  Code,
-  Printer,
-  Camera,
-  MoreHorizontal,
-  Tags,
-  Smartphone,
-  ScanBarcode,
+  Monitor, Wifi, HardDrive, Code, Printer, Camera, MoreHorizontal, Tags, Smartphone, ScanBarcode,
+}
+
+interface JobType {
+  id: number
+  name: string
+  color: string
+  isActive: boolean
 }
 
 interface Category {
@@ -55,36 +49,38 @@ interface Category {
   icon?: string
   isActive: boolean
   sortOrder: number
+  jobTypeId?: number | null
+  jobType?: { id: number; name: string; color: string } | null
 }
 
 export default function CategoriesSettingsPage() {
   const themeHighlight = useThemeHighlight()
-  const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
   const [categories, setCategories] = useState<Category[]>([])
+  const [jobTypes, setJobTypes] = useState<JobType[]>([])
   const [editingId, setEditingId] = useState<number | null>(null)
   const [isCreating, setIsCreating] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isSeeding, setIsSeeding] = useState(false)
   const [userRoles, setUserRoles] = useState<string[]>([])
 
-  // Form data
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     color: '#3B82F6',
     icon: 'Tags',
     isActive: true,
+    jobTypeId: '' as string, // '' = ไม่ระบุ
   })
 
   useEffect(() => {
     const userStr = localStorage.getItem('user')
     if (userStr) {
       const user = JSON.parse(userStr)
-      const roles = user.roles || (user.role ? [user.role] : [])
-      setUserRoles(roles)
+      setUserRoles(user.roles || (user.role ? [user.role] : []))
     }
     fetchCategories()
+    fetchJobTypes()
   }, [])
 
   const canManage = userRoles.includes('SUPER_ADMIN') || userRoles.includes('IT_MANAGER')
@@ -92,31 +88,40 @@ export default function CategoriesSettingsPage() {
   const fetchCategories = async () => {
     try {
       const token = localStorage.getItem('token')
-      const response = await axios.get(
+      const res = await axios.get(
         `${process.env.NEXT_PUBLIC_API_URL}/categories?includeInactive=true`,
         { headers: { Authorization: `Bearer ${token}` } }
       )
-      setCategories(response.data || [])
-    } catch (error) {
-      console.error('Error fetching categories:', error)
+      setCategories(res.data || [])
+    } catch {
       toast.error('ไม่สามารถโหลดข้อมูล Category ได้')
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleCreate = async () => {
-    if (!formData.name.trim()) {
-      toast.error('กรุณากรอกชื่อ Category')
-      return
-    }
+  const fetchJobTypes = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const res = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/categories/job-types/all`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      setJobTypes(res.data || [])
+    } catch {}
+  }
 
+  const handleCreate = async () => {
+    if (!formData.name.trim()) { toast.error('กรุณากรอกชื่อ Category'); return }
     setIsSaving(true)
     try {
       const token = localStorage.getItem('token')
       await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/categories`,
-        formData,
+        {
+          ...formData,
+          jobTypeId: formData.jobTypeId ? parseInt(formData.jobTypeId) : null,
+        },
         { headers: { Authorization: `Bearer ${token}` } }
       )
       toast.success('เพิ่ม Category สำเร็จ')
@@ -131,17 +136,16 @@ export default function CategoriesSettingsPage() {
   }
 
   const handleUpdate = async (id: number) => {
-    if (!formData.name.trim()) {
-      toast.error('กรุณากรอกชื่อ Category')
-      return
-    }
-
+    if (!formData.name.trim()) { toast.error('กรุณากรอกชื่อ Category'); return }
     setIsSaving(true)
     try {
       const token = localStorage.getItem('token')
       await axios.put(
         `${process.env.NEXT_PUBLIC_API_URL}/categories/${id}`,
-        formData,
+        {
+          ...formData,
+          jobTypeId: formData.jobTypeId ? parseInt(formData.jobTypeId) : null,
+        },
         { headers: { Authorization: `Bearer ${token}` } }
       )
       toast.success('อัพเดต Category สำเร็จ')
@@ -157,7 +161,6 @@ export default function CategoriesSettingsPage() {
 
   const handleDelete = async (category: Category) => {
     if (!confirm(`ยืนยันการลบ Category "${category.name}"?`)) return
-
     try {
       const token = localStorage.getItem('token')
       await axios.delete(
@@ -181,22 +184,19 @@ export default function CategoriesSettingsPage() {
       )
       toast.success(category.isActive ? 'ปิดใช้งาน Category สำเร็จ' : 'เปิดใช้งาน Category สำเร็จ')
       fetchCategories()
-    } catch (error: any) {
+    } catch {
       toast.error('ไม่สามารถเปลี่ยนสถานะ Category ได้')
     }
   }
 
   const handleSeedDefaults = async () => {
     if (!confirm('ยืนยันการสร้าง Category เริ่มต้น? หากมีอยู่แล้วจะไม่ถูกเขียนทับ')) return
-
     setIsSeeding(true)
     try {
       const token = localStorage.getItem('token')
-      await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/categories/seed`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
+      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/categories/seed`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
       toast.success('สร้าง Category เริ่มต้นสำเร็จ')
       fetchCategories()
     } catch (error: any) {
@@ -214,6 +214,7 @@ export default function CategoriesSettingsPage() {
       color: category.color,
       icon: category.icon || 'Tags',
       isActive: category.isActive,
+      jobTypeId: category.jobTypeId?.toString() || '',
     })
   }
 
@@ -224,33 +225,13 @@ export default function CategoriesSettingsPage() {
   }
 
   const resetForm = () => {
-    setFormData({
-      name: '',
-      description: '',
-      color: '#3B82F6',
-      icon: 'Tags',
-      isActive: true,
-    })
+    setFormData({ name: '', description: '', color: '#3B82F6', icon: 'Tags', isActive: true, jobTypeId: '' })
   }
 
   const colorOptions = [
-    '#EF4444', // Red
-    '#F97316', // Orange
-    '#F59E0B', // Amber
-    '#EAB308', // Yellow
-    '#84CC16', // Lime
-    '#22C55E', // Green
-    '#10B981', // Emerald
-    '#14B8A6', // Teal
-    '#06B6D4', // Cyan
-    '#0EA5E9', // Sky
-    '#3B82F6', // Blue
-    '#6366F1', // Indigo
-    '#8B5CF6', // Violet
-    '#A855F7', // Purple
-    '#D946EF', // Fuchsia
-    '#EC4899', // Pink
-    '#6B7280', // Gray
+    '#EF4444','#F97316','#F59E0B','#EAB308','#84CC16','#22C55E',
+    '#10B981','#14B8A6','#06B6D4','#0EA5E9','#3B82F6','#6366F1',
+    '#8B5CF6','#A855F7','#D946EF','#EC4899','#6B7280',
   ]
 
   const iconOptions = [
@@ -271,6 +252,91 @@ export default function CategoriesSettingsPage() {
     return <IconComponent className="w-5 h-5" />
   }
 
+  const FormFields = ({ isEdit = false }: { isEdit?: boolean }) => (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label className="block text-sm text-gray-400 mb-1">ชื่อ Category *</label>
+        <input
+          type="text"
+          value={formData.name}
+          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          className={`w-full px-4 py-2 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${isEdit ? 'bg-slate-600/50 border-slate-500' : 'bg-slate-700/50 border-slate-600'}`}
+          placeholder="เช่น POS, Network, Hardware"
+        />
+      </div>
+      <div>
+        <label className="block text-sm text-gray-400 mb-1">คำอธิบาย</label>
+        <input
+          type="text"
+          value={formData.description}
+          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+          className={`w-full px-4 py-2 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${isEdit ? 'bg-slate-600/50 border-slate-500' : 'bg-slate-700/50 border-slate-600'}`}
+          placeholder="คำอธิบายสั้นๆ"
+        />
+      </div>
+
+      {/* Job Type selector */}
+      <div className="md:col-span-2">
+        <label className="block text-sm text-gray-400 mb-1 flex items-center gap-1">
+          <Briefcase className="w-3.5 h-3.5" /> อยู่ภายใต้ Job Type
+        </label>
+        <select
+          value={formData.jobTypeId}
+          onChange={(e) => setFormData({ ...formData, jobTypeId: e.target.value })}
+          className={`w-full px-4 py-2 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${isEdit ? 'bg-slate-600/50 border-slate-500' : 'bg-slate-700/50 border-slate-600'}`}
+        >
+          <option value="">ไม่ระบุ (แสดงในทุก Job Type)</option>
+          {jobTypes.map((jt) => (
+            <option key={jt.id} value={jt.id}>
+              {jt.name}
+            </option>
+          ))}
+        </select>
+        <p className="text-xs text-gray-500 mt-0.5">ถ้าระบุ จะแสดง Category นี้เฉพาะเมื่อเลือก Job Type นั้นในหน้า Create Incident</p>
+      </div>
+
+      <div>
+        <label className="block text-sm text-gray-400 mb-1">สี</label>
+        <div className="flex flex-wrap gap-2">
+          {colorOptions.map((color) => (
+            <button
+              key={color}
+              type="button"
+              onClick={() => setFormData({ ...formData, color })}
+              className={`rounded-lg transition-all ${isEdit ? 'w-6 h-6' : 'w-8 h-8'} ${
+                formData.color === color ? 'ring-2 ring-white scale-110' : 'hover:scale-110'
+              }`}
+              style={{ backgroundColor: color }}
+            />
+          ))}
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm text-gray-400 mb-1">ไอคอน</label>
+        <div className="flex flex-wrap gap-2">
+          {iconOptions.map((icon) => {
+            const IconComponent = iconMap[icon.name] || Tags
+            return (
+              <button
+                key={icon.name}
+                type="button"
+                onClick={() => setFormData({ ...formData, icon: icon.name })}
+                className={`rounded-lg transition-all ${isEdit ? 'p-1.5' : 'p-2'} ${
+                  formData.icon === icon.name
+                    ? 'bg-blue-500 text-white ring-2 ring-blue-400'
+                    : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
+                }`}
+                title={icon.label}
+              >
+                <IconComponent className={isEdit ? 'w-4 h-4' : 'w-5 h-5'} />
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -284,7 +350,6 @@ export default function CategoriesSettingsPage() {
 
   return (
     <div className="space-y-6 animate-fade-in max-w-4xl mx-auto">
-      {/* Back Button */}
       <BackButton href="/dashboard/settings" label="กลับไปหน้า Settings" />
 
       {/* Header */}
@@ -295,7 +360,7 @@ export default function CategoriesSettingsPage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-white">Incident Categories</h1>
-            <p className="text-gray-400">จัดการประเภทงานสำหรับ Incident</p>
+            <p className="text-gray-400">จัดการประเภทย่อยของงาน พร้อมกำหนด Job Type ที่รองรับ</p>
           </div>
         </div>
 
@@ -307,19 +372,12 @@ export default function CategoriesSettingsPage() {
                 disabled={isSeeding}
                 className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition disabled:opacity-50"
               >
-                {isSeeding ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Sparkles className="w-4 h-4" />
-                )}
+                {isSeeding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                 สร้างค่าเริ่มต้น
               </button>
             )}
             <button
-              onClick={() => {
-                setIsCreating(true)
-                resetForm()
-              }}
+              onClick={() => { setIsCreating(true); resetForm() }}
               className="flex items-center gap-2 px-4 py-2 hover:brightness-110 text-white rounded-lg transition"
               style={{ backgroundColor: themeHighlight }}
             >
@@ -334,74 +392,9 @@ export default function CategoriesSettingsPage() {
       {isCreating && (
         <div className="glass-card p-6 rounded-2xl border-2 border-blue-500/50">
           <h3 className="text-lg font-semibold text-white mb-4">เพิ่ม Category ใหม่</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">ชื่อ Category *</label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="เช่น POS, Network, Hardware"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">คำอธิบาย</label>
-              <input
-                type="text"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="คำอธิบายสั้นๆ"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">สี</label>
-              <div className="flex flex-wrap gap-2">
-                {colorOptions.map((color) => (
-                  <button
-                    key={color}
-                    type="button"
-                    onClick={() => setFormData({ ...formData, color })}
-                    className={`w-8 h-8 rounded-lg transition-all ${
-                      formData.color === color ? 'ring-2 ring-white scale-110' : 'hover:scale-110'
-                    }`}
-                    style={{ backgroundColor: color }}
-                  />
-                ))}
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">ไอคอน</label>
-              <div className="flex flex-wrap gap-2">
-                {iconOptions.map((icon) => {
-                  const IconComponent = iconMap[icon.name] || Tags
-                  return (
-                    <button
-                      key={icon.name}
-                      type="button"
-                      onClick={() => setFormData({ ...formData, icon: icon.name })}
-                      className={`p-2 rounded-lg transition-all ${
-                        formData.icon === icon.name
-                          ? 'bg-blue-500 text-white ring-2 ring-blue-400'
-                          : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
-                      }`}
-                      title={icon.label}
-                    >
-                      <IconComponent className="w-5 h-5" />
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          </div>
+          <FormFields />
           <div className="flex justify-end gap-2 mt-4">
-            <button
-              onClick={cancelEditing}
-              className="px-4 py-2 text-gray-400 hover:text-white transition"
-            >
-              ยกเลิก
-            </button>
+            <button onClick={cancelEditing} className="px-4 py-2 text-gray-400 hover:text-white transition">ยกเลิก</button>
             <button
               onClick={handleCreate}
               disabled={isSaving}
@@ -420,20 +413,14 @@ export default function CategoriesSettingsPage() {
           <div className="p-12 text-center">
             <Tags className="w-16 h-16 text-gray-600 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-white mb-2">ยังไม่มี Category</h3>
-            <p className="text-gray-400 mb-6">
-              เริ่มต้นด้วยการสร้างค่าเริ่มต้น หรือเพิ่ม Category ใหม่ด้วยตัวเอง
-            </p>
+            <p className="text-gray-400 mb-6">เริ่มต้นด้วยการสร้างค่าเริ่มต้น หรือเพิ่ม Category ใหม่ด้วยตัวเอง</p>
             {canManage && (
               <button
                 onClick={handleSeedDefaults}
                 disabled={isSeeding}
                 className="flex items-center gap-2 px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition mx-auto disabled:opacity-50"
               >
-                {isSeeding ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <Sparkles className="w-5 h-5" />
-                )}
+                {isSeeding ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
                 สร้าง Category เริ่มต้น
               </button>
             )}
@@ -443,77 +430,15 @@ export default function CategoriesSettingsPage() {
             {categories.map((category) => (
               <div
                 key={category.id}
-                className={`p-4 ${
-                  !category.isActive ? 'opacity-50' : ''
-                } ${editingId === category.id ? 'bg-slate-700/30' : 'hover:bg-slate-700/20'} transition`}
+                className={`p-4 ${!category.isActive ? 'opacity-50' : ''} ${
+                  editingId === category.id ? 'bg-slate-700/30' : 'hover:bg-slate-700/20'
+                } transition`}
               >
                 {editingId === category.id ? (
-                  // Edit Mode
                   <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm text-gray-400 mb-1">ชื่อ Category *</label>
-                        <input
-                          type="text"
-                          value={formData.name}
-                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                          className="w-full px-4 py-2 bg-slate-600/50 border border-slate-500 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm text-gray-400 mb-1">คำอธิบาย</label>
-                        <input
-                          type="text"
-                          value={formData.description}
-                          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                          className="w-full px-4 py-2 bg-slate-600/50 border border-slate-500 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm text-gray-400 mb-1">สี</label>
-                        <div className="flex flex-wrap gap-2">
-                          {colorOptions.map((color) => (
-                            <button
-                              key={color}
-                              type="button"
-                              onClick={() => setFormData({ ...formData, color })}
-                              className={`w-6 h-6 rounded transition-all ${
-                                formData.color === color ? 'ring-2 ring-white scale-110' : 'hover:scale-110'
-                              }`}
-                              style={{ backgroundColor: color }}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm text-gray-400 mb-1">ไอคอน</label>
-                        <div className="flex flex-wrap gap-2">
-                          {iconOptions.map((icon) => {
-                            const IconComponent = iconMap[icon.name] || Tags
-                            return (
-                              <button
-                                key={icon.name}
-                                type="button"
-                                onClick={() => setFormData({ ...formData, icon: icon.name })}
-                                className={`p-1.5 rounded transition-all ${
-                                  formData.icon === icon.name
-                                    ? 'bg-blue-500 text-white'
-                                    : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
-                                }`}
-                                title={icon.label}
-                              >
-                                <IconComponent className="w-4 h-4" />
-                              </button>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    </div>
+                    <FormFields isEdit />
                     <div className="flex justify-end gap-2">
-                      <button
-                        onClick={cancelEditing}
-                        className="p-2 text-gray-400 hover:text-white transition"
-                      >
+                      <button onClick={cancelEditing} className="p-2 text-gray-400 hover:text-white transition">
                         <X className="w-5 h-5" />
                       </button>
                       <button
@@ -521,47 +446,49 @@ export default function CategoriesSettingsPage() {
                         disabled={isSaving}
                         className="p-2 text-green-400 hover:text-green-300 transition disabled:opacity-50"
                       >
-                        {isSaving ? (
-                          <Loader2 className="w-5 h-5 animate-spin" />
-                        ) : (
-                          <CheckCircle className="w-5 h-5" />
-                        )}
+                        {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
                       </button>
                     </div>
                   </div>
                 ) : (
-                  // View Mode
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-4 min-w-0">
                       <div
-                        className="w-10 h-10 rounded-lg flex items-center justify-center"
+                        className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
                         style={{ backgroundColor: `${category.color}20`, color: category.color }}
                       >
                         {renderIcon(category.icon)}
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="font-medium text-white">{category.name}</span>
-                          {!category.isActive && (
-                            <span className="px-2 py-0.5 text-xs bg-gray-500/20 text-gray-400 rounded">
-                              ปิดใช้งาน
+                          {category.jobType && (
+                            <span
+                              className="px-2 py-0.5 text-xs rounded-full text-white flex-shrink-0"
+                              style={{ backgroundColor: category.jobType.color }}
+                            >
+                              {category.jobType.name}
                             </span>
+                          )}
+                          {!category.isActive && (
+                            <span className="px-2 py-0.5 text-xs bg-gray-500/20 text-gray-400 rounded">ปิดใช้งาน</span>
                           )}
                         </div>
                         {category.description && (
-                          <p className="text-sm text-gray-400">{category.description}</p>
+                          <p className="text-sm text-gray-400 truncate">{category.description}</p>
+                        )}
+                        {!category.jobTypeId && (
+                          <p className="text-xs text-gray-500">แสดงในทุก Job Type</p>
                         )}
                       </div>
                     </div>
 
                     {canManage && (
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 flex-shrink-0">
                         <button
                           onClick={() => handleToggleActive(category)}
                           className={`p-2 rounded-lg transition ${
-                            category.isActive
-                              ? 'text-green-400 hover:bg-green-500/20'
-                              : 'text-gray-400 hover:bg-gray-500/20'
+                            category.isActive ? 'text-green-400 hover:bg-green-500/20' : 'text-gray-400 hover:bg-gray-500/20'
                           }`}
                           title={category.isActive ? 'ปิดใช้งาน' : 'เปิดใช้งาน'}
                         >
@@ -570,14 +497,12 @@ export default function CategoriesSettingsPage() {
                         <button
                           onClick={() => startEditing(category)}
                           className="p-2 text-blue-400 hover:bg-blue-500/20 rounded-lg transition"
-                          title="แก้ไข"
                         >
                           <Pencil className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(category)}
                           className="p-2 text-red-400 hover:bg-red-500/20 rounded-lg transition"
-                          title="ลบ"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -598,22 +523,19 @@ export default function CategoriesSettingsPage() {
           <div>
             <p className="text-blue-400 font-medium">เกี่ยวกับ Incident Categories</p>
             <p className="text-sm text-gray-300">
-              Categories ใช้สำหรับจัดกลุ่มประเภทของ Incident เช่น POS, Network, Hardware เป็นต้น
-              การปิดใช้งาน Category จะทำให้ไม่สามารถเลือกได้ตอนสร้าง Incident ใหม่ แต่ Incident เก่าที่ใช้อยู่จะยังคงแสดงผลได้ปกติ
+              Categories ที่ผูกกับ Job Type จะแสดงเฉพาะเมื่อเลือก Job Type นั้นในหน้า Create Incident<br />
+              Categories ที่ <strong>ไม่ระบุ Job Type</strong> จะแสดงในทุก Job Type
             </p>
           </div>
         </div>
       </div>
 
-      {/* View Only Warning */}
       {!canManage && (
         <div className="flex items-start space-x-3 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
           <AlertCircle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-yellow-400 font-medium">View Only</p>
-            <p className="text-sm text-gray-400">
-              เฉพาะ Super Admin และ IT Manager เท่านั้นที่สามารถจัดการ Categories ได้
-            </p>
+            <p className="text-sm text-gray-400">เฉพาะ Super Admin และ IT Manager เท่านั้นที่สามารถจัดการ Categories ได้</p>
           </div>
         </div>
       )}

@@ -29,8 +29,12 @@ export class CategoriesController {
   // ========================================
 
   @Get()
-  async findAllCategories(@Query('includeInactive') includeInactive?: string) {
-    return this.categoriesService.findAllCategories(includeInactive === 'true');
+  async findAllCategories(
+    @Query('includeInactive') includeInactive?: string,
+    @Query('jobTypeId') jobTypeId?: string,
+  ) {
+    const jobTypeIdNum = jobTypeId ? parseInt(jobTypeId) : undefined;
+    return this.categoriesService.findAllCategories(includeInactive === 'true', jobTypeIdNum);
   }
 
   @Get(':id')

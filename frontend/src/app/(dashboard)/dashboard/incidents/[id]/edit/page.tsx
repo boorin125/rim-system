@@ -15,6 +15,7 @@ interface Category {
   name: string
   color: string | null
   isActive: boolean
+  jobTypeId?: number | null
 }
 
 interface JobType {
@@ -22,6 +23,8 @@ interface JobType {
   name: string
   color: string | null
   isActive: boolean
+  defaultPriority?: string | null
+  ignoreSla?: boolean
 }
 
 interface SlaConfig {
@@ -262,9 +265,16 @@ export default function EditIncidentPage() {
                 </label>
                 <select
                   value={formData.jobType}
-                  onChange={(e) =>
-                    setFormData({ ...formData, jobType: e.target.value })
-                  }
+                  onChange={(e) => {
+                    const value = e.target.value
+                    const selectedJobType = jobTypes.find(jt => jt.name === value)
+                    setFormData(prev => ({
+                      ...prev,
+                      jobType: value,
+                      category: '', // reset category when job type changes
+                      priority: selectedJobType?.defaultPriority || prev.priority,
+                    }))
+                  }}
                   className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Select job type</option>
@@ -279,21 +289,38 @@ export default function EditIncidentPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Category
+                  {formData.jobType && (() => {
+                    const jt = jobTypes.find(j => j.name === formData.jobType)
+                    return jt?.ignoreSla ? (
+                      <span className="ml-2 text-xs px-2 py-0.5 bg-red-500/20 text-red-400 border border-red-500/30 rounded-full">
+                        Ignore SLA
+                      </span>
+                    ) : null
+                  })()}
                 </label>
-                <select
-                  value={formData.category}
-                  onChange={(e) =>
-                    setFormData({ ...formData, category: e.target.value })
-                  }
-                  className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Select category</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.name}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
+                {(() => {
+                  const filteredCategories = formData.jobType
+                    ? categories.filter(cat => {
+                        const selectedJobType = jobTypes.find(jt => jt.name === formData.jobType)
+                        if (!selectedJobType) return true
+                        return !cat.jobTypeId || cat.jobTypeId === selectedJobType.id
+                      })
+                    : categories
+                  return (
+                    <select
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Select category</option>
+                      {filteredCategories.map((cat) => (
+                        <option key={cat.id} value={cat.name}>
+                          {cat.name}
+                        </option>
+                      ))}
+                    </select>
+                  )
+                })()}
               </div>
             </div>
 

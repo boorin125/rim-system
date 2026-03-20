@@ -1840,30 +1840,7 @@ export default function SettingsPage() {
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-6">
-              {/* Categories Card */}
-              <Link
-                href="/dashboard/settings/categories"
-                className="block p-4 md:p-6 bg-slate-700/30 hover:bg-slate-700/50 border border-slate-600 hover:border-blue-500/50 rounded-xl transition-all group"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3 md:space-x-4">
-                    <div className="p-2 md:p-3 bg-blue-600/20 rounded-xl">
-                      <Tags className="w-5 h-5 md:w-6 md:h-6 text-blue-400" />
-                    </div>
-                    <div>
-                      <h3 className="text-base md:text-lg font-semibold text-white group-hover:text-blue-400 transition">
-                        Incident Categories
-                      </h3>
-                      <p className="text-sm text-gray-400">
-                        จัดการประเภทงาน เช่น POS, Network, Hardware
-                      </p>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-blue-400 group-hover:translate-x-1 transition-all" />
-                </div>
-              </Link>
-
-              {/* Job Types Card */}
+              {/* Job Types Card — first */}
               <Link
                 href="/dashboard/settings/job-types"
                 className="block p-4 md:p-6 bg-slate-700/30 hover:bg-slate-700/50 border border-slate-600 hover:border-orange-500/50 rounded-xl transition-all group"
@@ -1878,11 +1855,34 @@ export default function SettingsPage() {
                         Job Types
                       </h3>
                       <p className="text-sm text-gray-400">
-                        จัดการประเภทงาน MA, Adhoc, Project
+                        จัดการประเภทงาน MA, Adhoc, Project และกำหนด SLA Default
                       </p>
                     </div>
                   </div>
                   <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-orange-400 group-hover:translate-x-1 transition-all" />
+                </div>
+              </Link>
+
+              {/* Categories Card — second */}
+              <Link
+                href="/dashboard/settings/categories"
+                className="block p-4 md:p-6 bg-slate-700/30 hover:bg-slate-700/50 border border-slate-600 hover:border-blue-500/50 rounded-xl transition-all group"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3 md:space-x-4">
+                    <div className="p-2 md:p-3 bg-blue-600/20 rounded-xl">
+                      <Tags className="w-5 h-5 md:w-6 md:h-6 text-blue-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-base md:text-lg font-semibold text-white group-hover:text-blue-400 transition">
+                        Incident Categories
+                      </h3>
+                      <p className="text-sm text-gray-400">
+                        จัดการประเภทย่อยของงาน เช่น POS, Network, Hardware
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-blue-400 group-hover:translate-x-1 transition-all" />
                 </div>
               </Link>
             </div>

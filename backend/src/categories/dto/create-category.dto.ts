@@ -30,6 +30,11 @@ export class CreateCategoryDto {
   @IsInt()
   @Type(() => Number)
   sortOrder?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  jobTypeId?: number | null;
 }
 
 export class UpdateCategoryDto {
@@ -62,4 +67,9 @@ export class UpdateCategoryDto {
   @IsInt()
   @Type(() => Number)
   sortOrder?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  jobTypeId?: number | null;
 }

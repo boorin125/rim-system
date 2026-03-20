@@ -2,7 +2,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import {
   Briefcase,
   Plus,
@@ -15,6 +14,9 @@ import {
   CheckCircle,
   Power,
   Sparkles,
+  ToggleLeft,
+  ToggleRight,
+  Clock,
 } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
@@ -28,35 +30,61 @@ interface JobType {
   color: string
   isActive: boolean
   sortOrder: number
+  defaultPriority?: string | null
+  ignoreSla: boolean
+  _count?: { categories: number }
+}
+
+interface SlaConfig {
+  id: number
+  priority: string
+  name: string
+  displayName?: string
+  isActive: boolean
+}
+
+const PRIORITY_LABELS: Record<string, string> = {
+  CRITICAL: 'Critical',
+  HIGH: 'High',
+  MEDIUM: 'Medium',
+  LOW: 'Low',
+}
+
+const PRIORITY_COLORS: Record<string, string> = {
+  CRITICAL: 'text-red-400',
+  HIGH: 'text-orange-400',
+  MEDIUM: 'text-yellow-400',
+  LOW: 'text-green-400',
 }
 
 export default function JobTypesSettingsPage() {
   const themeHighlight = useThemeHighlight()
-  const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
   const [jobTypes, setJobTypes] = useState<JobType[]>([])
+  const [slaConfigs, setSlaConfigs] = useState<SlaConfig[]>([])
   const [editingId, setEditingId] = useState<number | null>(null)
   const [isCreating, setIsCreating] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isSeeding, setIsSeeding] = useState(false)
   const [userRoles, setUserRoles] = useState<string[]>([])
 
-  // Form data
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     color: '#3B82F6',
     isActive: true,
+    defaultPriority: '' as string,
+    ignoreSla: false,
   })
 
   useEffect(() => {
     const userStr = localStorage.getItem('user')
     if (userStr) {
       const user = JSON.parse(userStr)
-      const roles = user.roles || (user.role ? [user.role] : [])
-      setUserRoles(roles)
+      setUserRoles(user.roles || (user.role ? [user.role] : []))
     }
     fetchJobTypes()
+    fetchSlaConfigs()
   }, [])
 
   const canManage = userRoles.includes('SUPER_ADMIN') || userRoles.includes('IT_MANAGER')
@@ -64,31 +92,39 @@ export default function JobTypesSettingsPage() {
   const fetchJobTypes = async () => {
     try {
       const token = localStorage.getItem('token')
-      const response = await axios.get(
+      const res = await axios.get(
         `${process.env.NEXT_PUBLIC_API_URL}/categories/job-types/all?includeInactive=true`,
         { headers: { Authorization: `Bearer ${token}` } }
       )
-      setJobTypes(response.data || [])
-    } catch (error) {
-      console.error('Error fetching job types:', error)
+      setJobTypes(res.data || [])
+    } catch {
       toast.error('ไม่สามารถโหลดข้อมูล Job Type ได้')
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleCreate = async () => {
-    if (!formData.name.trim()) {
-      toast.error('กรุณากรอกชื่อ Job Type')
-      return
-    }
+  const fetchSlaConfigs = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/sla`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      setSlaConfigs((res.data || []).filter((s: SlaConfig) => s.isActive))
+    } catch {}
+  }
 
+  const handleCreate = async () => {
+    if (!formData.name.trim()) { toast.error('กรุณากรอกชื่อ Job Type'); return }
     setIsSaving(true)
     try {
       const token = localStorage.getItem('token')
       await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/categories/job-types`,
-        formData,
+        {
+          ...formData,
+          defaultPriority: formData.defaultPriority || null,
+        },
         { headers: { Authorization: `Bearer ${token}` } }
       )
       toast.success('เพิ่ม Job Type สำเร็จ')
@@ -103,17 +139,16 @@ export default function JobTypesSettingsPage() {
   }
 
   const handleUpdate = async (id: number) => {
-    if (!formData.name.trim()) {
-      toast.error('กรุณากรอกชื่อ Job Type')
-      return
-    }
-
+    if (!formData.name.trim()) { toast.error('กรุณากรอกชื่อ Job Type'); return }
     setIsSaving(true)
     try {
       const token = localStorage.getItem('token')
       await axios.put(
         `${process.env.NEXT_PUBLIC_API_URL}/categories/job-types/${id}`,
-        formData,
+        {
+          ...formData,
+          defaultPriority: formData.defaultPriority || null,
+        },
         { headers: { Authorization: `Bearer ${token}` } }
       )
       toast.success('อัพเดต Job Type สำเร็จ')
@@ -129,7 +164,6 @@ export default function JobTypesSettingsPage() {
 
   const handleDelete = async (jobType: JobType) => {
     if (!confirm(`ยืนยันการลบ Job Type "${jobType.name}"?`)) return
-
     try {
       const token = localStorage.getItem('token')
       await axios.delete(
@@ -153,14 +187,13 @@ export default function JobTypesSettingsPage() {
       )
       toast.success(jobType.isActive ? 'ปิดใช้งาน Job Type สำเร็จ' : 'เปิดใช้งาน Job Type สำเร็จ')
       fetchJobTypes()
-    } catch (error: any) {
+    } catch {
       toast.error('ไม่สามารถเปลี่ยนสถานะ Job Type ได้')
     }
   }
 
   const handleSeedDefaults = async () => {
     if (!confirm('ยืนยันการสร้าง Job Type เริ่มต้น? หากมีอยู่แล้วจะไม่ถูกเขียนทับ')) return
-
     setIsSeeding(true)
     try {
       const token = localStorage.getItem('token')
@@ -185,6 +218,8 @@ export default function JobTypesSettingsPage() {
       description: jobType.description || '',
       color: jobType.color,
       isActive: jobType.isActive,
+      defaultPriority: jobType.defaultPriority || '',
+      ignoreSla: jobType.ignoreSla ?? false,
     })
   }
 
@@ -195,33 +230,107 @@ export default function JobTypesSettingsPage() {
   }
 
   const resetForm = () => {
-    setFormData({
-      name: '',
-      description: '',
-      color: '#3B82F6',
-      isActive: true,
-    })
+    setFormData({ name: '', description: '', color: '#3B82F6', isActive: true, defaultPriority: '', ignoreSla: false })
   }
 
   const colorOptions = [
-    '#EF4444', // Red
-    '#F97316', // Orange
-    '#F59E0B', // Amber
-    '#EAB308', // Yellow
-    '#84CC16', // Lime
-    '#22C55E', // Green
-    '#10B981', // Emerald
-    '#14B8A6', // Teal
-    '#06B6D4', // Cyan
-    '#0EA5E9', // Sky
-    '#3B82F6', // Blue
-    '#6366F1', // Indigo
-    '#8B5CF6', // Violet
-    '#A855F7', // Purple
-    '#D946EF', // Fuchsia
-    '#EC4899', // Pink
-    '#6B7280', // Gray
+    '#EF4444','#F97316','#F59E0B','#EAB308','#84CC16','#22C55E',
+    '#10B981','#14B8A6','#06B6D4','#0EA5E9','#3B82F6','#6366F1',
+    '#8B5CF6','#A855F7','#D946EF','#EC4899','#6B7280',
   ]
+
+  const getSlaLabel = (priority: string) => {
+    const sla = slaConfigs.find(s => s.priority === priority)
+    return sla ? (sla.displayName || sla.name) : (PRIORITY_LABELS[priority] || priority)
+  }
+
+  const FormFields = ({ isEdit = false }: { isEdit?: boolean }) => (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm text-gray-400 mb-1">ชื่อ Job Type *</label>
+          <input
+            type="text"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            className={`w-full px-4 py-2 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${isEdit ? 'bg-slate-600/50 border-slate-500' : 'bg-slate-700/50 border-slate-600'}`}
+            placeholder="เช่น MA, Adhoc, Project"
+          />
+        </div>
+        <div>
+          <label className="block text-sm text-gray-400 mb-1">คำอธิบาย</label>
+          <input
+            type="text"
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            className={`w-full px-4 py-2 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${isEdit ? 'bg-slate-600/50 border-slate-500' : 'bg-slate-700/50 border-slate-600'}`}
+            placeholder="คำอธิบายสั้นๆ"
+          />
+        </div>
+
+        {/* Default Priority */}
+        <div>
+          <label className="block text-sm text-gray-400 mb-1 flex items-center gap-1">
+            <Clock className="w-3.5 h-3.5" /> Default Priority (SLA)
+          </label>
+          <select
+            value={formData.defaultPriority}
+            onChange={(e) => setFormData({ ...formData, defaultPriority: e.target.value })}
+            className={`w-full px-4 py-2 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${isEdit ? 'bg-slate-600/50 border-slate-500' : 'bg-slate-700/50 border-slate-600'}`}
+          >
+            <option value="">ไม่กำหนด (ตาม Create Incident)</option>
+            {slaConfigs.map((sla) => (
+              <option key={sla.priority} value={sla.priority}>
+                {sla.displayName || sla.name} ({sla.priority})
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-500 mt-0.5">ถ้ากำหนด จะ Auto-fill Priority ตอนสร้าง Incident</p>
+        </div>
+
+        {/* Ignore SLA toggle */}
+        <div>
+          <label className="block text-sm text-gray-400 mb-1">การคำนวณ SLA</label>
+          <button
+            type="button"
+            onClick={() => setFormData({ ...formData, ignoreSla: !formData.ignoreSla })}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors w-full ${
+              formData.ignoreSla
+                ? 'bg-red-500/20 border-red-500/50 text-red-400'
+                : 'bg-green-500/20 border-green-500/50 text-green-400'
+            }`}
+          >
+            {formData.ignoreSla ? (
+              <ToggleRight className="w-5 h-5" />
+            ) : (
+              <ToggleLeft className="w-5 h-5" />
+            )}
+            <span className="text-sm font-medium">
+              {formData.ignoreSla ? 'Ignore SLA (ไม่คำนวณ SLA)' : 'คำนวณ SLA ปกติ'}
+            </span>
+          </button>
+        </div>
+
+        {/* Color */}
+        <div className="md:col-span-2">
+          <label className="block text-sm text-gray-400 mb-1">สี</label>
+          <div className="flex flex-wrap gap-2">
+            {colorOptions.map((color) => (
+              <button
+                key={color}
+                type="button"
+                onClick={() => setFormData({ ...formData, color })}
+                className={`rounded-lg transition-all ${isEdit ? 'w-6 h-6' : 'w-8 h-8'} ${
+                  formData.color === color ? 'ring-2 ring-white scale-110' : 'hover:scale-110'
+                }`}
+                style={{ backgroundColor: color }}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 
   if (isLoading) {
     return (
@@ -236,7 +345,6 @@ export default function JobTypesSettingsPage() {
 
   return (
     <div className="space-y-6 animate-fade-in max-w-4xl mx-auto">
-      {/* Back Button */}
       <BackButton href="/dashboard/settings" label="กลับไปหน้า Settings" />
 
       {/* Header */}
@@ -247,7 +355,7 @@ export default function JobTypesSettingsPage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-white">Job Types</h1>
-            <p className="text-gray-400">จัดการประเภทงาน MA, Adhoc, Project</p>
+            <p className="text-gray-400">จัดการประเภทงาน พร้อม Default SLA และการคำนวณ SLA</p>
           </div>
         </div>
 
@@ -259,19 +367,12 @@ export default function JobTypesSettingsPage() {
                 disabled={isSeeding}
                 className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition disabled:opacity-50"
               >
-                {isSeeding ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Sparkles className="w-4 h-4" />
-                )}
+                {isSeeding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                 สร้างค่าเริ่มต้น
               </button>
             )}
             <button
-              onClick={() => {
-                setIsCreating(true)
-                resetForm()
-              }}
+              onClick={() => { setIsCreating(true); resetForm() }}
               className="flex items-center gap-2 px-4 py-2 hover:brightness-110 text-white rounded-lg transition"
               style={{ backgroundColor: themeHighlight }}
             >
@@ -284,53 +385,11 @@ export default function JobTypesSettingsPage() {
 
       {/* Create Form */}
       {isCreating && (
-        <div className="glass-card p-6 rounded-2xl border-2 border-blue-500/50">
+        <div className="glass-card p-6 rounded-2xl border-2 border-orange-500/50">
           <h3 className="text-lg font-semibold text-white mb-4">เพิ่ม Job Type ใหม่</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">ชื่อ Job Type *</label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="เช่น MA, Adhoc, Project"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">คำอธิบาย</label>
-              <input
-                type="text"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="คำอธิบายสั้นๆ"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm text-gray-400 mb-1">สี</label>
-              <div className="flex flex-wrap gap-2">
-                {colorOptions.map((color) => (
-                  <button
-                    key={color}
-                    type="button"
-                    onClick={() => setFormData({ ...formData, color })}
-                    className={`w-8 h-8 rounded-lg transition-all ${
-                      formData.color === color ? 'ring-2 ring-white scale-110' : 'hover:scale-110'
-                    }`}
-                    style={{ backgroundColor: color }}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
+          <FormFields />
           <div className="flex justify-end gap-2 mt-4">
-            <button
-              onClick={cancelEditing}
-              className="px-4 py-2 text-gray-400 hover:text-white transition"
-            >
-              ยกเลิก
-            </button>
+            <button onClick={cancelEditing} className="px-4 py-2 text-gray-400 hover:text-white transition">ยกเลิก</button>
             <button
               onClick={handleCreate}
               disabled={isSaving}
@@ -349,20 +408,14 @@ export default function JobTypesSettingsPage() {
           <div className="p-12 text-center">
             <Briefcase className="w-16 h-16 text-gray-600 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-white mb-2">ยังไม่มี Job Type</h3>
-            <p className="text-gray-400 mb-6">
-              เริ่มต้นด้วยการสร้างค่าเริ่มต้น หรือเพิ่ม Job Type ใหม่ด้วยตัวเอง
-            </p>
+            <p className="text-gray-400 mb-6">เริ่มต้นด้วยการสร้างค่าเริ่มต้น หรือเพิ่ม Job Type ใหม่ด้วยตัวเอง</p>
             {canManage && (
               <button
                 onClick={handleSeedDefaults}
                 disabled={isSeeding}
                 className="flex items-center gap-2 px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition mx-auto disabled:opacity-50"
               >
-                {isSeeding ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <Sparkles className="w-5 h-5" />
-                )}
+                {isSeeding ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
                 สร้าง Job Type เริ่มต้น
               </button>
             )}
@@ -372,54 +425,15 @@ export default function JobTypesSettingsPage() {
             {jobTypes.map((jobType) => (
               <div
                 key={jobType.id}
-                className={`p-4 ${
-                  !jobType.isActive ? 'opacity-50' : ''
-                } ${editingId === jobType.id ? 'bg-slate-700/30' : 'hover:bg-slate-700/20'} transition`}
+                className={`p-4 ${!jobType.isActive ? 'opacity-50' : ''} ${
+                  editingId === jobType.id ? 'bg-slate-700/30' : 'hover:bg-slate-700/20'
+                } transition`}
               >
                 {editingId === jobType.id ? (
-                  // Edit Mode
                   <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm text-gray-400 mb-1">ชื่อ Job Type *</label>
-                        <input
-                          type="text"
-                          value={formData.name}
-                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                          className="w-full px-4 py-2 bg-slate-600/50 border border-slate-500 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm text-gray-400 mb-1">คำอธิบาย</label>
-                        <input
-                          type="text"
-                          value={formData.description}
-                          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                          className="w-full px-4 py-2 bg-slate-600/50 border border-slate-500 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-                      <div className="md:col-span-2">
-                        <label className="block text-sm text-gray-400 mb-1">สี</label>
-                        <div className="flex flex-wrap gap-2">
-                          {colorOptions.map((color) => (
-                            <button
-                              key={color}
-                              type="button"
-                              onClick={() => setFormData({ ...formData, color })}
-                              className={`w-6 h-6 rounded transition-all ${
-                                formData.color === color ? 'ring-2 ring-white scale-110' : 'hover:scale-110'
-                              }`}
-                              style={{ backgroundColor: color }}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
+                    <FormFields isEdit />
                     <div className="flex justify-end gap-2">
-                      <button
-                        onClick={cancelEditing}
-                        className="p-2 text-gray-400 hover:text-white transition"
-                      >
+                      <button onClick={cancelEditing} className="p-2 text-gray-400 hover:text-white transition">
                         <X className="w-5 h-5" />
                       </button>
                       <button
@@ -427,53 +441,61 @@ export default function JobTypesSettingsPage() {
                         disabled={isSaving}
                         className="p-2 text-green-400 hover:text-green-300 transition disabled:opacity-50"
                       >
-                        {isSaving ? (
-                          <Loader2 className="w-5 h-5 animate-spin" />
-                        ) : (
-                          <CheckCircle className="w-5 h-5" />
-                        )}
+                        {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
                       </button>
                     </div>
                   </div>
                 ) : (
-                  // View Mode
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-4 min-w-0">
                       <div
-                        className="w-10 h-10 rounded-lg flex items-center justify-center"
+                        className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
                         style={{ backgroundColor: `${jobType.color}20`, color: jobType.color }}
                       >
                         <Briefcase className="w-5 h-5" />
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="font-medium text-white">{jobType.name}</span>
                           <span
-                            className="px-2 py-0.5 text-xs rounded-full text-white"
+                            className="px-2 py-0.5 text-xs rounded-full text-white flex-shrink-0"
                             style={{ backgroundColor: jobType.color }}
                           >
                             {jobType.name}
                           </span>
+                          {jobType.ignoreSla && (
+                            <span className="px-2 py-0.5 text-xs bg-red-500/20 text-red-400 border border-red-500/30 rounded-full flex-shrink-0">
+                              Ignore SLA
+                            </span>
+                          )}
+                          {jobType.defaultPriority && (
+                            <span className={`px-2 py-0.5 text-xs border rounded-full flex-shrink-0 ${PRIORITY_COLORS[jobType.defaultPriority]} bg-slate-700/50 border-current/30`}>
+                              Default: {getSlaLabel(jobType.defaultPriority)}
+                            </span>
+                          )}
                           {!jobType.isActive && (
-                            <span className="px-2 py-0.5 text-xs bg-gray-500/20 text-gray-400 rounded">
-                              ปิดใช้งาน
+                            <span className="px-2 py-0.5 text-xs bg-gray-500/20 text-gray-400 rounded">ปิดใช้งาน</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 mt-0.5">
+                          {jobType.description && (
+                            <p className="text-sm text-gray-400 truncate">{jobType.description}</p>
+                          )}
+                          {(jobType._count?.categories ?? 0) > 0 && (
+                            <span className="text-xs text-blue-400 flex-shrink-0">
+                              {jobType._count!.categories} Category
                             </span>
                           )}
                         </div>
-                        {jobType.description && (
-                          <p className="text-sm text-gray-400">{jobType.description}</p>
-                        )}
                       </div>
                     </div>
 
                     {canManage && (
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 flex-shrink-0">
                         <button
                           onClick={() => handleToggleActive(jobType)}
                           className={`p-2 rounded-lg transition ${
-                            jobType.isActive
-                              ? 'text-green-400 hover:bg-green-500/20'
-                              : 'text-gray-400 hover:bg-gray-500/20'
+                            jobType.isActive ? 'text-green-400 hover:bg-green-500/20' : 'text-gray-400 hover:bg-gray-500/20'
                           }`}
                           title={jobType.isActive ? 'ปิดใช้งาน' : 'เปิดใช้งาน'}
                         >
@@ -482,14 +504,12 @@ export default function JobTypesSettingsPage() {
                         <button
                           onClick={() => startEditing(jobType)}
                           className="p-2 text-blue-400 hover:bg-blue-500/20 rounded-lg transition"
-                          title="แก้ไข"
                         >
                           <Pencil className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(jobType)}
                           className="p-2 text-red-400 hover:bg-red-500/20 rounded-lg transition"
-                          title="ลบ"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -510,24 +530,20 @@ export default function JobTypesSettingsPage() {
           <div>
             <p className="text-blue-400 font-medium">เกี่ยวกับ Job Types</p>
             <p className="text-sm text-gray-300">
-              <strong>MA (Maintenance Agreement)</strong> - งานบำรุงรักษาตามสัญญา<br />
-              <strong>Adhoc</strong> - งานเฉพาะกิจ นอกเหนือจากสัญญา MA<br />
-              <strong>Project</strong> - งานโปรเจคติดตั้ง หรืองานขนาดใหญ่<br /><br />
-              การปิดใช้งาน Job Type จะทำให้ไม่สามารถเลือกได้ตอนสร้าง Incident ใหม่
+              แต่ละ Job Type กำหนดได้ว่าจะใช้ <strong>Default Priority (SLA)</strong> ใด — ถ้ากำหนดไว้จะ Auto-fill ตอนสร้าง Incident<br />
+              สามารถตั้งให้ <strong>Ignore SLA</strong> เพื่อไม่ให้คำนวณ SLA สำหรับงานประเภทนั้น<br />
+              Category ที่อยู่ภายใต้ Job Type จะแสดงเฉพาะเมื่อเลือก Job Type นั้นในหน้า Create Incident
             </p>
           </div>
         </div>
       </div>
 
-      {/* View Only Warning */}
       {!canManage && (
         <div className="flex items-start space-x-3 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
           <AlertCircle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-yellow-400 font-medium">View Only</p>
-            <p className="text-sm text-gray-400">
-              เฉพาะ Super Admin และ IT Manager เท่านั้นที่สามารถจัดการ Job Types ได้
-            </p>
+            <p className="text-sm text-gray-400">เฉพาะ Super Admin และ IT Manager เท่านั้นที่สามารถจัดการ Job Types ได้</p>
           </div>
         </div>
       )}

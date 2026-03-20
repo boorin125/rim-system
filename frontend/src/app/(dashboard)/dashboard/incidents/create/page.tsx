@@ -19,6 +19,7 @@ interface Category {
   name: string
   color: string | null
   isActive: boolean
+  jobTypeId?: number | null
 }
 
 interface JobType {
@@ -26,6 +27,8 @@ interface JobType {
   name: string
   color: string | null
   isActive: boolean
+  defaultPriority?: string | null
+  ignoreSla?: boolean
 }
 
 interface SlaConfig {
@@ -292,14 +295,31 @@ export default function CreateIncidentPage() {
   }
 
   const handleJobTypeChange = (value: string) => {
-    setFormData(prev => ({ ...prev, jobType: value }))
+    // Find the selected job type object to auto-fill priority
+    const selectedJobType = jobTypes.find(jt => jt.name === value)
+    const newPriority = selectedJobType?.defaultPriority || formData.priority
+
+    setFormData(prev => ({
+      ...prev,
+      jobType: value,
+      category: '', // reset category when job type changes
+      priority: newPriority,
+    }))
     setSelectedEquipmentIds([])
     setEquipmentSearch('')
-    // If switching to MA and store already selected but no equipment
     if (value === 'MA' && selectedStore && equipment.length === 0) {
       setShowNoEquipmentPopup(true)
     }
   }
+
+  // Categories filtered by selected job type
+  const filteredCategories = formData.jobType
+    ? categories.filter(cat => {
+        const selectedJobType = jobTypes.find(jt => jt.name === formData.jobType)
+        if (!selectedJobType) return true
+        return !cat.jobTypeId || cat.jobTypeId === selectedJobType.id
+      })
+    : categories
 
   const checkDuplicate = async (equipmentIds: number[], storeId: string) => {
     if (!equipmentIds.length || !storeId) {
@@ -642,24 +662,38 @@ export default function CreateIncidentPage() {
                   </select>
                 </div>
 
-                {/* Category */}
+                {/* Category — filtered by selected Job Type */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     Category <span className="text-red-400">*</span>
+                    {formData.jobType && (() => {
+                      const jt = jobTypes.find(j => j.name === formData.jobType)
+                      return jt?.ignoreSla ? (
+                        <span className="ml-2 text-xs px-2 py-0.5 bg-red-500/20 text-red-400 border border-red-500/30 rounded-full">
+                          Ignore SLA
+                        </span>
+                      ) : null
+                    })()}
                   </label>
                   <select
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-blue-500 transition-colors"
+                    disabled={!formData.jobType}
+                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     required
                   >
-                    <option value="" className="bg-slate-800">เลือก Category</option>
-                    {categories.map((cat) => (
+                    <option value="" className="bg-slate-800">
+                      {!formData.jobType ? 'เลือก Job Type ก่อน' : 'เลือก Category'}
+                    </option>
+                    {filteredCategories.map((cat) => (
                       <option key={cat.id} value={cat.name} className="bg-slate-800">
                         {cat.name}
                       </option>
                     ))}
                   </select>
+                  {formData.jobType && filteredCategories.length === 0 && (
+                    <p className="text-xs text-yellow-400 mt-1">ไม่มี Category สำหรับ Job Type นี้ กรุณาตั้งค่าใน Settings</p>
+                  )}
                 </div>
 
                 {/* Scheduled Date/Time — required for Project and Adhoc */}

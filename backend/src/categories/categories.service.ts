@@ -11,11 +11,15 @@ export class CategoriesService {
   // INCIDENT CATEGORIES
   // ========================================
 
-  async findAllCategories(includeInactive = false) {
-    const where = includeInactive ? {} : { isActive: true };
+  async findAllCategories(includeInactive = false, jobTypeId?: number) {
+    const where: any = includeInactive ? {} : { isActive: true };
+    if (jobTypeId !== undefined) {
+      where.jobTypeId = jobTypeId;
+    }
     return this.prisma.incidentCategory.findMany({
       where,
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+      include: { jobType: { select: { id: true, name: true, color: true } } },
     });
   }
 
@@ -49,7 +53,9 @@ export class CategoriesService {
         icon: dto.icon,
         isActive: dto.isActive ?? true,
         sortOrder: dto.sortOrder ?? 0,
+        jobTypeId: dto.jobTypeId ?? null,
       },
+      include: { jobType: { select: { id: true, name: true, color: true } } },
     });
   }
 
@@ -74,6 +80,7 @@ export class CategoriesService {
     return this.prisma.incidentCategory.update({
       where: { id },
       data: dto,
+      include: { jobType: { select: { id: true, name: true, color: true } } },
     });
   }
 
@@ -126,6 +133,7 @@ export class CategoriesService {
     return this.prisma.jobType.findMany({
       where,
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+      include: { _count: { select: { categories: true } } },
     });
   }
 
@@ -158,7 +166,10 @@ export class CategoriesService {
         color: dto.color,
         isActive: dto.isActive ?? true,
         sortOrder: dto.sortOrder ?? 0,
+        defaultPriority: dto.defaultPriority ?? null,
+        ignoreSla: dto.ignoreSla ?? false,
       },
+      include: { _count: { select: { categories: true } } },
     });
   }
 
@@ -183,6 +194,7 @@ export class CategoriesService {
     return this.prisma.jobType.update({
       where: { id },
       data: dto,
+      include: { _count: { select: { categories: true } } },
     });
   }
 

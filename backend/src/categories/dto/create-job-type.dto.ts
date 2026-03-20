@@ -1,5 +1,6 @@
-import { IsString, IsOptional, IsBoolean, IsInt, MinLength, MaxLength, Matches } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsInt, IsEnum, MinLength, MaxLength, Matches } from 'class-validator';
 import { Type } from 'class-transformer';
+import { Priority } from '@prisma/client';
 
 export class CreateJobTypeDto {
   @IsString()
@@ -25,6 +26,14 @@ export class CreateJobTypeDto {
   @IsInt()
   @Type(() => Number)
   sortOrder?: number;
+
+  @IsOptional()
+  @IsEnum(Priority)
+  defaultPriority?: Priority | null;
+
+  @IsOptional()
+  @IsBoolean()
+  ignoreSla?: boolean;
 }
 
 export class UpdateJobTypeDto {
@@ -52,4 +61,12 @@ export class UpdateJobTypeDto {
   @IsInt()
   @Type(() => Number)
   sortOrder?: number;
+
+  @IsOptional()
+  @IsEnum(Priority)
+  defaultPriority?: Priority | null;
+
+  @IsOptional()
+  @IsBoolean()
+  ignoreSla?: boolean;
 }
