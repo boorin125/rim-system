@@ -1912,9 +1912,6 @@ export default function SettingsPage() {
                     className="w-full px-3 py-2.5 md:px-4 md:py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                     placeholder="30"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    ตั้งค่าเป็น 0 เพื่อปิดการใช้งาน Service Warranty
-                  </p>
                 </div>
                 {canManage && (
                   <button
@@ -1930,6 +1927,9 @@ export default function SettingsPage() {
                   </button>
                 )}
               </div>
+              <p className="text-xs text-gray-500 mt-1">
+                ตั้งค่าเป็น 0 เพื่อปิดการใช้งาน Service Warranty
+              </p>
               <p className="text-xs text-gray-400 mt-3">
                 เมื่อสร้าง Incident ใหม่สำหรับอุปกรณ์และสาขาเดิม ระบบจะตรวจสอบว่ามีงานที่ปิดไปภายใน {warrantyDays} วันหรือไม่
                 หากมีจะแสดงการแจ้งเตือนให้เลือก Reopen งานเดิม
