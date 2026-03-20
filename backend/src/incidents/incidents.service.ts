@@ -691,11 +691,18 @@ export class IncidentsService {
     }
 
     // Calculate SLA deadline based on priority
-    // Project job type: no SLA (slaDeadline = null)
+    // Use ignoreSla flag from JobType DB record instead of hardcoded list
     const priority = createIncidentDto.priority || Priority.MEDIUM;
     const createdAt = new Date();
-    const noSlaJobTypes = ['Project', 'Preventive Maintenance'];
-    const slaDeadline = noSlaJobTypes.includes(createIncidentDto.jobType ?? '')
+    let ignoreSla = false;
+    if (createIncidentDto.jobType) {
+      const jobTypeRecord = await this.prisma.jobType.findFirst({
+        where: { name: createIncidentDto.jobType },
+        select: { ignoreSla: true },
+      });
+      ignoreSla = jobTypeRecord?.ignoreSla ?? false;
+    }
+    const slaDeadline = ignoreSla
       ? null
       : await this.slaService.calculateSlaDeadline(priority, createdAt);
 

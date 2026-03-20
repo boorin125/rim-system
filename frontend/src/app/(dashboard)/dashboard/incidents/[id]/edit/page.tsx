@@ -299,13 +299,10 @@ export default function EditIncidentPage() {
                   })()}
                 </label>
                 {(() => {
-                  const filteredCategories = formData.jobType
-                    ? categories.filter(cat => {
-                        const selectedJobType = jobTypes.find(jt => jt.name === formData.jobType)
-                        if (!selectedJobType) return true
-                        return !cat.jobTypeId || cat.jobTypeId === selectedJobType.id
-                      })
-                    : categories
+                  const selectedJobType = jobTypes.find(jt => jt.name === formData.jobType)
+                  const filteredCategories = selectedJobType
+                    ? categories.filter(cat => cat.jobTypeId === selectedJobType.id)
+                    : []
                   return (
                     <select
                       value={formData.category}

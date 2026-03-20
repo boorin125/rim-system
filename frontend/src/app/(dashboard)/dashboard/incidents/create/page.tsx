@@ -312,14 +312,14 @@ export default function CreateIncidentPage() {
     }
   }
 
-  // Categories filtered by selected job type
+  // Categories filtered by selected job type — strict: only show categories belonging to this job type
   const filteredCategories = formData.jobType
-    ? categories.filter(cat => {
+    ? (() => {
         const selectedJobType = jobTypes.find(jt => jt.name === formData.jobType)
-        if (!selectedJobType) return true
-        return !cat.jobTypeId || cat.jobTypeId === selectedJobType.id
-      })
-    : categories
+        if (!selectedJobType) return []
+        return categories.filter(cat => cat.jobTypeId === selectedJobType.id)
+      })()
+    : []
 
   const checkDuplicate = async (equipmentIds: number[], storeId: string) => {
     if (!equipmentIds.length || !storeId) {
