@@ -39,7 +39,7 @@ export class IncidentsController {
    * Access: HELP_DESK, END_USER
    */
   @Post()
-  @Roles(UserRole.HELP_DESK, UserRole.END_USER)
+  @Roles(UserRole.IT_MANAGER, UserRole.HELP_DESK, UserRole.END_USER)
   @UseGuards(LicenseGuard)
   create(@Body() dto: CreateIncidentDto, @Request() req) {
     return this.incidentsService.create(dto, req.user.id);

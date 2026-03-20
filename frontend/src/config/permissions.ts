@@ -327,6 +327,14 @@ export function hasMenuAccess(user: any, menuPath: string): boolean {
   return userRoles.some(role => permission.roles.includes(role))
 }
 
+const ACCESS_LEVEL_RANK: Record<AccessLevel, number> = {
+  none: 0,
+  view: 1,
+  self: 2,
+  create_view: 3,
+  full: 4,
+}
+
 // Helper function to get access level for a menu
 export function getAccessLevel(user: any, menuPath: string): AccessLevel {
   const userRoles = getUserRoles(user)
@@ -334,18 +342,17 @@ export function getAccessLevel(user: any, menuPath: string): AccessLevel {
 
   if (!permission) return 'none'
 
-  // Use the access level of the highest-ranking role the user has.
-  // This ensures IT_MANAGER (rank 7) wins over SUPERVISOR (rank 5), etc.
-  const sortedRoles = [...userRoles].sort(
-    (a, b) => (ROLE_HIERARCHY[b] || 0) - (ROLE_HIERARCHY[a] || 0)
-  )
-
-  for (const role of sortedRoles) {
-    const level = permission.accessLevel[role]
-    if (level && level !== 'none') return level
+  // Return the most permissive access level across ALL of the user's roles.
+  // e.g. IT_MANAGER(view) + HELP_DESK(full) → full
+  let best: AccessLevel = 'none'
+  for (const role of userRoles) {
+    const level = (permission.accessLevel[role] ?? 'none') as AccessLevel
+    if ((ACCESS_LEVEL_RANK[level] ?? 0) > (ACCESS_LEVEL_RANK[best] ?? 0)) {
+      best = level
+    }
   }
 
-  return 'none'
+  return best
 }
 
 // Helper function to check if user can perform action
