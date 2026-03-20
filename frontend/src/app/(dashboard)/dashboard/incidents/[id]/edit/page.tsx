@@ -254,28 +254,8 @@ export default function EditIncidentPage() {
               />
             </div>
 
-            {/* Category & Job Type */}
+            {/* Job Type & Category */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Category
-                </label>
-                <select
-                  value={formData.category}
-                  onChange={(e) =>
-                    setFormData({ ...formData, category: e.target.value })
-                  }
-                  className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Select category</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.name}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Job Type
@@ -291,6 +271,26 @@ export default function EditIncidentPage() {
                   {jobTypes.map((type) => (
                     <option key={type.id} value={type.name}>
                       {type.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Category
+                </label>
+                <select
+                  value={formData.category}
+                  onChange={(e) =>
+                    setFormData({ ...formData, category: e.target.value })
+                  }
+                  className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Select category</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.name}>
+                      {cat.name}
                     </option>
                   ))}
                 </select>

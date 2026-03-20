@@ -622,26 +622,6 @@ export default function CreateIncidentPage() {
                   />
                 </div>
 
-                {/* Category */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Category <span className="text-red-400">*</span>
-                  </label>
-                  <select
-                    value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-blue-500 transition-colors"
-                    required
-                  >
-                    <option value="" className="bg-slate-800">เลือก Category</option>
-                    {categories.map((cat) => (
-                      <option key={cat.id} value={cat.name} className="bg-slate-800">
-                        {cat.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
                 {/* Job Type */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -657,6 +637,26 @@ export default function CreateIncidentPage() {
                     {jobTypes.map((type) => (
                       <option key={type.id} value={type.name} className="bg-slate-800">
                         {type.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Category */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Category <span className="text-red-400">*</span>
+                  </label>
+                  <select
+                    value={formData.category}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-blue-500 transition-colors"
+                    required
+                  >
+                    <option value="" className="bg-slate-800">เลือก Category</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.name} className="bg-slate-800">
+                        {cat.name}
                       </option>
                     ))}
                   </select>
