@@ -1208,15 +1208,15 @@ SLA Breach Time: ${slaBreachText}`
       <BackButton href="/dashboard/incidents" label="กลับไปหน้า Incidents" />
 
       {/* Header */}
-      <div className="flex items-start justify-between gap-3 sm:items-center">
-        <div className="min-w-0 self-end sm:self-auto">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-xl sm:text-2xl font-bold text-white truncate">
             Incident #{incident.ticketNumber || incident.id}
           </h1>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex flex-col items-stretch sm:flex-row sm:flex-wrap sm:items-center sm:justify-end gap-2 shrink-0">
+        <div className="flex flex-col items-stretch sm:flex-row sm:flex-wrap sm:items-center sm:justify-end gap-2 sm:shrink-0">
 
           {/* Request Onsite Button */}
           {canRequestOnsite && (
