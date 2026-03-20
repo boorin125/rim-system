@@ -496,14 +496,14 @@ export default function IncidentsPage() {
         </div>
 
         {/* Stats */}
-        <div className="flex items-center justify-between gap-2 mt-4 pt-4 border-t border-gray-700/50">
-          <p className="text-xs sm:text-sm text-gray-400 truncate min-w-0">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-4 pt-4 border-t border-gray-700/50">
+          <p className="text-xs sm:text-sm text-gray-400">
             {total > 0
               ? `Showing ${startIndex}–${endIndex} of ${total} incidents`
               : 'No incidents found'}
             {isLoading && <span className="ml-2 text-gray-500">Loading...</span>}
           </p>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2">
             <span className="text-xs text-gray-500">Sort by:</span>
             {(['createdAt', 'priority', 'status'] as const).map((field) => (
               <button
