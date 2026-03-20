@@ -63,6 +63,7 @@ import toast from 'react-hot-toast'
 import { useThemeHighlight } from '@/hooks/useThemeHighlight'
 import LicenseActivateModal from '@/components/LicenseActivateModal'
 import LicenseManagementModal from '@/components/LicenseManagementModal'
+import { getUserRoles } from '@/config/permissions'
 
 // Tab types
 type TabType = 'organization' | 'incident' | 'email' | 'sla' | 'service-report' | 'backup' | 'info' | 'theme' | 'mobile-app'
@@ -470,7 +471,7 @@ export default function SettingsPage() {
     if (userStr) {
       const user = JSON.parse(userStr)
       // Support both single role and multi-role
-      const roles = user.roles || (user.role ? [user.role] : [])
+      const roles = getUserRoles(user)
       setUserRoles(roles)
     }
     fetchData()
