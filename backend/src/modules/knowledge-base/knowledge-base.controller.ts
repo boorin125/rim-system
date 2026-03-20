@@ -125,6 +125,7 @@ export class KnowledgeBaseController {
    */
   @Get('articles')
   async getArticles(
+    @Request() req,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('categoryId') categoryId?: string,
@@ -132,7 +133,7 @@ export class KnowledgeBaseController {
     @Query('isPublished') isPublished?: string,
     @Query('authorId') authorId?: string,
   ) {
-    return this.kbService.getArticles({
+    return this.kbService.getArticles(req.user.role, {
       page: page ? parseInt(page) : 1,
       limit: limit ? parseInt(limit) : 20,
       categoryId: categoryId ? parseInt(categoryId) : undefined,
@@ -147,18 +148,19 @@ export class KnowledgeBaseController {
    */
   @Get('articles/search')
   async searchArticles(
+    @Request() req,
     @Query('q') query: string,
     @Query('limit') limit?: string,
   ) {
-    return this.kbService.searchArticles(query || '', limit ? parseInt(limit) : 10);
+    return this.kbService.searchArticles(req.user.role, query || '', limit ? parseInt(limit) : 10);
   }
 
   /**
    * Get popular articles
    */
   @Get('articles/popular')
-  async getPopularArticles(@Query('limit') limit?: string) {
-    return this.kbService.getPopularArticles(limit ? parseInt(limit) : 10);
+  async getPopularArticles(@Request() req, @Query('limit') limit?: string) {
+    return this.kbService.getPopularArticles(req.user.role, limit ? parseInt(limit) : 10);
   }
 
   /**
@@ -166,11 +168,12 @@ export class KnowledgeBaseController {
    */
   @Get('articles/suggested')
   async getSuggestedArticles(
+    @Request() req,
     @Query('category') category: string,
     @Query('keywords') keywords?: string,
   ) {
     const keywordList = keywords ? keywords.split(',').map((k) => k.trim()) : [];
-    return this.kbService.getSuggestedArticles(category || '', keywordList);
+    return this.kbService.getSuggestedArticles(req.user.role, category || '', keywordList);
   }
 
   /**
