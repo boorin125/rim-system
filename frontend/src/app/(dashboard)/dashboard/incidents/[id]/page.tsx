@@ -1208,23 +1208,21 @@ SLA Breach Time: ${slaBreachText}`
       <BackButton href="/dashboard/incidents" label="กลับไปหน้า Incidents" />
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="flex items-center space-x-4 min-w-0">
-          <div className="min-w-0">
-            <h1 className="text-xl sm:text-2xl font-bold text-white truncate">
-              Incident #{incident.ticketNumber || incident.id}
-            </h1>
-          </div>
+      <div className="flex items-end justify-between gap-3 sm:items-center">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-white truncate">
+            Incident #{incident.ticketNumber || incident.id}
+          </h1>
         </div>
 
         {/* Action Buttons */}
-        <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end gap-2">
+        <div className="flex flex-col items-stretch sm:flex-row sm:flex-wrap sm:items-center sm:justify-end gap-2 shrink-0">
 
           {/* Request Onsite Button */}
           {canRequestOnsite && (
             <button
               onClick={handleRequestOnsite}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition duration-200 text-sm font-medium"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition duration-200 text-sm font-medium"
             >
               <MapPin className="w-4 h-4 shrink-0" />
               <span>Request Onsite</span>
@@ -1235,7 +1233,7 @@ SLA Breach Time: ${slaBreachText}`
           {canDirectClose && (
             <button
               onClick={() => setShowDirectClose(true)}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition duration-200 text-sm font-medium"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition duration-200 text-sm font-medium"
             >
               <CheckCircle2 className="w-4 h-4 shrink-0" />
               <span>ปิดงานโดย Helpdesk</span>
@@ -1246,7 +1244,7 @@ SLA Breach Time: ${slaBreachText}`
           {canResponse && (
             <button
               onClick={() => setShowResponse(true)}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition duration-200 text-sm font-medium"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition duration-200 text-sm font-medium"
             >
               <MessageSquare className="w-4 h-4 shrink-0" />
               <span>Response</span>
@@ -1257,7 +1255,7 @@ SLA Breach Time: ${slaBreachText}`
           {canCheckIn && (
             <button
               onClick={() => setShowCheckIn(true)}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 hover:brightness-110 text-white rounded-lg transition duration-200 text-sm font-medium"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 hover:brightness-110 text-white rounded-lg transition duration-200 text-sm font-medium"
               style={{ backgroundColor: themeHighlight }}
             >
               <Camera className="w-4 h-4 shrink-0" />
@@ -1269,7 +1267,7 @@ SLA Breach Time: ${slaBreachText}`
           {canAddBeforePhotos && (
             <button
               onClick={() => setShowAddBeforePhotos(true)}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-600 hover:bg-slate-700 text-white rounded-lg transition duration-200 text-sm font-medium"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-600 hover:bg-slate-700 text-white rounded-lg transition duration-200 text-sm font-medium"
             >
               <Camera className="w-4 h-4 shrink-0" />
               <span>เพิ่มรูปก่อนทำ ({currentBeforePhotosCount}/5)</span>
@@ -1280,7 +1278,7 @@ SLA Breach Time: ${slaBreachText}`
           {canResolve && (
             <button
               onClick={() => setShowResolve(true)}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition duration-200 text-sm font-medium"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition duration-200 text-sm font-medium"
             >
               <CheckCircle className="w-4 h-4 shrink-0" />
               <span>Resolve Incident</span>
@@ -1291,7 +1289,7 @@ SLA Breach Time: ${slaBreachText}`
           {canUpdate && (
             <button
               onClick={() => setShowUpdate(true)}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition duration-200 text-sm font-medium"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition duration-200 text-sm font-medium"
             >
               <Edit3 className="w-4 h-4 shrink-0" />
               <span>Update Resolution</span>
@@ -1302,7 +1300,7 @@ SLA Breach Time: ${slaBreachText}`
           {canTechConfirm && (
             <button
               onClick={() => setShowTechConfirm(true)}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition duration-200 text-sm font-medium"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition duration-200 text-sm font-medium"
             >
               <CheckCircle className="w-4 h-4 shrink-0" />
               <span>ยืนยันปิดงาน</span>
@@ -1313,7 +1311,7 @@ SLA Breach Time: ${slaBreachText}`
           {canConfirm && (
             <button
               onClick={() => setShowConfirm(true)}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition duration-200 text-sm font-medium"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition duration-200 text-sm font-medium"
             >
               <CheckCircle2 className="w-4 h-4 shrink-0" />
               <span>Confirm & Close</span>
@@ -1324,7 +1322,7 @@ SLA Breach Time: ${slaBreachText}`
           {canReopen && (
             <button
               onClick={() => setShowReopen(true)}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition duration-200 text-sm font-medium"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition duration-200 text-sm font-medium"
             >
               <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -1337,7 +1335,7 @@ SLA Breach Time: ${slaBreachText}`
           {canRequestReassign && (
             <button
               onClick={() => setShowReassignmentModal(true)}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition duration-200 text-sm font-medium"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition duration-200 text-sm font-medium"
             >
               <UserPlus className="w-4 h-4 shrink-0" />
               <span>Request Reassign</span>
@@ -1351,7 +1349,7 @@ SLA Breach Time: ${slaBreachText}`
                 setAssignMode('reassign')
                 setAssignModalOpen(true)
               }}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition duration-200 text-sm font-medium"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition duration-200 text-sm font-medium"
             >
               <UserPlus className="w-4 h-4 shrink-0" />
               <span>Direct Reassign</span>
@@ -1362,7 +1360,7 @@ SLA Breach Time: ${slaBreachText}`
           {canEdit && (
             <button
               onClick={() => router.push(`/dashboard/incidents/${incident.id}/edit`)}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition duration-200 text-sm font-medium"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition duration-200 text-sm font-medium"
             >
               <Edit className="w-4 h-4 shrink-0" />
               <span>Edit</span>
@@ -1373,7 +1371,7 @@ SLA Breach Time: ${slaBreachText}`
           {canCancel && incident.status !== 'CANCELLED' && (
             <button
               onClick={() => setCancelModalOpen(true)}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg transition duration-200 text-sm font-medium"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg transition duration-200 text-sm font-medium"
             >
               <X className="w-4 h-4 shrink-0" />
               <span>Cancel</span>
@@ -1382,7 +1380,7 @@ SLA Breach Time: ${slaBreachText}`
 
           {/* Service Report - TECHNICIAN: full dropdown */}
           {(incident.status === 'RESOLVED' || incident.status === 'CLOSED') && isTechnician && (
-            <div className="col-span-2 sm:col-span-1 relative" ref={srMenuRef}>
+            <div className="relative" ref={srMenuRef}>
               <button
                 onClick={() => setShowSrMenu(!showSrMenu)}
                 className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition duration-200 text-sm font-medium"
@@ -1447,7 +1445,7 @@ SLA Breach Time: ${slaBreachText}`
                 href={`/service-report/${incident.serviceReportToken}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition duration-200 text-sm font-medium"
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition duration-200 text-sm font-medium"
               >
                 <FileText className="w-4 h-4 shrink-0" />
                 <span>ดู Service Report</span>
@@ -1466,7 +1464,7 @@ SLA Breach Time: ${slaBreachText}`
                   setAssignMode('assign')
                   setAssignModalOpen(true)
                 }}
-                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition duration-200 text-sm font-medium"
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition duration-200 text-sm font-medium"
               >
                 <UserPlus className="w-4 h-4 shrink-0" />
                 <span>Assign</span>
@@ -1475,7 +1473,7 @@ SLA Breach Time: ${slaBreachText}`
               {isSupervisor && (
                 <button
                   onClick={() => router.push(`/dashboard/outsource/create?incidentId=${incident.id}`)}
-                  className="flex items-center justify-center gap-2 px-4 py-2.5 hover:brightness-110 text-white rounded-lg transition duration-200 text-sm font-medium"
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 hover:brightness-110 text-white rounded-lg transition duration-200 text-sm font-medium"
                   style={{ backgroundColor: themeHighlight }}
                 >
                   <Briefcase className="w-4 h-4 shrink-0" />
@@ -1487,7 +1485,7 @@ SLA Breach Time: ${slaBreachText}`
 
           {/* Helpdesk info: waiting for tech to confirm */}
           {incident?.status === 'RESOLVED' && isHelpDesk && !incident?.techConfirmedAt && (
-            <div className="col-span-2 sm:col-span-1 flex items-start gap-3 p-3 bg-amber-900/20 border border-amber-700/50 rounded-lg">
+            <div className="flex items-start gap-3 p-3 bg-amber-900/20 border border-amber-700/50 rounded-lg">
               <Clock className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
               <div className="text-sm text-amber-200">
                 <p className="font-medium">รอช่างเทคนิคยืนยันปิดงาน</p>
