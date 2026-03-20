@@ -35,15 +35,17 @@ function LoginContent() {
   }, [])
 
   // Derive display values
-  const themeColor = branding.theme.bgStart
   const appTitle = branding.organizationName
     ? `${branding.organizationName} Incident Management`
     : 'Rubjobb Incident Management'
   const logoUrl = branding.logoPath ? `${API_URL.replace('/api', '')}${branding.logoPath}` : ''
 
-  // Button style using theme color
-  const btnStyle = { backgroundColor: themeColor }
-  const btnHoverClass = 'transition duration-200 hover:opacity-90'
+  // Background gradient using theme colors
+  const bgStyle = {
+    background: `linear-gradient(135deg, ${branding.theme.bgStart}, ${branding.theme.bgEnd})`,
+  }
+  const btnClass =
+    'bg-white/20 border border-white/30 backdrop-blur-sm hover:bg-white/30 transition duration-200'
   const [showPassword, setShowPassword] = useState(false)
   const [showRegPassword, setShowRegPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
@@ -182,7 +184,7 @@ function LoginContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-start justify-center px-4 pt-8 pb-4 overflow-y-auto">
+    <div className="min-h-screen flex items-start justify-center px-4 pt-8 pb-4 overflow-y-auto" style={bgStyle}>
       {/* Background Pattern */}
       <div className="fixed inset-0 bg-pattern"></div>
 
@@ -289,8 +291,7 @@ function LoginContent() {
                     <button
                       type="button"
                       onClick={() => setShowForgot(true)}
-                      style={{ color: themeColor }}
-                      className="text-sm hover:opacity-80 transition duration-200"
+                      className="text-sm text-white/80 hover:text-white transition duration-200"
                     >
                       ลืมรหัสผ่าน?
                     </button>
@@ -300,8 +301,7 @@ function LoginContent() {
                   <button
                     type="submit"
                     disabled={isLoading}
-                    style={btnStyle}
-                    className={`w-full py-3 px-4 text-white font-medium rounded-lg ${btnHoverClass} flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed`}
+                    className={`w-full py-3 px-4 text-white font-medium rounded-lg ${btnClass} flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     {isLoading ? (
                       <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -317,8 +317,7 @@ function LoginContent() {
                       <button
                         type="button"
                         onClick={() => setIsFlipped(true)}
-                        style={{ color: themeColor }}
-                        className="font-medium hover:opacity-80 transition duration-200"
+                        className="font-medium text-white hover:text-white/70 transition duration-200"
                       >
                         สมัครสมาชิก
                       </button>
@@ -508,8 +507,7 @@ function LoginContent() {
                   <button
                     type="submit"
                     disabled={isLoading}
-                    style={btnStyle}
-                    className={`w-full py-3 px-4 text-white font-medium rounded-lg ${btnHoverClass} flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed`}
+                    className={`w-full py-3 px-4 text-white font-medium rounded-lg ${btnClass} flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     {isLoading ? (
                       <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -525,8 +523,7 @@ function LoginContent() {
                       <button
                         type="button"
                         onClick={() => setIsFlipped(false)}
-                        style={{ color: themeColor }}
-                        className="font-medium hover:opacity-80 transition duration-200"
+                        className="font-medium text-white hover:text-white/70 transition duration-200"
                       >
                         เข้าสู่ระบบ
                       </button>
@@ -572,8 +569,7 @@ function LoginContent() {
                   {/* Submit Button */}
                   <button
                     type="submit"
-                    style={btnStyle}
-                    className={`w-full py-3 px-4 text-white font-medium rounded-lg ${btnHoverClass}`}
+                    className={`w-full py-3 px-4 text-white font-medium rounded-lg ${btnClass}`}
                   >
                     ส่งลิงก์รีเซ็ตรหัสผ่าน
                   </button>
@@ -583,8 +579,7 @@ function LoginContent() {
                     <button
                       type="button"
                       onClick={() => setShowForgot(false)}
-                      style={{ color: themeColor }}
-                      className="font-medium hover:opacity-80 transition duration-200"
+                      className="font-medium text-white hover:text-white/70 transition duration-200"
                     >
                       ← กลับสู่หน้าเข้าสู่ระบบ
                     </button>
