@@ -331,6 +331,12 @@ export default function SettingsPage() {
   const [isCreatingBackup, setIsCreatingBackup] = useState(false)
   const [isRestoring, setIsRestoring] = useState(false)
 
+  // External Copy Path config
+  const [externalCopyPath, setExternalCopyPath] = useState('')
+  const [externalCopyPathInput, setExternalCopyPathInput] = useState('')
+  const [isSavingExtPath, setIsSavingExtPath] = useState(false)
+  const [isTestingExtPath, setIsTestingExtPath] = useState(false)
+
   // Restore from file state
   const restoreFileRef = useRef<HTMLInputElement>(null)
   const [restoreFileContent, setRestoreFileContent] = useState<string | null>(null)
@@ -608,6 +614,17 @@ export default function SettingsPage() {
       } catch {
         setBackups([])
       }
+
+      // Fetch Backup external copy config
+      try {
+        const bkCfgRes = await axios.get(
+          `${process.env.NEXT_PUBLIC_API_URL}/settings/backup-config`,
+          { headers }
+        )
+        const p = bkCfgRes.data?.externalCopyPath || ''
+        setExternalCopyPath(p)
+        setExternalCopyPathInput(p)
+      } catch { /* ignore */ }
 
       // Fetch Backup Schedules
       try {
@@ -1286,6 +1303,44 @@ export default function SettingsPage() {
       toast.error(error.response?.data?.message || 'Failed to restore backup')
     } finally {
       setIsRestoring(false)
+    }
+  }
+
+  const handleSaveExternalPath = async () => {
+    setIsSavingExtPath(true)
+    try {
+      const token = localStorage.getItem('token')
+      await axios.put(
+        `${process.env.NEXT_PUBLIC_API_URL}/settings/backup-config`,
+        { externalCopyPath: externalCopyPathInput.trim() || null },
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      const saved = externalCopyPathInput.trim()
+      setExternalCopyPath(saved)
+      toast.success(saved ? 'บันทึก External Copy Path สำเร็จ' : 'ล้าง External Copy Path สำเร็จ')
+    } catch {
+      toast.error('ไม่สามารถบันทึก External Copy Path ได้')
+    } finally {
+      setIsSavingExtPath(false)
+    }
+  }
+
+  const handleTestExternalPath = async () => {
+    if (!externalCopyPathInput.trim()) { toast.error('กรุณาระบุ Path ก่อน'); return }
+    setIsTestingExtPath(true)
+    try {
+      const token = localStorage.getItem('token')
+      const res = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/settings/backup-config/test-path`,
+        { path: externalCopyPathInput.trim() },
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      if (res.data?.accessible) toast.success(`✓ ${res.data.message}`)
+      else toast.error(`✗ ${res.data.message}`)
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || 'ไม่สามารถทดสอบ Path ได้')
+    } finally {
+      setIsTestingExtPath(false)
     }
   }
 
@@ -2947,6 +3002,53 @@ export default function SettingsPage() {
               )}
             </div>
 
+            {/* External Copy Path Configuration */}
+            {isSuperAdmin && (
+              <div className="p-4 bg-slate-700/30 rounded-xl mb-4 border border-slate-600/50">
+                <div className="flex items-center gap-3 mb-3">
+                  <HardDrive className="w-5 h-5 text-blue-400" />
+                  <div>
+                    <p className="font-medium text-white text-sm">สำเนา Backup ไปยัง External Path</p>
+                    <p className="text-xs text-gray-400">Backup จะถูกเก็บที่ <code className="text-green-400">./Backup</code> เสมอ และ Copy สำเนาไปยัง Path ด้านล่าง (File Sharing / NAS)</p>
+                  </div>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="text"
+                    value={externalCopyPathInput}
+                    onChange={(e) => setExternalCopyPathInput(e.target.value)}
+                    placeholder="เช่น \\192.168.1.100\backups หรือ /mnt/nas/rim-backup"
+                    className="flex-1 px-3 py-2 bg-slate-700 border border-slate-500 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    onClick={handleTestExternalPath}
+                    disabled={isTestingExtPath || !externalCopyPathInput.trim()}
+                    className="px-3 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded-lg text-sm transition disabled:opacity-50 flex items-center gap-1.5 whitespace-nowrap"
+                  >
+                    {isTestingExtPath ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                    ทดสอบ
+                  </button>
+                  <button
+                    onClick={handleSaveExternalPath}
+                    disabled={isSavingExtPath}
+                    className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition disabled:opacity-50 flex items-center gap-1.5 whitespace-nowrap"
+                  >
+                    {isSavingExtPath ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    บันทึก
+                  </button>
+                </div>
+                {externalCopyPath && (
+                  <div className="mt-2 flex items-center gap-2 text-xs text-green-400">
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    <span>ใช้งานอยู่: <strong>{externalCopyPath}</strong> — Backup ทุกครั้งจะต้องตั้ง Password</span>
+                  </div>
+                )}
+                {!externalCopyPath && (
+                  <p className="text-xs text-gray-500 mt-1">เว้นว่างเพื่อปิดการใช้งาน External Copy</p>
+                )}
+              </div>
+            )}
+
             {/* Auto Backup Configuration */}
             <div className="p-4 bg-slate-700/30 rounded-xl mb-6">
               <div className="flex items-center justify-between mb-4">
@@ -3496,14 +3598,24 @@ export default function SettingsPage() {
                 {/* Password */}
                 <div className="pt-2 border-t border-slate-600/50">
                   <label className="block text-sm text-gray-400 mb-2 flex items-center gap-1">
-                    <Lock className="w-3.5 h-3.5" /> Password <span className="text-gray-500">(ไม่บังคับ)</span>
+                    <Lock className="w-3.5 h-3.5" />
+                    Password
+                    {externalCopyPath
+                      ? <span className="text-orange-400 font-medium ml-1">* จำเป็น (มี External Copy Path)</span>
+                      : <span className="text-gray-500">(ไม่บังคับ)</span>
+                    }
                   </label>
+                  {externalCopyPath && (
+                    <p className="text-xs text-orange-400/80 mb-2 flex items-center gap-1">
+                      <HardDrive className="w-3 h-3" /> จะ Copy ไปที่: {externalCopyPath}
+                    </p>
+                  )}
                   <input
                     type="password"
                     value={backupPassword}
                     onChange={(e) => setBackupPassword(e.target.value)}
-                    placeholder="เว้นว่างถ้าไม่ต้องการ Password"
-                    className="w-full px-3 py-2 bg-slate-700 border border-slate-500 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 mb-2"
+                    placeholder={externalCopyPath ? 'ต้องตั้ง Password เนื่องจากมี External Copy' : 'เว้นว่างถ้าไม่ต้องการ Password'}
+                    className={`w-full px-3 py-2 bg-slate-700 border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 mb-2 ${externalCopyPath && !backupPassword ? 'border-orange-500/60' : 'border-slate-500'}`}
                   />
                   <input
                     type="password"
@@ -3531,7 +3643,12 @@ export default function SettingsPage() {
                 >ยกเลิก</button>
                 <button
                   onClick={() => handleCreateBackup(backupPassword || undefined)}
-                  disabled={isCreatingBackup || selectedBackupGroups.length === 0 || (!!backupPassword && backupPassword !== backupPasswordConfirm)}
+                  disabled={
+                    isCreatingBackup ||
+                    selectedBackupGroups.length === 0 ||
+                    (!!backupPassword && backupPassword !== backupPasswordConfirm) ||
+                    (!!externalCopyPath && !backupPassword)
+                  }
                   className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {isCreatingBackup ? <Loader2 className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}

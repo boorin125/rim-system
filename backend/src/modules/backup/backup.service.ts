@@ -19,7 +19,14 @@ import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 
 // Default backup directory
-const DEFAULT_BACKUP_DIR = process.env.BACKUP_DIR || './backups';
+const DEFAULT_BACKUP_DIR = process.env.BACKUP_DIR || './Backup';
+
+// Backup config file path (stores externalCopyPath etc.)
+const BACKUP_CONFIG_FILE = path.join(process.cwd(), 'backup-config.json');
+
+interface BackupConfig {
+  externalCopyPath?: string;
+}
 
 // Tables by scope
 const SCOPE_TABLES = {
@@ -53,6 +60,37 @@ export class BackupService {
     // Ensure default backup directory exists
     if (!fs.existsSync(DEFAULT_BACKUP_DIR)) {
       fs.mkdirSync(DEFAULT_BACKUP_DIR, { recursive: true });
+    }
+  }
+
+  /** Read global backup config from JSON file */
+  getBackupConfig(): BackupConfig {
+    try {
+      if (fs.existsSync(BACKUP_CONFIG_FILE)) {
+        return JSON.parse(fs.readFileSync(BACKUP_CONFIG_FILE, 'utf-8'));
+      }
+    } catch { /* ignore */ }
+    return {};
+  }
+
+  /** Save global backup config to JSON file */
+  saveBackupConfig(config: BackupConfig): BackupConfig {
+    fs.writeFileSync(BACKUP_CONFIG_FILE, JSON.stringify(config, null, 2));
+    return config;
+  }
+
+  /** Test if external path is writable */
+  testExternalPath(targetPath: string): { accessible: boolean; message: string } {
+    try {
+      if (!fs.existsSync(targetPath)) {
+        fs.mkdirSync(targetPath, { recursive: true });
+      }
+      const testFile = path.join(targetPath, '.rim-write-test');
+      fs.writeFileSync(testFile, 'test');
+      fs.unlinkSync(testFile);
+      return { accessible: true, message: 'เข้าถึง Path ได้สำเร็จ' };
+    } catch (error: any) {
+      return { accessible: false, message: error.message };
     }
   }
 
@@ -114,6 +152,15 @@ export class BackupService {
    */
   async createBackup(userId: number, dto: CreateBackupDto) {
     await this.checkBackupFeatureAllowed();
+
+    // Enforce password when external copy path is configured
+    const bkConfig = this.getBackupConfig();
+    if (bkConfig.externalCopyPath && !dto.password) {
+      throw new BadRequestException(
+        'ต้องตั้ง Password เนื่องจากมีการ Copy Backup ไปยัง External Path',
+      );
+    }
+
     const jobCode = this.generateJobCode('BKP');
     const scope = dto.scope || 'ALL';
     const tables = scope === 'SELECTIVE'
@@ -237,6 +284,20 @@ export class BackupService {
       }, null, 2);
 
       fs.writeFileSync(filePath, backupContent);
+
+      // Copy to external path if configured (always save locally first)
+      const bkConfig = this.getBackupConfig();
+      if (bkConfig.externalCopyPath) {
+        try {
+          if (!fs.existsSync(bkConfig.externalCopyPath)) {
+            fs.mkdirSync(bkConfig.externalCopyPath, { recursive: true });
+          }
+          fs.copyFileSync(filePath, path.join(bkConfig.externalCopyPath, fileName));
+        } catch (extError: any) {
+          console.warn(`[Backup] External copy failed: ${extError.message}`);
+          // Do not fail the backup — local copy is already saved
+        }
+      }
 
       // Get file size
       const stats = fs.statSync(filePath);

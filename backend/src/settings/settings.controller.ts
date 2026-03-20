@@ -486,6 +486,31 @@ export class SettingsController {
   }
 
   // ==========================================
+  // BACKUP CONFIG (Global external copy path)
+  // ==========================================
+
+  @Get('backup-config')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.IT_MANAGER)
+  getBackupConfig() {
+    return this.backupService.getBackupConfig();
+  }
+
+  @Put('backup-config')
+  @Roles(UserRole.SUPER_ADMIN)
+  saveBackupConfig(@Body() body: { externalCopyPath?: string }) {
+    return this.backupService.saveBackupConfig({
+      externalCopyPath: body.externalCopyPath || undefined,
+    });
+  }
+
+  @Post('backup-config/test-path')
+  @Roles(UserRole.SUPER_ADMIN)
+  testBackupPath(@Body() body: { path: string }) {
+    if (!body.path) throw new BadRequestException('กรุณาระบุ Path');
+    return this.backupService.testExternalPath(body.path);
+  }
+
+  // ==========================================
   // BACKUP SCHEDULE ENDPOINTS
   // ==========================================
 
