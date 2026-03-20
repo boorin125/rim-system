@@ -2408,44 +2408,45 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Preview Card - Logo Left + Company Info Right (matching PDF format) */}
-                <div className="p-4 bg-white rounded-xl">
-                  <p className="text-xs text-gray-400 mb-3 font-medium">ตัวอย่าง Header Service Report:</p>
-                  <div className="border border-gray-200 rounded-lg p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      {/* Left - Logo only */}
-                      <div className="flex-shrink-0">
+                <div className="p-3 bg-white rounded-xl">
+                  <p className="text-xs text-gray-400 mb-2 font-medium">ตัวอย่าง Header Service Report:</p>
+                  <div className="border border-gray-200 rounded-lg p-3">
+                    {/* Mobile: column (logo top, info below) | sm+: row side-by-side */}
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                      {/* Logo */}
+                      <div className="flex sm:flex-shrink-0 justify-center sm:justify-start">
                         {srSettings.providerLogo ? (
                           <img
                             src={`${(process.env.NEXT_PUBLIC_API_URL || '').replace('/api', '')}${srSettings.providerLogo}`}
                             alt="Logo"
-                            className="h-14 object-contain"
+                            className="h-10 sm:h-14 object-contain"
                           />
                         ) : (
-                          <div className="w-20 h-14 bg-gray-100 rounded flex items-center justify-center">
+                          <div className="w-16 h-10 sm:w-20 sm:h-14 bg-gray-100 rounded flex items-center justify-center">
                             <span className="text-gray-400 text-xs">LOGO</span>
                           </div>
                         )}
                       </div>
-                      {/* Right - Company Info (matching PDF layout) */}
-                      <div className="text-right flex-1">
-                        <p className="text-base font-bold text-gray-800">{srSettings.providerName || 'ชื่อบริษัท'}</p>
-                        <p className="text-xs text-gray-500 whitespace-pre-line mt-0.5">{srSettings.providerAddress || 'ที่อยู่บริษัท'}</p>
+                      {/* Company Info */}
+                      <div className="text-center sm:text-right sm:flex-1 min-w-0">
+                        <p className="text-sm font-bold text-gray-800 truncate">{srSettings.providerName || 'ชื่อบริษัท'}</p>
+                        <p className="text-[11px] text-gray-500 whitespace-pre-line mt-0.5 leading-snug">{srSettings.providerAddress || 'ที่อยู่บริษัท'}</p>
                         {(srSettings.providerPhone || srSettings.providerEmail) && (
-                          <p className="text-xs text-gray-400 mt-0.5">
+                          <p className="text-[10px] text-gray-400 mt-0.5 break-all">
                             {srSettings.providerPhone && `Tel: ${srSettings.providerPhone}`}
                             {srSettings.providerPhone && srSettings.providerEmail && '  '}
                             {srSettings.providerEmail && `Email: ${srSettings.providerEmail}`}
                           </p>
                         )}
                         {srSettings.providerTaxId && (
-                          <p className="text-xs text-gray-400 mt-0.5">
+                          <p className="text-[10px] text-gray-400 mt-0.5">
                             เลขประจำตัวผู้เสียภาษี: {srSettings.providerTaxId}
                           </p>
                         )}
                       </div>
                     </div>
-                    <div className="mt-3 pt-3 border-t border-gray-300 text-center">
-                      <p className="text-sm font-bold text-gray-800">SERVICE REPORT / ใบรายงานบริการ</p>
+                    <div className="mt-2 pt-2 border-t border-gray-300 text-center">
+                      <p className="text-xs font-bold text-gray-800">SERVICE REPORT / ใบรายงานบริการ</p>
                     </div>
                   </div>
                 </div>
