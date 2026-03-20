@@ -34,6 +34,7 @@ interface UserDetail {
   phone?: string
   department?: string
   address?: string
+  avatarPath?: string
   technicianType?: 'INSOURCE' | 'OUTSOURCE'
   serviceCenter?: string
   responsibleProvinces?: string[]
@@ -204,9 +205,22 @@ export default function UserDetailPage() {
           {/* Profile Card */}
           <div className="glass-card p-6 rounded-2xl">
             <div className="flex items-start gap-6">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold">
-                {user.firstName?.[0]}{user.lastName?.[0]}
-              </div>
+              {(() => {
+                const avatarUrl = user.avatarPath
+                  ? `${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '')}${user.avatarPath.startsWith('/uploads/') ? user.avatarPath : `/uploads/${user.avatarPath}`}`
+                  : null
+                return avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt={`${user.firstName} ${user.lastName}`}
+                    className="w-20 h-20 rounded-full object-cover flex-shrink-0"
+                  />
+                ) : (
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold flex-shrink-0">
+                    {user.firstName?.[0]}{user.lastName?.[0]}
+                  </div>
+                )
+              })()}
               <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-2 mb-2">
                   <h2 className="text-xl sm:text-2xl font-bold text-white">
