@@ -244,7 +244,7 @@ function LoginContent() {
                   <h2 className="text-2xl font-semibold text-white mb-2">
                     เข้าสู่ระบบ
                   </h2>
-                  <p className="text-gray-400">
+                  <p className="text-gray-400 text-sm whitespace-nowrap overflow-hidden text-ellipsis">
                     ยินดีต้อนรับกลับ กรุณากรอกข้อมูลเพื่อเข้าใช้งาน
                   </p>
                 </div>
