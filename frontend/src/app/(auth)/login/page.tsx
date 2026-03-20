@@ -44,8 +44,27 @@ function LoginContent() {
   const bgStyle = {
     background: `linear-gradient(135deg, ${branding.theme.bgStart}, ${branding.theme.bgEnd})`,
   }
-  const btnClass =
-    'bg-white/20 border border-white/30 backdrop-blur-sm hover:bg-white/30 transition duration-200'
+
+  // Derive highlight color same as sidebar active menu (hex → HSL @ 42% lightness)
+  const getHighlightColor = (hex: string) => {
+    const c = hex.replace('#', '')
+    const r = parseInt(c.substring(0, 2), 16) / 255
+    const g = parseInt(c.substring(2, 4), 16) / 255
+    const b = parseInt(c.substring(4, 6), 16) / 255
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b)
+    let h = 0, s = 0
+    const l = (mx + mn) / 2
+    if (mx !== mn) {
+      const d = mx - mn
+      s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn)
+      if (mx === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6
+      else if (mx === g) h = ((b - r) / d + 2) / 6
+      else h = ((r - g) / d + 4) / 6
+    }
+    return `hsl(${Math.round(h * 360)}, ${Math.max(Math.round(s * 100), 30)}%, 42%)`
+  }
+  const highlightColor = getHighlightColor(branding.theme.bgEnd)
+  const btnStyle = { backgroundColor: highlightColor }
   const [showPassword, setShowPassword] = useState(false)
   const [showRegPassword, setShowRegPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
@@ -301,7 +320,8 @@ function LoginContent() {
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className={`w-full py-3 px-4 text-white font-medium rounded-lg ${btnClass} flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed`}
+                    style={btnStyle}
+                    className="w-full py-3 px-4 text-white font-medium rounded-lg hover:opacity-90 transition duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isLoading ? (
                       <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -507,7 +527,8 @@ function LoginContent() {
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className={`w-full py-3 px-4 text-white font-medium rounded-lg ${btnClass} flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed`}
+                    style={btnStyle}
+                    className="w-full py-3 px-4 text-white font-medium rounded-lg hover:opacity-90 transition duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isLoading ? (
                       <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -569,7 +590,8 @@ function LoginContent() {
                   {/* Submit Button */}
                   <button
                     type="submit"
-                    className={`w-full py-3 px-4 text-white font-medium rounded-lg ${btnClass}`}
+                    style={btnStyle}
+                    className="w-full py-3 px-4 text-white font-medium rounded-lg hover:opacity-90 transition duration-200"
                   >
                     ส่งลิงก์รีเซ็ตรหัสผ่าน
                   </button>
