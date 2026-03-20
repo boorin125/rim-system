@@ -486,6 +486,22 @@ export class SettingsController {
   }
 
   // ==========================================
+  // DISK ALERT THRESHOLD
+  // ==========================================
+
+  @Put('disk-alert-threshold')
+  @Roles(UserRole.SUPER_ADMIN)
+  async saveDiskAlertThreshold(@Body() body: { threshold: number }) {
+    return this.settingsService.saveDiskAlertThreshold(body.threshold);
+  }
+
+  @Put('disk-alert-email')
+  @Roles(UserRole.SUPER_ADMIN)
+  async saveDiskAlertEmail(@Body() body: { email: string }) {
+    return this.settingsService.saveDiskAlertEmail(body.email || '');
+  }
+
+  // ==========================================
   // BACKUP CONFIG (Global external copy path)
   // ==========================================
 

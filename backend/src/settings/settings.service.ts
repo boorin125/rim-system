@@ -273,11 +273,17 @@ export class SettingsService {
       }
     } catch { /* ignore on unsupported platforms */ }
 
-    // Disk alert threshold from DB
+    // Disk alert threshold & email from DB
     let diskAlertThreshold = 85;
+    let diskAlertEmail = '';
     try {
-      const cfg = await this.prisma.systemConfig.findUnique({ where: { key: 'disk_alert_threshold' } });
-      if (cfg) diskAlertThreshold = parseInt(cfg.value) || 85;
+      const cfgs = await this.prisma.systemConfig.findMany({
+        where: { key: { in: ['disk_alert_threshold', 'disk_alert_email'] } },
+      });
+      for (const c of cfgs) {
+        if (c.key === 'disk_alert_threshold') diskAlertThreshold = parseInt(c.value) || 85;
+        if (c.key === 'disk_alert_email') diskAlertEmail = c.value;
+      }
     } catch { /* ignore */ }
 
     return {
@@ -292,6 +298,7 @@ export class SettingsService {
       licensedTo: 'Your Company Name',
       disk,
       diskAlertThreshold,
+      diskAlertEmail,
     };
   }
 
@@ -303,6 +310,36 @@ export class SettingsService {
       create: { key: 'disk_alert_threshold', value, category: 'system', description: 'Disk usage alert threshold (%)' },
     });
     return { diskAlertThreshold: parseInt(value) };
+  }
+
+  async getDiskAlertEmail(): Promise<string> {
+    const cfg = await this.prisma.systemConfig.findUnique({ where: { key: 'disk_alert_email' } });
+    return cfg?.value || '';
+  }
+
+  async saveDiskAlertEmail(email: string) {
+    await this.prisma.systemConfig.upsert({
+      where: { key: 'disk_alert_email' },
+      update: { value: email },
+      create: { key: 'disk_alert_email', value: email, category: 'system', description: 'Email recipient for disk space alerts' },
+    });
+    return { diskAlertEmail: email };
+  }
+
+  async getDiskUsage(): Promise<{ total: number; used: number; free: number; usedPercent: number } | null> {
+    try {
+      const { execSync } = await import('child_process');
+      const output = execSync('df -k .', { encoding: 'utf8', timeout: 5000 });
+      const lines = output.trim().split('\n');
+      const parts = lines[lines.length - 1].trim().split(/\s+/);
+      const totalKb = parseInt(parts[1]);
+      const usedKb  = parseInt(parts[2]);
+      const freeKb  = parseInt(parts[3]);
+      if (!isNaN(totalKb) && totalKb > 0) {
+        return { total: totalKb * 1024, used: usedKb * 1024, free: freeKb * 1024, usedPercent: Math.round((usedKb / totalKb) * 100) };
+      }
+    } catch { /* ignore */ }
+    return null;
   }
 
   // ========================================

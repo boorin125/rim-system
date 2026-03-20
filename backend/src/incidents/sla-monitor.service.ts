@@ -4,6 +4,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { EmailService } from '../email/email.service';
+import { SettingsService } from '../settings/settings.service';
 import { IncidentStatus, NotificationType } from '@prisma/client';
 
 @Injectable()
@@ -13,6 +15,8 @@ export class SlaMonitorService {
   constructor(
     private prisma: PrismaService,
     private notificationsService: NotificationsService,
+    private emailService: EmailService,
+    private settingsService: SettingsService,
   ) {}
 
   /**
@@ -293,5 +297,83 @@ export class SlaMonitorService {
       return `${hours}h ${minutes}m`;
     }
     return `${minutes}m`;
+  }
+
+  // ============================================
+  // DISK SPACE ALERT (every hour)
+  // ============================================
+
+  @Cron(CronExpression.EVERY_HOUR)
+  async checkDiskSpaceAlert() {
+    try {
+      const alertEmail = await this.settingsService.getDiskAlertEmail();
+      if (!alertEmail) return; // no recipient configured
+
+      const disk = await this.settingsService.getDiskUsage();
+      if (!disk) return;
+
+      // Read threshold
+      let threshold = 85;
+      try {
+        const cfg = await this.prisma.systemConfig.findUnique({ where: { key: 'disk_alert_threshold' } });
+        if (cfg) threshold = parseInt(cfg.value) || 85;
+      } catch { /* ignore */ }
+
+      if (disk.usedPercent < threshold) return;
+
+      // Dedup: don't send more than once every 6 hours
+      const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000);
+      try {
+        const lastSent = await this.prisma.systemConfig.findUnique({ where: { key: 'disk_alert_last_sent' } });
+        if (lastSent && new Date(lastSent.value) > sixHoursAgo) return;
+      } catch { /* ignore */ }
+
+      const formatBytes = (b: number) => b >= 1_073_741_824
+        ? `${(b / 1_073_741_824).toFixed(1)} GB`
+        : `${(b / 1_048_576).toFixed(0)} MB`;
+
+      const html = `
+        <div style="font-family:sans-serif;max-width:600px;margin:0 auto">
+          <div style="background:#ef4444;color:#fff;padding:16px 24px;border-radius:8px 8px 0 0">
+            <h2 style="margin:0">⚠️ แจ้งเตือน: พื้นที่ Disk ใกล้เต็ม</h2>
+          </div>
+          <div style="background:#1e293b;color:#e2e8f0;padding:24px;border-radius:0 0 8px 8px">
+            <p>พื้นที่จัดเก็บข้อมูลบนเซิร์ฟเวอร์ถูกใช้งานแล้ว <strong style="color:#f87171">${disk.usedPercent}%</strong> ซึ่งเกินขีดจำกัดที่ตั้งไว้ที่ <strong>${threshold}%</strong></p>
+            <table style="width:100%;border-collapse:collapse;margin:16px 0">
+              <tr style="background:#0f172a">
+                <td style="padding:10px 16px;color:#94a3b8">พื้นที่ทั้งหมด</td>
+                <td style="padding:10px 16px;text-align:right;font-weight:600">${formatBytes(disk.total)}</td>
+              </tr>
+              <tr>
+                <td style="padding:10px 16px;color:#94a3b8">ใช้งานแล้ว</td>
+                <td style="padding:10px 16px;text-align:right;font-weight:600;color:#f87171">${formatBytes(disk.used)} (${disk.usedPercent}%)</td>
+              </tr>
+              <tr style="background:#0f172a">
+                <td style="padding:10px 16px;color:#94a3b8">พื้นที่ว่าง</td>
+                <td style="padding:10px 16px;text-align:right;font-weight:600;color:#4ade80">${formatBytes(disk.free)}</td>
+              </tr>
+            </table>
+            <p style="color:#94a3b8;font-size:13px">กรุณาลบไฟล์ที่ไม่จำเป็นหรือเพิ่มพื้นที่จัดเก็บข้อมูลเพื่อป้องกันระบบทำงานผิดพลาด</p>
+            <p style="color:#64748b;font-size:12px;margin-top:24px">แจ้งเตือนโดยระบบ RIM System — ${new Date().toLocaleString('th-TH')}</p>
+          </div>
+        </div>`;
+
+      await this.emailService.sendEmail({
+        to: alertEmail,
+        subject: `[RIM System] ⚠️ พื้นที่ Disk ใกล้เต็ม (${disk.usedPercent}%)`,
+        html,
+      });
+
+      // Record last sent time
+      await this.prisma.systemConfig.upsert({
+        where: { key: 'disk_alert_last_sent' },
+        update: { value: new Date().toISOString() },
+        create: { key: 'disk_alert_last_sent', value: new Date().toISOString(), category: 'system', description: 'Last disk alert email sent at' },
+      });
+
+      this.logger.log(`Disk space alert email sent to ${alertEmail} (${disk.usedPercent}% used)`);
+    } catch (error) {
+      this.logger.error('Error during disk space alert check:', error);
+    }
   }
 }

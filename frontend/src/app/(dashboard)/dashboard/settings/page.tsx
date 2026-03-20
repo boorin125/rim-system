@@ -455,6 +455,9 @@ export default function SettingsPage() {
   const [diskAlertThreshold, setDiskAlertThreshold] = useState(85)
   const [diskAlertInput, setDiskAlertInput] = useState(85)
   const [isSavingDiskAlert, setIsSavingDiskAlert] = useState(false)
+  const [diskAlertEmail, setDiskAlertEmail] = useState('')
+  const [diskAlertEmailInput, setDiskAlertEmailInput] = useState('')
+  const [isSavingDiskEmail, setIsSavingDiskEmail] = useState(false)
 
   // System Info State
   const [systemInfo, setSystemInfo] = useState<SystemInfo>({
@@ -717,6 +720,10 @@ export default function SettingsPage() {
           if (infoRes.data.diskAlertThreshold) {
             setDiskAlertThreshold(infoRes.data.diskAlertThreshold)
             setDiskAlertInput(infoRes.data.diskAlertThreshold)
+          }
+          if (infoRes.data.diskAlertEmail !== undefined) {
+            setDiskAlertEmail(infoRes.data.diskAlertEmail)
+            setDiskAlertEmailInput(infoRes.data.diskAlertEmail)
           }
         }
       } catch {
@@ -1332,6 +1339,24 @@ export default function SettingsPage() {
       toast.error('ไม่สามารถบันทึกค่าแจ้งเตือนได้')
     } finally {
       setIsSavingDiskAlert(false)
+    }
+  }
+
+  const handleSaveDiskEmail = async () => {
+    setIsSavingDiskEmail(true)
+    try {
+      const token = localStorage.getItem('token')
+      await axios.put(
+        `${process.env.NEXT_PUBLIC_API_URL}/settings/disk-alert-email`,
+        { email: diskAlertEmailInput },
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      setDiskAlertEmail(diskAlertEmailInput)
+      toast.success(diskAlertEmailInput ? `บันทึก Email แจ้งเตือน Disk สำเร็จ` : 'ลบ Email แจ้งเตือน Disk แล้ว')
+    } catch {
+      toast.error('ไม่สามารถบันทึก Email แจ้งเตือนได้')
+    } finally {
+      setIsSavingDiskEmail(false)
     }
   }
 
@@ -4054,28 +4079,57 @@ export default function SettingsPage() {
                 <p className="text-sm text-gray-500">ไม่สามารถอ่านข้อมูล Disk ได้</p>
               )}
 
-              {/* Alert Threshold (SUPER_ADMIN only) */}
+              {/* Alert Threshold + Email (SUPER_ADMIN only) */}
               {isSuperAdmin && (
-                <div className="mt-4 pt-4 border-t border-slate-700/50">
-                  <p className="text-sm text-gray-400 mb-3">แจ้งเตือนเมื่อพื้นที่ใช้งานเกิน (%)</p>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="number"
-                      min={50}
-                      max={99}
-                      value={diskAlertInput}
-                      onChange={(e) => setDiskAlertInput(Number(e.target.value))}
-                      className="w-24 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
-                    />
-                    <span className="text-gray-400 text-sm">%</span>
-                    <button
-                      onClick={handleSaveDiskAlert}
-                      disabled={isSavingDiskAlert || diskAlertInput === diskAlertThreshold}
-                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:text-gray-500 text-white rounded-lg text-sm transition-colors"
-                    >
-                      {isSavingDiskAlert ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                      บันทึก
-                    </button>
+                <div className="mt-4 pt-4 border-t border-slate-700/50 space-y-4">
+                  {/* Threshold */}
+                  <div>
+                    <p className="text-sm text-gray-400 mb-2">แจ้งเตือนเมื่อพื้นที่ใช้งานเกิน</p>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="number"
+                        min={50}
+                        max={99}
+                        value={diskAlertInput}
+                        onChange={(e) => setDiskAlertInput(Number(e.target.value))}
+                        className="w-24 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
+                      />
+                      <span className="text-gray-400 text-sm">%</span>
+                      <button
+                        onClick={handleSaveDiskAlert}
+                        disabled={isSavingDiskAlert || diskAlertInput === diskAlertThreshold}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:text-gray-500 text-white rounded-lg text-sm transition-colors"
+                      >
+                        {isSavingDiskAlert ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                        บันทึก
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Alert Email */}
+                  <div>
+                    <p className="text-sm text-gray-400 mb-2">ส่ง Email แจ้งเตือนไปที่</p>
+                    <p className="text-xs text-gray-500 mb-2">ใช้ SMTP เดียวกับ Email Settings — ส่งทุก 1 ชั่วโมงเมื่อพื้นที่เกินกำหนด (ไม่ส่งซ้ำภายใน 6 ชม.)</p>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="email"
+                        placeholder="admin@company.com"
+                        value={diskAlertEmailInput}
+                        onChange={(e) => setDiskAlertEmailInput(e.target.value)}
+                        className="flex-1 max-w-xs px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500 placeholder-gray-500"
+                      />
+                      <button
+                        onClick={handleSaveDiskEmail}
+                        disabled={isSavingDiskEmail || diskAlertEmailInput === diskAlertEmail}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:text-gray-500 text-white rounded-lg text-sm transition-colors"
+                      >
+                        {isSavingDiskEmail ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                        บันทึก
+                      </button>
+                    </div>
+                    {diskAlertEmail && (
+                      <p className="text-xs text-green-400 mt-1.5">✓ ส่งแจ้งเตือนไปที่ {diskAlertEmail}</p>
+                    )}
                   </div>
                 </div>
               )}
