@@ -450,6 +450,12 @@ export default function SettingsPage() {
   const [basePreset, setBasePreset] = useState<{ bgStart: string; bgEnd: string } | null>(null)
   const [themeBrightness, setThemeBrightness] = useState(50)
 
+  // Disk info state
+  const [diskInfo, setDiskInfo] = useState<{ total: number; used: number; free: number; usedPercent: number } | null>(null)
+  const [diskAlertThreshold, setDiskAlertThreshold] = useState(85)
+  const [diskAlertInput, setDiskAlertInput] = useState(85)
+  const [isSavingDiskAlert, setIsSavingDiskAlert] = useState(false)
+
   // System Info State
   const [systemInfo, setSystemInfo] = useState<SystemInfo>({
     version: '1.0.0',
@@ -707,6 +713,11 @@ export default function SettingsPage() {
         )
         if (infoRes.data) {
           setSystemInfo(prev => ({ ...prev, ...infoRes.data }))
+          if (infoRes.data.disk) setDiskInfo(infoRes.data.disk)
+          if (infoRes.data.diskAlertThreshold) {
+            setDiskAlertThreshold(infoRes.data.diskAlertThreshold)
+            setDiskAlertInput(infoRes.data.diskAlertThreshold)
+          }
         }
       } catch {
         // Use defaults
@@ -1303,6 +1314,24 @@ export default function SettingsPage() {
       toast.error(error.response?.data?.message || 'Failed to restore backup')
     } finally {
       setIsRestoring(false)
+    }
+  }
+
+  const handleSaveDiskAlert = async () => {
+    setIsSavingDiskAlert(true)
+    try {
+      const token = localStorage.getItem('token')
+      await axios.put(
+        `${process.env.NEXT_PUBLIC_API_URL}/settings/disk-alert-threshold`,
+        { threshold: diskAlertInput },
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      setDiskAlertThreshold(diskAlertInput)
+      toast.success(`ตั้งค่าแจ้งเตือนเมื่อใช้งาน Disk เกิน ${diskAlertInput}% สำเร็จ`)
+    } catch {
+      toast.error('ไม่สามารถบันทึกค่าแจ้งเตือนได้')
+    } finally {
+      setIsSavingDiskAlert(false)
     }
   }
 
@@ -3953,6 +3982,100 @@ export default function SettingsPage() {
                 </div>
               </div>
             </div>
+
+            {/* Disk Space */}
+            {diskInfo && (
+              <div className={`p-6 rounded-xl border ${
+                diskInfo.usedPercent >= diskAlertThreshold
+                  ? 'bg-red-500/5 border-red-500/30'
+                  : diskInfo.usedPercent >= diskAlertThreshold - 10
+                  ? 'bg-amber-500/5 border-amber-500/30'
+                  : 'bg-slate-700/30 border-slate-700'
+              }`}>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-3">
+                    <HardDrive className={`w-5 h-5 ${
+                      diskInfo.usedPercent >= diskAlertThreshold ? 'text-red-400'
+                      : diskInfo.usedPercent >= diskAlertThreshold - 10 ? 'text-amber-400'
+                      : 'text-blue-400'
+                    }`} />
+                    <h3 className="text-lg font-semibold text-white">พื้นที่จัดเก็บข้อมูล (Disk)</h3>
+                  </div>
+                  {diskInfo.usedPercent >= diskAlertThreshold && (
+                    <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 bg-red-500/20 border border-red-500/40 rounded-full text-red-300">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      พื้นที่ใกล้เต็ม
+                    </span>
+                  )}
+                </div>
+
+                {/* Progress Bar */}
+                <div className="mb-4">
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="text-gray-400">ใช้งานแล้ว</span>
+                    <span className={`font-medium ${
+                      diskInfo.usedPercent >= diskAlertThreshold ? 'text-red-400'
+                      : diskInfo.usedPercent >= diskAlertThreshold - 10 ? 'text-amber-400'
+                      : 'text-white'
+                    }`}>{diskInfo.usedPercent}%</span>
+                  </div>
+                  <div className="w-full h-3 bg-slate-700 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        diskInfo.usedPercent >= diskAlertThreshold ? 'bg-red-500'
+                        : diskInfo.usedPercent >= diskAlertThreshold - 10 ? 'bg-amber-500'
+                        : 'bg-blue-500'
+                      }`}
+                      style={{ width: `${Math.min(diskInfo.usedPercent, 100)}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Disk Stats */}
+                <div className="grid grid-cols-3 gap-4 text-sm">
+                  {[
+                    { label: 'ทั้งหมด', value: diskInfo.total, color: 'text-white' },
+                    { label: 'ใช้งาน', value: diskInfo.used, color: diskInfo.usedPercent >= diskAlertThreshold ? 'text-red-400' : 'text-amber-400' },
+                    { label: 'ว่าง', value: diskInfo.free, color: 'text-green-400' },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} className="text-center p-3 bg-slate-800/50 rounded-lg">
+                      <p className="text-gray-400 text-xs mb-1">{label}</p>
+                      <p className={`font-semibold ${color}`}>
+                        {value >= 1_073_741_824
+                          ? `${(value / 1_073_741_824).toFixed(1)} GB`
+                          : `${(value / 1_048_576).toFixed(0)} MB`}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Alert Threshold (SUPER_ADMIN only) */}
+                {isSuperAdmin && (
+                  <div className="mt-4 pt-4 border-t border-slate-700/50">
+                    <p className="text-sm text-gray-400 mb-3">แจ้งเตือนเมื่อพื้นที่ใช้งานเกิน (%)</p>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="number"
+                        min={50}
+                        max={99}
+                        value={diskAlertInput}
+                        onChange={(e) => setDiskAlertInput(Number(e.target.value))}
+                        className="w-24 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
+                      />
+                      <span className="text-gray-400 text-sm">%</span>
+                      <button
+                        onClick={handleSaveDiskAlert}
+                        disabled={isSavingDiskAlert || diskAlertInput === diskAlertThreshold}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:text-gray-500 text-white rounded-lg text-sm transition-colors"
+                      >
+                        {isSavingDiskAlert ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                        บันทึก
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Copyright */}
             <div className="pt-6 border-t border-slate-700 flex items-center justify-between">
