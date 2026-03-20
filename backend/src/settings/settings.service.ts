@@ -2,6 +2,7 @@
 
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { execSync } from 'child_process';
 
 @Injectable()
 export class SettingsService {
@@ -252,6 +253,33 @@ export class SettingsService {
    * Get system info
    */
   async getSystemInfo() {
+    // Disk usage — use `df` (works on Linux/Mac)
+    let disk: { total: number; used: number; free: number; usedPercent: number } | null = null;
+    try {
+      const output = execSync('df -k .', { encoding: 'utf8', timeout: 5000 });
+      const lines = output.trim().split('\n');
+      // Last line: Filesystem 1K-blocks Used Available Use% Mounted
+      const parts = lines[lines.length - 1].trim().split(/\s+/);
+      const totalKb = parseInt(parts[1]);
+      const usedKb  = parseInt(parts[2]);
+      const freeKb  = parseInt(parts[3]);
+      if (!isNaN(totalKb) && totalKb > 0) {
+        disk = {
+          total: totalKb * 1024,
+          used:  usedKb  * 1024,
+          free:  freeKb  * 1024,
+          usedPercent: Math.round((usedKb / totalKb) * 100),
+        };
+      }
+    } catch { /* ignore on unsupported platforms */ }
+
+    // Disk alert threshold from DB
+    let diskAlertThreshold = 85;
+    try {
+      const cfg = await this.prisma.systemConfig.findUnique({ where: { key: 'disk_alert_threshold' } });
+      if (cfg) diskAlertThreshold = parseInt(cfg.value) || 85;
+    } catch { /* ignore */ }
+
     return {
       version: '1.0.0',
       buildDate: '2024-01-15',
@@ -262,7 +290,19 @@ export class SettingsService {
       licenseStatus: 'active',
       licenseExpiry: '2025-12-31',
       licensedTo: 'Your Company Name',
+      disk,
+      diskAlertThreshold,
     };
+  }
+
+  async saveDiskAlertThreshold(threshold: number) {
+    const value = String(Math.max(1, Math.min(99, threshold)));
+    await this.prisma.systemConfig.upsert({
+      where: { key: 'disk_alert_threshold' },
+      update: { value },
+      create: { key: 'disk_alert_threshold', value, category: 'system', description: 'Disk usage alert threshold (%)' },
+    });
+    return { diskAlertThreshold: parseInt(value) };
   }
 
   // ========================================
