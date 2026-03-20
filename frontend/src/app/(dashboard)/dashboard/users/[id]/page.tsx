@@ -207,12 +207,12 @@ export default function UserDetailPage() {
               <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold">
                 {user.firstName?.[0]}{user.lastName?.[0]}
               </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <h2 className="text-2xl font-bold text-white">
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <h2 className="text-xl sm:text-2xl font-bold text-white">
                     {user.firstName} {user.lastName}
                   </h2>
-                  <span className={`px-3 py-1 rounded-lg text-sm font-semibold border ${status.color}`}>
+                  <span className={`flex-shrink-0 px-3 py-1 rounded-lg text-sm font-semibold border ${status.color}`}>
                     {status.label}
                   </span>
                 </div>
@@ -245,13 +245,13 @@ export default function UserDetailPage() {
           <div className="glass-card p-6 rounded-2xl">
             <h3 className="text-lg font-semibold text-white mb-4">Contact Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex items-center gap-3 p-4 bg-slate-800/50 rounded-xl">
-                <div className="p-3 bg-blue-500/20 rounded-lg">
+              <div className="flex items-center gap-3 p-4 bg-slate-800/50 rounded-xl min-w-0">
+                <div className="p-3 bg-blue-500/20 rounded-lg flex-shrink-0">
                   <Mail className="w-5 h-5 text-blue-400" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm text-gray-400">Email</p>
-                  <p className="text-white">{user.email}</p>
+                  <p className="text-white break-all">{user.email}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-4 bg-slate-800/50 rounded-xl">
