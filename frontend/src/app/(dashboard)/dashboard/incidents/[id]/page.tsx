@@ -1207,282 +1207,82 @@ SLA Breach Time: ${slaBreachText}`
       {/* Back Button */}
       <BackButton href="/dashboard/incidents" label="กลับไปหน้า Incidents" />
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl font-bold text-white truncate">
-            Incident #{incident.ticketNumber || incident.id}
-          </h1>
-        </div>
+      {/* Title */}
+      <div className="min-w-0">
+        <h1 className="text-xl sm:text-2xl font-bold text-white truncate">
+          Incident #{incident.ticketNumber || incident.id}
+        </h1>
+      </div>
 
-        {/* Action Buttons */}
-        <div className="flex flex-col items-stretch sm:flex-row sm:flex-wrap sm:items-center sm:justify-end gap-2 sm:shrink-0">
+      {/* Action Buttons — 2 sides */}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
 
-          {/* Request Onsite Button */}
+        {/* LEFT: Workflow buttons (technician actions) */}
+        <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2">
           {canRequestOnsite && (
-            <button
-              onClick={handleRequestOnsite}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition duration-200 text-sm font-medium"
-            >
-              <MapPin className="w-4 h-4 shrink-0" />
-              <span>Request Onsite</span>
+            <button onClick={handleRequestOnsite}
+              className="w-full sm:w-auto sm:min-w-[130px] flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition duration-200 text-sm font-medium">
+              <MapPin className="w-4 h-4 shrink-0" /><span>Request Onsite</span>
             </button>
           )}
-
-          {/* Helpdesk Direct Close Button */}
           {canDirectClose && (
-            <button
-              onClick={() => setShowDirectClose(true)}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition duration-200 text-sm font-medium"
-            >
-              <CheckCircle2 className="w-4 h-4 shrink-0" />
-              <span>ปิดงานโดย Helpdesk</span>
+            <button onClick={() => setShowDirectClose(true)}
+              className="w-full sm:w-auto sm:min-w-[130px] flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition duration-200 text-sm font-medium">
+              <CheckCircle2 className="w-4 h-4 shrink-0" /><span>ปิดงานโดย Helpdesk</span>
             </button>
           )}
-
-          {/* Response Button - ASSIGNED (optional before Check-in) */}
           {canResponse && (
-            <button
-              onClick={() => setShowResponse(true)}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition duration-200 text-sm font-medium"
-            >
-              <MessageSquare className="w-4 h-4 shrink-0" />
-              <span>Response</span>
+            <button onClick={() => setShowResponse(true)}
+              className="w-full sm:w-auto sm:min-w-[130px] flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition duration-200 text-sm font-medium">
+              <MessageSquare className="w-4 h-4 shrink-0" /><span>Response</span>
             </button>
           )}
-
-          {/* Check In Button - ASSIGNED → IN_PROGRESS */}
           {canCheckIn && (
-            <button
-              onClick={() => setShowCheckIn(true)}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 hover:brightness-110 text-white rounded-lg transition duration-200 text-sm font-medium"
-              style={{ backgroundColor: themeHighlight }}
-            >
-              <Camera className="w-4 h-4 shrink-0" />
-              <span>Check In & Start</span>
+            <button onClick={() => setShowCheckIn(true)}
+              className="w-full sm:w-auto sm:min-w-[130px] flex items-center justify-center gap-2 px-4 py-2.5 hover:brightness-110 text-white rounded-lg transition duration-200 text-sm font-medium"
+              style={{ backgroundColor: themeHighlight }}>
+              <Camera className="w-4 h-4 shrink-0" /><span>Check In & Start</span>
             </button>
           )}
-
-          {/* Add Before Photos Button - IN_PROGRESS, รูปยังไม่ครบ 5 */}
           {canAddBeforePhotos && (
-            <button
-              onClick={() => setShowAddBeforePhotos(true)}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-600 hover:bg-slate-700 text-white rounded-lg transition duration-200 text-sm font-medium"
-            >
-              <Camera className="w-4 h-4 shrink-0" />
-              <span>เพิ่มรูปก่อนทำ ({currentBeforePhotosCount}/5)</span>
+            <button onClick={() => setShowAddBeforePhotos(true)}
+              className="w-full sm:w-auto sm:min-w-[130px] flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-600 hover:bg-slate-700 text-white rounded-lg transition duration-200 text-sm font-medium">
+              <Camera className="w-4 h-4 shrink-0" /><span>เพิ่มรูปก่อนทำ ({currentBeforePhotosCount}/5)</span>
             </button>
           )}
-
-          {/* Resolve Button - IN_PROGRESS → RESOLVED */}
           {canResolve && (
-            <button
-              onClick={() => setShowResolve(true)}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition duration-200 text-sm font-medium"
-            >
-              <CheckCircle className="w-4 h-4 shrink-0" />
-              <span>Resolve Incident</span>
+            <button onClick={() => setShowResolve(true)}
+              className="w-full sm:w-auto sm:min-w-[130px] flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition duration-200 text-sm font-medium">
+              <CheckCircle className="w-4 h-4 shrink-0" /><span>Resolve Incident</span>
             </button>
           )}
-
-          {/* Update Resolution Button - RESOLVED (Technician can edit) */}
           {canUpdate && (
-            <button
-              onClick={() => setShowUpdate(true)}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition duration-200 text-sm font-medium"
-            >
-              <Edit3 className="w-4 h-4 shrink-0" />
-              <span>Update Resolution</span>
+            <button onClick={() => setShowUpdate(true)}
+              className="w-full sm:w-auto sm:min-w-[130px] flex items-center justify-center gap-2 px-4 py-2.5 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition duration-200 text-sm font-medium">
+              <Edit3 className="w-4 h-4 shrink-0" /><span>Update Resolution</span>
             </button>
           )}
-
-          {/* Tech Confirm Resolve - ยืนยันปิดงานก่อนแจ้ง Helpdesk */}
           {canTechConfirm && (
-            <button
-              onClick={() => setShowTechConfirm(true)}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition duration-200 text-sm font-medium"
-            >
-              <CheckCircle className="w-4 h-4 shrink-0" />
-              <span>ยืนยันปิดงาน</span>
+            <button onClick={() => setShowTechConfirm(true)}
+              className="w-full sm:w-auto sm:min-w-[130px] flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition duration-200 text-sm font-medium">
+              <CheckCircle className="w-4 h-4 shrink-0" /><span>ยืนยันปิดงาน</span>
             </button>
           )}
-
-          {/* Confirm & Close Button - RESOLVED → CLOSED (Help Desk only) */}
           {canConfirm && (
-            <button
-              onClick={() => setShowConfirm(true)}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition duration-200 text-sm font-medium"
-            >
-              <CheckCircle2 className="w-4 h-4 shrink-0" />
-              <span>Confirm & Close</span>
+            <button onClick={() => setShowConfirm(true)}
+              className="w-full sm:w-auto sm:min-w-[130px] flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition duration-200 text-sm font-medium">
+              <CheckCircle2 className="w-4 h-4 shrink-0" /><span>Confirm & Close</span>
             </button>
           )}
-
-          {/* Reopen Button - CLOSED → IN_PROGRESS (Help Desk only) */}
           {canReopen && (
-            <button
-              onClick={() => setShowReopen(true)}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition duration-200 text-sm font-medium"
-            >
+            <button onClick={() => setShowReopen(true)}
+              className="w-full sm:w-auto sm:min-w-[130px] flex items-center justify-center gap-2 px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition duration-200 text-sm font-medium">
               <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
               <span>Reopen Incident</span>
             </button>
           )}
-
-          {/* Request Reassignment Button */}
-          {canRequestReassign && (
-            <button
-              onClick={() => setShowReassignmentModal(true)}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition duration-200 text-sm font-medium"
-            >
-              <UserPlus className="w-4 h-4 shrink-0" />
-              <span>Request Reassign</span>
-            </button>
-          )}
-
-          {/* Direct Reassign Button - SUPERVISOR only (legacy) */}
-          {canReassign && incident.assignee && !canRequestReassign && (
-            <button
-              onClick={() => {
-                setAssignMode('reassign')
-                setAssignModalOpen(true)
-              }}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition duration-200 text-sm font-medium"
-            >
-              <UserPlus className="w-4 h-4 shrink-0" />
-              <span>Direct Reassign</span>
-            </button>
-          )}
-
-          {/* Assign + Outsource */}
-          {canAssign && !incident.assignee && incident?.resolutionType === 'ONSITE' && (
-            incident.status === 'PENDING' ||
-            incident.status === 'OPEN'
-          ) && !(incident.outsourceJobs?.some((oj: any) => oj.status !== 'CANCELLED')) && (
-            <>
-              <button
-                onClick={() => {
-                  setAssignMode('assign')
-                  setAssignModalOpen(true)
-                }}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition duration-200 text-sm font-medium"
-              >
-                <UserPlus className="w-4 h-4 shrink-0" />
-                <span>Assign</span>
-              </button>
-
-              {isSupervisor && (
-                <button
-                  onClick={() => router.push(`/dashboard/outsource/create?incidentId=${incident.id}`)}
-                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 hover:brightness-110 text-white rounded-lg transition duration-200 text-sm font-medium"
-                  style={{ backgroundColor: themeHighlight }}
-                >
-                  <Briefcase className="w-4 h-4 shrink-0" />
-                  <span>ส่งไป Outsource</span>
-                </button>
-              )}
-            </>
-          )}
-
-          {/* Edit Button */}
-          {canEdit && (
-            <button
-              onClick={() => router.push(`/dashboard/incidents/${incident.id}/edit`)}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition duration-200 text-sm font-medium"
-            >
-              <Edit className="w-4 h-4 shrink-0" />
-              <span>Edit</span>
-            </button>
-          )}
-
-          {/* Cancel Button */}
-          {canCancel && incident.status !== 'CANCELLED' && (
-            <button
-              onClick={() => setCancelModalOpen(true)}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg transition duration-200 text-sm font-medium"
-            >
-              <X className="w-4 h-4 shrink-0" />
-              <span>Cancel</span>
-            </button>
-          )}
-
-          {/* Service Report - TECHNICIAN: full dropdown */}
-          {(incident.status === 'RESOLVED' || incident.status === 'CLOSED') && isTechnician && (
-            <div className="relative" ref={srMenuRef}>
-              <button
-                onClick={() => setShowSrMenu(!showSrMenu)}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition duration-200 text-sm font-medium"
-              >
-                <FileText className="w-4 h-4 shrink-0" />
-                <span>Service Report</span>
-                <ChevronDown className={`w-4 h-4 transition-transform ${showSrMenu ? 'rotate-180' : ''}`} />
-              </button>
-
-              {showSrMenu && (
-                <div className="absolute right-0 mt-2 w-64 bg-slate-800 border border-slate-600 rounded-lg shadow-xl z-50 py-1 animate-fade-in">
-                  {incident.serviceReportToken ? (
-                    <a
-                      href={`/service-report/${incident.serviceReportToken}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-200 hover:bg-slate-700 transition"
-                      onClick={() => setShowSrMenu(false)}
-                    >
-                      <ExternalLink className="w-4 h-4 text-teal-400" />
-                      <span>เปิด Service Report (Online)</span>
-                    </a>
-                  ) : (
-                    <button
-                      onClick={() => { handleGenerateServiceReport(); setShowSrMenu(false) }}
-                      className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-200 hover:bg-slate-700 transition text-left"
-                    >
-                      <ExternalLink className="w-4 h-4 text-teal-400" />
-                      <span>สร้าง Service Report (Online)</span>
-                    </button>
-                  )}
-
-                  <button
-                    onClick={() => { handleDownloadBlankServiceReport(); setShowSrMenu(false) }}
-                    disabled={isGeneratingBlankPdf}
-                    className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-200 hover:bg-slate-700 transition text-left disabled:opacity-50"
-                  >
-                    <Download className="w-4 h-4 text-indigo-400" />
-                    <span>{isGeneratingBlankPdf ? 'กำลังสร้าง PDF...' : 'Download SR (ลายเซ็นเปล่า)'}</span>
-                  </button>
-
-                  {incident.store?.email && (
-                    <button
-                      onClick={() => { handleSendServiceReportEmail(); setShowSrMenu(false) }}
-                      disabled={isSendingEmail}
-                      className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-200 hover:bg-slate-700 transition text-left disabled:opacity-50"
-                    >
-                      <Mail className="w-4 h-4 text-cyan-400" />
-                      <span>{isSendingEmail ? 'กำลังส่งเมล...' : `ส่ง SR ไปสาขา (${incident.store.email})`}</span>
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Service Report - Other roles: view-only */}
-          {(incident.status === 'RESOLVED' || incident.status === 'CLOSED') &&
-            !isTechnician && (isHelpDesk || isITManager || isSupervisor) &&
-            !!incident.techConfirmedAt && incident.serviceReportToken && (
-              <a
-                href={`/service-report/${incident.serviceReportToken}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition duration-200 text-sm font-medium"
-              >
-                <FileText className="w-4 h-4 shrink-0" />
-                <span>ดู Service Report</span>
-                <ExternalLink className="w-3 h-3" />
-              </a>
-          )}
-
           {/* Helpdesk info: waiting for tech to confirm */}
           {incident?.status === 'RESOLVED' && isHelpDesk && !incident?.techConfirmedAt && (
             <div className="flex items-start gap-3 p-3 bg-amber-900/20 border border-amber-700/50 rounded-lg">
@@ -1493,8 +1293,111 @@ SLA Breach Time: ${slaBreachText}`
               </div>
             </div>
           )}
-
         </div>
+
+        {/* RIGHT: Management buttons */}
+        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:justify-end gap-2">
+          {/* Assign + Outsource */}
+          {canAssign && !incident.assignee && incident?.resolutionType === 'ONSITE' && (
+            incident.status === 'PENDING' || incident.status === 'OPEN'
+          ) && !(incident.outsourceJobs?.some((oj: any) => oj.status !== 'CANCELLED')) && (
+            <>
+              <button
+                onClick={() => { setAssignMode('assign'); setAssignModalOpen(true) }}
+                className="w-full sm:w-auto sm:min-w-[130px] flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition duration-200 text-sm font-medium">
+                <UserPlus className="w-4 h-4 shrink-0" /><span>Assign</span>
+              </button>
+              {isSupervisor && (
+                <button
+                  onClick={() => router.push(`/dashboard/outsource/create?incidentId=${incident.id}`)}
+                  className="w-full sm:w-auto sm:min-w-[130px] flex items-center justify-center gap-2 px-4 py-2.5 hover:brightness-110 text-white rounded-lg transition duration-200 text-sm font-medium"
+                  style={{ backgroundColor: themeHighlight }}>
+                  <Briefcase className="w-4 h-4 shrink-0" /><span>ส่งไป Outsource</span>
+                </button>
+              )}
+            </>
+          )}
+          {/* Request Reassign */}
+          {canRequestReassign && (
+            <button onClick={() => setShowReassignmentModal(true)}
+              className="w-full sm:w-auto sm:min-w-[130px] flex items-center justify-center gap-2 px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition duration-200 text-sm font-medium">
+              <UserPlus className="w-4 h-4 shrink-0" /><span>Request Reassign</span>
+            </button>
+          )}
+          {/* Direct Reassign */}
+          {canReassign && incident.assignee && !canRequestReassign && (
+            <button
+              onClick={() => { setAssignMode('reassign'); setAssignModalOpen(true) }}
+              className="w-full sm:w-auto sm:min-w-[130px] flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition duration-200 text-sm font-medium">
+              <UserPlus className="w-4 h-4 shrink-0" /><span>Direct Reassign</span>
+            </button>
+          )}
+          {/* Edit */}
+          {canEdit && (
+            <button onClick={() => router.push(`/dashboard/incidents/${incident.id}/edit`)}
+              className="w-full sm:w-auto sm:min-w-[130px] flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition duration-200 text-sm font-medium">
+              <Edit className="w-4 h-4 shrink-0" /><span>Edit</span>
+            </button>
+          )}
+          {/* Cancel */}
+          {canCancel && incident.status !== 'CANCELLED' && (
+            <button onClick={() => setCancelModalOpen(true)}
+              className="w-full sm:w-auto sm:min-w-[130px] flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg transition duration-200 text-sm font-medium">
+              <X className="w-4 h-4 shrink-0" /><span>Cancel</span>
+            </button>
+          )}
+          {/* Service Report - Technician dropdown */}
+          {(incident.status === 'RESOLVED' || incident.status === 'CLOSED') && isTechnician && (
+            <div className="relative" ref={srMenuRef}>
+              <button onClick={() => setShowSrMenu(!showSrMenu)}
+                className="w-full sm:w-auto sm:min-w-[130px] flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition duration-200 text-sm font-medium">
+                <FileText className="w-4 h-4 shrink-0" />
+                <span>Service Report</span>
+                <ChevronDown className={`w-4 h-4 transition-transform ${showSrMenu ? 'rotate-180' : ''}`} />
+              </button>
+              {showSrMenu && (
+                <div className="absolute right-0 mt-2 w-64 bg-slate-800 border border-slate-600 rounded-lg shadow-xl z-50 py-1 animate-fade-in">
+                  {incident.serviceReportToken ? (
+                    <a href={`/service-report/${incident.serviceReportToken}`} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-200 hover:bg-slate-700 transition"
+                      onClick={() => setShowSrMenu(false)}>
+                      <ExternalLink className="w-4 h-4 text-teal-400" /><span>เปิด Service Report (Online)</span>
+                    </a>
+                  ) : (
+                    <button onClick={() => { handleGenerateServiceReport(); setShowSrMenu(false) }}
+                      className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-200 hover:bg-slate-700 transition text-left">
+                      <ExternalLink className="w-4 h-4 text-teal-400" /><span>สร้าง Service Report (Online)</span>
+                    </button>
+                  )}
+                  <button onClick={() => { handleDownloadBlankServiceReport(); setShowSrMenu(false) }}
+                    disabled={isGeneratingBlankPdf}
+                    className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-200 hover:bg-slate-700 transition text-left disabled:opacity-50">
+                    <Download className="w-4 h-4 text-indigo-400" />
+                    <span>{isGeneratingBlankPdf ? 'กำลังสร้าง PDF...' : 'Download SR (ลายเซ็นเปล่า)'}</span>
+                  </button>
+                  {incident.store?.email && (
+                    <button onClick={() => { handleSendServiceReportEmail(); setShowSrMenu(false) }}
+                      disabled={isSendingEmail}
+                      className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-200 hover:bg-slate-700 transition text-left disabled:opacity-50">
+                      <Mail className="w-4 h-4 text-cyan-400" />
+                      <span>{isSendingEmail ? 'กำลังส่งเมล...' : `ส่ง SR ไปสาขา (${incident.store.email})`}</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          {/* Service Report - Other roles view-only */}
+          {(incident.status === 'RESOLVED' || incident.status === 'CLOSED') &&
+            !isTechnician && (isHelpDesk || isITManager || isSupervisor) &&
+            !!incident.techConfirmedAt && incident.serviceReportToken && (
+              <a href={`/service-report/${incident.serviceReportToken}`} target="_blank" rel="noopener noreferrer"
+                className="w-full sm:w-auto sm:min-w-[130px] flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition duration-200 text-sm font-medium">
+                <FileText className="w-4 h-4 shrink-0" /><span>ดู Service Report</span><ExternalLink className="w-3 h-3" />
+              </a>
+          )}
+        </div>
+
       </div>
 
       {/* ✅ Technician Guidance Banner - แสดงคำแนะนำสำหรับ Technician */}
