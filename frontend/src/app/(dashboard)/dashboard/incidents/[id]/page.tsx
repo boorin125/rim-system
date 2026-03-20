@@ -1356,6 +1356,36 @@ SLA Breach Time: ${slaBreachText}`
             </button>
           )}
 
+          {/* Assign + Outsource */}
+          {canAssign && !incident.assignee && incident?.resolutionType === 'ONSITE' && (
+            incident.status === 'PENDING' ||
+            incident.status === 'OPEN'
+          ) && !(incident.outsourceJobs?.some((oj: any) => oj.status !== 'CANCELLED')) && (
+            <>
+              <button
+                onClick={() => {
+                  setAssignMode('assign')
+                  setAssignModalOpen(true)
+                }}
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition duration-200 text-sm font-medium"
+              >
+                <UserPlus className="w-4 h-4 shrink-0" />
+                <span>Assign</span>
+              </button>
+
+              {isSupervisor && (
+                <button
+                  onClick={() => router.push(`/dashboard/outsource/create?incidentId=${incident.id}`)}
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 hover:brightness-110 text-white rounded-lg transition duration-200 text-sm font-medium"
+                  style={{ backgroundColor: themeHighlight }}
+                >
+                  <Briefcase className="w-4 h-4 shrink-0" />
+                  <span>ส่งไป Outsource</span>
+                </button>
+              )}
+            </>
+          )}
+
           {/* Edit Button */}
           {canEdit && (
             <button
@@ -1451,36 +1481,6 @@ SLA Breach Time: ${slaBreachText}`
                 <span>ดู Service Report</span>
                 <ExternalLink className="w-3 h-3" />
               </a>
-          )}
-
-          {/* Assign + Outsource */}
-          {canAssign && !incident.assignee && incident?.resolutionType === 'ONSITE' && (
-            incident.status === 'PENDING' ||
-            incident.status === 'OPEN'
-          ) && !(incident.outsourceJobs?.some((oj: any) => oj.status !== 'CANCELLED')) && (
-            <>
-              <button
-                onClick={() => {
-                  setAssignMode('assign')
-                  setAssignModalOpen(true)
-                }}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition duration-200 text-sm font-medium"
-              >
-                <UserPlus className="w-4 h-4 shrink-0" />
-                <span>Assign</span>
-              </button>
-
-              {isSupervisor && (
-                <button
-                  onClick={() => router.push(`/dashboard/outsource/create?incidentId=${incident.id}`)}
-                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 hover:brightness-110 text-white rounded-lg transition duration-200 text-sm font-medium"
-                  style={{ backgroundColor: themeHighlight }}
-                >
-                  <Briefcase className="w-4 h-4 shrink-0" />
-                  <span>ส่งไป Outsource</span>
-                </button>
-              )}
-            </>
           )}
 
           {/* Helpdesk info: waiting for tech to confirm */}
