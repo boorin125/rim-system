@@ -266,6 +266,7 @@ function LoginContent() {
                           setLoginData({ ...loginData, email: e.target.value })
                         }
                         placeholder="your.email@example.com"
+                        autoComplete="email"
                         className="w-full pl-10 pr-4 py-3 bg-gray-700/50 backdrop-blur-sm border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
                         required
                       />
@@ -288,6 +289,7 @@ function LoginContent() {
                           setLoginData({ ...loginData, password: e.target.value })
                         }
                         placeholder="••••••••"
+                        autoComplete="current-password"
                         className="w-full pl-10 pr-12 py-3 bg-gray-700/50 backdrop-blur-sm border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
                         required
                       />
@@ -378,6 +380,7 @@ function LoginContent() {
                           })
                         }
                         placeholder="ชื่อ"
+                        autoComplete="given-name"
                         className="w-full px-4 py-3 bg-gray-700/50 backdrop-blur-sm border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
                         required
                       />
@@ -396,6 +399,7 @@ function LoginContent() {
                           })
                         }
                         placeholder="นามสกุล"
+                        autoComplete="family-name"
                         className="w-full px-4 py-3 bg-gray-700/50 backdrop-blur-sm border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
                         required
                       />
@@ -421,6 +425,7 @@ function LoginContent() {
                           })
                         }
                         placeholder="your.email@example.com"
+                        autoComplete="email"
                         className="w-full pl-10 pr-4 py-3 bg-gray-700/50 backdrop-blur-sm border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
                         required
                       />
@@ -446,6 +451,7 @@ function LoginContent() {
                           })
                         }
                         placeholder="081-234-5678"
+                        autoComplete="tel"
                         className="w-full pl-10 pr-4 py-3 bg-gray-700/50 backdrop-blur-sm border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
                       />
                     </div>
@@ -470,6 +476,7 @@ function LoginContent() {
                           })
                         }
                         placeholder="••••••••"
+                        autoComplete="new-password"
                         className="w-full pl-10 pr-12 py-3 bg-gray-700/50 backdrop-blur-sm border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
                         required
                       />
@@ -506,6 +513,7 @@ function LoginContent() {
                           })
                         }
                         placeholder="••••••••"
+                        autoComplete="new-password"
                         className="w-full pl-10 pr-12 py-3 bg-gray-700/50 backdrop-blur-sm border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
                         required
                       />
