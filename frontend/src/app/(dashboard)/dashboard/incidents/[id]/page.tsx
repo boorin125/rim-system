@@ -964,10 +964,14 @@ SLA Breach Time: ${slaBreachText}`
   const isSupervisor = hasRole('SUPERVISOR')
   const isITManager = hasRole('IT_MANAGER')
 
+  // Raw technician role check (no hierarchy suppression) — for workflow actions
+  // IT_MANAGER who also has TECHNICIAN role can check-in/resolve when assigned
+  const hasTechnicianRole = hasRole('TECHNICIAN')
+
   // Response - TECHNICIAN ที่ถูก assign สามารถตอบรับก่อน Check-in (ไม่บังคับ)
   const canResponse =
     incident?.status === 'ASSIGNED' &&
-    isTechnician &&
+    hasTechnicianRole &&
     isAssignedToMe &&
     !incident?.respondedAt  // ยังไม่เคย response
 
@@ -979,28 +983,28 @@ SLA Breach Time: ${slaBreachText}`
   // Check In - TECHNICIAN ที่ถูก assign, ASSIGNED หรือ IN_PROGRESS, ยังไม่เคย check in
   const canCheckIn =
     (incident?.status === 'ASSIGNED' || incident?.status === 'IN_PROGRESS') &&
-    isTechnician &&
+    hasTechnicianRole &&
     isAssignedToMe &&
     !hasCheckedIn
 
   // Resolve - TECHNICIAN ที่ถูก assign คนไหนก็ resolve ได้
   const canResolve =
     incident?.status === 'IN_PROGRESS' &&
-    isTechnician &&
+    hasTechnicianRole &&
     isAssignedToMe
 
   // Add Before Photos - TECHNICIAN ที่ถูก assign, สถานะ IN_PROGRESS, รูปยังไม่ครบ 5
   const currentBeforePhotosCount = incident?.beforePhotos?.length || 0
   const canAddBeforePhotos =
     incident?.status === 'IN_PROGRESS' &&
-    isTechnician &&
+    hasTechnicianRole &&
     isAssignedToMe &&
     currentBeforePhotosCount < 5
 
-  // Update Resolution - TECHNICIAN เท่านั้น และต้องเป็นคนที่ทำงาน
+  // Update Resolution - TECHNICIAN ที่ถูก assign (รวม IT_MANAGER+TECH)
   const canUpdate =
     incident?.status === 'RESOLVED' &&
-    isTechnician &&
+    hasTechnicianRole &&
     isAssignedToMe
 
   // Direct Close (Phone/Remote Support) - HELP_DESK, OPEN or PENDING, no resolutionType yet
@@ -1015,10 +1019,10 @@ SLA Breach Time: ${slaBreachText}`
     (incident?.status === 'OPEN' || incident?.status === 'PENDING') &&
     !incident?.resolutionType
 
-  // Tech Confirm Resolve - TECHNICIAN ที่ assign, RESOLVED, ยังไม่ได้ tech confirm
+  // Tech Confirm Resolve - TECHNICIAN ที่ assign, RESOLVED, ยังไม่ได้ tech confirm (รวม IT_MANAGER+TECH)
   const canTechConfirm =
     incident?.status === 'RESOLVED' &&
-    isTechnician &&
+    hasTechnicianRole &&
     isAssignedToMe &&
     !incident?.techConfirmedAt
 
