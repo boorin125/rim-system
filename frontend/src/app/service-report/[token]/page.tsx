@@ -94,6 +94,8 @@ export default function ServiceReportPage() {
   const [isFullscreenSign, setIsFullscreenSign] = useState(false)
   const [fsSignatureDataUrl, setFsSignatureDataUrl] = useState<string | null>(null)
   const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null)
+  const [docScale, setDocScale] = useState(1)
+  const [isMobilePortrait, setIsMobilePortrait] = useState(false)
 
   useEffect(() => {
     if (!token) return
@@ -111,6 +113,22 @@ export default function ServiceReportPage() {
     }
     fetchReport()
   }, [token])
+
+  // Responsive document scale + portrait detection
+  useEffect(() => {
+    const update = () => {
+      const w = window.innerWidth
+      setDocScale(Math.min(1, w / 680))
+      setIsMobilePortrait(w < 768 && window.innerHeight > w)
+    }
+    update()
+    window.addEventListener('resize', update)
+    window.addEventListener('orientationchange', update)
+    return () => {
+      window.removeEventListener('resize', update)
+      window.removeEventListener('orientationchange', update)
+    }
+  }, [])
 
   const initSignaturePad = useCallback(() => {
     if (canvasRef.current && !report?.isSigned) {
@@ -145,8 +163,9 @@ export default function ServiceReportPage() {
     setTimeout(() => {
       if (fsCanvasRef.current) {
         const canvas = fsCanvasRef.current
-        canvas.width = window.innerWidth
-        canvas.height = window.innerHeight - 140 // Leave room for buttons
+        const portrait = window.innerWidth < window.innerHeight
+        canvas.width = portrait ? window.innerHeight : window.innerWidth
+        canvas.height = portrait ? (window.innerWidth - 140) : (window.innerHeight - 140)
         fsSignaturePadRef.current = new SignaturePad(canvas, {
           backgroundColor: 'rgb(255, 255, 255)',
           penColor: 'rgb(0, 0, 200)',
@@ -295,7 +314,12 @@ export default function ServiceReportPage() {
 
   // Fullscreen signature overlay (shared by both templates)
   const fullscreenSignatureOverlay = isFullscreenSign && (
-    <div className="fixed inset-0 z-[9999] bg-white flex flex-col">
+    <div
+      className="z-[9999] bg-white flex flex-col"
+      style={isMobilePortrait
+        ? { position: 'fixed', width: '100vh', height: '100vw', top: 0, left: '100vw', transform: 'rotate(90deg)', transformOrigin: 'top left' }
+        : { position: 'fixed', inset: 0 }}
+    >
       {/* Top bar */}
       <div className="flex items-center justify-between px-4 py-3 bg-gray-100 border-b border-gray-300">
         <button
@@ -375,9 +399,8 @@ export default function ServiceReportPage() {
       <>
       <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800">
         <div className="fixed inset-0 bg-pattern"></div>
-        <div className="relative z-10 max-w-4xl mx-auto py-4 sm:py-8">
-          <div className="overflow-x-auto px-2 sm:px-4">
-          <div className="bg-white shadow-2xl rounded-2xl overflow-hidden min-w-[680px]" style={{ minHeight: '297mm' }}>
+        <div className="relative z-10 max-w-4xl mx-auto py-4 sm:py-8 px-2 sm:px-4">
+          <div className="bg-white shadow-2xl rounded-2xl overflow-hidden mx-auto" style={{ width: 680, zoom: docScale, minHeight: '297mm' } as React.CSSProperties}>
 
             {/* Modern Header - White */}
             <div className="p-6 border-b border-gray-200">
@@ -783,7 +806,6 @@ export default function ServiceReportPage() {
             </div>
 
           </div>
-          </div>
         </div>
       </div>
       {lightboxPhoto && (
@@ -804,10 +826,9 @@ export default function ServiceReportPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800">
       <div className="fixed inset-0 bg-pattern"></div>
 
-      <div className="relative z-10 max-w-4xl mx-auto py-4 sm:py-8">
-        <div className="overflow-x-auto px-2 sm:px-4">
+      <div className="relative z-10 max-w-4xl mx-auto py-4 sm:py-8 px-2 sm:px-4">
         {/* Form Document */}
-        <div className="bg-white shadow-2xl min-w-[680px]" style={{ minHeight: '297mm' }}>
+        <div className="bg-white shadow-2xl mx-auto" style={{ width: 680, zoom: docScale, minHeight: '297mm' } as React.CSSProperties}>
 
           {/* Header: Logo + Company Info */}
           <div className="border-b-2 border-black p-5">
@@ -1294,7 +1315,6 @@ export default function ServiceReportPage() {
             </p>
           </div>
 
-        </div>
         </div>
       </div>
     </div>
