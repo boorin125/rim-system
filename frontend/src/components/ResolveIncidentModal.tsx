@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Upload, Trash2, Camera, Mic, MicOff, FileText, CheckCircle } from 'lucide-react';
+import { X, Upload, Trash2, Camera, Mic, MicOff, FileText, CheckCircle, FlipHorizontal2 } from 'lucide-react';
 import SparePartForm from './SparePartForm';
 
 interface ResolveIncidentModalProps {
@@ -77,14 +77,18 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
   // Signed SR photos
   const [signedSrPhotos, setSignedSrPhotos] = useState<File[]>([]);
   const [signedSrPreviewUrls, setSignedSrPreviewUrls] = useState<string[]>([]);
-  const signedSrInputRef = useRef<HTMLInputElement>(null);
-
   // Voice to Text states
   const [isListening, setIsListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
   const recognitionRef = useRef<any>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const [cameraFacing, setCameraFacing] = useState<'environment' | 'user'>('environment');
+
+  const srGalleryInputRef = useRef<HTMLInputElement>(null);
+  const srCameraInputRef = useRef<HTMLInputElement>(null);
+  const [srCameraFacing, setSrCameraFacing] = useState<'environment' | 'user'>('environment');
 
   // Initialize Speech Recognition
   useEffect(() => {
@@ -232,7 +236,8 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
     setSignedSrPhotos(prev => [...prev, ...files]);
     setSignedSrPreviewUrls(prev => [...prev, ...newUrls]);
     setError('');
-    if (signedSrInputRef.current) signedSrInputRef.current.value = '';
+    if (srGalleryInputRef.current) srGalleryInputRef.current.value = '';
+    if (srCameraInputRef.current) srCameraInputRef.current.value = '';
   };
 
   const handleRemoveSignedSrPhoto = (index: number) => {
@@ -402,30 +407,31 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
               <span className="text-gray-400 ml-2">สูงสุด 20 รูป</span>
             </label>
             
+            {/* Hidden inputs */}
+            <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handlePhotoUpload} className="hidden" />
+            <input key={`after-${cameraFacing}`} ref={cameraInputRef} type="file" accept="image/*" capture={cameraFacing} onChange={handlePhotoUpload} className="hidden" />
+
             {/* Upload Area */}
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-slate-600/50 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500/50 hover:bg-slate-700/20 transition-all group"
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handlePhotoUpload}
-                className="hidden"
-              />
-              <div className="flex flex-col items-center space-y-3">
-                <div className="p-4 bg-slate-700/30 rounded-full group-hover:bg-blue-500/20 transition-colors">
-                  <Camera className="w-8 h-8 text-gray-400 group-hover:text-blue-400 transition-colors" />
-                </div>
-                <div>
-                  <p className="text-gray-300 font-medium">คลิกเพื่ออัพโหลดรูปภาพ</p>
-                  <p className="text-sm text-gray-500 mt-1">
-                    หรือลากไฟล์มาวางที่นี่ (PNG, JPG สูงสุด 20 รูป)
-                  </p>
-                </div>
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => setTimeout(() => cameraInputRef.current?.click(), 0)}
+                  className="flex flex-col items-center justify-center gap-1.5 py-4 bg-blue-600/20 border-2 border-blue-500/50 rounded-xl hover:bg-blue-600/30 transition-all">
+                  <Camera className="w-6 h-6 text-blue-400" />
+                  <span className="text-xs font-medium text-blue-300">ถ่ายรูป</span>
+                  <span className="text-[10px] text-blue-400/70">{cameraFacing === 'environment' ? 'กล้องหลัง' : 'กล้องหน้า'}</span>
+                </button>
+                <button type="button" onClick={() => fileInputRef.current?.click()}
+                  className="flex flex-col items-center justify-center gap-1.5 py-4 bg-slate-800/40 border-2 border-slate-600/50 rounded-xl hover:bg-slate-700/40 transition-all">
+                  <Upload className="w-6 h-6 text-gray-400" />
+                  <span className="text-xs font-medium text-gray-300">เลือกจากคลัง</span>
+                  <span className="text-[10px] text-gray-500">Gallery</span>
+                </button>
               </div>
+              <button type="button" onClick={() => setCameraFacing(f => f === 'environment' ? 'user' : 'environment')}
+                className="w-full flex items-center justify-center gap-2 py-1.5 text-xs text-gray-400 hover:text-gray-200 hover:bg-slate-700/30 rounded-lg transition-colors">
+                <FlipHorizontal2 className="w-3.5 h-3.5" />
+                สลับเป็น{cameraFacing === 'environment' ? 'กล้องหน้า' : 'กล้องหลัง'}
+              </button>
             </div>
 
             {/* Photo Previews */}
@@ -596,24 +602,30 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
               <span className="text-gray-400 ml-2">สูงสุด 5 รูป</span>
             </label>
 
-            <div
-              onClick={() => signedSrInputRef.current?.click()}
-              className="border-2 border-dashed border-amber-600/30 rounded-lg p-6 text-center cursor-pointer hover:border-amber-500/50 hover:bg-amber-900/10 transition-all group"
-            >
-              <input
-                ref={signedSrInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handleSignedSrUpload}
-                className="hidden"
-              />
-              <div className="flex flex-col items-center space-y-2">
-                <div className="p-3 bg-amber-700/20 rounded-full group-hover:bg-amber-500/20 transition-colors">
-                  <Upload className="w-6 h-6 text-amber-400 group-hover:text-amber-300 transition-colors" />
-                </div>
-                <p className="text-gray-300 text-sm">อัปโหลดรูปใบงานที่ลูกค้าเซ็นด้วยปากกา</p>
+            {/* Hidden inputs for SR */}
+            <input ref={srGalleryInputRef} type="file" accept="image/*" multiple onChange={handleSignedSrUpload} className="hidden" />
+            <input key={`sr-${srCameraFacing}`} ref={srCameraInputRef} type="file" accept="image/*" capture={srCameraFacing} onChange={handleSignedSrUpload} className="hidden" />
+
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => setTimeout(() => srCameraInputRef.current?.click(), 0)}
+                  className="flex flex-col items-center justify-center gap-1.5 py-3 bg-amber-600/10 border-2 border-amber-600/30 rounded-xl hover:bg-amber-600/20 transition-all">
+                  <Camera className="w-5 h-5 text-amber-400" />
+                  <span className="text-xs font-medium text-amber-300">ถ่ายรูป</span>
+                  <span className="text-[10px] text-amber-400/70">{srCameraFacing === 'environment' ? 'กล้องหลัง' : 'กล้องหน้า'}</span>
+                </button>
+                <button type="button" onClick={() => srGalleryInputRef.current?.click()}
+                  className="flex flex-col items-center justify-center gap-1.5 py-3 bg-slate-800/40 border-2 border-slate-600/50 rounded-xl hover:bg-slate-700/40 transition-all">
+                  <Upload className="w-5 h-5 text-gray-400" />
+                  <span className="text-xs font-medium text-gray-300">เลือกจากคลัง</span>
+                  <span className="text-[10px] text-gray-500">Gallery</span>
+                </button>
               </div>
+              <button type="button" onClick={() => setSrCameraFacing(f => f === 'environment' ? 'user' : 'environment')}
+                className="w-full flex items-center justify-center gap-2 py-1.5 text-xs text-gray-400 hover:text-gray-200 hover:bg-slate-700/30 rounded-lg transition-colors">
+                <FlipHorizontal2 className="w-3.5 h-3.5" />
+                สลับเป็น{srCameraFacing === 'environment' ? 'กล้องหน้า' : 'กล้องหลัง'}
+              </button>
             </div>
 
             {signedSrPreviewUrls.length > 0 && (
