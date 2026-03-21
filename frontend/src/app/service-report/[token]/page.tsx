@@ -375,8 +375,9 @@ export default function ServiceReportPage() {
       <>
       <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800">
         <div className="fixed inset-0 bg-pattern"></div>
-        <div className="relative z-10 max-w-4xl mx-auto p-4 py-8">
-          <div className="bg-white shadow-2xl rounded-2xl overflow-hidden" style={{ minHeight: '297mm' }}>
+        <div className="relative z-10 max-w-4xl mx-auto py-4 sm:py-8">
+          <div className="overflow-x-auto px-2 sm:px-4">
+          <div className="bg-white shadow-2xl rounded-2xl overflow-hidden min-w-[680px]" style={{ minHeight: '297mm' }}>
 
             {/* Modern Header - White */}
             <div className="p-6 border-b border-gray-200">
@@ -782,6 +783,7 @@ export default function ServiceReportPage() {
             </div>
 
           </div>
+          </div>
         </div>
       </div>
       {lightboxPhoto && (
@@ -802,9 +804,10 @@ export default function ServiceReportPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800">
       <div className="fixed inset-0 bg-pattern"></div>
 
-      <div className="relative z-10 max-w-4xl mx-auto p-4 py-8">
+      <div className="relative z-10 max-w-4xl mx-auto py-4 sm:py-8">
+        <div className="overflow-x-auto px-2 sm:px-4">
         {/* Form Document */}
-        <div className="bg-white shadow-2xl" style={{ minHeight: '297mm' }}>
+        <div className="bg-white shadow-2xl min-w-[680px]" style={{ minHeight: '297mm' }}>
 
           {/* Header: Logo + Company Info */}
           <div className="border-b-2 border-black p-5">
@@ -1291,6 +1294,7 @@ export default function ServiceReportPage() {
             </p>
           </div>
 
+        </div>
         </div>
       </div>
     </div>
