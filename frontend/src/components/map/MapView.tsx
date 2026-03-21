@@ -374,51 +374,30 @@ export default function MapView({ checkins, technicianLocations = [] }: MapViewP
                   Check-in: {formatDateTime(c.checkInAt)}
                 </div>
               </Tooltip>
-              <Popup>
+              <Popup maxWidth={isMobile ? 220 : 280} minWidth={isMobile ? 180 : 220} keepInView={true} autoPan={true}>
                 <div style={{
-                  minWidth: '240px',
-                  fontSize: '13px',
-                  lineHeight: '1.6',
-                  borderLeft: `4px solid ${color.hex}`,
-                  paddingLeft: '12px',
+                  fontSize: isMobile ? '11px' : '13px',
+                  lineHeight: '1.5',
+                  borderLeft: `3px solid ${color.hex}`,
+                  paddingLeft: '8px',
                 }}>
-                  <div style={{ marginBottom: '8px' }}>
-                    <span style={{
-                      backgroundColor: color.hex,
-                      color: 'white',
-                      padding: '2px 10px',
-                      borderRadius: '9999px',
-                      fontSize: '11px',
-                      fontWeight: 600,
-                    }}>
-                      {statusLabelMap[c.status] || c.status}
-                    </span>
-                  </div>
-                  <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '2px' }}>
+                  <span style={{
+                    backgroundColor: color.hex, color: 'white',
+                    padding: '1px 8px', borderRadius: '9999px',
+                    fontSize: '10px', fontWeight: 600, display: 'inline-block', marginBottom: '4px',
+                  }}>
+                    {statusLabelMap[c.status] || c.status}
+                  </span>
+                  <div style={{ fontWeight: 700, fontSize: isMobile ? '12px' : '13px', marginBottom: '4px' }}>
                     {c.storeCode} {c.storeName}
                   </div>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '6px' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <tbody>
-                      <tr>
-                        <td style={{ color: '#888', paddingRight: '8px', paddingBottom: '3px', whiteSpace: 'nowrap' }}>Ticket</td>
-                        <td style={{ fontWeight: 600, paddingBottom: '3px' }}>{c.ticketNumber}</td>
-                      </tr>
-                      <tr>
-                        <td style={{ color: '#888', paddingRight: '8px', paddingBottom: '3px', whiteSpace: 'nowrap' }}>Title</td>
-                        <td style={{ paddingBottom: '3px' }}>{c.title}</td>
-                      </tr>
-                      <tr>
-                        <td style={{ color: '#888', paddingRight: '8px', paddingBottom: '3px', whiteSpace: 'nowrap' }}>Technician</td>
-                        <td style={{ paddingBottom: '3px' }}>{c.technicianName}</td>
-                      </tr>
-                      <tr>
-                        <td style={{ color: '#888', paddingRight: '8px', paddingBottom: '3px', whiteSpace: 'nowrap' }}>Check-in</td>
-                        <td style={{ paddingBottom: '3px' }}>{formatDateTime(c.checkInAt)}</td>
-                      </tr>
-                      <tr>
-                        <td style={{ color: '#888', paddingRight: '8px', paddingBottom: '3px', whiteSpace: 'nowrap' }}>Resolve</td>
-                        <td style={{ paddingBottom: '3px' }}>{c.confirmedAt ? formatDateTime(c.confirmedAt) : '-'}</td>
-                      </tr>
+                      <tr><td style={{ color: '#888', paddingRight: '6px', paddingBottom: '2px', whiteSpace: 'nowrap', fontSize: '10px' }}>Ticket</td><td style={{ fontWeight: 600, paddingBottom: '2px' }}>{c.ticketNumber}</td></tr>
+                      <tr><td style={{ color: '#888', paddingRight: '6px', paddingBottom: '2px', whiteSpace: 'nowrap', fontSize: '10px' }}>Title</td><td style={{ paddingBottom: '2px' }}>{c.title}</td></tr>
+                      <tr><td style={{ color: '#888', paddingRight: '6px', paddingBottom: '2px', whiteSpace: 'nowrap', fontSize: '10px' }}>ช่าง</td><td style={{ paddingBottom: '2px' }}>{c.technicianName}</td></tr>
+                      <tr><td style={{ color: '#888', paddingRight: '6px', paddingBottom: '2px', whiteSpace: 'nowrap', fontSize: '10px' }}>Check-in</td><td style={{ paddingBottom: '2px' }}>{formatDateTime(c.checkInAt)}</td></tr>
+                      {c.confirmedAt && <tr><td style={{ color: '#888', paddingRight: '6px', fontSize: '10px' }}>Resolve</td><td>{formatDateTime(c.confirmedAt)}</td></tr>}
                     </tbody>
                   </table>
                 </div>
@@ -460,101 +439,57 @@ export default function MapView({ checkins, technicianLocations = [] }: MapViewP
                   {usingFallback && <span style={{ color: '#9ca3af' }}> (พื้นที่รับผิดชอบ)</span>}
                 </div>
               </Tooltip>
-              <Popup>
+              <Popup maxWidth={isMobile ? 210 : 260} minWidth={isMobile ? 170 : 200} keepInView={true} autoPan={true}>
                 <div style={{
-                  minWidth: '200px',
-                  fontSize: '13px',
-                  lineHeight: '1.6',
-                  borderLeft: `4px solid ${pinColor}`,
-                  paddingLeft: '12px',
+                  fontSize: isMobile ? '11px' : '13px',
+                  lineHeight: '1.5',
+                  borderLeft: `3px solid ${pinColor}`,
+                  paddingLeft: '8px',
                 }}>
-                  <div style={{ marginBottom: '6px' }}>
-                    <span style={{
-                      backgroundColor: pinColor,
-                      color: 'white',
-                      padding: '2px 10px',
-                      borderRadius: '9999px',
-                      fontSize: '11px',
-                      fontWeight: 600,
-                    }}>
-                      {isOutsource ? 'ช่าง Outsource' : 'ช่างเทคนิค'}
+                  {/* Type + Online badges row */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap', marginBottom: '5px' }}>
+                    <span style={{ backgroundColor: pinColor, color: 'white', padding: '1px 7px', borderRadius: '9999px', fontSize: '10px', fontWeight: 600 }}>
+                      {isOutsource ? 'Outsource' : 'ช่างเทคนิค'}
                     </span>
-                  </div>
-                  {/* Online status badge */}
-                  <div style={{ marginBottom: '6px' }}>
                     <span style={{
-                      display: 'inline-flex', alignItems: 'center', gap: '5px',
-                      padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: 600,
+                      display: 'inline-flex', alignItems: 'center', gap: '3px',
+                      padding: '1px 6px', borderRadius: '9999px', fontSize: '10px', fontWeight: 600,
                       backgroundColor: tech.isOnline ? '#dcfce7' : '#f1f5f9',
                       color: tech.isOnline ? '#16a34a' : '#64748b',
                       border: `1px solid ${tech.isOnline ? '#86efac' : '#cbd5e1'}`,
                     }}>
-                      <span style={{
-                        width: '7px', height: '7px', borderRadius: '50%',
-                        backgroundColor: tech.isOnline ? '#22c55e' : '#94a3b8',
-                        display: 'inline-block',
-                      }} />
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: tech.isOnline ? '#22c55e' : '#94a3b8', display: 'inline-block' }} />
                       {tech.isOnline ? 'Online' : 'Offline'}
                     </span>
-                    {tech.firstLoginTodayAt && (
-                      <span style={{ marginLeft: '6px', fontSize: '11px', color: '#94a3b8' }}>
-                        เข้าระบบ {new Date(tech.firstLoginTodayAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', hour12: false })} น.
-                      </span>
-                    )}
                   </div>
-                  {/* Avatar + ชื่อ */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                  {/* Avatar + name row */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                     {tech.avatarPath ? (
                       <img
                         src={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || ''}${tech.avatarPath}`}
                         alt={`${tech.firstName} ${tech.lastName}`}
-                        style={{
-                          width: '44px', height: '44px', borderRadius: '50%',
-                          objectFit: 'cover', border: `2px solid ${pinColor}`,
-                          flexShrink: 0,
-                        }}
+                        style={{ width: isMobile ? '32px' : '40px', height: isMobile ? '32px' : '40px', borderRadius: '50%', objectFit: 'cover', border: `2px solid ${pinColor}`, flexShrink: 0 }}
                         onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
                       />
                     ) : (
-                      <div style={{
-                        width: '44px', height: '44px', borderRadius: '50%',
-                        backgroundColor: pinColor, display: 'flex',
-                        alignItems: 'center', justifyContent: 'center',
-                        color: 'white', fontWeight: 700, fontSize: '16px', flexShrink: 0,
-                      }}>
+                      <div style={{ width: isMobile ? '32px' : '40px', height: isMobile ? '32px' : '40px', borderRadius: '50%', backgroundColor: pinColor, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 700, fontSize: isMobile ? '13px' : '15px', flexShrink: 0 }}>
                         {initials}
                       </div>
                     )}
-                    <div style={{ fontWeight: 700, fontSize: '14px' }}>
+                    <div style={{ fontWeight: 700, fontSize: isMobile ? '12px' : '13px' }}>
                       {tech.firstName} {tech.lastName}
                     </div>
                   </div>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <tbody>
-                      {tech.phone && (
-                        <tr>
-                          <td style={{ color: '#888', paddingRight: '8px', paddingBottom: '3px', whiteSpace: 'nowrap' }}>โทร</td>
-                          <td style={{ paddingBottom: '3px' }}>{tech.phone}</td>
-                        </tr>
-                      )}
+                      {tech.phone && <tr><td style={{ color: '#888', paddingRight: '6px', paddingBottom: '2px', whiteSpace: 'nowrap', fontSize: '10px' }}>โทร</td><td style={{ paddingBottom: '2px' }}>{tech.phone}</td></tr>}
                       {displayProvince && (
                         <tr>
-                          <td style={{ color: '#888', paddingRight: '8px', paddingBottom: '3px', whiteSpace: 'nowrap' }}>
-                            {usingFallback ? 'พื้นที่รับผิดชอบ' : 'ที่อยู่'}
-                          </td>
-                          <td style={{ paddingBottom: '3px' }}>
-                            {tech.province
-                              ? [tech.subDistrict, tech.district, tech.province].filter(Boolean).join(', ')
-                              : displayProvince}
-                          </td>
+                          <td style={{ color: '#888', paddingRight: '6px', paddingBottom: '2px', whiteSpace: 'nowrap', fontSize: '10px' }}>{usingFallback ? 'พื้นที่' : 'ที่อยู่'}</td>
+                          <td style={{ paddingBottom: '2px' }}>{tech.province ? [tech.district, tech.province].filter(Boolean).join(', ') : displayProvince}</td>
                         </tr>
                       )}
-                      {tech.technicianType && (
-                        <tr>
-                          <td style={{ color: '#888', paddingRight: '8px', paddingBottom: '3px', whiteSpace: 'nowrap' }}>ประเภท</td>
-                          <td style={{ paddingBottom: '3px' }}>{tech.technicianType === 'INSOURCE' ? 'In-house' : 'Outsource'}</td>
-                        </tr>
-                      )}
+                      {tech.firstLoginTodayAt && <tr><td style={{ color: '#888', paddingRight: '6px', fontSize: '10px' }}>Login</td><td>{new Date(tech.firstLoginTodayAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', hour12: false })} น.</td></tr>}
                     </tbody>
                   </table>
                 </div>
