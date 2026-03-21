@@ -1039,7 +1039,7 @@ SLA Breach Time: ${slaBreachText}`
 
   // ✅ Helper: Get action guidance message for Technician
   const getTechnicianGuidance = (): { message: string; type: 'info' | 'warning' | 'error' } | null => {
-    if (!isTechnician) return null
+    if (!hasTechnicianRole) return null
 
     // Not assigned to any incident
     if (!assignedTechId) {
@@ -1351,7 +1351,7 @@ SLA Breach Time: ${slaBreachText}`
             </button>
           )}
           {/* Service Report - Technician dropdown */}
-          {(incident.status === 'RESOLVED' || incident.status === 'CLOSED') && isTechnician && (
+          {(incident.status === 'RESOLVED' || incident.status === 'CLOSED') && hasTechnicianRole && (
             <div className="relative" ref={srMenuRef}>
               <button onClick={() => setShowSrMenu(!showSrMenu)}
                 className="w-full sm:w-auto sm:min-w-[130px] flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition duration-200 text-sm font-medium">
@@ -1393,7 +1393,7 @@ SLA Breach Time: ${slaBreachText}`
           )}
           {/* Service Report - Other roles view-only */}
           {(incident.status === 'RESOLVED' || incident.status === 'CLOSED') &&
-            !isTechnician && (isHelpDesk || isITManager || isSupervisor) &&
+            !hasTechnicianRole && (isHelpDesk || isITManager || isSupervisor) &&
             !!incident.techConfirmedAt && incident.serviceReportToken && (
               <a href={`/service-report/${incident.serviceReportToken}`} target="_blank" rel="noopener noreferrer"
                 className="w-full sm:w-auto sm:min-w-[130px] flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition duration-200 text-sm font-medium">
@@ -1418,7 +1418,7 @@ SLA Breach Time: ${slaBreachText}`
           <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
           <div>
             <p className="font-medium">{technicianGuidance.message}</p>
-            {isTechnician && isAssignedToMe && incident?.status === 'ASSIGNED' && (
+            {hasTechnicianRole && isAssignedToMe && incident?.status === 'ASSIGNED' && (
               <p className="text-sm mt-1 text-gray-400">
                 ต้อง Check-in ก่อนถึงจะสามารถกด Resolve Incident ได้
               </p>
