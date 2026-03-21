@@ -2532,46 +2532,47 @@ export default function SettingsPage() {
                   </p>
                 </div>
 
-                {/* Preview Card - Logo Left + Company Info Right (matching PDF format) */}
-                <div className="p-3 bg-white rounded-xl">
+                {/* Preview Card - Always landscape like actual PDF */}
+                <div className="p-3 bg-slate-700/50 rounded-xl">
                   <p className="text-xs text-gray-400 mb-2 font-medium">ตัวอย่าง Header Service Report:</p>
-                  <div className="border border-gray-200 rounded-lg p-3">
-                    {/* Mobile: column (logo top, info below) | sm+: row side-by-side */}
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
-                      {/* Logo */}
-                      <div className="flex sm:flex-shrink-0 justify-center sm:justify-start">
-                        {srSettings.providerLogo ? (
-                          <img
-                            src={`${(process.env.NEXT_PUBLIC_API_URL || '').replace('/api', '')}${srSettings.providerLogo}`}
-                            alt="Logo"
-                            className="h-10 sm:h-14 object-contain"
-                          />
-                        ) : (
-                          <div className="w-16 h-10 sm:w-20 sm:h-14 bg-gray-100 rounded flex items-center justify-center">
-                            <span className="text-gray-400 text-xs">LOGO</span>
+                  <div className="overflow-hidden rounded-lg border border-slate-600">
+                    {/* zoom scales layout including text/images proportionally, no ghost space */}
+                    <div style={{ zoom: 0.48 }}>
+                      <div className="bg-white p-6" style={{ width: 620 }}>
+                        {/* Header row: logo left, company info right — same layout as PDF */}
+                        <div className="flex items-start justify-between gap-6">
+                          <div className="flex-shrink-0">
+                            {srSettings.providerLogo ? (
+                              <img
+                                src={`${(process.env.NEXT_PUBLIC_API_URL || '').replace('/api', '')}${srSettings.providerLogo}`}
+                                alt="Logo"
+                                style={{ height: 60, maxWidth: 150, objectFit: 'contain' }}
+                              />
+                            ) : (
+                              <div style={{ width: 110, height: 60 }} className="bg-gray-100 rounded flex items-center justify-center">
+                                <span className="text-gray-400 text-sm">LOGO</span>
+                              </div>
+                            )}
                           </div>
-                        )}
+                          <div className="text-right flex-1">
+                            <p className="text-lg font-bold text-gray-800">{srSettings.providerName || 'ชื่อบริษัท'}</p>
+                            <p className="text-sm text-gray-500 whitespace-pre-line mt-1 leading-snug">{srSettings.providerAddress || 'ที่อยู่บริษัท'}</p>
+                            {(srSettings.providerPhone || srSettings.providerEmail) && (
+                              <p className="text-xs text-gray-400 mt-1">
+                                {srSettings.providerPhone && `Tel: ${srSettings.providerPhone}`}
+                                {srSettings.providerPhone && srSettings.providerEmail && '   '}
+                                {srSettings.providerEmail && `Email: ${srSettings.providerEmail}`}
+                              </p>
+                            )}
+                            {srSettings.providerTaxId && (
+                              <p className="text-xs text-gray-400 mt-0.5">เลขประจำตัวผู้เสียภาษี: {srSettings.providerTaxId}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="mt-4 pt-2 border-t-2 border-gray-800 text-center">
+                          <p className="text-sm font-bold text-gray-800 tracking-widest">SERVICE REPORT / ใบรายงานบริการ</p>
+                        </div>
                       </div>
-                      {/* Company Info */}
-                      <div className="text-center sm:text-right sm:flex-1 min-w-0">
-                        <p className="text-sm font-bold text-gray-800 truncate">{srSettings.providerName || 'ชื่อบริษัท'}</p>
-                        <p className="text-[11px] text-gray-500 whitespace-pre-line mt-0.5 leading-snug">{srSettings.providerAddress || 'ที่อยู่บริษัท'}</p>
-                        {(srSettings.providerPhone || srSettings.providerEmail) && (
-                          <p className="text-[10px] text-gray-400 mt-0.5 break-all">
-                            {srSettings.providerPhone && `Tel: ${srSettings.providerPhone}`}
-                            {srSettings.providerPhone && srSettings.providerEmail && '  '}
-                            {srSettings.providerEmail && `Email: ${srSettings.providerEmail}`}
-                          </p>
-                        )}
-                        {srSettings.providerTaxId && (
-                          <p className="text-[10px] text-gray-400 mt-0.5">
-                            เลขประจำตัวผู้เสียภาษี: {srSettings.providerTaxId}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="mt-2 pt-2 border-t border-gray-300 text-center">
-                      <p className="text-xs font-bold text-gray-800">SERVICE REPORT / ใบรายงานบริการ</p>
                     </div>
                   </div>
                 </div>

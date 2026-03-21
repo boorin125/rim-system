@@ -1,7 +1,7 @@
 // app/(dashboard)/dashboard/settings/job-types/page.tsx - Job Type Management
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   Briefcase,
   Plus,
@@ -252,8 +252,8 @@ export default function JobTypesSettingsPage() {
           <input
             type="text"
             value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 [&>option]:bg-slate-800 [&>option]:text-white"
+            onChange={(e) => { const v = e.target.value; setFormData(prev => ({ ...prev, name: v })) }}
+            className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="เช่น MA, Adhoc, Project"
           />
         </div>
@@ -262,8 +262,8 @@ export default function JobTypesSettingsPage() {
           <input
             type="text"
             value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 [&>option]:bg-slate-800 [&>option]:text-white"
+            onChange={(e) => { const v = e.target.value; setFormData(prev => ({ ...prev, description: v })) }}
+            className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="คำอธิบายสั้นๆ"
           />
         </div>
@@ -275,7 +275,7 @@ export default function JobTypesSettingsPage() {
           </label>
           <select
             value={formData.defaultPriority}
-            onChange={(e) => setFormData({ ...formData, defaultPriority: e.target.value })}
+            onChange={(e) => { const v = e.target.value; setFormData(prev => ({ ...prev, defaultPriority: v })) }}
             className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 [&>option]:bg-slate-800 [&>option]:text-white"
           >
             <option value="">ไม่กำหนด (ตาม Create Incident)</option>
@@ -293,7 +293,7 @@ export default function JobTypesSettingsPage() {
           <label className="block text-sm text-gray-400 mb-1">การคำนวณ SLA</label>
           <button
             type="button"
-            onClick={() => setFormData({ ...formData, ignoreSla: !formData.ignoreSla })}
+            onClick={() => setFormData(prev => ({ ...prev, ignoreSla: !prev.ignoreSla }))}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors w-full ${
               formData.ignoreSla
                 ? 'bg-red-500/20 border-red-500/50 text-red-400'
@@ -319,7 +319,7 @@ export default function JobTypesSettingsPage() {
               <button
                 key={color}
                 type="button"
-                onClick={() => setFormData({ ...formData, color })}
+                onClick={() => setFormData(prev => ({ ...prev, color }))}
                 className={`rounded-lg transition-all ${isEdit ? 'w-6 h-6' : 'w-8 h-8'} ${
                   formData.color === color ? 'ring-2 ring-white scale-110' : 'hover:scale-110'
                 }`}
