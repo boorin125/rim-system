@@ -1339,7 +1339,7 @@ SLA Breach Time: ${slaBreachText}`
           {/* Edit */}
           {canEdit && (
             <button onClick={() => router.push(`/dashboard/incidents/${incident.id}/edit`)}
-              className="w-full sm:w-auto sm:min-w-[130px] flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition duration-200 text-sm font-medium">
+              className="w-full sm:w-auto sm:min-w-[130px] flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition duration-200 text-sm font-medium">
               <Edit className="w-4 h-4 shrink-0" /><span>Edit</span>
             </button>
           )}
