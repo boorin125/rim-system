@@ -405,7 +405,7 @@ export class EmailService {
                 </tr>
                 <tr>
                   <td style="padding: 6px 10px; background-color: #0f172a; border: 1px solid #334155; font-weight: bold; font-size: 13px;">Technician:</td>
-                  <td style="padding: 6px 10px; background-color: #1e293b; border: 1px solid #334155; font-size: 13px;">${technicianName}${technicianPhone ? ` (${technicianPhone})` : ''}</td>
+                  <td style="padding: 6px 10px; background-color: #1e293b; border: 1px solid #334155; font-size: 13px;">${technicianName}</td>
                 </tr>
               </table>
             </div>
