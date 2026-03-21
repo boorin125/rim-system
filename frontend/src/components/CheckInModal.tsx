@@ -1,7 +1,8 @@
-// frontend/src/components/CheckInModal.tsx - UPDATED with GPS & Better Compression
+// frontend/src/components/CheckInModal.tsx
+'use client'
 
 import { useState, useEffect, useRef } from 'react';
-import { X, Upload, ImageIcon, Trash2, AlertCircle, Camera, Info, MapPin, Navigation, Plus, RefreshCw } from 'lucide-react';
+import { X, Upload, ImageIcon, Trash2, AlertCircle, Camera, Info, MapPin, Navigation, Plus, RefreshCw, FlipHorizontal2 } from 'lucide-react';
 import { compressImages, validateImageFile, formatFileSize } from '@/utils/imageUtils';
 
 interface GPSLocation {
@@ -18,202 +19,101 @@ interface CheckInModalProps {
   onCheckIn: (beforePhotos: string[], gpsLocation?: GPSLocation) => Promise<void>;
 }
 
-export default function CheckInModal({
-  isOpen,
-  onClose,
-  incidentId,
-  onCheckIn,
-}: CheckInModalProps) {
+export default function CheckInModal({ isOpen, onClose, incidentId, onCheckIn }: CheckInModalProps) {
   const [beforePhotos, setBeforePhotos] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string>('');
 
-  // GPS States
+  // GPS
   const [gpsLocation, setGpsLocation] = useState<GPSLocation | null>(null);
   const [gpsStatus, setGpsStatus] = useState<'idle' | 'requesting' | 'success' | 'denied' | 'error'>('idle');
   const [gpsError, setGpsError] = useState<string>('');
-  const gpsRequestedRef = useRef(false);
+
+  // Camera facing: environment = back, user = front
+  const [cameraFacing, setCameraFacing] = useState<'environment' | 'user'>('environment');
+
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const MAX_PHOTOS = 5;
-  const MAX_TOTAL_SIZE = 10 * 1024 * 1024; // 10MB total limit
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const MAX_TOTAL_SIZE = 10 * 1024 * 1024;
 
-  // Calculate total size of all photos
-  const getTotalSize = () => {
-    return beforePhotos.reduce((sum, file) => sum + file.size, 0);
-  };
+  const getTotalSize = () => beforePhotos.reduce((sum, f) => sum + f.size, 0);
 
-  // Request GPS location
   const requestGPSLocation = () => {
     if (!navigator.geolocation) {
       setGpsStatus('error');
       setGpsError('GPS ไม่รองรับบนอุปกรณ์นี้');
       return;
     }
-
     setGpsStatus('requesting');
     setGpsError('');
-
     navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const location: GPSLocation = {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy,
-          timestamp: position.timestamp,
-        };
-        setGpsLocation(location);
+      (pos) => {
+        setGpsLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: pos.coords.accuracy, timestamp: pos.timestamp });
         setGpsStatus('success');
       },
-      (error) => {
-        console.error('GPS Error:', error);
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            setGpsStatus('denied');
-            setGpsError('กรุณาอนุญาตการเข้าถึงตำแหน่ง GPS ในการตั้งค่าเบราว์เซอร์');
-            break;
-          case error.POSITION_UNAVAILABLE:
-            setGpsStatus('error');
-            setGpsError('ไม่สามารถระบุตำแหน่งได้ กรุณาลองใหม่');
-            break;
-          case error.TIMEOUT:
-            setGpsStatus('error');
-            setGpsError('หมดเวลาในการขอตำแหน่ง กรุณาลองใหม่');
-            break;
-          default:
-            setGpsStatus('error');
-            setGpsError('เกิดข้อผิดพลาดในการขอตำแหน่ง GPS');
-        }
+      (err) => {
+        if (err.code === err.PERMISSION_DENIED) { setGpsStatus('denied'); setGpsError('กรุณาอนุญาตการเข้าถึงตำแหน่ง GPS ในการตั้งค่าเบราว์เซอร์'); }
+        else { setGpsStatus('error'); setGpsError('ไม่สามารถระบุตำแหน่งได้ กรุณาลองใหม่'); }
       },
-      {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 0,
-      }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
   };
 
-  // Request GPS immediately when modal opens
   useEffect(() => {
     if (isOpen) {
-      gpsRequestedRef.current = false;
-      setGpsLocation(null);
-      setGpsStatus('idle');
-      setGpsError('');
-      // Auto-request GPS on open
-      setTimeout(() => {
-        requestGPSLocation();
-      }, 300);
+      setGpsLocation(null); setGpsStatus('idle'); setGpsError('');
+      setTimeout(requestGPSLocation, 300);
     }
   }, [isOpen]);
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
+  const processFiles = async (files: File[]) => {
     if (files.length === 0) return;
-
-    // Block upload if GPS not granted
-    if (gpsStatus !== 'success') {
-      setError('กรุณาอนุญาติ GPS ก่อนดำเนินการ');
-      if (e.target) e.target.value = '';
-      return;
-    }
-
+    if (gpsStatus !== 'success') { setError('กรุณาอนุญาต GPS ก่อนดำเนินการ'); return; }
     setError('');
-
-    // Check total count
-    if (beforePhotos.length + files.length > MAX_PHOTOS) {
-      setError(`สามารถอัปโหลดได้สูงสุด ${MAX_PHOTOS} รูป`);
-      return;
-    }
-
-    // Validate each file
+    if (beforePhotos.length + files.length > MAX_PHOTOS) { setError(`สามารถอัปโหลดได้สูงสุด ${MAX_PHOTOS} รูป`); return; }
     for (const file of files) {
-      const validation = validateImageFile(file, 10);
-      if (!validation.valid) {
-        setError(validation.error || 'ไฟล์ไม่ถูกต้อง');
-        return;
-      }
+      const v = validateImageFile(file, 10);
+      if (!v.valid) { setError(v.error || 'ไฟล์ไม่ถูกต้อง'); return; }
     }
-
     try {
-      // Compress with better settings
-      const compressed = await compressImages(files, {
-        maxWidth: 1600,
-        maxHeight: 1600,
-        quality: 0.75,
-      });
-
-      // Check total size after compression
-      const currentSize = getTotalSize();
-      const newSize = compressed.reduce((sum, file) => sum + file.size, 0);
-
-      if (currentSize + newSize > MAX_TOTAL_SIZE) {
-        setError(`ขนาดรวมเกิน ${formatFileSize(MAX_TOTAL_SIZE)} กรุณาใช้รูปที่น้อยกว่าหรือเล็กกว่า`);
-        return;
-      }
-
-      // Create preview URLs
-      const urls = compressed.map((file) => URL.createObjectURL(file));
-
+      const compressed = await compressImages(files, { maxWidth: 1600, maxHeight: 1600, quality: 0.75 });
+      const newSize = compressed.reduce((s, f) => s + f.size, 0);
+      if (getTotalSize() + newSize > MAX_TOTAL_SIZE) { setError(`ขนาดรวมเกิน ${formatFileSize(MAX_TOTAL_SIZE)}`); return; }
+      const urls = compressed.map((f) => URL.createObjectURL(f));
       setBeforePhotos((prev) => [...prev, ...compressed]);
       setPreviewUrls((prev) => [...prev, ...urls]);
-    } catch (err) {
-      setError('ไม่สามารถประมวลผลรูปภาพได้');
-      console.error(err);
-    }
+    } catch { setError('ไม่สามารถประมวลผลรูปภาพได้'); }
+  };
 
-    // Reset input
-    if (e.target) {
-      e.target.value = '';
-    }
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    await processFiles(files);
+    if (e.target) e.target.value = '';
   };
 
   const handleRemovePhoto = (index: number) => {
-    // Revoke URL to free memory
     URL.revokeObjectURL(previewUrls[index]);
-
     setBeforePhotos((prev) => prev.filter((_, i) => i !== index));
     setPreviewUrls((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleAddMorePhotos = () => {
-    fileInputRef.current?.click();
+  const handleOpenCamera = () => {
+    // Re-render with latest cameraFacing before clicking
+    setTimeout(() => cameraInputRef.current?.click(), 0);
   };
 
   const handleSubmit = async () => {
-    if (beforePhotos.length === 0) {
-      setError('กรุณาอัปโหลดอย่างน้อย 1 รูปก่อน Check In');
-      return;
-    }
-
-    // Check total size before upload
-    const totalSize = getTotalSize();
-    if (totalSize > MAX_TOTAL_SIZE) {
-      setError(`ขนาดรวม (${formatFileSize(totalSize)}) เกินขีดจำกัด (${formatFileSize(MAX_TOTAL_SIZE)})`);
-      return;
-    }
-
-    setIsUploading(true);
-    setError('');
-
+    if (beforePhotos.length === 0) { setError('กรุณาอัปโหลดอย่างน้อย 1 รูปก่อน Check In'); return; }
+    if (getTotalSize() > MAX_TOTAL_SIZE) { setError('ขนาดรูปรวมเกินขีดจำกัด'); return; }
+    setIsUploading(true); setError('');
     try {
-      // Convert to base64
-      const base64Photos = await Promise.all(
-        beforePhotos.map((file) => {
-          return new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(file);
-          });
-        })
-      );
-
-      // Pass GPS location if available
+      const base64Photos = await Promise.all(beforePhotos.map((file) =>
+        new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result as string); r.onerror = rej; r.readAsDataURL(file); })
+      ));
       await onCheckIn(base64Photos, gpsLocation || undefined);
-
-      // Clean up
       previewUrls.forEach((url) => URL.revokeObjectURL(url));
       onClose();
     } catch (err: any) {
@@ -224,15 +124,9 @@ export default function CheckInModal({
   };
 
   const handleClose = () => {
-    // Clean up URLs
     previewUrls.forEach((url) => URL.revokeObjectURL(url));
-    setBeforePhotos([]);
-    setPreviewUrls([]);
-    setError('');
-    setGpsLocation(null);
-    setGpsStatus('idle');
-    setGpsError('');
-    gpsRequestedRef.current = false;
+    setBeforePhotos([]); setPreviewUrls([]); setError('');
+    setGpsLocation(null); setGpsStatus('idle'); setGpsError('');
     onClose();
   };
 
@@ -240,271 +134,210 @@ export default function CheckInModal({
 
   const totalSize = getTotalSize();
   const totalSizePercent = (totalSize / MAX_TOTAL_SIZE) * 100;
+  const canAddMore = beforePhotos.length < MAX_PHOTOS;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4 pt-20 sm:pt-4">
-      <div className="glass-card border border-slate-700/50 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[calc(100vh-88px)] sm:max-h-[90vh] flex flex-col animate-fade-in">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-50">
+      {/* Sheet on mobile (bottom), centered dialog on sm+ */}
+      <div className="glass-card border border-slate-700/50 rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg max-h-[92vh] sm:max-h-[88vh] flex flex-col animate-fade-in">
+
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-700/50 bg-slate-800/30">
+        <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-700/50 bg-slate-800/30 rounded-t-2xl">
           <div>
-            <h2 className="text-2xl font-bold text-white">Check In</h2>
-            <p className="text-sm text-gray-300 mt-1">
-              อัปโหลดรูปก่อนเริ่มงานเพื่อเริ่มทำงาน
-            </p>
+            <h2 className="text-lg sm:text-xl font-bold text-white">Check In & เริ่มงาน</h2>
+            <p className="text-xs text-gray-400 mt-0.5">อัปโหลดรูปก่อนซ่อมเพื่อเริ่มงาน</p>
           </div>
-          <button
-            onClick={handleClose}
-            disabled={isUploading}
-            className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors disabled:opacity-50 text-gray-300"
-          >
+          <button onClick={handleClose} disabled={isUploading} className="p-1.5 hover:bg-slate-700/50 rounded-lg transition-colors text-gray-400">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* Error Message */}
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4 space-y-3">
+
+          {/* Error */}
           {error && (
-            <div className="flex items-start gap-3 p-4 bg-red-900/30 border border-red-700/50 rounded-lg">
-              <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="font-medium text-red-400">ไม่สามารถดำเนินการได้</p>
-                <p className="text-sm text-red-300 mt-1">{error}</p>
-              </div>
+            <div className="flex items-start gap-2 p-3 bg-red-900/30 border border-red-700/50 rounded-lg">
+              <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+              <p className="text-sm text-red-300">{error}</p>
             </div>
           )}
 
-          {/* GPS Status */}
-          <div className={`flex items-center justify-between p-4 rounded-lg border ${
-            gpsStatus === 'success'
-              ? 'bg-green-900/20 border-green-700/50'
-              : gpsStatus === 'denied' || gpsStatus === 'error'
-              ? 'bg-yellow-900/20 border-yellow-700/50'
-              : 'bg-slate-800/30 border-slate-700/50'
+          {/* GPS Status — compact */}
+          <div className={`flex items-center justify-between p-3 rounded-lg border ${
+            gpsStatus === 'success' ? 'bg-green-900/20 border-green-700/50'
+            : gpsStatus === 'denied' || gpsStatus === 'error' ? 'bg-yellow-900/20 border-yellow-700/50'
+            : 'bg-slate-800/30 border-slate-700/50'
           }`}>
-            <div className="flex items-center gap-3">
-              {gpsStatus === 'requesting' ? (
-                <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-              ) : gpsStatus === 'success' ? (
-                <MapPin className="w-5 h-5 text-green-400" />
-              ) : gpsStatus === 'denied' || gpsStatus === 'error' ? (
-                <AlertCircle className="w-5 h-5 text-yellow-400" />
-              ) : (
-                <Navigation className="w-5 h-5 text-gray-400" />
-              )}
-              <div>
-                <p className="text-sm font-medium text-white">
-                  {gpsStatus === 'idle' && 'GPS จะถูกขอเมื่อเพิ่มรูปแรก'}
-                  {gpsStatus === 'requesting' && 'กำลังขอตำแหน่ง GPS...'}
-                  {gpsStatus === 'success' && 'บันทึกตำแหน่งแล้ว'}
+            <div className="flex items-center gap-2 min-w-0">
+              {gpsStatus === 'requesting' ? <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin shrink-0" />
+                : gpsStatus === 'success' ? <MapPin className="w-4 h-4 text-green-400 shrink-0" />
+                : gpsStatus === 'denied' || gpsStatus === 'error' ? <AlertCircle className="w-4 h-4 text-yellow-400 shrink-0" />
+                : <Navigation className="w-4 h-4 text-gray-400 shrink-0" />}
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-white">
+                  {gpsStatus === 'idle' && 'รอขอตำแหน่ง GPS'}
+                  {gpsStatus === 'requesting' && 'กำลังขอ GPS...'}
+                  {gpsStatus === 'success' && `GPS: ${gpsLocation?.latitude.toFixed(5)}, ${gpsLocation?.longitude.toFixed(5)}`}
                   {(gpsStatus === 'denied' || gpsStatus === 'error') && 'ไม่สามารถระบุตำแหน่งได้'}
                 </p>
-                {gpsStatus === 'success' && gpsLocation && (
-                  <p className="text-xs text-gray-400 mt-1">
-                    {gpsLocation.latitude.toFixed(6)}, {gpsLocation.longitude.toFixed(6)}
-                    <span className="text-gray-500"> (ความแม่นยำ {Math.round(gpsLocation.accuracy)} เมตร)</span>
-                  </p>
-                )}
-                {gpsError && (
-                  <p className="text-xs text-yellow-300 mt-1">{gpsError}</p>
-                )}
+                {gpsError && <p className="text-xs text-yellow-300 truncate">{gpsError}</p>}
               </div>
             </div>
             {(gpsStatus === 'denied' || gpsStatus === 'error') && (
-              <button
-                onClick={requestGPSLocation}
-                className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors"
-              >
-                <RefreshCw className="w-4 h-4" />
-                ลองใหม่
+              <button onClick={requestGPSLocation} className="flex items-center gap-1 px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg transition-colors shrink-0 ml-2">
+                <RefreshCw className="w-3 h-3" /> ลองใหม่
               </button>
             )}
           </div>
 
-          {/* Total Size Indicator */}
+          {/* Photo count + size */}
           {beforePhotos.length > 0 && (
-            <div className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg border border-slate-700/50">
-              <div className="flex items-center gap-2">
-                <Info className="w-4 h-4 text-blue-400" />
-                <span className="text-sm text-gray-300">
-                  ขนาดรวม: <span className="font-semibold text-white">{formatFileSize(totalSize)}</span>
-                  <span className="text-gray-400"> / {formatFileSize(MAX_TOTAL_SIZE)}</span>
-                </span>
-              </div>
-              {/* Size Progress Bar */}
-              <div className="w-32 h-2 bg-slate-700/50 rounded-full overflow-hidden">
-                <div
-                  className={`h-full transition-all ${
-                    totalSizePercent > 90 ? 'bg-red-500' :
-                    totalSizePercent > 70 ? 'bg-yellow-500' :
-                    'bg-green-500'
-                  }`}
-                  style={{ width: `${Math.min(totalSizePercent, 100)}%` }}
-                />
+            <div className="flex items-center justify-between px-3 py-2 bg-slate-800/30 rounded-lg border border-slate-700/50">
+              <span className="text-xs text-gray-300">รูป {beforePhotos.length}/{MAX_PHOTOS} • {formatFileSize(totalSize)}</span>
+              <div className="w-24 h-1.5 bg-slate-700/50 rounded-full overflow-hidden">
+                <div className={`h-full transition-all ${totalSizePercent > 90 ? 'bg-red-500' : totalSizePercent > 70 ? 'bg-yellow-500' : 'bg-green-500'}`} style={{ width: `${Math.min(totalSizePercent, 100)}%` }} />
               </div>
             </div>
           )}
 
-          {/* Upload Area */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-medium text-gray-200">
-                รูปก่อนทำงาน ({beforePhotos.length}/{MAX_PHOTOS})
-              </label>
-              {beforePhotos.length > 0 && beforePhotos.length < MAX_PHOTOS && (
+          {/* Upload Area — hidden inputs */}
+          <input ref={galleryInputRef} type="file" accept="image/*" multiple onChange={handleFileSelect} disabled={isUploading} className="hidden" />
+          {/* Camera input — capture attribute switches based on cameraFacing */}
+          <input
+            key={cameraFacing}
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture={cameraFacing}
+            onChange={handleFileSelect}
+            disabled={isUploading}
+            className="hidden"
+          />
+
+          {/* Initial upload area (no photos yet) */}
+          {beforePhotos.length === 0 && (
+            <div className="space-y-2">
+              {/* Camera buttons row */}
+              <div className="grid grid-cols-2 gap-2">
+                {/* Take Photo button */}
                 <button
-                  onClick={handleAddMorePhotos}
+                  onClick={handleOpenCamera}
                   disabled={isUploading}
-                  className="flex items-center gap-1 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors disabled:opacity-50"
+                  className="flex flex-col items-center justify-center gap-1.5 py-4 bg-blue-600/20 border-2 border-blue-500/50 rounded-xl hover:bg-blue-600/30 hover:border-blue-500 transition-all disabled:opacity-50"
                 >
-                  <Plus className="w-4 h-4" />
-                  เพิ่มรูป
+                  <Camera className="w-7 h-7 text-blue-400" />
+                  <span className="text-xs font-medium text-blue-300">ถ่ายรูป</span>
+                  <span className="text-[10px] text-blue-400/70">{cameraFacing === 'environment' ? 'กล้องหลัง' : 'กล้องหน้า'}</span>
                 </button>
-              )}
-            </div>
 
-            {/* Hidden file input for "Add More" button */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={handleFileSelect}
-              disabled={isUploading}
-              className="hidden"
-            />
-
-            {beforePhotos.length < MAX_PHOTOS && beforePhotos.length === 0 && (
-              <label className="block">
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handleFileSelect}
+                {/* Gallery button */}
+                <button
+                  onClick={() => galleryInputRef.current?.click()}
                   disabled={isUploading}
-                  className="hidden"
-                />
-                <div className="border-2 border-dashed border-slate-600/50 rounded-xl p-8 text-center hover:border-blue-500 hover:bg-slate-800/30 transition-all cursor-pointer group">
-                  <div className="relative">
-                    <Upload className="w-12 h-12 text-gray-400 group-hover:text-blue-400 mx-auto mb-3 transition-colors" />
-                    <Camera className="w-6 h-6 text-blue-400 absolute top-0 right-1/2 translate-x-8 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
-                  <p className="text-sm font-medium text-gray-200 mb-1">
-                    คลิกเพื่ออัปโหลดรูป
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    PNG, JPG, WebP • สูงสุด 10MB ต่อรูป
-                  </p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    เหลืออีก {MAX_PHOTOS - beforePhotos.length} รูป
-                  </p>
-                  <p className="text-xs text-blue-400 mt-2">
-                    รูปจะถูกบีบอัดเป็น 1600x1600 @ 75%
-                  </p>
-                </div>
-              </label>
-            )}
-          </div>
+                  className="flex flex-col items-center justify-center gap-1.5 py-4 bg-slate-800/40 border-2 border-slate-600/50 rounded-xl hover:bg-slate-700/40 hover:border-slate-500 transition-all disabled:opacity-50"
+                >
+                  <Upload className="w-7 h-7 text-gray-400" />
+                  <span className="text-xs font-medium text-gray-300">เลือกจากคลัง</span>
+                  <span className="text-[10px] text-gray-500">Gallery</span>
+                </button>
+              </div>
 
-          {/* Photo Previews */}
+              {/* Switch camera button */}
+              <button
+                onClick={() => setCameraFacing(f => f === 'environment' ? 'user' : 'environment')}
+                className="w-full flex items-center justify-center gap-2 py-2 text-xs text-gray-400 hover:text-gray-200 hover:bg-slate-700/30 rounded-lg transition-colors"
+              >
+                <FlipHorizontal2 className="w-4 h-4" />
+                สลับเป็น{cameraFacing === 'environment' ? 'กล้องหน้า' : 'กล้องหลัง'}
+              </button>
+
+              <p className="text-center text-xs text-gray-500">เหลือ {MAX_PHOTOS} รูป • PNG, JPG, WebP</p>
+            </div>
+          )}
+
+          {/* Photo grid */}
           {beforePhotos.length > 0 && (
-            <div className="space-y-3">
-              <h3 className="text-sm font-medium text-gray-200">
-                รูปที่อัปโหลด
-              </h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div>
+              <p className="text-xs font-medium text-gray-300 mb-2">รูปที่อัปโหลด ({beforePhotos.length}/{MAX_PHOTOS})</p>
+              <div className="grid grid-cols-3 gap-2">
                 {beforePhotos.map((file, index) => (
-                  <div
-                    key={index}
-                    className="relative group aspect-square rounded-lg overflow-hidden border-2 border-slate-700/50 bg-slate-800/30"
-                  >
-                    <img
-                      src={previewUrls[index]}
-                      alt={`รูปก่อนทำงาน ${index + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-
-                    {/* Delete Button - Always visible on mobile */}
+                  <div key={index} className="relative aspect-square rounded-lg overflow-hidden border border-slate-700/50 bg-slate-800/30">
+                    <img src={previewUrls[index]} alt={`รูป ${index + 1}`} className="w-full h-full object-cover" />
                     <button
                       onClick={() => handleRemovePhoto(index)}
                       disabled={isUploading}
-                      className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 opacity-80 md:opacity-0 md:group-hover:opacity-100"
+                      className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors disabled:opacity-50"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-3 h-3" />
                     </button>
-
-                    {/* File Info */}
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
-                      <p className="text-xs text-white truncate">{file.name}</p>
-                      <p className="text-xs text-gray-300">
-                        {formatFileSize(file.size)}
-                      </p>
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-1.5 pb-1">
+                      <p className="text-[10px] text-gray-300">{formatFileSize(file.size)}</p>
                     </div>
                   </div>
                 ))}
 
-                {/* Add More Button Card */}
-                {beforePhotos.length < MAX_PHOTOS && (
-                  <label className="aspect-square rounded-lg border-2 border-dashed border-slate-600/50 bg-slate-800/20 flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 hover:bg-slate-800/40 transition-all">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={handleFileSelect}
-                      disabled={isUploading}
-                      className="hidden"
-                    />
-                    <Plus className="w-8 h-8 text-gray-400 mb-1" />
-                    <p className="text-xs text-gray-400">เพิ่มรูป</p>
-                  </label>
+                {/* Add more card */}
+                {canAddMore && (
+                  <div className="aspect-square rounded-lg border-2 border-dashed border-slate-600/50 bg-slate-800/20 flex flex-col items-center justify-center gap-1">
+                    {/* Camera */}
+                    <button onClick={handleOpenCamera} disabled={isUploading} className="flex flex-col items-center gap-0.5 p-2 rounded-lg hover:bg-blue-600/20 transition-colors disabled:opacity-50">
+                      <Camera className="w-5 h-5 text-blue-400" />
+                      <span className="text-[10px] text-blue-400">ถ่าย</span>
+                    </button>
+                    {/* Gallery */}
+                    <button onClick={() => galleryInputRef.current?.click()} disabled={isUploading} className="flex flex-col items-center gap-0.5 p-2 rounded-lg hover:bg-slate-700/40 transition-colors disabled:opacity-50">
+                      <Upload className="w-5 h-5 text-gray-400" />
+                      <span className="text-[10px] text-gray-400">คลัง</span>
+                    </button>
+                    {/* Flip camera */}
+                    <button onClick={() => setCameraFacing(f => f === 'environment' ? 'user' : 'environment')} className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors">
+                      {cameraFacing === 'environment' ? '↺ หน้า' : '↺ หลัง'}
+                    </button>
+                  </div>
                 )}
               </div>
+
+              {/* Quick add row */}
+              {canAddMore && (
+                <div className="flex gap-2 mt-2">
+                  <button onClick={handleOpenCamera} disabled={isUploading} className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-blue-600/20 border border-blue-500/40 rounded-lg text-xs text-blue-300 hover:bg-blue-600/30 transition-colors disabled:opacity-50">
+                    <Camera className="w-3.5 h-3.5" /> ถ่ายรูป ({cameraFacing === 'environment' ? 'หลัง' : 'หน้า'})
+                  </button>
+                  <button onClick={() => setCameraFacing(f => f === 'environment' ? 'user' : 'environment')} className="px-3 py-2 bg-slate-700/40 border border-slate-600/40 rounded-lg text-xs text-gray-400 hover:text-gray-200 hover:bg-slate-700/60 transition-colors">
+                    <FlipHorizontal2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => galleryInputRef.current?.click()} disabled={isUploading} className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-slate-800/40 border border-slate-600/40 rounded-lg text-xs text-gray-300 hover:bg-slate-700/40 transition-colors disabled:opacity-50">
+                    <Upload className="w-3.5 h-3.5" /> คลังรูป
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
-          {/* Info */}
-          <div className="flex items-start gap-3 p-4 bg-blue-900/20 border border-blue-700/50 rounded-lg">
-            <ImageIcon className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
-            <div className="text-sm text-blue-200">
-              <p className="font-medium mb-1">เคล็ดลับการถ่ายรูป:</p>
-              <ul className="list-disc list-inside space-y-1 text-xs">
-                <li>ถ่ายรูปชัด สว่าง ของอุปกรณ์</li>
-                <li>ถ่ายรูปปัญหาหรือจุดที่ต้องทำงาน</li>
-                <li>ถ่าย Serial Number หรือป้ายชื่อถ้ามี</li>
-                <li>รูปจะถูกบีบอัดอัตโนมัติเพื่อลดเวลาอัปโหลด</li>
-              </ul>
-            </div>
+          {/* Compact tips */}
+          <div className="flex items-start gap-2 p-3 bg-blue-900/20 border border-blue-700/50 rounded-lg">
+            <ImageIcon className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+            <p className="text-xs text-blue-200">ถ่ายให้เห็นปัญหาชัดเจน • ถ่าย Serial Number ถ้ามี • รูปจะถูกบีบอัดอัตโนมัติ</p>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between gap-3 p-6 border-t border-slate-700/50 bg-slate-800/30">
-          <p className="text-sm text-gray-300">
-            Check In จะเริ่มนับเวลาทำงาน
-          </p>
-          <div className="flex gap-3">
-            <button
-              onClick={handleClose}
-              disabled={isUploading}
-              className="px-4 py-2 text-gray-300 hover:bg-slate-700/50 rounded-lg font-medium transition-colors disabled:opacity-50"
-            >
+        <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4 border-t border-slate-700/50 bg-slate-800/30">
+          <p className="text-xs text-gray-400 hidden sm:block">Check In จะเริ่มนับเวลาทำงาน</p>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <button onClick={handleClose} disabled={isUploading} className="flex-1 sm:flex-none px-4 py-2.5 text-sm text-gray-300 hover:bg-slate-700/50 rounded-xl font-medium transition-colors disabled:opacity-50">
               ยกเลิก
             </button>
             <button
               onClick={handleSubmit}
               disabled={isUploading || beforePhotos.length === 0 || gpsStatus !== 'success'}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:bg-slate-700 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+              className="flex-1 sm:flex-none px-5 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 disabled:bg-slate-700 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
             >
               {isUploading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  กำลัง Check In...
-                </>
+                <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> กำลัง Check In...</>
               ) : (
-                <>
-                  <Camera className="w-4 h-4" />
-                  Check In & เริ่มงาน
-                </>
+                <><Camera className="w-4 h-4" /> Check In</>
               )}
             </button>
           </div>
