@@ -390,7 +390,7 @@ export default function MapPage() {
       </div>
 
       {/* ── Check-in List ─────────────────────────────────────── */}
-      {sortedCheckins.length > 0 && (
+      {!showTechnicianLocations && sortedCheckins.length > 0 && (
         <div className="bg-slate-800/70 backdrop-blur-xl border border-slate-700/50 rounded-2xl overflow-hidden">
           <div className="px-4 py-3 border-b border-slate-700/50 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-white flex items-center gap-2">
@@ -497,7 +497,7 @@ export default function MapPage() {
       )}
 
       {/* Empty state when no checkins */}
-      {!loading && sortedCheckins.length === 0 && (
+      {!showTechnicianLocations && !loading && sortedCheckins.length === 0 && (
         <div className="bg-slate-800/70 border border-slate-700/50 rounded-2xl py-8 flex flex-col items-center gap-2 text-gray-500">
           <AlertCircle className="w-8 h-8 text-slate-600" />
           <p className="text-sm">ไม่มีข้อมูล Check-in ในวันที่เลือก</p>
