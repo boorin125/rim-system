@@ -1365,26 +1365,26 @@ SLA Breach Time: ${slaBreachText}`
                     <a href={`/service-report/${incident.serviceReportToken}`} target="_blank" rel="noopener noreferrer"
                       className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-200 hover:bg-slate-700 transition"
                       onClick={() => setShowSrMenu(false)}>
-                      <ExternalLink className="w-4 h-4 text-teal-400" /><span>เปิด Service Report (Online)</span>
+                      <ExternalLink className="w-4 h-4 text-teal-400" /><span>Service Report Online</span>
                     </a>
                   ) : (
                     <button onClick={() => { handleGenerateServiceReport(); setShowSrMenu(false) }}
                       className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-200 hover:bg-slate-700 transition text-left">
-                      <ExternalLink className="w-4 h-4 text-teal-400" /><span>สร้าง Service Report (Online)</span>
+                      <ExternalLink className="w-4 h-4 text-teal-400" /><span>Service Report Online</span>
                     </button>
                   )}
                   <button onClick={() => { handleDownloadBlankServiceReport(); setShowSrMenu(false) }}
                     disabled={isGeneratingBlankPdf}
                     className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-200 hover:bg-slate-700 transition text-left disabled:opacity-50">
                     <Download className="w-4 h-4 text-indigo-400" />
-                    <span>{isGeneratingBlankPdf ? 'กำลังสร้าง PDF...' : 'Download SR (ลายเซ็นเปล่า)'}</span>
+                    <span>{isGeneratingBlankPdf ? 'กำลังสร้าง PDF...' : 'Download Service Report'}</span>
                   </button>
                   {incident.store?.email && (
                     <button onClick={() => { handleSendServiceReportEmail(); setShowSrMenu(false) }}
                       disabled={isSendingEmail}
                       className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-200 hover:bg-slate-700 transition text-left disabled:opacity-50">
                       <Mail className="w-4 h-4 text-cyan-400" />
-                      <span>{isSendingEmail ? 'กำลังส่งเมล...' : `ส่ง SR ไปสาขา (${incident.store.email})`}</span>
+                      <span>{isSendingEmail ? 'กำลังส่งเมล...' : 'ส่งเข้า Email สาขา'}</span>
                     </button>
                   )}
                 </div>
