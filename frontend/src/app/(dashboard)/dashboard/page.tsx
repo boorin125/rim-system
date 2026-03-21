@@ -42,6 +42,7 @@ interface Incident {
   slaDeadline?: string
   store?: { id: number; name: string; storeCode: string }
   assignee?: { id: number; firstName: string; lastName: string }
+  assignees?: { userId: number; user: { id: number; firstName: string; lastName: string } }[]
   category?: string
   jobType?: string
 }
@@ -531,15 +532,20 @@ export default function DashboardPage() {
                         <span className={`text-xs px-1.5 py-0.5 rounded ${STATUS_BADGE[inc.status] ?? ''}`}>
                           {STATUS_LABELS[inc.status] ?? inc.status}
                         </span>
-                        {inc.assignee && (
-                          <span className="text-xs text-blue-400/80 flex items-center gap-1">
-                            <User className="w-3 h-3" />
-                            {inc.assignee.firstName} {inc.assignee.lastName}
-                          </span>
-                        )}
-                        {!inc.assignee && (
-                          <span className="text-xs text-gray-600 italic">ยังไม่มีช่าง</span>
-                        )}
+                        {(() => {
+                          const tech = inc.assignees?.[0]?.user ?? inc.assignee
+                          return tech ? (
+                            <span className="text-xs text-blue-400/80 flex items-center gap-1">
+                              <User className="w-3 h-3" />
+                              {tech.firstName} {tech.lastName}
+                              {(inc.assignees?.length ?? 0) > 1 && (
+                                <span className="text-gray-500">+{inc.assignees!.length - 1}</span>
+                              )}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-600 italic">ยังไม่มีช่าง</span>
+                          )
+                        })()}
                         <span className="text-xs text-gray-600">{timeAgo(inc.updatedAt)}</span>
                       </div>
                     </div>
