@@ -244,7 +244,7 @@ export default function JobTypesSettingsPage() {
     return sla ? (sla.displayName || sla.name) : (PRIORITY_LABELS[priority] || priority)
   }
 
-  const FormFields = ({ isEdit = false }: { isEdit?: boolean }) => (
+  const renderFormFields = (isEdit = false) => (
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
@@ -387,7 +387,7 @@ export default function JobTypesSettingsPage() {
       {isCreating && (
         <div className="glass-card p-6 rounded-2xl border-2 border-orange-500/50">
           <h3 className="text-lg font-semibold text-white mb-4">เพิ่ม Job Type ใหม่</h3>
-          <FormFields />
+          {renderFormFields()}
           <div className="flex justify-end gap-2 mt-4">
             <button onClick={cancelEditing} className="px-4 py-2 text-gray-400 hover:text-white transition">ยกเลิก</button>
             <button
@@ -431,7 +431,7 @@ export default function JobTypesSettingsPage() {
               >
                 {editingId === jobType.id ? (
                   <div className="space-y-4">
-                    <FormFields isEdit />
+                    {renderFormFields(true)}
                     <div className="flex justify-end gap-2">
                       <button onClick={cancelEditing} className="p-2 text-gray-400 hover:text-white transition">
                         <X className="w-5 h-5" />
