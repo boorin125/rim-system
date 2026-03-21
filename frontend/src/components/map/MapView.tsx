@@ -123,13 +123,15 @@ const TECH_COLORS = {
   },
 }
 
-function createTechnicianHomeIcon(initials: string, techType?: string, isOnline?: boolean): L.DivIcon {
+function createTechnicianHomeIcon(initials: string, techType?: string, isOnline?: boolean, isMobile = false): L.DivIcon {
   const typeKey = techType === 'OUTSOURCE' ? 'OUTSOURCE' : 'INSOURCE'
   const colors = isOnline ? TECH_COLORS[typeKey].online : TECH_COLORS[typeKey].offline
   const gradId = `pin-tech-${typeKey}-${isOnline ? 'on' : 'off'}`
+  const w = isMobile ? 20 : 26
+  const h = isMobile ? 28 : 36
+  const fontSize = isMobile ? 9 : 11
 
-  // Always show initials on the pin (avatar shown in popup instead)
-  const svgPin = `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="36" viewBox="0 0 38 52" style="display:block;">
+  const svgPin = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 38 52" style="display:block;">
     <defs>
       <linearGradient id="${gradId}" x1="0%" y1="0%" x2="100%" y2="100%">
         <stop offset="0%" style="stop-color:${colors.grad0};stop-opacity:1" />
@@ -143,27 +145,30 @@ function createTechnicianHomeIcon(initials: string, techType?: string, isOnline?
           fill="url(#${gradId})" filter="url(#shadow-th)" />
     <circle cx="19" cy="18" r="16" fill="white" opacity="0.9"/>
     <text x="19" y="18" text-anchor="middle" dominant-baseline="central"
-        font-size="11" font-weight="700" fill="${colors.text}"
+        font-size="${fontSize}" font-weight="700" fill="${colors.text}"
         font-family="Arial,Helvetica,sans-serif">${initials}</text>
   </svg>`
 
-  const html = `<div style="position:relative;width:26px;height:36px;">${svgPin}</div>`
+  const html = `<div style="position:relative;width:${w}px;height:${h}px;">${svgPin}</div>`
 
   return L.divIcon({
     className: 'custom-marker',
     html,
-    iconSize: [26, 36],
-    iconAnchor: [13, 36],
-    popupAnchor: [0, -34],
+    iconSize: [w, h],
+    iconAnchor: [w / 2, h],
+    popupAnchor: [0, -h + 2],
   })
 }
 
-function createPinIcon(status: string, initials: string, avatarUrl?: string | null): L.DivIcon {
+function createPinIcon(status: string, initials: string, avatarUrl?: string | null, isMobile = false): L.DivIcon {
   const color = statusColorMap[status] || statusColorMap['PENDING']
   const apiBase = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || ''
+  const w = isMobile ? 26 : 38
+  const h = isMobile ? 36 : 52
+  const avatarSize = isMobile ? 22 : 32
+  const fontSize = isMobile ? 10 : 14
 
-  // SVG pin shape — initials stay in SVG, avatar overlaid as HTML <img>
-  const svgPin = `<svg xmlns="http://www.w3.org/2000/svg" width="38" height="52" viewBox="0 0 38 52" style="display:block;">
+  const svgPin = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 38 52" style="display:block;">
     <defs>
       <linearGradient id="pin-${status}" x1="0%" y1="0%" x2="100%" y2="100%">
         <stop offset="0%" style="stop-color:${color.text};stop-opacity:1" />
@@ -177,25 +182,26 @@ function createPinIcon(status: string, initials: string, avatarUrl?: string | nu
           fill="url(#pin-${status})" filter="url(#shadow-${status})" />
     <circle cx="19" cy="18" r="16" fill="white" opacity="0.9"/>
     ${!avatarUrl ? `<text x="19" y="18" text-anchor="middle" dominant-baseline="central"
-        font-size="14" font-weight="700" fill="${color.hex}"
+        font-size="${fontSize}" font-weight="700" fill="${color.hex}"
         font-family="Arial,Helvetica,sans-serif">${initials}</text>` : ''}
   </svg>`
 
+  const avatarOffset = isMobile ? 2 : 3
   const avatarHtml = avatarUrl
     ? `<img src="${apiBase}${avatarUrl}"
-          style="position:absolute;top:2px;left:3px;width:32px;height:32px;
+          style="position:absolute;top:${avatarOffset}px;left:${avatarOffset}px;width:${avatarSize}px;height:${avatarSize}px;
                  border-radius:50%;object-fit:cover;pointer-events:none;"
           onerror="this.style.display='none'" />`
     : ''
 
-  const html = `<div style="position:relative;width:38px;height:52px;">${svgPin}${avatarHtml}</div>`
+  const html = `<div style="position:relative;width:${w}px;height:${h}px;">${svgPin}${avatarHtml}</div>`
 
   return L.divIcon({
     className: 'custom-marker',
     html,
-    iconSize: [38, 52],
-    iconAnchor: [19, 52],
-    popupAnchor: [0, -48],
+    iconSize: [w, h],
+    iconAnchor: [w / 2, h],
+    popupAnchor: [0, -h + 4],
   })
 }
 
@@ -302,6 +308,7 @@ function RegionLegend() {
 
 export default function MapView({ checkins, technicianLocations = [] }: MapViewProps) {
   const [geoData, setGeoData] = useState<any>(null)
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 640
 
   useEffect(() => {
     fetch(THAILAND_GEOJSON_URL)
@@ -358,7 +365,7 @@ export default function MapView({ checkins, technicianLocations = [] }: MapViewP
             <Marker
               key={c.id}
               position={[c.latitude, c.longitude]}
-              icon={createPinIcon(c.status, c.technicianInitials, c.technicianAvatar)}
+              icon={createPinIcon(c.status, c.technicianInitials, c.technicianAvatar, isMobile)}
             >
               <Tooltip direction="top" offset={[0, -48]} opacity={0.95}>
                 <div style={{ fontSize: '12px', lineHeight: '1.5' }}>
@@ -442,7 +449,7 @@ export default function MapView({ checkins, technicianLocations = [] }: MapViewP
             <Marker
               key={`tech-${tech.id}`}
               position={pos}
-              icon={createTechnicianHomeIcon(initials, tech.technicianType, tech.isOnline)}
+              icon={createTechnicianHomeIcon(initials, tech.technicianType, tech.isOnline, isMobile)}
             >
               <Tooltip direction="top" offset={[0, -34]} opacity={0.95}>
                 <div style={{ fontSize: '12px', lineHeight: '1.5' }}>
