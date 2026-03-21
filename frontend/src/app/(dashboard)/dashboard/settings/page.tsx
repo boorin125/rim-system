@@ -3151,7 +3151,7 @@ export default function SettingsPage() {
                       <select
                         value={scheduleForm.frequency}
                         onChange={(e) => setScheduleForm({ ...scheduleForm, frequency: e.target.value as any })}
-                        className="w-full px-3 py-2 bg-slate-600/50 border border-slate-500 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 [&>option]:bg-slate-800 [&>option]:text-white"
                       >
                         <option value="HOURLY">Every Hour</option>
                         <option value="DAILY">Daily</option>
@@ -3179,7 +3179,7 @@ export default function SettingsPage() {
                         <select
                           value={scheduleForm.dayOfWeek}
                           onChange={(e) => setScheduleForm({ ...scheduleForm, dayOfWeek: parseInt(e.target.value) })}
-                          className="w-full px-3 py-2 bg-slate-600/50 border border-slate-500 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 [&>option]:bg-slate-800 [&>option]:text-white"
                         >
                           <option value={0}>Sunday</option>
                           <option value={1}>Monday</option>
@@ -3239,7 +3239,7 @@ export default function SettingsPage() {
                       <select
                         value={scheduleForm.storageType}
                         onChange={(e) => setScheduleForm({ ...scheduleForm, storageType: e.target.value as 'LOCAL' | 'EXTERNAL' })}
-                        className="w-full px-3 py-2 bg-slate-600/50 border border-slate-500 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 [&>option]:bg-slate-800 [&>option]:text-white"
                       >
                         <option value="LOCAL">Local (./backups)</option>
                         <option value="EXTERNAL">External Path</option>
