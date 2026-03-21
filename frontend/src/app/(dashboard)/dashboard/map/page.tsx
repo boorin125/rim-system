@@ -384,7 +384,7 @@ export default function MapPage() {
         style={{ aspectRatio: '3 / 4', maxHeight: '82vh', minHeight: '340px' }}
       >
         <MapView
-          checkins={filteredCheckins}
+          checkins={showTechnicianLocations ? [] : filteredCheckins}
           technicianLocations={showTechnicianLocations ? filteredTechLocations : []}
         />
       </div>
