@@ -508,10 +508,6 @@ export default function ServiceReportPage() {
                   <p className="text-xs text-gray-500 mb-1">วันเวลา แก้ไขเสร็จ / Time to Finish</p>
                   <p className="text-sm font-medium text-gray-800">{report.resolvedAt ? formatDate(report.resolvedAt) : '-'}</p>
                 </div>
-                <div className="bg-slate-50 rounded-xl p-3.5">
-                  <p className="text-xs text-gray-500 mb-1">อีเมล / E-mail</p>
-                  <p className="text-sm font-medium text-gray-800">{report.store?.email || '-'}</p>
-                </div>
               </div>
             </div>
 
@@ -952,12 +948,6 @@ export default function ServiceReportPage() {
                 </td>
                 <td className="border border-gray-400 px-3 py-1.5 text-black w-[22%]">
                   {report.store?.phone || '-'}
-                </td>
-                <td className="border border-gray-400 bg-gray-200 px-3 py-1.5 font-bold text-gray-700 w-[28%]">
-                  อีเมล / E-mail
-                </td>
-                <td className="border border-gray-400 px-3 py-1.5 text-black w-[22%]">
-                  {report.store?.email || '-'}
                 </td>
               </tr>
 
