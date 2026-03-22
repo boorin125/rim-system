@@ -161,8 +161,14 @@ export default function ServiceReportPage() {
   const initFsCanvas = () => {
     if (fsCanvasRef.current) {
       const canvas = fsCanvasRef.current
-      canvas.width = window.innerWidth
-      canvas.height = window.innerHeight - 140
+      const ratio = Math.max(window.devicePixelRatio || 1, 1)
+      const w = window.innerWidth
+      const h = window.innerHeight - 140
+      // Match drawing buffer to physical pixels so touch coords align
+      canvas.width = w * ratio
+      canvas.height = h * ratio
+      const ctx = canvas.getContext('2d')
+      if (ctx) ctx.scale(ratio, ratio)
       fsSignaturePadRef.current = new SignaturePad(canvas, {
         backgroundColor: 'rgb(255, 255, 255)',
         penColor: 'rgb(0, 0, 200)',
