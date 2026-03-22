@@ -1,7 +1,7 @@
 // app/(dashboard)/dashboard/profile/page.tsx
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useTabState } from '@/hooks/useTabState'
 import {
   User,
@@ -116,6 +116,14 @@ export default function ProfilePage() {
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
   const [isUploadingDoc, setIsUploadingDoc] = useState<string | null>(null)
   const [docPreview, setDocPreview] = useState<{ type: string; url: string } | null>(null)
+
+  // Signature background-removal modal
+  const [sigModal, setSigModal] = useState(false)
+  const [sigOriginalFile, setSigOriginalFile] = useState<File | null>(null)
+  const [sigProcessedBlob, setSigProcessedBlob] = useState<Blob | null>(null)
+  const [sigPreviewUrl, setSigPreviewUrl] = useState<string | null>(null)
+  const [sigThreshold, setSigThreshold] = useState(210)
+  const [sigBgMode, setSigBgMode] = useState<'white' | 'dark'>('white')
   const [cropData, setCropData] = useState<{
     url: string; imgW: number; imgH: number; scale: number; left: number; top: number
   } | null>(null)
@@ -450,39 +458,87 @@ export default function ProfilePage() {
     }
   }
 
+  // Process image: remove white/near-white background → transparent PNG
+  const processSignatureImage = useCallback((file: File, threshold: number): Promise<{ blob: Blob; url: string }> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image()
+      const objectUrl = URL.createObjectURL(file)
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        canvas.width = img.width
+        canvas.height = img.height
+        const ctx = canvas.getContext('2d')!
+        ctx.drawImage(img, 0, 0)
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+        const d = imageData.data
+        for (let i = 0; i < d.length; i += 4) {
+          if (d[i] >= threshold && d[i + 1] >= threshold && d[i + 2] >= threshold) {
+            d[i + 3] = 0 // transparent
+          }
+        }
+        ctx.putImageData(imageData, 0, 0)
+        canvas.toBlob((blob) => {
+          URL.revokeObjectURL(objectUrl)
+          if (blob) resolve({ blob, url: URL.createObjectURL(blob) })
+          else reject(new Error('Failed to process image'))
+        }, 'image/png')
+      }
+      img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('Load failed')) }
+      img.src = objectUrl
+    })
+  }, [])
+
   const handleSignatureUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    if (signatureInputRef.current) signatureInputRef.current.value = ''
 
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error('ขนาดไฟล์ต้องไม่เกิน 2MB')
-      return
+    try {
+      setSigOriginalFile(file)
+      const { blob, url } = await processSignatureImage(file, sigThreshold)
+      setSigProcessedBlob(blob)
+      if (sigPreviewUrl) URL.revokeObjectURL(sigPreviewUrl)
+      setSigPreviewUrl(url)
+      setSigModal(true)
+    } catch {
+      toast.error('ไม่สามารถประมวลผลรูปได้')
     }
+  }
 
+  const handleSigThresholdChange = async (value: number) => {
+    setSigThreshold(value)
+    if (!sigOriginalFile) return
+    try {
+      const { blob, url } = await processSignatureImage(sigOriginalFile, value)
+      setSigProcessedBlob(blob)
+      if (sigPreviewUrl) URL.revokeObjectURL(sigPreviewUrl)
+      setSigPreviewUrl(url)
+    } catch { /* ignore */ }
+  }
+
+  const handleSignatureConfirm = async () => {
+    if (!sigProcessedBlob) return
     try {
       setIsUploadingDoc('signature')
       const token = localStorage.getItem('token')
+      const processedFile = new File([sigProcessedBlob], 'signature.png', { type: 'image/png' })
       const formData = new FormData()
-      formData.append('signature', file)
-
+      formData.append('signature', processedFile)
       const res = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/auth/profile/signature`,
         formData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'multipart/form-data',
-          },
-        }
+        { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' } }
       )
-
       setProfile((prev) => prev ? { ...prev, signaturePath: res.data.signatureUrl } : prev)
       toast.success(res.data.message)
+      setSigModal(false)
+      setSigOriginalFile(null)
+      if (sigPreviewUrl) URL.revokeObjectURL(sigPreviewUrl)
+      setSigPreviewUrl(null)
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'อัปโหลดไม่สำเร็จ')
     } finally {
       setIsUploadingDoc(null)
-      if (signatureInputRef.current) signatureInputRef.current.value = ''
     }
   }
 
@@ -1411,6 +1467,69 @@ export default function ProfilePage() {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Signature Background-Removal Modal */}
+      {sigModal && sigPreviewUrl && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+          <div className="bg-slate-800 rounded-2xl p-6 w-full max-w-md space-y-4 border border-slate-700">
+            <h3 className="text-white font-semibold text-lg">ตรวจสอบลายเซ็น</h3>
+            <p className="text-xs text-gray-400">ระบบลบพื้นหลังสีขาวออกแล้ว ปรับ Slider หากยังมีพื้นหลังเหลืออยู่</p>
+
+            {/* Preview */}
+            <div
+              className="w-full h-36 rounded-xl flex items-center justify-center overflow-hidden transition-colors border border-slate-600"
+              style={{ backgroundColor: sigBgMode === 'white' ? '#ffffff' : '#0f172a' }}
+            >
+              <img src={sigPreviewUrl} alt="preview" className="max-h-full max-w-full object-contain" />
+            </div>
+
+            {/* Background toggle */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setSigBgMode('white')}
+                className={`flex-1 py-1.5 text-sm rounded-lg transition border ${sigBgMode === 'white' ? 'bg-white text-slate-800 font-medium border-white' : 'bg-slate-700 text-gray-300 border-slate-600'}`}
+              >พื้นขาว</button>
+              <button
+                onClick={() => setSigBgMode('dark')}
+                className={`flex-1 py-1.5 text-sm rounded-lg transition border ${sigBgMode === 'dark' ? 'bg-slate-600 text-white font-medium border-slate-500' : 'bg-slate-700 text-gray-300 border-slate-600'}`}
+              >พื้นเข้ม</button>
+            </div>
+
+            {/* Threshold slider */}
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-300">ระดับการลบพื้นหลัง</span>
+                <span className="text-gray-400 tabular-nums">{sigThreshold}</span>
+              </div>
+              <input
+                type="range" min={150} max={254} value={sigThreshold}
+                onChange={(e) => handleSigThresholdChange(Number(e.target.value))}
+                className="w-full accent-blue-500"
+              />
+              <div className="flex justify-between text-xs text-gray-500">
+                <span>ลบน้อย (เส้นคมชัด)</span>
+                <span>ลบมาก (พื้นหลังหาย)</span>
+              </div>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex gap-3 pt-1">
+              <button
+                onClick={() => { setSigModal(false); setSigOriginalFile(null) }}
+                className="flex-1 py-2.5 bg-slate-700 hover:bg-slate-600 text-gray-300 rounded-xl text-sm transition"
+              >ยกเลิก</button>
+              <button
+                onClick={handleSignatureConfirm}
+                disabled={isUploadingDoc === 'signature'}
+                className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium transition disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isUploadingDoc === 'signature' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                บันทึกลายเซ็น
+              </button>
             </div>
           </div>
         </div>
