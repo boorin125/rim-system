@@ -158,35 +158,48 @@ export default function ServiceReportPage() {
   }
 
   // Fullscreen signature handlers
-  const openFullscreenSign = () => {
-    setIsFullscreenSign(true)
-    setTimeout(() => {
-      if (fsCanvasRef.current) {
-        const canvas = fsCanvasRef.current
-        const portrait = window.innerWidth < window.innerHeight
-        canvas.width = portrait ? window.innerHeight : window.innerWidth
-        canvas.height = portrait ? (window.innerWidth - 140) : (window.innerHeight - 140)
-        fsSignaturePadRef.current = new SignaturePad(canvas, {
-          backgroundColor: 'rgb(255, 255, 255)',
-          penColor: 'rgb(0, 0, 200)',
-          minWidth: 1.5,
-          maxWidth: 3,
-        })
-      }
-    }, 50)
+  const initFsCanvas = () => {
+    if (fsCanvasRef.current) {
+      const canvas = fsCanvasRef.current
+      canvas.width = window.innerWidth
+      canvas.height = window.innerHeight - 140
+      fsSignaturePadRef.current = new SignaturePad(canvas, {
+        backgroundColor: 'rgb(255, 255, 255)',
+        penColor: 'rgb(0, 0, 200)',
+        minWidth: 1.5,
+        maxWidth: 3,
+      })
+    }
   }
 
-  const closeFullscreenSign = () => {
+  const openFullscreenSign = async () => {
+    setIsFullscreenSign(true)
+    try {
+      if (document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen()
+      }
+      if (screen.orientation && (screen.orientation as any).lock) {
+        await (screen.orientation as any).lock('landscape')
+      }
+    } catch (_) {
+      // Not supported on this device/browser — fallback to portrait fullscreen
+    }
+    setTimeout(initFsCanvas, 100)
+  }
+
+  const closeFullscreenSign = async () => {
     fsSignaturePadRef.current?.off()
     fsSignaturePadRef.current = null
     setIsFullscreenSign(false)
+    try {
+      if ((screen.orientation as any).unlock) (screen.orientation as any).unlock()
+      if (document.fullscreenElement) await document.exitFullscreen()
+    } catch (_) {}
   }
 
   const confirmFullscreenSign = () => {
     if (fsSignaturePadRef.current && !fsSignaturePadRef.current.isEmpty()) {
-      // Store as image data URL for preview + submission
-      const dataUrl = fsSignaturePadRef.current.toDataURL('image/png')
-      setFsSignatureDataUrl(dataUrl)
+      setFsSignatureDataUrl(fsSignaturePadRef.current.toDataURL('image/png'))
     }
     closeFullscreenSign()
   }
@@ -314,12 +327,13 @@ export default function ServiceReportPage() {
 
   // Fullscreen signature overlay (shared by both templates)
   const fullscreenSignatureOverlay = isFullscreenSign && (
-    <div
-      className="z-[9999] bg-white flex flex-col"
-      style={isMobilePortrait
-        ? { position: 'fixed', width: '100vh', height: '100vw', top: 0, left: '100vw', transform: 'rotate(90deg)', transformOrigin: 'top left' }
-        : { position: 'fixed', inset: 0 }}
-    >
+    <div className="fixed inset-0 z-[9999] bg-white flex flex-col">
+      {/* iOS hint: show when still in portrait (orientation lock not supported) */}
+      {isMobilePortrait && (
+        <div className="bg-blue-50 text-blue-600 text-xs text-center py-2 border-b border-blue-100">
+          💡 หมุนมือถือเป็นแนวนอนเพื่อพื้นที่เซ็นที่กว้างขึ้น
+        </div>
+      )}
       {/* Top bar */}
       <div className="flex items-center justify-between px-4 py-3 bg-gray-100 border-b border-gray-300">
         <button
