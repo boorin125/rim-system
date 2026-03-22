@@ -49,9 +49,9 @@ export function applyPdfWatermark(doc: any, options: WatermarkOptions = {}): voi
   doc.setProperties({
     author: `RIM System - ${orgName}`,
     creator: `RIM-${buildId}`,
-    keywords: `${buildId} ${customer}`,  // fingerprint in keywords field
-    subject: doc.getProperties().subject || 'RIM System Document',
-    title: doc.getProperties().title || 'RIM System',
+    keywords: `${buildId} ${customer}`,
+    subject: 'RIM System Document',
+    title: 'RIM System',
   })
 
   // ── Layer B: Invisible text on every page ───────────────────────────────────
