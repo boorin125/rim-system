@@ -725,6 +725,18 @@ export default function ServiceReportPage() {
                             <Trash2 className="w-3.5 h-3.5" /> ล้าง
                           </button>
                         </div>
+                        <button
+                          onClick={handleSign}
+                          disabled={isSubmitting}
+                          className="w-full mt-3 py-3 text-white font-semibold rounded-xl transition disabled:opacity-50 flex items-center justify-center gap-2"
+                          style={{ backgroundColor: accentColor }}
+                        >
+                          {isSubmitting ? (
+                            <><Loader2 className="w-5 h-5 animate-spin" /> กำลังบันทึก...</>
+                          ) : (
+                            <><Send className="w-5 h-5" /> ยืนยันลายเซ็น</>
+                          )}
+                        </button>
                       </div>
                       {/* Technician display */}
                       <div className="text-center flex flex-col items-center justify-center">
@@ -744,18 +756,6 @@ export default function ServiceReportPage() {
                         <p className="text-gray-600 text-sm">( {allTechNames} )</p>
                       </div>
                     </div>
-                    <button
-                      onClick={handleSign}
-                      disabled={isSubmitting}
-                      className="w-full mt-4 py-3 text-white font-semibold rounded-xl transition disabled:opacity-50 flex items-center justify-center gap-2"
-                      style={{ backgroundColor: accentColor }}
-                    >
-                      {isSubmitting ? (
-                        <><Loader2 className="w-5 h-5 animate-spin" /> กำลังบันทึก...</>
-                      ) : (
-                        <><Send className="w-5 h-5" /> ยืนยันลายเซ็น</>
-                      )}
-                    </button>
                   </div>
                 )}
               </div>
@@ -1236,6 +1236,17 @@ export default function ServiceReportPage() {
                         <Trash2 className="w-3.5 h-3.5" /> ล้าง
                       </button>
                     </div>
+                    <button
+                      onClick={handleSign}
+                      disabled={isSubmitting}
+                      className="w-full mt-3 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {isSubmitting ? (
+                        <><Loader2 className="w-5 h-5 animate-spin" /> กำลังบันทึก...</>
+                      ) : (
+                        <><Send className="w-5 h-5" /> ยืนยันลายเซ็น</>
+                      )}
+                    </button>
                   </div>
                   {/* Technician display */}
                   <div className="text-center flex flex-col items-center justify-center">
@@ -1255,17 +1266,6 @@ export default function ServiceReportPage() {
                     <p className="text-gray-600 text-sm">( {allTechNames} )</p>
                   </div>
                 </div>
-                <button
-                  onClick={handleSign}
-                  disabled={isSubmitting}
-                  className="w-full mt-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {isSubmitting ? (
-                    <><Loader2 className="w-5 h-5 animate-spin" /> กำลังบันทึก...</>
-                  ) : (
-                    <><Send className="w-5 h-5" /> ยืนยันลายเซ็น</>
-                  )}
-                </button>
               </div>
             )}
           </div>
