@@ -256,9 +256,9 @@ export default function ServiceReportPage() {
         reportUrl: window.location.href,
       }
       await generateServiceReportPDF(pdfData, { style: (report.templateStyle as 'classic' | 'modern') || 'classic' })
-    } catch (err) {
+    } catch (err: any) {
       console.error('PDF generation failed:', err)
-      alert('เกิดข้อผิดพลาดในการสร้าง PDF')
+      alert(`เกิดข้อผิดพลาดในการสร้าง PDF\n${err?.message || String(err)}`)
     } finally {
       setIsGeneratingPdf(false)
     }
