@@ -21,6 +21,12 @@ function LoginContent() {
   const nextUrl = searchParams.get('next') || '/dashboard'
   const [isFlipped, setIsFlipped] = useState(false)
   const [showForgot, setShowForgot] = useState(false)
+  const [isDark] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('colorTheme') || 'dark') === 'dark'
+    }
+    return true
+  })
   const [branding, setBranding] = useState<Branding>({
     organizationName: '',
     logoPath: '',
@@ -40,10 +46,19 @@ function LoginContent() {
     : 'Rubjobb Incident Management'
   const logoUrl = branding.logoPath ? `${API_URL.replace('/api', '')}${branding.logoPath}` : ''
 
-  // Background gradient using theme colors
-  const bgStyle = {
-    background: `linear-gradient(135deg, ${branding.theme.bgStart}, ${branding.theme.bgEnd})`,
+  // Mix hex color with white at given intensity (0-1)
+  const hexToLightTint = (hex: string, intensity: number): string => {
+    const c = hex.replace('#', '')
+    const r = parseInt(c.slice(0, 2), 16)
+    const g = parseInt(c.slice(2, 4), 16)
+    const b = parseInt(c.slice(4, 6), 16)
+    return `rgb(${Math.round(255-(255-r)*intensity)},${Math.round(255-(255-g)*intensity)},${Math.round(255-(255-b)*intensity)})`
   }
+
+  // Background gradient using theme colors (lighter in light mode)
+  const bgStyle = isDark
+    ? { background: `linear-gradient(135deg, ${branding.theme.bgStart}, ${branding.theme.bgEnd})` }
+    : { background: `linear-gradient(135deg, ${hexToLightTint(branding.theme.bgEnd, 0.28)}, ${hexToLightTint(branding.theme.bgEnd, 0.38)})` }
 
   // Derive highlight color same as sidebar active menu (hex → HSL @ 42% lightness)
   const getHighlightColor = (hex: string) => {
@@ -230,7 +245,7 @@ function LoginContent() {
               </>
             )}
           </div>
-          <p className="text-lg text-gray-300 font-light">{appTitle}</p>
+          <p className={`text-lg font-light ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{appTitle}</p>
         </div>
 
         {/* Flip Container */}

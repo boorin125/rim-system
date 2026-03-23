@@ -144,6 +144,11 @@ export default function DashboardLayout({
     borderColor: hexToLightTint(themeBase, 0.62),
   } : undefined
 
+  // Ensure html class stays in sync with isDark (e.g. after login redirect)
+  useEffect(() => {
+    document.documentElement.className = isDark ? 'dark' : 'light'
+  }, [isDark])
+
   // Sync body CSS vars when light theme + themeStyle changes
   useEffect(() => {
     if (!isDark && themeStyle) {

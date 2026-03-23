@@ -11,6 +11,15 @@ function ResetPasswordContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const token = searchParams.get('token')
+  const [isDark] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('colorTheme') || 'dark') === 'dark'
+    }
+    return true
+  })
+  const pageBg = isDark
+    ? 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900'
+    : 'bg-gradient-to-br from-blue-50 via-slate-100 to-blue-50'
 
   const [isValidating, setIsValidating] = useState(true)
   const [isValidToken, setIsValidToken] = useState(false)
@@ -86,7 +95,7 @@ function ResetPasswordContent() {
 
   if (isValidating) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
+      <div className={`min-h-screen flex items-center justify-center ${pageBg} p-4`}>
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-400">Validating reset link...</p>
@@ -97,7 +106,7 @@ function ResetPasswordContent() {
 
   if (!token || !isValidToken) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
+      <div className={`min-h-screen flex items-center justify-center ${pageBg} p-4`}>
         <div className="w-full max-w-md">
           <div className="glass-card p-8 rounded-2xl text-center">
             <div className="w-16 h-16 mx-auto mb-6 bg-red-500/20 rounded-full flex items-center justify-center">
@@ -129,7 +138,7 @@ function ResetPasswordContent() {
 
   if (isSuccess) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
+      <div className={`min-h-screen flex items-center justify-center ${pageBg} p-4`}>
         <div className="w-full max-w-md">
           <div className="glass-card p-8 rounded-2xl text-center">
             <div className="w-16 h-16 mx-auto mb-6 bg-green-500/20 rounded-full flex items-center justify-center">
@@ -153,7 +162,7 @@ function ResetPasswordContent() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
+    <div className={`min-h-screen flex items-center justify-center ${pageBg} p-4`}>
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">

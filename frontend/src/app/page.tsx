@@ -22,7 +22,7 @@ export default function Home() {
 
   // Loading screen while redirecting
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center">
       <div className="text-center">
         <div className="spinner mx-auto mb-4"></div>
         <p className="text-gray-400">Loading...</p>
