@@ -1089,6 +1089,17 @@ function StatCard({ icon: Icon, label, value, color, className }: {
 }
 
 function SlaGaugeCard({ percent, pass, total }: { percent: number; pass: number; total: number }) {
+  const [isDark, setIsDark] = useState(() =>
+    typeof window === 'undefined' || !document.documentElement.classList.contains('light')
+  )
+  useEffect(() => {
+    const obs = new MutationObserver(() =>
+      setIsDark(!document.documentElement.classList.contains('light'))
+    )
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => obs.disconnect()
+  }, [])
+
   const p = Math.min(Math.max(percent, 0), 100)
   const color = p >= 95 ? '#10b981' : p >= 80 ? '#f59e0b' : '#ef4444'
   const glowColor = p >= 95 ? 'rgba(16,185,129,0.25)' : p >= 80 ? 'rgba(245,158,11,0.25)' : 'rgba(239,68,68,0.25)'
@@ -1127,7 +1138,7 @@ function SlaGaugeCard({ percent, pass, total }: { percent: number; pass: number;
           {/* Track arc */}
           <path
             d={`M ${start.x} ${start.y} A ${r} ${r} 0 ${trackLargeArc} 1 ${end.x} ${end.y}`}
-            fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="34" strokeLinecap="round"
+            fill="none" stroke={isDark ? 'rgba(255,255,255,0.07)' : 'rgba(15,23,42,0.12)'} strokeWidth="34" strokeLinecap="round"
           />
           {/* Value arc */}
           {p > 0 && (
@@ -1138,7 +1149,7 @@ function SlaGaugeCard({ percent, pass, total }: { percent: number; pass: number;
             />
           )}
           {/* Center: big % number */}
-          <text x={cx} y={cy - 2} textAnchor="middle" fill="white" fontSize="50" fontWeight="700" fontFamily="monospace">
+          <text x={cx} y={cy - 2} textAnchor="middle" fill={isDark ? 'white' : '#0f172a'} fontSize="50" fontWeight="700" fontFamily="monospace">
             {p.toFixed(2)}%
           </text>
           {/* Status label */}
