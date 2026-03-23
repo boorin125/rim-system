@@ -136,7 +136,7 @@ export default function DashboardLayout({
   const themeBase = themeStyle?.bgEnd || '#3b82f6'
   const mainBg = isDark
     ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)'
-    : `linear-gradient(135deg, ${hexToLightTint(themeBase, 0.14)} 0%, ${hexToLightTint(themeBase, 0.22)} 100%)`
+    : `linear-gradient(135deg, ${hexToLightTint(themeBase, 0.28)} 0%, ${hexToLightTint(themeBase, 0.38)} 100%)`
 
   // Sync body CSS vars when light theme + themeStyle changes
   useEffect(() => {
@@ -146,8 +146,8 @@ export default function DashboardLayout({
         const r = parseInt(c.slice(0,2),16), g = parseInt(c.slice(2,4),16), b = parseInt(c.slice(4,6),16)
         return `${Math.round(255-(255-r)*a)}, ${Math.round(255-(255-g)*a)}, ${Math.round(255-(255-b)*a)}`
       }
-      document.documentElement.style.setProperty('--background-start-rgb', toRgbStr(themeStyle.bgStart, 0.14))
-      document.documentElement.style.setProperty('--background-end-rgb', toRgbStr(themeStyle.bgEnd, 0.22))
+      document.documentElement.style.setProperty('--background-start-rgb', toRgbStr(themeStyle.bgStart, 0.28))
+      document.documentElement.style.setProperty('--background-end-rgb', toRgbStr(themeStyle.bgEnd, 0.38))
     } else if (!isDark) {
       document.documentElement.style.setProperty('--background-start-rgb', '220, 230, 242')
       document.documentElement.style.setProperty('--background-end-rgb', '238, 242, 248')
