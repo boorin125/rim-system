@@ -493,9 +493,9 @@ export default function DashboardLayout({
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
         } lg:translate-x-0`}
       >
-        <div className="h-full w-64 max-w-[85vw] glass-card border-r border-slate-700/50 flex flex-col" style={chromeStyle}>
+        <div className="h-full w-64 max-w-[85vw] glass-card border-r border-slate-700/50 flex flex-col">
           {/* Logo + Organization Name */}
-          <div className="p-4 pb-3 border-b border-slate-700/50">
+          <div className="p-4 pb-3 border-b border-slate-700/50" style={chromeStyle}>
             <div className="flex items-start justify-between">
               <div className="flex-1 min-w-0">
                 {orgSettings?.logoPath ? (
