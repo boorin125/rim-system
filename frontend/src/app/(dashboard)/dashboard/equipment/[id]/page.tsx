@@ -345,30 +345,28 @@ export default function EquipmentDetailPage() {
       <BackButton href={backHref ?? '/dashboard/equipment'} />
 
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center gap-4">
-            <div
-              className="p-3 rounded-xl"
-              style={{
-                backgroundColor: getCategoryColor(equipment.category) + '33',
-                color: getCategoryColor(equipment.category),
-              }}
-            >
-              {getCategoryIcon(equipment.category)}
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-white">{equipment.name}</h1>
-              <p className="text-gray-400">S/N: {equipment.serialNumber}</p>
-            </div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div
+            className="p-2.5 rounded-xl shrink-0"
+            style={{
+              backgroundColor: getCategoryColor(equipment.category) + '33',
+              color: getCategoryColor(equipment.category),
+            }}
+          >
+            {getCategoryIcon(equipment.category)}
+          </div>
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold text-white truncate">{equipment.name}</h1>
+            <p className="text-gray-400 text-sm">S/N: {equipment.serialNumber}</p>
           </div>
         </div>
 
-        <div className="flex items-center space-x-3">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           {canEdit && (
             <button
               onClick={() => router.push(`/dashboard/equipment/${equipment.id}/edit`)}
-              className="flex items-center space-x-2 px-4 py-2 text-white rounded-lg transition hover:brightness-110"
+              className="flex items-center gap-2 px-3 py-2 text-white rounded-lg transition hover:brightness-110 text-sm"
               style={{ backgroundColor: themeHighlight }}
             >
               <Edit className="w-4 h-4" />
@@ -377,34 +375,32 @@ export default function EquipmentDetailPage() {
           )}
           {canDelete && equipment.status !== 'RETIRED' && (
             equipment.status !== 'INACTIVE' ? (
-              // Equipment must be INACTIVE (replaced) before it can be retired
               <span
-                className="flex items-center gap-2 px-4 py-2 bg-slate-700/50 text-gray-500 border border-slate-600/50 rounded-lg text-sm cursor-not-allowed"
+                className="flex items-center gap-2 px-3 py-2 bg-slate-700/50 text-gray-500 border border-slate-600/50 rounded-lg text-sm cursor-not-allowed"
                 title="ต้องถูกแทนที่ผ่านฟังก์ชัน Spare Parts ก่อนจึงจะปลดระวางได้"
               >
                 <Trash2 className="w-4 h-4" />
                 <span>ขอปลดระวาง</span>
               </span>
             ) : hasPendingRequest ? (
-              <span className="flex items-center gap-2 px-4 py-2 bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded-lg text-sm">
+              <span className="flex items-center gap-2 px-3 py-2 bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded-lg text-sm">
                 <Clock className="w-4 h-4" />
-                รอ IT Manager อนุมัติปลดระวาง
+                รอ IT Manager อนุมัติ
               </span>
             ) : (
               <button
                 onClick={() => setRetireModalOpen(true)}
-                className="flex items-center space-x-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition duration-200"
+                className="flex items-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition text-sm"
               >
                 <Trash2 className="w-4 h-4" />
                 <span>ขอปลดระวาง</span>
               </button>
             )
           )}
-          {/* HELP_DESK: hard-delete RETIRED equipment */}
           {canDelete && isHelpDesk && equipment.status === 'RETIRED' && (
             <button
               onClick={() => setShowDeleteModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-red-700 hover:bg-red-800 text-white rounded-lg transition duration-200 text-sm"
+              className="flex items-center gap-2 px-3 py-2 bg-red-700 hover:bg-red-800 text-white rounded-lg transition text-sm"
             >
               <Trash2 className="w-4 h-4" />
               <span>ลบออกจากระบบ</span>
@@ -413,38 +409,51 @@ export default function EquipmentDetailPage() {
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs — store detail style */}
       <div className="border-b border-gray-700/50 overflow-x-auto scrollbar-hide">
-        <nav className="flex space-x-8 min-w-max">
+        <nav className="flex gap-1 min-w-max">
           <button
             onClick={() => setActiveTab('info')}
-            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
               activeTab === 'info'
                 ? 'border-blue-500 text-blue-400'
-                : 'border-transparent text-gray-400 hover:text-gray-300'
+                : 'border-transparent text-gray-400 hover:text-white hover:border-gray-500'
             }`}
           >
+            <Tag className="w-4 h-4" />
             ข้อมูลอุปกรณ์
           </button>
           <button
             onClick={() => setActiveTab('incidents')}
-            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
               activeTab === 'incidents'
                 ? 'border-blue-500 text-blue-400'
-                : 'border-transparent text-gray-400 hover:text-gray-300'
+                : 'border-transparent text-gray-400 hover:text-white hover:border-gray-500'
             }`}
           >
-            Incidents ({equipment.incidents?.length || 0})
+            <AlertCircle className="w-4 h-4" />
+            Incidents
+            {(equipment.incidents?.length || 0) > 0 && (
+              <span className="px-2 py-0.5 text-xs bg-orange-500/20 text-orange-400 rounded-full">
+                {equipment.incidents?.length}
+              </span>
+            )}
           </button>
           <button
             onClick={() => setActiveTab('history')}
-            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
               activeTab === 'history'
                 ? 'border-blue-500 text-blue-400'
-                : 'border-transparent text-gray-400 hover:text-gray-300'
+                : 'border-transparent text-gray-400 hover:text-white hover:border-gray-500'
             }`}
           >
-            ประวัติการเปลี่ยนแปลง ({logs.length})
+            <History className="w-4 h-4" />
+            ประวัติ
+            {logs.length > 0 && (
+              <span className="px-2 py-0.5 text-xs bg-blue-500/20 text-blue-400 rounded-full">
+                {logs.length}
+              </span>
+            )}
           </button>
         </nav>
       </div>
@@ -459,7 +468,7 @@ export default function EquipmentDetailPage() {
               ข้อมูลพื้นฐาน
             </h2>
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <p className="text-sm text-gray-400">ชื่ออุปกรณ์</p>
                   <p className="text-white font-medium">{equipment.name}</p>
@@ -469,7 +478,7 @@ export default function EquipmentDetailPage() {
                   <p className="text-white font-medium">{equipment.category}</p>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <p className="text-sm text-gray-400">Serial Number</p>
                   <p className="text-blue-400 font-mono">{equipment.serialNumber}</p>
@@ -481,7 +490,7 @@ export default function EquipmentDetailPage() {
                   </p>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <p className="text-sm text-gray-400">Brand</p>
                   <p className="text-white">{equipment.brand || '-'}</p>
@@ -491,7 +500,7 @@ export default function EquipmentDetailPage() {
                   <p className="text-white">{equipment.model || '-'}</p>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <p className="text-sm text-gray-400">IP Address</p>
                   <p className={equipment.ipAddress ? 'text-cyan-400 font-mono' : 'text-gray-500'}>
@@ -510,7 +519,7 @@ export default function EquipmentDetailPage() {
             </h2>
             {equipment.store ? (
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
                     <p className="text-sm text-gray-400">รหัสสาขา</p>
                     <p className="text-white font-medium">{equipment.store.storeCode}</p>
@@ -520,7 +529,7 @@ export default function EquipmentDetailPage() {
                     <p className="text-white font-medium">{equipment.store.name}</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
                     <p className="text-sm text-gray-400">จังหวัด</p>
                     <p className="text-white">{equipment.store.province || '-'}</p>
@@ -610,7 +619,7 @@ export default function EquipmentDetailPage() {
               ข้อมูลการซื้อและประกัน
             </h2>
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <p className="text-sm text-gray-400">วันที่ซื้อ</p>
                   <p className="text-white">{formatDate(equipment.purchaseDate)}</p>
@@ -641,7 +650,7 @@ export default function EquipmentDetailPage() {
                 สถิติ Incidents
               </h2>
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
                     <p className="text-sm text-gray-400">Incidents ทั้งหมด</p>
                     <p className="text-2xl font-bold text-white">{statistics.totalIncidents}</p>
