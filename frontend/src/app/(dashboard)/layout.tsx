@@ -123,6 +123,40 @@ export default function DashboardLayout({
     document.documentElement.className = next
   }
 
+  // Mix hex color with white at given intensity (0-1) → light tint
+  const hexToLightTint = (hex: string, intensity: number): string => {
+    const c = hex.replace('#', '')
+    const r = parseInt(c.slice(0, 2), 16)
+    const g = parseInt(c.slice(2, 4), 16)
+    const b = parseInt(c.slice(4, 6), 16)
+    return `rgb(${Math.round(255-(255-r)*intensity)},${Math.round(255-(255-g)*intensity)},${Math.round(255-(255-b)*intensity)})`
+  }
+
+  // Compute main background: dark uses hardcoded slate, light uses tint of theme color
+  const themeBase = themeStyle?.bgEnd || '#3b82f6'
+  const mainBg = isDark
+    ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)'
+    : `linear-gradient(135deg, ${hexToLightTint(themeBase, 0.14)} 0%, ${hexToLightTint(themeBase, 0.22)} 100%)`
+
+  // Sync body CSS vars when light theme + themeStyle changes
+  useEffect(() => {
+    if (!isDark && themeStyle) {
+      const toRgbStr = (hex: string, a: number) => {
+        const c = hex.replace('#', '')
+        const r = parseInt(c.slice(0,2),16), g = parseInt(c.slice(2,4),16), b = parseInt(c.slice(4,6),16)
+        return `${Math.round(255-(255-r)*a)}, ${Math.round(255-(255-g)*a)}, ${Math.round(255-(255-b)*a)}`
+      }
+      document.documentElement.style.setProperty('--background-start-rgb', toRgbStr(themeStyle.bgStart, 0.14))
+      document.documentElement.style.setProperty('--background-end-rgb', toRgbStr(themeStyle.bgEnd, 0.22))
+    } else if (!isDark) {
+      document.documentElement.style.setProperty('--background-start-rgb', '220, 230, 242')
+      document.documentElement.style.setProperty('--background-end-rgb', '238, 242, 248')
+    } else {
+      document.documentElement.style.removeProperty('--background-start-rgb')
+      document.documentElement.style.removeProperty('--background-end-rgb')
+    }
+  }, [isDark, themeStyle])
+
   // Derive highlight color from theme for active menu items
   const getHighlightColor = (hex: string) => {
     const c = hex.replace('#', '')
@@ -429,7 +463,7 @@ export default function DashboardLayout({
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: mainBg }}>
         <div className="text-center">
           <div className="spinner mx-auto mb-4"></div>
           <p className="text-gray-400">Loading...</p>
@@ -440,7 +474,7 @@ export default function DashboardLayout({
 
   return (
     <LicenseProvider>
-    <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)' }}>
+    <div className="min-h-screen" style={{ background: mainBg }}>
       {/* Single Tab Guard — warns when app is open in multiple tabs */}
       <SingleTabGuard />
 
