@@ -138,6 +138,12 @@ export default function DashboardLayout({
     ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)'
     : `linear-gradient(135deg, ${hexToLightTint(themeBase, 0.28)} 0%, ${hexToLightTint(themeBase, 0.38)} 100%)`
 
+  // Chrome (sidebar + header): 1 shade darker than background
+  const chromeStyle = !isDark ? {
+    background: hexToLightTint(themeBase, 0.50),
+    borderColor: hexToLightTint(themeBase, 0.62),
+  } : undefined
+
   // Sync body CSS vars when light theme + themeStyle changes
   useEffect(() => {
     if (!isDark && themeStyle) {
@@ -487,7 +493,7 @@ export default function DashboardLayout({
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
         } lg:translate-x-0`}
       >
-        <div className="h-full w-64 max-w-[85vw] glass-card border-r border-slate-700/50 flex flex-col">
+        <div className="h-full w-64 max-w-[85vw] glass-card border-r border-slate-700/50 flex flex-col" style={chromeStyle}>
           {/* Logo + Organization Name */}
           <div className="p-4 pb-3 border-b border-slate-700/50">
             <div className="flex items-start justify-between">
@@ -563,7 +569,7 @@ export default function DashboardLayout({
       {/* Main Content */}
       <div className="transition-all duration-300 lg:ml-64">
         {/* Top Navbar - FIXED (ไม่เคลื่อนไหว) */}
-        <header className="fixed top-0 right-0 left-0 lg:left-64 z-30 glass-card border-b border-slate-700/50">
+        <header className="fixed top-0 right-0 left-0 lg:left-64 z-30 glass-card border-b border-slate-700/50" style={chromeStyle}>
           <LicenseExpiredBanner />
           <div className="flex items-center justify-between px-4 lg:px-6 py-3 lg:py-4">
             {/* Mobile Menu Toggle */}
