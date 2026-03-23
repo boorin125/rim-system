@@ -546,7 +546,7 @@ export default function DashboardPage() {
                             <span className="text-xs text-gray-600 italic">ยังไม่มีช่าง</span>
                           )
                         })()}
-                        <span className="text-xs text-gray-600">{timeAgo(inc.updatedAt)}</span>
+                        <span className="text-xs text-gray-600 whitespace-nowrap shrink-0">{timeAgo(inc.updatedAt)}</span>
                       </div>
                     </div>
                     <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-gray-400 shrink-0 mt-2 transition" />
