@@ -825,33 +825,31 @@ export default function StoreDetailPage() {
       <BackButton href="/dashboard/stores" label="กลับไปหน้า Stores" />
 
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div>
-            <div className="flex items-center gap-3 mb-1">
-              <h1 className="text-2xl font-bold text-white">
-                <span className="text-blue-400">{store.storeCode}</span>
-                {' '}{store.name}
-              </h1>
-              <span
-                className={`flex items-center gap-1 px-3 py-1 rounded-lg text-sm font-semibold border ${statusInfo.bg} ${statusInfo.text} ${statusInfo.border}`}
-              >
-                <StatusIcon className="w-4 h-4" />
-                {getStatusLabel(store.storeStatus)}
-              </span>
-            </div>
-            <p className="text-gray-400">
-              {store.company && <span>{store.company}</span>}
-              {store.company && store.storeType && <span className="mx-2">•</span>}
-              {store.storeType && <span>{store.storeType}</span>}
-            </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2 mb-1">
+            <h1 className="text-xl sm:text-2xl font-bold text-white">
+              <span className="text-blue-400">{store.storeCode}</span>
+              {' '}{store.name}
+            </h1>
+            <span
+              className={`flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs sm:text-sm font-semibold border ${statusInfo.bg} ${statusInfo.text} ${statusInfo.border}`}
+            >
+              <StatusIcon className="w-3.5 h-3.5" />
+              {getStatusLabel(store.storeStatus)}
+            </span>
           </div>
+          <p className="text-gray-400 text-sm">
+            {store.company && <span>{store.company}</span>}
+            {store.company && store.storeType && <span className="mx-2">•</span>}
+            {store.storeType && <span>{store.storeType}</span>}
+          </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           {canRequestPm && (
             <button
               onClick={() => setShowPmModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+              className="flex items-center gap-2 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors text-sm"
             >
               <Wrench className="w-4 h-4" />
               <span>Request PM</span>
@@ -860,19 +858,19 @@ export default function StoreDetailPage() {
           {canEdit && (
             <button
               onClick={() => router.push(`/dashboard/stores/${store.id}/edit`)}
-              className="flex items-center gap-2 px-4 py-2 hover:brightness-110 text-white rounded-lg transition-colors"
+              className="flex items-center gap-2 px-3 py-2 hover:brightness-110 text-white rounded-lg transition-colors text-sm"
               style={{ backgroundColor: themeHighlight }}
             >
-              <Edit className="w-5 h-5" />
+              <Edit className="w-4 h-4" />
               <span>Edit Store</span>
             </button>
           )}
           {canDelete && (
             <button
               onClick={() => setShowDeleteModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+              className="flex items-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm"
             >
-              <Trash2 className="w-5 h-5" />
+              <Trash2 className="w-4 h-4" />
               <span>Delete Store</span>
             </button>
           )}
@@ -1400,20 +1398,20 @@ export default function StoreDetailPage() {
             <>
               {/* Summary Cards */}
               {summary && (
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="glass-card p-4 rounded-xl">
-                    <p className="text-sm text-gray-400 mb-1">ทั้งหมด</p>
-                    <p className="text-2xl font-bold text-white">{summary.total}</p>
+                <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                  <div className="glass-card p-3 sm:p-4 rounded-xl">
+                    <p className="text-xs sm:text-sm text-gray-400 mb-1">ทั้งหมด</p>
+                    <p className="text-xl sm:text-2xl font-bold text-white">{summary.total}</p>
                   </div>
-                  <div className="glass-card p-4 rounded-xl">
-                    <p className="text-sm text-gray-400 mb-1">รอดำเนินการ</p>
-                    <p className="text-2xl font-bold text-yellow-400">
+                  <div className="glass-card p-3 sm:p-4 rounded-xl">
+                    <p className="text-xs sm:text-sm text-gray-400 mb-1">รอดำเนิน</p>
+                    <p className="text-xl sm:text-2xl font-bold text-yellow-400">
                       {summary.open + summary.assigned + summary.inProgress}
                     </p>
                   </div>
-                  <div className="glass-card p-4 rounded-xl">
-                    <p className="text-sm text-gray-400 mb-1">แก้ไขแล้ว</p>
-                    <p className="text-2xl font-bold text-green-400">
+                  <div className="glass-card p-3 sm:p-4 rounded-xl">
+                    <p className="text-xs sm:text-sm text-gray-400 mb-1">แก้ไขแล้ว</p>
+                    <p className="text-xl sm:text-2xl font-bold text-green-400">
                       {summary.resolved + summary.closed}
                     </p>
                   </div>
