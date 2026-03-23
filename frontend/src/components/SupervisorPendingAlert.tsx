@@ -52,6 +52,33 @@ export default function SupervisorPendingAlert({ userId, onDismiss }: Props) {
   const [loading, setLoading] = useState(true)
   const [checkedAt, setCheckedAt] = useState(new Date())
   const [slaNames, setSlaNames] = useState<Record<string, string>>({})
+  const [isDark, setIsDark] = useState(() =>
+    typeof window === 'undefined' || !document.documentElement.classList.contains('light')
+  )
+
+  useEffect(() => {
+    const obs = new MutationObserver(() =>
+      setIsDark(!document.documentElement.classList.contains('light'))
+    )
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => obs.disconnect()
+  }, [])
+
+  const themeColor = (() => {
+    try { return JSON.parse(localStorage.getItem('themeStyle') || '{}').bgEnd || '#3b82f6' } catch { return '#3b82f6' }
+  })()
+
+  const hexTint = (hex: string, intensity: number) => {
+    const c = hex.replace('#', '')
+    const r = parseInt(c.slice(0, 2), 16), g = parseInt(c.slice(2, 4), 16), b = parseInt(c.slice(4, 6), 16)
+    return `rgb(${Math.round(255-(255-r)*intensity)},${Math.round(255-(255-g)*intensity)},${Math.round(255-(255-b)*intensity)})`
+  }
+
+  const modalBg    = isDark ? undefined : hexTint(themeColor, 0.12)
+  const headerBg   = isDark ? undefined : hexTint(themeColor, 0.22)
+  const rowBg      = isDark ? undefined : hexTint(themeColor, 0.10)
+  const rowBorder  = isDark ? undefined : hexTint(themeColor, 0.30)
+  const footerBg   = isDark ? undefined : hexTint(themeColor, 0.16)
 
   useEffect(() => {
     fetchPendingIncidents()
@@ -156,9 +183,11 @@ export default function SupervisorPendingAlert({ userId, onDismiss }: Props) {
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={handleDismiss} />
 
       {/* Modal Card */}
-      <div className="relative w-full max-w-2xl glass-card rounded-2xl shadow-2xl flex flex-col max-h-[85vh] border border-amber-500/30">
+      <div className="relative w-full max-w-2xl glass-card rounded-2xl shadow-2xl flex flex-col max-h-[85vh] border border-amber-500/30"
+        style={modalBg ? { background: modalBg } : undefined}>
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 sm:p-5 border-b border-slate-700/50 flex-shrink-0 gap-2">
+        <div className="flex items-center justify-between px-4 py-3 sm:p-5 border-b border-slate-700/50 flex-shrink-0 gap-2"
+          style={headerBg ? { background: headerBg } : undefined}>
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <div className="p-2 sm:p-2.5 bg-amber-500/20 rounded-xl shrink-0">
               <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 text-amber-400" />
@@ -233,6 +262,7 @@ export default function SupervisorPendingAlert({ userId, onDismiss }: Props) {
                 <div
                   key={incident.id}
                   className="flex items-start gap-3 p-3 bg-slate-800/60 rounded-xl border border-slate-700/50 hover:border-slate-500/50 cursor-pointer transition-colors group"
+                  style={rowBg ? { background: rowBg, borderColor: rowBorder } : undefined}
                   onClick={() => handleClickIncident(incident.id)}
                 >
                   {/* Priority Badge */}
@@ -268,7 +298,8 @@ export default function SupervisorPendingAlert({ userId, onDismiss }: Props) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between p-4 border-t border-slate-700/50 flex-shrink-0">
+        <div className="flex items-center justify-between p-4 border-t border-slate-700/50 flex-shrink-0"
+          style={footerBg ? { background: footerBg } : undefined}>
           <button
             onClick={handleViewAll}
             className="flex items-center gap-2 px-4 py-2 text-sm text-blue-400 hover:text-blue-300 border border-blue-500/30 hover:border-blue-400/50 rounded-lg transition-colors"
