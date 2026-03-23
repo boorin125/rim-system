@@ -32,9 +32,10 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   const pathname = usePathname()
   const interceptorsSet = useRef(false)
   const logoutShown = useRef(false)
+  const sessionWarnShown = useRef(false)
 
   // Handle logout - clear storage and redirect
-  const handleLogout = useCallback(() => {
+  const handleLogout = useCallback((reason?: string) => {
     // Prevent multiple logout toasts
     if (logoutShown.current) return
     logoutShown.current = true
@@ -42,10 +43,11 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     localStorage.removeItem('token')
     localStorage.removeItem('refreshToken')
     localStorage.removeItem('user')
+    localStorage.removeItem('sessionExpiresAt')
 
     // Only redirect and show message if we're in browser and not already on public page
     if (typeof window !== 'undefined' && !publicPaths.some(p => window.location.pathname.includes(p))) {
-      toast.error('Session หมดอายุ กรุณาเข้าสู่ระบบใหม่')
+      toast.error(reason || 'Session หมดอายุ กรุณาเข้าสู่ระบบใหม่')
       router.push('/login')
     }
 
@@ -127,12 +129,16 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
               }
             )
 
-            const { accessToken, refreshToken: newRefreshToken, user } = response.data
+            const { accessToken, refreshToken: newRefreshToken, sessionExpiresAt, user } = response.data
 
             // Save new tokens
             localStorage.setItem('token', accessToken)
             localStorage.setItem('refreshToken', newRefreshToken)
             localStorage.setItem('user', JSON.stringify(user))
+            if (sessionExpiresAt) {
+              localStorage.setItem('sessionExpiresAt', sessionExpiresAt)
+              sessionWarnShown.current = false // reset warning for new session window
+            }
 
             // Update authorization header
             if (originalRequest.headers) {
@@ -142,9 +148,14 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
             processQueue(null, accessToken)
 
             return axios(originalRequest)
-          } catch (refreshError) {
+          } catch (refreshError: any) {
             processQueue(refreshError as AxiosError, null)
-            handleLogout()
+            const msg = refreshError?.response?.data?.message
+            if (msg === 'SESSION_REVOKED') {
+              handleLogout('มีการเข้าสู่ระบบจาก Device อื่น กรุณาเข้าสู่ระบบใหม่')
+            } else {
+              handleLogout()
+            }
             return Promise.reject(refreshError)
           } finally {
             isRefreshing = false
@@ -175,14 +186,36 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
       // If no tokens at all, redirect to login
       if (!token && !refreshToken) {
         handleLogout()
+        return
+      }
+
+      // Check session expiry (refresh token expiry)
+      const sessionExpiresAt = localStorage.getItem('sessionExpiresAt')
+      if (sessionExpiresAt) {
+        const expiresAt = new Date(sessionExpiresAt)
+        const now = new Date()
+        const msLeft = expiresAt.getTime() - now.getTime()
+        const minLeft = msLeft / 60000
+
+        if (msLeft <= 0) {
+          // Session expired — force logout
+          handleLogout('Session หมดอายุแล้ว กรุณาเข้าสู่ระบบใหม่')
+        } else if (minLeft <= 10 && !sessionWarnShown.current) {
+          sessionWarnShown.current = true
+          const expireStr = expiresAt.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+          toast(`⚠️ Session จะหมดอายุเวลา ${expireStr} (อีก ${Math.ceil(minLeft)} นาที)`, {
+            duration: 10000,
+            style: { background: '#854d0e', color: '#fef3c7' },
+          })
+        }
       }
     }
 
     // Check immediately
     checkTokenValidity()
 
-    // Check every 30 seconds
-    const interval = setInterval(checkTokenValidity, 30000)
+    // Check every minute
+    const interval = setInterval(checkTokenValidity, 60000)
 
     return () => clearInterval(interval)
   }, [pathname, handleLogout])

@@ -108,6 +108,9 @@ function LoginContent() {
       localStorage.setItem('token', response.data.accessToken)
       localStorage.setItem('refreshToken', response.data.refreshToken)
       localStorage.setItem('user', JSON.stringify(response.data.user))
+      if (response.data.sessionExpiresAt) {
+        localStorage.setItem('sessionExpiresAt', response.data.sessionExpiresAt)
+      }
 
       toast.success('เข้าสู่ระบบสำเร็จ!')
 

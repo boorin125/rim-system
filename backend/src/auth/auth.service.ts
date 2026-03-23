@@ -226,6 +226,9 @@ export class AuthService {
       },
     });
 
+    // Revoke all existing refresh tokens (single-session enforcement)
+    await this.prisma.refreshToken.deleteMany({ where: { userId: user.id } });
+
     // Extract roles as array
     const roles = user.roles.map(r => r.role);
 
@@ -238,38 +241,49 @@ export class AuthService {
 
     const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
 
-    // Generate refresh token (long-lived: 7 days)
-    const refreshToken = await this.generateRefreshToken(user.id);
+    const { token: refreshToken, expiresAt: sessionExpiresAt } =
+      await this.generateRefreshToken(user.id);
 
-    // Remove password and format response
     const { password, ...userWithoutPassword } = user;
 
     return {
       accessToken,
       refreshToken,
+      sessionExpiresAt: sessionExpiresAt.toISOString(),
       user: this.formatUserWithRoles(userWithoutPassword),
     };
   }
 
   /**
+   * Calculate session expiry based on time-of-day policy:
+   * - Before 22:00 → expire at 22:00 today
+   * - At/after 22:00 → expire in 1 hour
+   */
+  private calculateSessionExpiry(): Date {
+    const now = new Date();
+    const cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 22, 0, 0);
+    if (now < cutoff) {
+      return cutoff;
+    }
+    return new Date(now.getTime() + 60 * 60 * 1000);
+  }
+
+  /**
    * Generate a refresh token and store in database
    */
-  private async generateRefreshToken(userId: number, userAgent?: string, ipAddress?: string): Promise<string> {
+  private async generateRefreshToken(
+    userId: number,
+    userAgent?: string,
+    ipAddress?: string,
+  ): Promise<{ token: string; expiresAt: Date }> {
     const token = crypto.randomUUID();
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
+    const expiresAt = this.calculateSessionExpiry();
 
     await this.prisma.refreshToken.create({
-      data: {
-        userId,
-        token,
-        expiresAt,
-        userAgent,
-        ipAddress,
-      },
+      data: { userId, token, expiresAt, userAgent, ipAddress },
     });
 
-    return token;
+    return { token, expiresAt };
   }
 
   /**
@@ -288,7 +302,7 @@ export class AuthService {
     });
 
     if (!storedToken) {
-      throw new UnauthorizedException('Invalid refresh token');
+      throw new UnauthorizedException('SESSION_REVOKED');
     }
 
     if (storedToken.expiresAt < new Date()) {
@@ -315,19 +329,17 @@ export class AuthService {
 
     const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
 
-    // Optionally rotate refresh token for better security
-    // Delete old token and create new one
-    await this.prisma.refreshToken.delete({
-      where: { id: storedToken.id },
-    });
+    await this.prisma.refreshToken.delete({ where: { id: storedToken.id } });
 
-    const newRefreshToken = await this.generateRefreshToken(user.id);
+    const { token: newRefreshToken, expiresAt: sessionExpiresAt } =
+      await this.generateRefreshToken(user.id);
 
     const { password, ...userWithoutPassword } = user;
 
     return {
       accessToken,
       refreshToken: newRefreshToken,
+      sessionExpiresAt: sessionExpiresAt.toISOString(),
       user: this.formatUserWithRoles(userWithoutPassword),
     };
   }
