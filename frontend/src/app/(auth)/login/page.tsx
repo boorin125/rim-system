@@ -58,7 +58,7 @@ function LoginContent() {
   // Background gradient using theme colors (lighter in light mode)
   const bgStyle = isDark
     ? { background: `linear-gradient(135deg, ${branding.theme.bgStart}, ${branding.theme.bgEnd})` }
-    : { background: `linear-gradient(135deg, ${hexToLightTint(branding.theme.bgEnd, 0.28)}, ${hexToLightTint(branding.theme.bgEnd, 0.38)})` }
+    : { background: `linear-gradient(135deg, ${hexToLightTint(branding.theme.bgEnd, 0.08)}, ${hexToLightTint(branding.theme.bgEnd, 0.14)})` }
 
   // Derive highlight color same as sidebar active menu (hex → HSL @ 42% lightness)
   const getHighlightColor = (hex: string) => {
