@@ -8,11 +8,19 @@
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
-/* Root Variables */
+/* Root Variables - Dark Theme (default) */
 :root {
   --foreground-rgb: 255, 255, 255;
   --background-start-rgb: 15, 23, 42;
   --background-end-rgb: 30, 41, 59;
+}
+
+/* Light Theme Variables */
+html.light {
+  --foreground-rgb: 15, 23, 42;
+  --background-start-rgb: 220, 230, 242;
+  --background-end-rgb: 238, 242, 248;
+  color-scheme: light;
 }
 
 /* Base Styles */
@@ -61,14 +69,82 @@ body {
 @layer components {
   .glass-card {
     @apply bg-slate-800/70 backdrop-blur-xl border border-slate-700/50;
-    box-shadow: 
+    box-shadow:
       0 8px 32px 0 rgba(0, 0, 0, 0.37),
       inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
   }
-  
+
   .glass-card-light {
     @apply bg-slate-800/50 backdrop-blur-lg border border-slate-700/30;
   }
+}
+
+/* ===== LIGHT THEME OVERRIDES ===== */
+
+/* Glass card in light mode */
+html.light .glass-card {
+  background: rgba(255, 255, 255, 0.88) !important;
+  border-color: rgba(203, 213, 225, 0.8) !important;
+  box-shadow: 0 4px 24px 0 rgba(15, 23, 42, 0.08), inset 0 1px 0 0 rgba(255,255,255,0.9) !important;
+}
+
+/* Backgrounds */
+html.light .bg-slate-900 { background-color: #f1f5f9 !important; }
+html.light .bg-slate-800 { background-color: #ffffff !important; }
+html.light .bg-slate-800\/70 { background-color: rgba(255,255,255,0.92) !important; }
+html.light .bg-slate-800\/50 { background-color: rgba(255,255,255,0.85) !important; }
+html.light .bg-slate-800\/30 { background-color: rgba(255,255,255,0.7) !important; }
+html.light .bg-slate-700 { background-color: #f1f5f9 !important; }
+html.light .bg-slate-700\/50 { background-color: rgba(241,245,249,0.85) !important; }
+html.light .bg-slate-700\/30 { background-color: rgba(241,245,249,0.6) !important; }
+html.light .bg-slate-600 { background-color: #e2e8f0 !important; }
+html.light .bg-slate-900\/80 { background-color: rgba(248,250,252,0.92) !important; }
+html.light .bg-slate-900\/50 { background-color: rgba(241,245,249,0.8) !important; }
+
+/* Text colors */
+html.light .text-white { color: #0f172a !important; }
+html.light .text-gray-100 { color: #1e293b !important; }
+html.light .text-gray-200 { color: #334155 !important; }
+html.light .text-gray-300 { color: #475569 !important; }
+html.light .text-gray-400 { color: #64748b !important; }
+html.light .text-gray-500 { color: #94a3b8 !important; }
+html.light .text-slate-300 { color: #475569 !important; }
+html.light .text-slate-400 { color: #64748b !important; }
+
+/* Borders */
+html.light .border-slate-700 { border-color: #e2e8f0 !important; }
+html.light .border-slate-700\/50 { border-color: rgba(226,232,240,0.8) !important; }
+html.light .border-slate-600 { border-color: #cbd5e1 !important; }
+html.light .border-slate-500 { border-color: #94a3b8 !important; }
+
+/* Hover backgrounds */
+html.light .hover\:bg-slate-700:hover { background-color: #f1f5f9 !important; }
+html.light .hover\:bg-slate-700\/50:hover { background-color: rgba(241,245,249,0.85) !important; }
+html.light .hover\:bg-slate-600:hover { background-color: #e2e8f0 !important; }
+
+/* Divide colors */
+html.light .divide-slate-700 > * + * { border-color: #e2e8f0 !important; }
+
+/* Scrollbar */
+html.light ::-webkit-scrollbar-track { background: rgba(241,245,249,0.8); }
+html.light ::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.5); }
+
+/* Date/time picker icons — dark in light mode, white in dark mode */
+html.dark input[type="date"]::-webkit-calendar-picker-indicator,
+html.dark input[type="time"]::-webkit-calendar-picker-indicator,
+html.dark input[type="month"]::-webkit-calendar-picker-indicator,
+html.dark input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(2);
+  cursor: pointer;
+  opacity: 1;
+}
+html.light input[type="date"]::-webkit-calendar-picker-indicator,
+html.light input[type="time"]::-webkit-calendar-picker-indicator,
+html.light input[type="month"]::-webkit-calendar-picker-indicator,
+html.light input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: none;
+  cursor: pointer;
+  opacity: 0.7;
 }
 
 /* Logo Styles - Matching Mockup */
@@ -307,15 +383,7 @@ body {
   }
 }
 
-/* Date/Time input icons - white color & larger click target */
-input[type="date"]::-webkit-calendar-picker-indicator,
-input[type="time"]::-webkit-calendar-picker-indicator,
-input[type="month"]::-webkit-calendar-picker-indicator,
-input[type="datetime-local"]::-webkit-calendar-picker-indicator {
-  filter: invert(1) brightness(2);
-  cursor: pointer;
-  opacity: 1;
-}
+/* Date/Time input icons - scoped per theme (see light/dark overrides above) */
 
 /* Force 24-hour format for all time inputs */
 input[type="time"],

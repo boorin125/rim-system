@@ -24,6 +24,8 @@ import {
   MapPin,
   Shield,
   Lock,
+  Sun,
+  Moon,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import axios from 'axios'
@@ -106,6 +108,20 @@ export default function DashboardLayout({
     }
     return null
   })
+
+  const [isDark, setIsDark] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('colorTheme') || 'dark') === 'dark'
+    }
+    return true
+  })
+
+  const toggleTheme = () => {
+    const next = isDark ? 'light' : 'dark'
+    setIsDark(!isDark)
+    localStorage.setItem('colorTheme', next)
+    document.documentElement.className = next
+  }
 
   // Derive highlight color from theme for active menu items
   const getHighlightColor = (hex: string) => {
@@ -533,6 +549,23 @@ export default function DashboardLayout({
 
             {/* Right Side - Notifications & User Info (All screens) */}
             <div className="flex items-center gap-2">
+              {/* Theme Toggle */}
+              <button
+                onClick={toggleTheme}
+                title={isDark ? 'เปลี่ยนเป็น Light Mode' : 'เปลี่ยนเป็น Dark Mode'}
+                className={`relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border transition-all duration-300 text-xs font-medium ${
+                  isDark
+                    ? 'bg-slate-700/60 border-slate-600 text-gray-300 hover:bg-slate-600/60'
+                    : 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100'
+                }`}
+              >
+                {isDark ? (
+                  <><Moon className="w-3.5 h-3.5" /><span className="hidden sm:inline">Dark</span></>
+                ) : (
+                  <><Sun className="w-3.5 h-3.5" /><span className="hidden sm:inline">Light</span></>
+                )}
+              </button>
+
               {/* Notification Bell */}
               <NotificationBell />
 

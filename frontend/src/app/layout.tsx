@@ -17,7 +17,11 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="th" className="dark">
+    <html lang="th" suppressHydrationWarning>
+      <head>
+        {/* Prevent flash of wrong theme — runs before paint */}
+        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem('colorTheme')||'dark';document.documentElement.className=t;}catch(e){document.documentElement.className='dark';}})()` }} />
+      </head>
       <body className={inter.className}>
         <Providers>
           {children}
