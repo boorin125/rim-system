@@ -876,83 +876,102 @@ function PerformanceHistoryChart({ data, themeColor }: { data: HistoryEntry[]; t
 }
 
 function SlaLineChart({ data }: { data: SlaTrendEntry[] }) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const width = 800
-  const height = 390
-  const padL = 44
-  const padR = 12
-  const padT = 14
-  const padB = 36
-  const chartW = width - padL - padR
+  const [isDark, setIsDark] = useState(() =>
+    typeof window === 'undefined' || !document.documentElement.classList.contains('light')
+  )
+  useEffect(() => {
+    const obs = new MutationObserver(() =>
+      setIsDark(!document.documentElement.classList.contains('light'))
+    )
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => obs.disconnect()
+  }, [])
+
+  const colW = 76
+  const padL = 44, padR = 20, padT = 36, padB = 40
+  const svgW = Math.max(colW * data.length + padL + padR, 600)
+  const height = 300
+  const chartW = svgW - padL - padR
   const chartH = height - padT - padB
 
   if (data.length === 0) return null
 
-  // Find min/max for Y axis
   const values = data.map(d => d.slaPercent)
   const minVal = Math.max(Math.floor(Math.min(...values) / 10) * 10 - 10, 0)
   const maxVal = 100
 
-  const getX = (i: number) => padL + (i / (data.length - 1 || 1)) * chartW
+  const getX = (i: number) => padL + (data.length === 1 ? chartW / 2 : (i / (data.length - 1)) * chartW)
   const getY = (v: number) => padT + chartH - ((v - minVal) / (maxVal - minVal || 1)) * chartH
 
-  // Build SVG path
   const points = data.map((d, i) => `${getX(i)},${getY(d.slaPercent)}`)
   const linePath = `M ${points.join(' L ')}`
-
-  // Area fill
   const areaPath = `${linePath} L ${getX(data.length - 1)},${getY(minVal)} L ${getX(0)},${getY(minVal)} Z`
 
-  // Y axis ticks
   const yTicks: number[] = []
   for (let v = minVal; v <= maxVal; v += 10) yTicks.push(v)
 
-  // Format period label
   const fmtPeriod = (p: string) => {
     const [y, m] = p.split('-')
     const months = ['', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
-    return months[parseInt(m)] || m
+    return `${months[parseInt(m)] || m} '${y.slice(2)}`
   }
 
+  const gridColor = isDark ? '#334155' : '#cbd5e1'
+  const axisTextColor = isDark ? '#64748b' : '#475569'
+  const dotStroke = isDark ? '#1e293b' : '#ffffff'
+  const labelBg = isDark ? 'rgba(15,23,42,0.8)' : 'rgba(255,255,255,0.9)'
+
   return (
-    <div ref={containerRef} className="w-full">
-      <svg viewBox={`0 0 ${width} ${height}`} className="w-full" style={{ maxHeight: '360px' }}>
-        {/* Grid lines */}
-        {yTicks.map(v => (
-          <g key={v}>
-            <line x1={padL} x2={width - padR} y1={getY(v)} y2={getY(v)} stroke="#334155" strokeWidth="1" strokeDasharray="4,4" />
-            <text x={padL - 8} y={getY(v) + 4} textAnchor="end" className="fill-gray-500" fontSize="11">{v}%</text>
-          </g>
-        ))}
+    <div className="w-full overflow-x-auto">
+      <div style={{ minWidth: `${svgW}px` }}>
+        <svg viewBox={`0 0 ${svgW} ${height}`} className="w-full" style={{ height: `${height}px` }}>
+          <defs>
+            <linearGradient id="slaGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.35" />
+              <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+            </linearGradient>
+          </defs>
 
-        {/* Area */}
-        <path d={areaPath} fill="url(#slaGradient)" opacity="0.3" />
+          {/* Grid lines */}
+          {yTicks.map(v => (
+            <g key={v}>
+              <line x1={padL} x2={svgW - padR} y1={getY(v)} y2={getY(v)}
+                stroke={gridColor} strokeWidth="1" strokeDasharray="4,4" />
+              <text x={padL - 8} y={getY(v) + 4} textAnchor="end" fill={axisTextColor} fontSize="11">{v}%</text>
+            </g>
+          ))}
 
-        {/* Line */}
-        <path d={linePath} fill="none" stroke="#3b82f6" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+          {/* Area + Line */}
+          <path d={areaPath} fill="url(#slaGradient)" opacity="0.4" />
+          <path d={linePath} fill="none" stroke="#3b82f6" strokeWidth="2.5"
+            strokeLinejoin="round" strokeLinecap="round" />
 
-        {/* Data points + labels */}
-        {data.map((d, i) => (
-          <g key={d.period}>
-            <circle cx={getX(i)} cy={getY(d.slaPercent)} r="4" fill="#3b82f6" stroke="#1e293b" strokeWidth="2" />
-            <text x={getX(i)} y={getY(d.slaPercent) - 10} textAnchor="middle" className="fill-blue-300" fontSize="10" fontWeight="600">
-              {d.slaPercent}%
-            </text>
-            {/* X axis label */}
-            <text x={getX(i)} y={height - 10} textAnchor="middle" className="fill-gray-500" fontSize="10">
-              {fmtPeriod(d.period)}
-            </text>
-          </g>
-        ))}
-
-        {/* Gradient definition */}
-        <defs>
-          <linearGradient id="slaGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.4" />
-            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-      </svg>
+          {/* Data points + labels */}
+          {data.map((d, i) => {
+            const cx = getX(i)
+            const cy = getY(d.slaPercent)
+            const label = `${d.slaPercent}%`
+            const labelW = label.length * 8 + 12
+            return (
+              <g key={d.period}>
+                {/* Label bg + text */}
+                <rect x={cx - labelW / 2} y={cy - 30} width={labelW} height={18} rx="5"
+                  fill={labelBg} />
+                <text x={cx} y={cy - 17} textAnchor="middle" fill="#3b82f6"
+                  fontSize="13" fontWeight="700">
+                  {label}
+                </text>
+                {/* Dot */}
+                <circle cx={cx} cy={cy} r="5.5" fill="#3b82f6" stroke={dotStroke} strokeWidth="2.5" />
+                {/* X axis label */}
+                <text x={cx} y={height - 6} textAnchor="middle" fill={axisTextColor} fontSize="11">
+                  {fmtPeriod(d.period)}
+                </text>
+              </g>
+            )
+          })}
+        </svg>
+      </div>
     </div>
   )
 }
