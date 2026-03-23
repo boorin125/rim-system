@@ -195,13 +195,13 @@ export default function OutsourceJobDetailPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-4">
-          <button onClick={() => router.back()} className="inline-flex items-center justify-center p-2.5 bg-slate-700/50 hover:bg-slate-600/70 text-gray-200 hover:text-white border border-slate-600/50 rounded-xl transition-all duration-200" title="กลับไปก่อนหน้า">
-            <ChevronLeft className="h-6 w-6" strokeWidth={2.5} />
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+        <div className="flex items-start gap-3 min-w-0">
+          <button onClick={() => router.back()} className="inline-flex items-center justify-center p-2.5 bg-slate-700/50 hover:bg-slate-600/70 text-gray-200 hover:text-white border border-slate-600/50 rounded-xl transition-all duration-200 shrink-0 mt-0.5" title="กลับไปก่อนหน้า">
+            <ChevronLeft className="h-5 w-5" strokeWidth={2.5} />
           </button>
-          <div>
-            <div className="flex items-center gap-3 flex-wrap">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-sm font-mono text-blue-400">{job.jobCode}</span>
               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[job.status]}`}>
                 {statusLabels[job.status]}
@@ -217,12 +217,12 @@ export default function OutsourceJobDetailPage() {
                 {job.urgencyLevel === 'URGENT' && '!!! '}{job.urgencyLevel === 'HIGH' && '!! '}{job.urgencyLevel}
               </span>
             </div>
-            <h1 className="text-2xl font-bold text-white mt-1">{job.title}</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-white mt-1">{job.title}</h1>
           </div>
         </div>
 
         {/* Action buttons */}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           {/* IT Manager: Approve / Reject */}
           {isITManager && job.status === 'PENDING_APPROVAL' && (
             <>

@@ -271,9 +271,9 @@ export default function OutsourceMarketplacePage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
         <div>
-          <h1 className="text-2xl font-bold text-white">
+          <h1 className="text-xl sm:text-2xl font-bold text-white">
             {(isFinance || isItManager) ? 'Outsource Finance' : isAdmin ? 'Outsource Marketplace' : 'หางาน Outsource'}
           </h1>
           <p className="mt-1 text-sm text-gray-400">
@@ -284,13 +284,11 @@ export default function OutsourceMarketplacePage() {
               : 'เลือกงานที่สนใจและกดรับงาน'}
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          {viewOnly && (
-            <span className="px-3 py-1.5 bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded-lg text-sm font-medium">
-              View Only
-            </span>
-          )}
-        </div>
+        {viewOnly && (
+          <span className="self-start px-3 py-1.5 bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded-lg text-sm font-medium shrink-0">
+            View Only
+          </span>
+        )}
       </div>
 
       {/* Stats */}
