@@ -288,7 +288,7 @@ export default function AuditTrailPage() {
                     <td className="py-4 px-6 text-gray-300 whitespace-nowrap">
                       {log.user.firstName} {log.user.lastName}
                     </td>
-                    <td className="py-4 px-6 text-gray-400">
+                    <td className="py-4 px-6 text-gray-400 whitespace-nowrap font-mono text-xs">
                       {log.description}
                     </td>
                   </tr>
