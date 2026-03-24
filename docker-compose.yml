@@ -43,6 +43,9 @@ services:
       LICENSE_VENDOR_SECRET: ${LICENSE_VENDOR_SECRET:-rim-vendor-2026}
       MACHINE_ID: ${MACHINE_ID:-rim-server-production}
       TZ: Asia/Bangkok
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
+      VAPID_EMAIL: ${VAPID_EMAIL:-mailto:admin@rim-system.com}
     volumes:
       - rim_uploads:/app/uploads
     networks:
