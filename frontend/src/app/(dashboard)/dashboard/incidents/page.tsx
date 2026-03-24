@@ -476,6 +476,8 @@ export default function IncidentsPage() {
                 setAdvancedFilters(filters)
               }}
               onExport={handleExport}
+              slaConfigs={slaConfigs}
+              categories={categories}
             />
           </div>
 
