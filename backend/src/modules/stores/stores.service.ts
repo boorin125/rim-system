@@ -50,7 +50,7 @@ export class StoresService {
 
           // Optional fields
           address: data.address || null,
-          province: data.province || null,
+          province: data.province ? data.province.toUpperCase().trim() : null,
           district: data.district || null,
           subDistrict: data.subDistrict || null,
           postalCode: data.postalCode || null,
@@ -124,10 +124,11 @@ export class StoresService {
     const result = await this.prisma.store.findMany({
       where: { province: { not: null } },
       select: { province: true },
-      distinct: ['province'],
-      orderBy: { province: 'asc' },
     });
-    return result.map((r) => r.province as string);
+    // Normalize: uppercase + trim + deduplicate + sort
+    return [...new Set(
+      result.map((r) => (r.province as string).toUpperCase().trim())
+    )].sort();
   }
 
   async findAll(query: any) {
@@ -223,6 +224,10 @@ export class StoresService {
   async update(id: number, data: any) {
     // Check if store exists
     await this.findOne(id);
+
+    if (data.province) {
+      data.province = data.province.toUpperCase().trim();
+    }
 
     return this.prisma.store.update({
       where: { id },

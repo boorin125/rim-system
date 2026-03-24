@@ -232,7 +232,7 @@ export default function StoresPage() {
 
   // Get unique values for filters
   const provinces = Array.isArray(stores)
-    ? Array.from(new Set(stores.map(s => s.province).filter(Boolean))).sort()
+    ? Array.from(new Set(stores.map(s => s.province).filter(Boolean).map((p: string) => p.toUpperCase().trim()))).sort()
     : []
 
   const customers = Array.isArray(stores)
