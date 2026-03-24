@@ -323,17 +323,28 @@ export default function UpdateResolveModal({
 
   const totalSignedSrPhotos = existingSignedSrPhotos.length + newSignedSrPhotos.length;
 
-  const handleSignedSrUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSignedSrUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
     if (totalSignedSrPhotos + files.length > 5) {
       setError('อัปโหลดรูป SR ที่เซ็นแล้วได้สูงสุด 5 รูป');
       return;
     }
-    const urls = files.map(f => URL.createObjectURL(f));
-    setNewSignedSrPhotos(prev => [...prev, ...files]);
-    setNewSignedSrPhotoUrls(prev => [...prev, ...urls]);
-    setError('');
+    for (const file of files) {
+      const validation = validateImageFile(file, 10);
+      if (!validation.valid) { setError(validation.error || 'ไฟล์ไม่ถูกต้อง'); return; }
+    }
+    try {
+      const compressed = await compressImages(files, { maxWidth: 1920, maxHeight: 1920, quality: 0.85 });
+      const urls = compressed.map(f => URL.createObjectURL(f));
+      setNewSignedSrPhotos(prev => [...prev, ...compressed]);
+      setNewSignedSrPhotoUrls(prev => [...prev, ...urls]);
+      setError('');
+    } catch {
+      setError('ไม่สามารถประมวลผลรูปภาพได้');
+    }
     if (signedSrInputRef.current) signedSrInputRef.current.value = '';
+    if (cameraSrRef.current) cameraSrRef.current.value = '';
   };
 
   const handleRemoveExistingSignedSr = (index: number) => {
