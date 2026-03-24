@@ -1,7 +1,7 @@
 // frontend/src/components/ConfirmCloseModal.tsx
 
 import { useState } from 'react';
-import { X, CheckCircle, AlertCircle, Clock, User, FileText } from 'lucide-react';
+import { X, CheckCircle, AlertCircle, Clock, User, FileText, Image, ExternalLink, Pen } from 'lucide-react';
 import { getPhotoUrl } from '@/utils/photoUtils';
 import PhotoViewerModal from './PhotoViewerModal';
 
@@ -26,6 +26,9 @@ interface ConfirmCloseModalProps {
     }>;
     beforePhotos?: string[];
     afterPhotos?: string[];
+    signedReportPhotos?: string[];
+    serviceReportToken?: string;
+    customerSignedAt?: string;
     resolvedAt?: string;
   };
   onConfirm: () => Promise<void>;
@@ -227,6 +230,88 @@ export default function ConfirmCloseModal({
               </div>
             )}
           </div>
+
+          {/* Service Report Section */}
+          {(incident.signedReportPhotos?.length || incident.serviceReportToken) && (
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <FileText className="w-5 h-5 text-amber-400" />
+                <h3 className="font-semibold text-white">Service Report</h3>
+              </div>
+              <div className="space-y-3">
+
+                {/* Online Service Report */}
+                {incident.serviceReportToken && (
+                  <div className={`flex items-center justify-between p-3 rounded-lg border ${
+                    incident.customerSignedAt
+                      ? 'bg-green-900/20 border-green-700/40'
+                      : 'bg-amber-900/20 border-amber-700/40'
+                  }`}>
+                    <div className="flex items-center gap-3">
+                      <Pen className={`w-4 h-4 flex-shrink-0 ${incident.customerSignedAt ? 'text-green-400' : 'text-amber-400'}`} />
+                      <div>
+                        <p className={`text-sm font-medium ${incident.customerSignedAt ? 'text-green-300' : 'text-amber-300'}`}>
+                          Service Report Online
+                        </p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {incident.customerSignedAt
+                            ? `ลูกค้าเซ็นแล้ว — ${new Date(incident.customerSignedAt).toLocaleString('th-TH')}`
+                            : 'ส่งลิงก์แล้ว แต่ลูกค้ายังไม่ได้เซ็น'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {incident.customerSignedAt && <CheckCircle className="w-4 h-4 text-green-400" />}
+                      <a
+                        href={`/service-report/${incident.serviceReportToken}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-gray-200 text-xs rounded-lg transition-colors"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        ดู SR
+                      </a>
+                    </div>
+                  </div>
+                )}
+
+                {/* Signed Report Photos */}
+                {incident.signedReportPhotos && incident.signedReportPhotos.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Image className="w-4 h-4 text-amber-400" />
+                      <p className="text-sm font-medium text-amber-300">
+                        รูปใบงานที่เซ็นแล้ว ({incident.signedReportPhotos.length} รูป)
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                      {incident.signedReportPhotos.map((photo, index) => (
+                        <div
+                          key={index}
+                          className="aspect-square rounded-lg overflow-hidden border border-amber-600/30 cursor-pointer hover:opacity-90 transition-opacity"
+                          onClick={() => openPhotoViewer(incident.signedReportPhotos!, index, 'Signed Service Report')}
+                        >
+                          <img
+                            src={getPhotoUrl(photo)}
+                            alt={`Signed SR ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* No proof warning */}
+                {!incident.signedReportPhotos?.length && !incident.customerSignedAt && incident.serviceReportToken && (
+                  <div className="flex items-center gap-2 p-3 bg-red-900/20 border border-red-700/40 rounded-lg">
+                    <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                    <p className="text-xs text-red-300">ลูกค้ายังไม่ได้เซ็นรับงาน และไม่มีรูปใบงานที่เซ็นแล้ว</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Resolution Time */}
           {incident.resolvedAt && (

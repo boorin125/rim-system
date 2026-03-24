@@ -2441,6 +2441,9 @@ SLA Breach Time: ${slaBreachText}`
           spareParts: incident.spareParts,
           beforePhotos: incident.beforePhotos,
           afterPhotos: incident.afterPhotos,
+          signedReportPhotos: incident.signedReportPhotos,
+          serviceReportToken: incident.serviceReportToken,
+          customerSignedAt: incident.customerSignedAt,
           resolvedAt: incident.resolvedAt,
         }}
         onConfirm={handleConfirmClose}
