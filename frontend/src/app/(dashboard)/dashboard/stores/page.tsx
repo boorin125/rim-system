@@ -270,32 +270,29 @@ export default function StoresPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white">Store Management</h1>
-          <p className="text-gray-400 mt-1">
-            Manage store locations and information
-          </p>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Store Management</h1>
+          <p className="text-gray-400 mt-1 text-sm">Manage store locations and information</p>
         </div>
-        <div className="flex items-center gap-3">
-          {/* SUPER_ADMIN only sees Import button */}
+        <div className="flex flex-wrap items-center gap-2">
           {isSuperAdmin ? (
             <button
               onClick={() => navigateToStore('/dashboard/stores/import')}
-              className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition duration-200"
+              className="flex items-center gap-2 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition duration-200 text-sm"
             >
-              <Upload className="w-5 h-5" />
-              <span>Import Stores</span>
+              <Upload className="w-4 h-4 shrink-0" />
+              <span className="hidden sm:inline">Import Stores</span>
             </button>
           ) : (
             <>
               {isITManager && (
                 <button
                   onClick={() => navigateToStore('/dashboard/stores/delete-requests')}
-                  className="flex items-center space-x-2 px-4 py-2 bg-red-600/80 hover:bg-red-600 text-white rounded-lg transition duration-200"
+                  className="flex items-center gap-2 px-3 py-2 bg-red-600/80 hover:bg-red-600 text-white rounded-lg transition duration-200 text-sm"
                 >
-                  <Trash2 className="w-5 h-5" />
-                  <span>Delete Requests</span>
+                  <Trash2 className="w-4 h-4 shrink-0" />
+                  <span className="hidden sm:inline">Delete Requests</span>
                 </button>
               )}
               {viewOnly && (
@@ -307,28 +304,28 @@ export default function StoresPage() {
                 <>
                   <button
                     onClick={() => navigateToStore('/dashboard/stores/new')}
-                    className="flex items-center space-x-2 px-4 py-2 hover:brightness-110 text-white rounded-lg transition duration-200"
+                    className="flex items-center gap-2 px-3 py-2 hover:brightness-110 text-white rounded-lg transition duration-200 text-sm"
                     style={{ backgroundColor: themeHighlight }}
                   >
-                    <Plus className="w-5 h-5" />
-                    <span>Add Store</span>
+                    <Plus className="w-4 h-4 shrink-0" />
+                    <span className="hidden sm:inline">Add Store</span>
                   </button>
                   <button
                     onClick={handleExport}
-                    className="flex items-center space-x-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition duration-200"
+                    className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition duration-200 text-sm"
                   >
-                    <Download className="w-5 h-5" />
-                    <span>Export</span>
+                    <Download className="w-4 h-4 shrink-0" />
+                    <span className="hidden sm:inline">Export</span>
                   </button>
                 </>
               )}
               {canImport && (
                 <button
                   onClick={() => navigateToStore('/dashboard/stores/import')}
-                  className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition duration-200"
+                  className="flex items-center gap-2 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition duration-200 text-sm"
                 >
-                  <Upload className="w-5 h-5" />
-                  <span>Import</span>
+                  <Upload className="w-4 h-4 shrink-0" />
+                  <span className="hidden sm:inline">Import</span>
                 </button>
               )}
             </>
@@ -698,55 +695,57 @@ export default function StoresPage() {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-gray-400">
-            แสดง {startIndex + 1} ถึง {Math.min(endIndex, filteredStores.length)} จาก{' '}
-            {filteredStores.length} สาขา (หน้า {currentPage} / {totalPages})
+        <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
+          {/* Page info */}
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-700/40 border border-slate-600/50 rounded-lg">
+            <span className="text-xs text-gray-400">แสดง</span>
+            <span className="text-sm font-semibold text-white">{startIndex + 1}–{Math.min(endIndex, filteredStores.length)}</span>
+            <span className="text-xs text-gray-400">จาก</span>
+            <span className="text-sm font-semibold text-white">{filteredStores.length}</span>
+            <span className="text-xs text-gray-400">สาขา</span>
+            <span className="w-px h-4 bg-slate-600"></span>
+            <span className="text-xs text-gray-400">หน้า</span>
+            <span className="text-sm font-semibold text-white">{currentPage}</span>
+            <span className="text-xs text-gray-400">/</span>
+            <span className="text-sm font-semibold text-white">{totalPages}</span>
           </div>
+
+          {/* Buttons */}
           <div className="flex items-center gap-1">
-            {/* First Page */}
             <button
               onClick={() => setCurrentPage(1)}
               disabled={currentPage === 1}
-              className="flex items-center gap-1 px-2 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               title="หน้าแรก"
             >
               <ChevronsLeft className="w-4 h-4" />
             </button>
-            {/* Previous */}
             <button
               onClick={() => setCurrentPage((prev: number) => Math.max(1, prev - 1))}
               disabled={currentPage === 1}
-              className="flex items-center gap-1 px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-1 px-2 sm:px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-sm"
             >
               <ChevronLeft className="w-4 h-4" />
               <span className="hidden sm:inline">ก่อนหน้า</span>
             </button>
-            {/* Page Numbers - Show max 10 pages */}
+
+            {/* Page numbers — 3 on mobile, 5 on sm, 7 on lg */}
             <div className="flex items-center gap-1">
               {(() => {
-                const maxVisiblePages = 10
-                let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2))
-                let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1)
-
-                // Adjust start if we're near the end
-                if (endPage - startPage + 1 < maxVisiblePages) {
-                  startPage = Math.max(1, endPage - maxVisiblePages + 1)
+                const maxVisible = typeof window !== 'undefined' && window.innerWidth < 640 ? 3 : 5
+                let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2))
+                let endPage = Math.min(totalPages, startPage + maxVisible - 1)
+                if (endPage - startPage + 1 < maxVisible) {
+                  startPage = Math.max(1, endPage - maxVisible + 1)
                 }
-
                 const pages = []
-                for (let i = startPage; i <= endPage; i++) {
-                  pages.push(i)
-                }
-
+                for (let i = startPage; i <= endPage; i++) pages.push(i)
                 return pages.map((page) => (
                   <button
                     key={page}
                     onClick={() => setCurrentPage(page)}
-                    className={`px-3 py-2 rounded-lg transition-colors ${
-                      currentPage === page
-                        ? 'text-white'
-                        : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                    className={`w-9 h-9 rounded-lg text-sm font-medium transition-colors ${
+                      currentPage === page ? 'text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
                     }`}
                     style={currentPage === page ? { backgroundColor: themeHighlight } : undefined}
                   >
@@ -755,20 +754,19 @@ export default function StoresPage() {
                 ))
               })()}
             </div>
-            {/* Next */}
+
             <button
               onClick={() => setCurrentPage((prev: number) => Math.min(totalPages, prev + 1))}
               disabled={currentPage === totalPages}
-              className="flex items-center gap-1 px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-1 px-2 sm:px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-sm"
             >
               <span className="hidden sm:inline">ถัดไป</span>
               <ChevronRight className="w-4 h-4" />
             </button>
-            {/* Last Page */}
             <button
               onClick={() => setCurrentPage(totalPages)}
               disabled={currentPage === totalPages}
-              className="flex items-center gap-1 px-2 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               title="หน้าสุดท้าย"
             >
               <ChevronsRight className="w-4 h-4" />
