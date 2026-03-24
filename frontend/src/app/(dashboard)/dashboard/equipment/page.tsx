@@ -583,7 +583,7 @@ export default function EquipmentPage() {
         {/* Stats */}
         <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-700/50">
           <div className="flex items-center gap-2">
-            <currentTabConfig.icon className={`w-4 h-4 ${currentTabConfig.color}`} />
+            <currentTabConfig.icon className={`w-4 h-4 ${currentTabConfig.activeTextColor}`} />
             <p className="text-sm text-gray-400">
               {currentTabConfig.label}:&nbsp;
               <span className="text-white font-medium">{totalItems}</span> รายการ
