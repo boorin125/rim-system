@@ -41,6 +41,7 @@ interface Incident {
   updatedAt: string
   slaDeadline?: string
   store?: { id: number; name: string; storeCode: string }
+  assigneeId?: number
   assignee?: { id: number; firstName: string; lastName: string }
   assignees?: { userId: number; user: { id: number; firstName: string; lastName: string } }[]
   category?: string
@@ -292,7 +293,7 @@ export default function DashboardPage() {
     ? activeIncidents
         .filter(i => ['ASSIGNED', 'IN_PROGRESS'].includes(i.status) && (
           Number(i.assigneeId) === userId ||
-          i.assignees?.some((a: any) => Number(a.user?.id) === userId)
+          i.assignees?.some(a => Number(a.user?.id) === userId)
         ))
         .slice(0, 10)
     : activeIncidents
