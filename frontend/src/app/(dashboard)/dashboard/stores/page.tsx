@@ -144,7 +144,7 @@ export default function StoresPage() {
 
     // Province filter
     if (filterProvince !== 'ALL') {
-      filtered = filtered.filter((store) => store.province === filterProvince)
+      filtered = filtered.filter((store) => store.province?.toUpperCase().trim() === filterProvince)
     }
 
     // Service Center filter

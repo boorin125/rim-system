@@ -247,7 +247,9 @@ export class UsersService {
         address: dto.address,
         technicianType: dto.technicianType,
         serviceCenter: dto.serviceCenter,
-        responsibleProvinces: dto.responsibleProvinces,
+        responsibleProvinces: dto.responsibleProvinces
+          ? dto.responsibleProvinces.map((p: string) => p.toUpperCase().trim())
+          : undefined,
         status: dto.status,
       },
       select: {

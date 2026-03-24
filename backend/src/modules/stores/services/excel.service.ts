@@ -182,7 +182,7 @@ export class ExcelService {
         company: getValue(1),
         code: getValue(2),
         name: getValue(3),
-        province: getValue(4),
+        province: getValue(4)?.toString().toUpperCase().trim() || undefined,
         storeType: getValue(5),
         // Address (6-10) - Address, Postal Code, SLA Region, Area, Service Center
         address: getValue(6),
