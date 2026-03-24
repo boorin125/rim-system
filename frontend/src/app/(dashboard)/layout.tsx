@@ -189,9 +189,12 @@ export default function DashboardLayout({
   const activeMenuBg = themeStyle ? getHighlightColor(themeStyle.bgEnd) : undefined
 
   // Sync highlight color to CSS custom property so child pages can use it
+  // In light mode, use lighter shade (62%) so buttons aren't too dark on light backgrounds
   useEffect(() => {
-    document.documentElement.style.setProperty('--theme-highlight', activeMenuBg || '#3b82f6')
-  }, [activeMenuBg])
+    const base = activeMenuBg || '#3b82f6'
+    const color = isDark ? base : base.replace(', 42%)', ', 62%)')
+    document.documentElement.style.setProperty('--theme-highlight', color)
+  }, [activeMenuBg, isDark])
 
   // Listen for theme changes from settings page
   useEffect(() => {
