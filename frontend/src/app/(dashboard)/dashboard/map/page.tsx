@@ -66,12 +66,12 @@ const statusFilters = [
 ]
 
 const statusBadge: Record<string, { label: string; cls: string }> = {
-  ASSIGNED:    { label: 'มอบหมายแล้ว',       cls: 'bg-purple-500/20 text-purple-300 border border-purple-500/30' },
-  IN_PROGRESS: { label: 'กำลังดำเนินการ',    cls: 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30' },
-  RESOLVED:    { label: 'แก้ไขแล้ว',          cls: 'bg-green-500/20 text-green-300 border border-green-500/30' },
-  CLOSED:      { label: 'ปิดงาน',             cls: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' },
-  OPEN:        { label: 'เปิด',               cls: 'bg-blue-500/20 text-blue-300 border border-blue-500/30' },
-  CANCELLED:   { label: 'ยกเลิก',            cls: 'bg-gray-500/20 text-gray-400 border border-gray-500/30' },
+  ASSIGNED:    { label: 'มอบหมายแล้ว',       cls: 'bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/40 dark:border-purple-500/30' },
+  IN_PROGRESS: { label: 'กำลังดำเนินการ',    cls: 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-300 border border-yellow-500/40 dark:border-yellow-500/30' },
+  RESOLVED:    { label: 'แก้ไขแล้ว',          cls: 'bg-green-500/20 text-green-700 dark:text-green-300 border border-green-500/40 dark:border-green-500/30' },
+  CLOSED:      { label: 'ปิดงาน',             cls: 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40 dark:border-emerald-500/30' },
+  OPEN:        { label: 'เปิด',               cls: 'bg-blue-500/20 text-blue-700 dark:text-blue-300 border border-blue-500/40 dark:border-blue-500/30' },
+  CANCELLED:   { label: 'ยกเลิก',            cls: 'bg-gray-500/20 text-gray-600 dark:text-gray-400 border border-gray-500/40 dark:border-gray-500/30' },
 }
 
 function getTodayStr() {
