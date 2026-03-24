@@ -17,7 +17,7 @@ export function usePushNotification() {
     if (typeof window === 'undefined') return
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
 
-    const token = localStorage.getItem('accessToken')
+    const token = localStorage.getItem('token')
     if (!token) return
 
     registered.current = true
