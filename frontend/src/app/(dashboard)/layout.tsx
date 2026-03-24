@@ -187,14 +187,15 @@ export default function DashboardLayout({
     return `hsl(${Math.round(h * 360)}, ${Math.max(Math.round(s * 100), 30)}%, 42%)`
   }
   const activeMenuBg = themeStyle ? getHighlightColor(themeStyle.bgEnd) : undefined
+  // Lighter shade (62%) for light mode — used for active menu, avatar, and buttons
+  const activeColor = activeMenuBg
+    ? isDark ? activeMenuBg : activeMenuBg.replace(', 42%)', ', 62%)')
+    : isDark ? '#2563eb' : '#6096f0'
 
   // Sync highlight color to CSS custom property so child pages can use it
-  // In light mode, use lighter shade (62%) so buttons aren't too dark on light backgrounds
   useEffect(() => {
-    const base = activeMenuBg || '#3b82f6'
-    const color = isDark ? base : base.replace(', 42%)', ', 62%)')
-    document.documentElement.style.setProperty('--theme-highlight', color)
-  }, [activeMenuBg, isDark])
+    document.documentElement.style.setProperty('--theme-highlight', activeColor)
+  }, [activeColor])
 
   // Listen for theme changes from settings page
   useEffect(() => {
@@ -556,7 +557,7 @@ export default function DashboardLayout({
                       ? 'text-white'
                       : 'text-gray-300 hover:bg-slate-700/50'
                   }`}
-                  style={isActive ? { backgroundColor: activeMenuBg || '#2563eb' } : undefined}
+                  style={isActive ? { backgroundColor: activeColor } : undefined}
                 >
                   <Icon className="w-5 h-5" />
                   <span className="font-medium">{item.name}</span>
@@ -637,12 +638,12 @@ export default function DashboardLayout({
                       src={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '')}${user.avatarPath.startsWith('/uploads/') ? user.avatarPath : `/uploads/${user.avatarPath}`}`}
                       alt="Avatar"
                       className="w-8 h-8 lg:w-10 lg:h-10 rounded-full object-cover border-2"
-                      style={{ borderColor: activeMenuBg ? `${activeMenuBg}80` : 'rgba(59,130,246,0.5)' }}
+                      style={{ borderColor: `${activeColor}80` }}
                     />
                   ) : (
                     <div
                       className="w-8 h-8 lg:w-10 lg:h-10 rounded-full flex items-center justify-center"
-                      style={{ backgroundColor: activeMenuBg || '#2563eb' }}
+                      style={{ backgroundColor: activeColor }}
                     >
                       <User className="w-4 h-4 lg:w-5 lg:h-5 text-white" />
                     </div>
