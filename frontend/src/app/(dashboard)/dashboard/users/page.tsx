@@ -381,7 +381,7 @@ export default function UsersPage() {
                         <div className="text-sm font-medium text-white">
                           {user.firstName} {user.lastName}
                         </div>
-                        <div className="text-xs text-gray-400">@{user.username}</div>
+                        <div className="text-xs text-gray-400 truncate max-w-[140px]">{user.email || `@${user.username}`}</div>
                       </div>
                     </div>
                   </td>
