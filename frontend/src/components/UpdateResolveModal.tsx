@@ -90,6 +90,9 @@ export default function UpdateResolveModal({
   const [newSignedSrPhotos, setNewSignedSrPhotos] = useState<File[]>([]);
   const [newSignedSrPhotoUrls, setNewSignedSrPhotoUrls] = useState<string[]>([]);
   const signedSrInputRef = useRef<HTMLInputElement>(null);
+  const cameraAfterRef = useRef<HTMLInputElement>(null);
+  const cameraSrRef = useRef<HTMLInputElement>(null);
+  const galleryAfterRef = useRef<HTMLInputElement>(null);
 
   // Voice to Text states
   const [isListening, setIsListening] = useState(false);
@@ -570,29 +573,22 @@ export default function UpdateResolveModal({
                 {newPhotos.length > 0 && (
                   <p className="text-xs text-gray-400 mb-2">รูปใหม่:</p>
                 )}
-                <label className="block">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handleFileSelect}
-                    disabled={isSubmitting}
-                    className="hidden"
-                  />
-                  <div className="border-2 border-dashed border-slate-600/50 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500/50 hover:bg-slate-700/20 transition-all group">
-                    <div className="flex flex-col items-center space-y-3">
-                      <div className="p-4 bg-slate-700/30 rounded-full group-hover:bg-blue-500/20 transition-colors">
-                        <Camera className="w-8 h-8 text-gray-400 group-hover:text-blue-400 transition-colors" />
-                      </div>
-                      <div>
-                        <p className="text-gray-300 font-medium">คลิกเพื่อเพิ่มรูปภาพ</p>
-                        <p className="text-sm text-gray-500 mt-1">
-                          หรือลากไฟล์มาวางที่นี่ (PNG, JPG สูงสุด {MAX_PHOTOS - totalPhotos} รูป)
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </label>
+                {/* Hidden inputs */}
+                <input ref={galleryAfterRef} type="file" accept="image/*" multiple onChange={handleFileSelect} disabled={isSubmitting} className="hidden" />
+                <input ref={cameraAfterRef} type="file" accept="image/*" capture="environment" onChange={handleFileSelect} disabled={isSubmitting} className="hidden" />
+                {/* Two buttons */}
+                <div className="grid grid-cols-2 gap-3">
+                  <button type="button" onClick={() => galleryAfterRef.current?.click()} disabled={isSubmitting}
+                    className="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-slate-600/50 rounded-lg hover:border-blue-500/50 hover:bg-slate-700/20 transition-all disabled:opacity-50">
+                    <Upload className="w-6 h-6 text-gray-400" />
+                    <span className="text-sm text-gray-300">เลือกจากแกลเลอรี่</span>
+                  </button>
+                  <button type="button" onClick={() => cameraAfterRef.current?.click()} disabled={isSubmitting}
+                    className="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-blue-600/40 rounded-lg hover:border-blue-500/60 hover:bg-blue-900/10 transition-all disabled:opacity-50">
+                    <Camera className="w-6 h-6 text-blue-400" />
+                    <span className="text-sm text-blue-300">ถ่ายรูปด้วยกล้อง</span>
+                  </button>
+                </div>
               </div>
             )}
 
@@ -721,12 +717,11 @@ export default function UpdateResolveModal({
 
           {/* Signed Service Report Photos */}
           <div>
-            <label className="block text-sm font-medium text-gray-200 mb-3">
-              รูป Service Report ที่เซ็นแล้ว (ไม่บังคับ)
-              <span className="text-gray-400 ml-2">
-                {totalSignedSrPhotos}/5 รูป
-              </span>
+            <label className="block text-sm font-medium text-gray-200 mb-1">
+              รูป Service Report ที่เซ็นแล้ว
+              <span className="text-gray-400 ml-2">{totalSignedSrPhotos}/5 รูป</span>
             </label>
+            <p className="text-xs text-amber-400/80 mb-3">⚠ ต้องอัปโหลดรูปนี้ หรือส่ง Service Report Online ให้ลูกค้าเซ็น ก่อนกดยืนยันปิดงาน</p>
 
             {/* Existing signed SR photos */}
             {existingSignedSrPhotos.length > 0 && (
@@ -767,25 +762,22 @@ export default function UpdateResolveModal({
                 {newSignedSrPhotos.length > 0 && (
                   <p className="text-xs text-gray-400 mb-2">รูปใหม่:</p>
                 )}
-                <label className="block">
-                  <input
-                    ref={signedSrInputRef}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handleSignedSrUpload}
-                    disabled={isSubmitting}
-                    className="hidden"
-                  />
-                  <div className="border-2 border-dashed border-amber-600/30 rounded-lg p-6 text-center cursor-pointer hover:border-amber-500/50 hover:bg-amber-900/10 transition-all group">
-                    <div className="flex flex-col items-center space-y-2">
-                      <div className="p-3 bg-amber-700/20 rounded-full group-hover:bg-amber-500/20 transition-colors">
-                        <Upload className="w-6 h-6 text-amber-400 group-hover:text-amber-300 transition-colors" />
-                      </div>
-                      <p className="text-gray-300 text-sm">อัปโหลดรูปใบงานที่ลูกค้าเซ็นด้วยปากกา</p>
-                    </div>
-                  </div>
-                </label>
+                {/* Hidden inputs */}
+                <input ref={signedSrInputRef} type="file" accept="image/*" multiple onChange={handleSignedSrUpload} disabled={isSubmitting} className="hidden" />
+                <input ref={cameraSrRef} type="file" accept="image/*" capture="environment" onChange={handleSignedSrUpload} disabled={isSubmitting} className="hidden" />
+                {/* Two buttons */}
+                <div className="grid grid-cols-2 gap-3">
+                  <button type="button" onClick={() => signedSrInputRef.current?.click()} disabled={isSubmitting}
+                    className="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-amber-600/30 rounded-lg hover:border-amber-500/50 hover:bg-amber-900/10 transition-all disabled:opacity-50">
+                    <Upload className="w-6 h-6 text-amber-400" />
+                    <span className="text-sm text-amber-300">เลือกจากแกลเลอรี่</span>
+                  </button>
+                  <button type="button" onClick={() => cameraSrRef.current?.click()} disabled={isSubmitting}
+                    className="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-amber-600/40 rounded-lg hover:border-amber-500/60 hover:bg-amber-900/10 transition-all disabled:opacity-50">
+                    <Camera className="w-6 h-6 text-amber-400" />
+                    <span className="text-sm text-amber-300">ถ่ายรูปด้วยกล้อง</span>
+                  </button>
+                </div>
               </div>
             )}
 

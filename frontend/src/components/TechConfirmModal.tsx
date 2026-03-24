@@ -31,6 +31,10 @@ export default function TechConfirmModal({
   const hasOnlineSR = !!incident.serviceReportToken;
   const pendingOnlineSignature = hasOnlineSR && !hasCustomerSignature;
 
+  // Must have at least one proof: signed photo OR online customer signature
+  const hasServiceReportProof = signedPhotosCount > 0 || hasCustomerSignature;
+  const canConfirm = hasServiceReportProof;
+
   return (
     <div className="fixed inset-0 bg-black/70 flex items-start sm:items-center justify-center z-50 p-4 pt-20 sm:pt-4">
       <div className="bg-gray-800 rounded-2xl w-full max-w-lg border border-gray-700 shadow-2xl">
@@ -130,14 +134,28 @@ export default function TechConfirmModal({
             </div>
           </div>
 
-          {/* Warning */}
-          <div className="flex items-start gap-2 p-3 bg-amber-900/20 border border-amber-700/50 rounded-lg">
-            <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
-            <p className="text-xs text-amber-200">
-              เมื่อยืนยันแล้ว Helpdesk จะได้รับแจ้งเพื่อตรวจสอบและปิดงาน
-              หากต้องการแก้ไข Resolution หลังยืนยัน จะต้องยืนยันใหม่อีกครั้ง
-            </p>
-          </div>
+          {/* Blocking warning: must have service report proof */}
+          {!canConfirm && (
+            <div className="flex items-start gap-2 p-3 bg-red-900/30 border border-red-600/50 rounded-lg">
+              <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-red-300">
+                <span className="font-semibold">ไม่สามารถยืนยันปิดงานได้</span> — กรุณาดำเนินการอย่างใดอย่างหนึ่งก่อน:
+                <br />• อัปโหลดรูปใบงานที่ลูกค้าเซ็นแล้ว (Signed Report Photo)
+                <br />• หรือส่ง Service Report Online ให้ลูกค้าเซ็นผ่านลิงก์
+              </p>
+            </div>
+          )}
+
+          {/* Normal warning */}
+          {canConfirm && (
+            <div className="flex items-start gap-2 p-3 bg-amber-900/20 border border-amber-700/50 rounded-lg">
+              <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-200">
+                เมื่อยืนยันแล้ว Helpdesk จะได้รับแจ้งเพื่อตรวจสอบและปิดงาน
+                หากต้องการแก้ไข Resolution หลังยืนยัน จะต้องยืนยันใหม่อีกครั้ง
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -151,8 +169,9 @@ export default function TechConfirmModal({
           </button>
           <button
             onClick={onConfirm}
-            disabled={isConfirming}
-            className="flex items-center gap-2 px-5 py-2 bg-teal-600 hover:bg-teal-700 disabled:bg-teal-800 disabled:opacity-50 text-white rounded-lg transition font-medium"
+            disabled={isConfirming || !canConfirm}
+            title={!canConfirm ? 'ต้องอัปโหลดรูปใบงานหรือรอลูกค้าเซ็น Service Report Online ก่อน' : undefined}
+            className="flex items-center gap-2 px-5 py-2 bg-teal-600 hover:bg-teal-700 disabled:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition font-medium"
           >
             {isConfirming ? (
               <>
