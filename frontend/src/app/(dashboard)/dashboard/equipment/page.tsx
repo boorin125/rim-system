@@ -602,7 +602,7 @@ export default function EquipmentPage() {
       <div className="glass-card rounded-2xl overflow-hidden">
         {equipment.length === 0 && !isLoading ? (
           <div className="text-center py-12">
-            <currentTabConfig.icon className={`w-16 h-16 mx-auto mb-4 ${currentTabConfig.color} opacity-40`} />
+            <currentTabConfig.icon className={`w-16 h-16 mx-auto mb-4 ${currentTabConfig.activeTextColor} opacity-40`} />
             <h3 className="text-xl font-semibold text-white mb-2">{emptyMessages[activeTab]}</h3>
             <p className="text-gray-400 mb-4">
               {searchTerm || filterCategory !== 'ALL' || filterStore !== 'ALL'
