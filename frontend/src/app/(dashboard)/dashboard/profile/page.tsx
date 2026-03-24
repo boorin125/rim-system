@@ -689,7 +689,7 @@ export default function ProfilePage() {
               />
             ) : (
               <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold">
-                {profile.firstName?.[0]}{profile.lastName?.[0]}
+                {(firstNameEn?.[0] || firstName?.[0])}{(lastNameEn?.[0] || lastName?.[0])}
               </div>
             )}
             {/* Upload overlay */}
@@ -789,26 +789,26 @@ export default function ProfilePage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
-                    First Name
+                    ชื่อ (ภาษาไทย)
                   </label>
                   <input
                     type="text"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
                     className="w-full px-4 py-2.5 bg-slate-800 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter first name"
+                    placeholder="เช่น สมชาย"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Last Name
+                    นามสกุล (ภาษาไทย)
                   </label>
                   <input
                     type="text"
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                     className="w-full px-4 py-2.5 bg-slate-800 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter last name"
+                    placeholder="เช่น ใจดี"
                   />
                 </div>
               </div>

@@ -642,10 +642,10 @@ export default function DashboardLayout({
                     />
                   ) : (
                     <div
-                      className="w-8 h-8 lg:w-10 lg:h-10 rounded-full flex items-center justify-center"
+                      className="w-8 h-8 lg:w-10 lg:h-10 rounded-full flex items-center justify-center text-white text-xs lg:text-sm font-bold"
                       style={{ backgroundColor: activeColor }}
                     >
-                      <User className="w-4 h-4 lg:w-5 lg:h-5 text-white" />
+                      {(user?.firstNameEn?.[0] || user?.firstName?.[0] || '?')}{(user?.lastNameEn?.[0] || user?.lastName?.[0] || '')}
                     </div>
                   )}
                   <ChevronDown className="hidden lg:block w-4 h-4 text-gray-400" />
