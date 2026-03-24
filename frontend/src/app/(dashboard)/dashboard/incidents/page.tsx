@@ -18,7 +18,7 @@ import {
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import AdvancedIncidentFilter from '@/components/AdvancedIncidentFilter'
-import { isViewOnly, canPerformAction, getUserRoles } from '@/config/permissions'
+import { isViewOnly, canPerformAction, getUserRoles, isPureTechnician } from '@/config/permissions'
 import { formatDateTime } from '@/utils/dateUtils'
 
 export default function IncidentsPage() {
@@ -48,6 +48,8 @@ export default function IncidentsPage() {
   const [slaConfigs, setSlaConfigs] = useState<any[]>([])
   const [categories, setCategories] = useState<string[]>([])
   const isSuperAdmin = useRef(false)
+  const isPureTech = useRef(false)
+  const currentUserId = useRef<number | null>(null)
 
   const itemsPerPage = 50
 
@@ -85,10 +87,14 @@ export default function IncidentsPage() {
       const user = JSON.parse(userStr)
       setCurrentUser(user)
       isSuperAdmin.current = getUserRoles(user).includes('SUPER_ADMIN')
+      isPureTech.current = isPureTechnician(user)
+      currentUserId.current = user.id ? Number(user.id) : null
     }
     // Show cached incidents immediately (stale-while-revalidate)
+    // Cache key is user-specific to prevent technician seeing another user's cache
+    const cacheKey = `incidents_cache_${currentUserId.current ?? 'anon'}`
     try {
-      const cached = sessionStorage.getItem('incidents_cache')
+      const cached = sessionStorage.getItem(cacheKey)
       if (cached) {
         const { data, total: t, totalPages: tp } = JSON.parse(cached)
         setIncidents(data)
@@ -117,6 +123,11 @@ export default function IncidentsPage() {
       limit: itemsPerPage,
       sortField,
       sortOrder,
+    }
+
+    // Pure technician: always scope to their own assignments (enforce on frontend too)
+    if (isPureTech.current && currentUserId.current) {
+      params.assigneeId = currentUserId.current
     }
 
     if (debouncedSearch) params.search = debouncedSearch
@@ -157,10 +168,11 @@ export default function IncidentsPage() {
         setIncidents(data.data)
         setTotal(data.total ?? data.data.length)
         setTotalPages(data.totalPages ?? 1)
-        // Cache only page 1 with default filters (most common "back" scenario)
+        // Cache only page 1 with default filters (user-specific key)
         if (currentPage === 1) {
           try {
-            sessionStorage.setItem('incidents_cache', JSON.stringify({
+            const cacheKey = `incidents_cache_${currentUserId.current ?? 'anon'}`
+            sessionStorage.setItem(cacheKey, JSON.stringify({
               data: data.data,
               total: data.total ?? data.data.length,
               totalPages: data.totalPages ?? 1,

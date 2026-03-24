@@ -876,7 +876,13 @@ export class IncidentsService {
     }
 
     if (filterDto.assigneeId) {
-      where.assignees = { some: { userId: parseInt(filterDto.assigneeId) } };
+      const requestedId = parseInt(filterDto.assigneeId);
+      // Technician can only filter by their own ID (cannot query other users)
+      if (this.hasOnlyRole(user, UserRole.TECHNICIAN)) {
+        where.assignees = { some: { userId: user.id } };
+      } else {
+        where.assignees = { some: { userId: requestedId } };
+      }
     }
 
     if (filterDto.category) {
