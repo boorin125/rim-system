@@ -274,7 +274,7 @@ export default function OutsourceMarketplacePage() {
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-white">
-            {(isFinance || isItManager) ? 'Outsource Finance' : isAdmin ? 'Outsource Marketplace' : 'หางาน Outsource'}
+            {(isFinance || isItManager) ? 'Outsource' : isAdmin ? 'Outsource Marketplace' : 'หางาน Outsource'}
           </h1>
           <p className="mt-1 text-sm text-gray-400">
             {(isFinance || isItManager)
@@ -416,109 +416,109 @@ export default function OutsourceMarketplacePage() {
                 href={`/dashboard/outsource/${job.id}`}
                 className="block hover:bg-slate-700/30 transition duration-200"
               >
-                <div className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <span className="text-sm font-mono text-blue-400">
-                          {job.incident?.ticketNumber}
+                <div className="p-4 sm:p-6">
+                  {/* Badges row */}
+                  <div className="flex items-center gap-2 flex-wrap mb-2">
+                    <span className="text-xs font-mono text-blue-400">{job.incident?.ticketNumber}</span>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[job.status]}`}>
+                      {statusLabels[job.status]}
+                    </span>
+                    {job.status === 'VERIFIED' && job.verifiedAt && (() => {
+                      const days = Math.floor((Date.now() - new Date(job.verifiedAt).getTime()) / (1000 * 60 * 60 * 24))
+                      return days >= 30 ? (
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusColors['PAYMENT_DUE']}`}>
+                          {statusLabels['PAYMENT_DUE']}
                         </span>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[job.status]}`}>
-                          {statusLabels[job.status]}
-                        </span>
-                        {/* ครบกำหนดจ่าย badge */}
-                        {job.status === 'VERIFIED' && job.verifiedAt && (() => {
-                          const days = Math.floor((Date.now() - new Date(job.verifiedAt).getTime()) / (1000 * 60 * 60 * 24))
-                          return days >= 30 ? (
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors['PAYMENT_DUE']}`}>
-                              {statusLabels['PAYMENT_DUE']}
-                            </span>
-                          ) : null
-                        })()}
-                        <span className={`text-xs font-medium ${urgencyColors[job.urgencyLevel]}`}>
-                          {job.urgencyLevel === 'URGENT' && '!!! '}
-                          {job.urgencyLevel === 'HIGH' && '!! '}
-                          {job.urgencyLevel}
-                        </span>
-                      </div>
-                      <h3 className="mt-2 text-lg font-medium text-white">
-                        {job.title}
-                      </h3>
-                      <p className="mt-1 text-sm text-gray-400 line-clamp-2">
-                        {job.description}
-                      </p>
-                      {/* Store Details */}
-                      <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-sm">
-                        <div className="flex items-center text-gray-400 sm:col-span-2">
-                          <span className="text-gray-500 w-20 flex-shrink-0">Store</span>
-                          <span className="text-white">{formatStore(job.incident?.store)}</span>
-                        </div>
-                        {job.incident?.store?.address && (
-                          <div className="flex items-start text-gray-400 sm:col-span-2">
-                            <span className="text-gray-500 w-20 flex-shrink-0">Address</span>
-                            <span className="text-white">{job.incident.store.address}</span>
-                          </div>
-                        )}
-                        {job.incident?.store?.province && (
-                          <div className="flex items-center text-gray-400">
-                            <span className="text-gray-500 w-20 flex-shrink-0">Province</span>
-                            <span className="text-white">{job.incident.store.province}</span>
-                          </div>
-                        )}
-                        {job.incident?.store?.googleMapLink && (
-                          <div className="flex items-center text-gray-400">
-                            <span className="text-gray-500 w-20 flex-shrink-0">Map</span>
-                            <a
-                              href={job.incident.store.googleMapLink}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="text-blue-400 hover:text-blue-300 flex items-center gap-1 transition"
-                            >
-                              Google Map <ExternalLink className="h-3 w-3" />
-                            </a>
-                          </div>
-                        )}
-                        {job.agreedPrice && (
-                          <div className="flex items-center text-gray-400">
-                            <span className="text-gray-500 w-20 flex-shrink-0">ราคาจ้าง</span>
-                            <span className="text-emerald-400 font-semibold">{Number(job.agreedPrice).toLocaleString()} บาท</span>
-                          </div>
-                        )}
-                      </div>
-                      {job.deadline && (
-                        <div className="mt-2 flex items-center gap-1 text-sm text-gray-400">
-                          <Clock className="h-4 w-4" />
-                          นัดเข้างาน: {formatDate(job.deadline)}
-                        </div>
-                      )}
-                      {job.verifiedAt && (
-                        <div className="mt-2 flex items-center gap-2 text-sm">
-                          <div className="flex items-center gap-1 text-teal-400">
-                            <CheckCircle2 className="h-4 w-4" />
-                            ตรวจสอบเอกสาร: {formatDate(job.verifiedAt)}
-                          </div>
-                          {(() => {
-                            const days = Math.floor((Date.now() - new Date(job.verifiedAt).getTime()) / (1000 * 60 * 60 * 24))
-                            return (
-                              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                                days >= 30
-                                  ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                                  : 'bg-slate-600/50 text-gray-300'
-                              }`}>
-                                {days} วันแล้ว
-                              </span>
-                            )
-                          })()}
-                        </div>
-                      )}
-                    </div>
+                      ) : null
+                    })()}
+                    <span className={`text-xs font-medium ${urgencyColors[job.urgencyLevel]}`}>
+                      {job.urgencyLevel === 'URGENT' && '!!! '}
+                      {job.urgencyLevel === 'HIGH' && '!! '}
+                      {job.urgencyLevel}
+                    </span>
+                  </div>
+
+                  {/* Title + awarded */}
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="text-base sm:text-lg font-medium text-white leading-snug">{job.title}</h3>
                     {job.awardedTo && (
-                      <div className="ml-4 text-right">
+                      <div className="shrink-0 text-right">
                         <p className="text-xs text-gray-500">ผู้รับงาน</p>
-                        <p className="text-sm font-medium text-white">
+                        <p className="text-xs sm:text-sm font-medium text-white whitespace-nowrap">
                           {job.awardedTo.firstName} {job.awardedTo.lastName}
                         </p>
+                      </div>
+                    )}
+                  </div>
+
+                  <p className="mt-1 text-sm text-gray-400 line-clamp-2">{job.description}</p>
+
+                  {/* Store Details */}
+                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-y-1 gap-x-6 text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-500 w-16 shrink-0 text-xs">Store</span>
+                      <span className="text-white text-xs sm:text-sm">{formatStore(job.incident?.store)}</span>
+                    </div>
+                    {job.incident?.store?.province && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-500 w-16 shrink-0 text-xs">จังหวัด</span>
+                        <span className="text-white text-xs sm:text-sm">{job.incident.store.province}</span>
+                      </div>
+                    )}
+                    {job.incident?.store?.address && (
+                      <div className="flex items-start gap-2 sm:col-span-2">
+                        <span className="text-gray-500 w-16 shrink-0 text-xs">ที่อยู่</span>
+                        <span className="text-white text-xs sm:text-sm">{job.incident.store.address}</span>
+                      </div>
+                    )}
+                    {job.agreedPrice && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-500 w-16 shrink-0 text-xs">ราคาจ้าง</span>
+                        <span className="text-emerald-400 font-semibold text-xs sm:text-sm">{Number(job.agreedPrice).toLocaleString()} บาท</span>
+                      </div>
+                    )}
+                    {job.incident?.store?.googleMapLink && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-500 w-16 shrink-0 text-xs">Map</span>
+                        <a
+                          href={job.incident.store.googleMapLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-blue-400 hover:text-blue-300 flex items-center gap-1 transition text-xs sm:text-sm"
+                        >
+                          Google Map <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Footer row */}
+                  <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1">
+                    {job.deadline && (
+                      <div className="flex items-center gap-1 text-xs text-gray-400">
+                        <Clock className="h-3.5 w-3.5" />
+                        นัดเข้างาน: {formatDate(job.deadline)}
+                      </div>
+                    )}
+                    {job.verifiedAt && (
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1 text-teal-400 text-xs">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          ตรวจสอบเอกสาร: {formatDate(job.verifiedAt)}
+                        </div>
+                        {(() => {
+                          const days = Math.floor((Date.now() - new Date(job.verifiedAt).getTime()) / (1000 * 60 * 60 * 24))
+                          return (
+                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                              days >= 30
+                                ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                                : 'bg-slate-600/50 text-gray-300'
+                            }`}>
+                              {days} วันแล้ว
+                            </span>
+                          )
+                        })()}
                       </div>
                     )}
                   </div>
