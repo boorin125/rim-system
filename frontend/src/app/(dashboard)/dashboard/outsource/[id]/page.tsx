@@ -84,6 +84,13 @@ export default function OutsourceJobDetailPage() {
   const token = () => localStorage.getItem('token')
   const config = () => ({ headers: { Authorization: `Bearer ${token()}` } })
 
+  const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api').replace('/api', '')
+  const fileUrl = (path: string | null | undefined) => {
+    if (!path) return ''
+    if (path.startsWith('http')) return path
+    return `${API_BASE}${path}`
+  }
+
   const highestRole = getHighestRole(user) || ''
   // Role flags derived from highest-ranking role so multi-role users always
   // behave according to their most privileged role.
@@ -412,7 +419,7 @@ export default function OutsourceJobDetailPage() {
       )}
 
       {/* Submitted Documents Display (for Finance/Admin — outsource tech sees DocumentSubmissionSection) */}
-      {job.status === 'DOCUMENT_SUBMITTED' && !(isTechnician && isAwarded) && (
+      {['DOCUMENT_SUBMITTED', 'VERIFIED', 'PAID'].includes(job.status) && !(isTechnician && isAwarded) && (
         <div className="bg-slate-800/70 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-6">
           <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <FileText className="h-5 w-5 text-cyan-400" /> เอกสารที่ส่ง
@@ -421,16 +428,18 @@ export default function OutsourceJobDetailPage() {
             {job.documentSlipPath && (
               <div>
                 <p className="text-sm text-gray-400 mb-2">สลิป</p>
-                <a href={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '')}${job.documentSlipPath}`} target="_blank" rel="noopener noreferrer">
-                  <img src={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '')}${job.documentSlipPath}`} alt="สลิป" className="max-h-48 rounded-lg border border-slate-600 hover:border-blue-500 transition" />
+                <a href={fileUrl(job.documentSlipPath)} target="_blank" rel="noopener noreferrer">
+                  <img src={fileUrl(job.documentSlipPath)} alt="สลิป" className="max-h-48 rounded-lg border border-slate-600 hover:border-blue-500 transition"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display='none'; (e.target as HTMLImageElement).parentElement!.innerHTML += '<p class="text-xs text-red-400 mt-1">โหลดรูปไม่ได้</p>' }} />
                 </a>
               </div>
             )}
             {job.documentWorkOrderPath && (
               <div>
                 <p className="text-sm text-gray-400 mb-2">ใบงาน</p>
-                <a href={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '')}${job.documentWorkOrderPath}`} target="_blank" rel="noopener noreferrer">
-                  <img src={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '')}${job.documentWorkOrderPath}`} alt="ใบงาน" className="max-h-48 rounded-lg border border-slate-600 hover:border-blue-500 transition" />
+                <a href={fileUrl(job.documentWorkOrderPath)} target="_blank" rel="noopener noreferrer">
+                  <img src={fileUrl(job.documentWorkOrderPath)} alt="ใบงาน" className="max-h-48 rounded-lg border border-slate-600 hover:border-blue-500 transition"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display='none'; (e.target as HTMLImageElement).parentElement!.innerHTML += '<p class="text-xs text-red-400 mt-1">โหลดรูปไม่ได้</p>' }} />
                 </a>
               </div>
             )}
@@ -440,8 +449,9 @@ export default function OutsourceJobDetailPage() {
               <p className="text-sm text-gray-400 mb-2">รูปเพิ่มเติม ({job.documentPhotos.length} รูป)</p>
               <div className="flex flex-wrap gap-3">
                 {job.documentPhotos.map((p: string, i: number) => (
-                  <a key={i} href={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '')}${p}`} target="_blank" rel="noopener noreferrer">
-                    <img src={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '')}${p}`} alt={`Photo ${i+1}`} className="h-24 rounded-lg border border-slate-600 hover:border-blue-500 transition" />
+                  <a key={i} href={fileUrl(p)} target="_blank" rel="noopener noreferrer">
+                    <img src={fileUrl(p)} alt={`Photo ${i+1}`} className="h-24 rounded-lg border border-slate-600 hover:border-blue-500 transition"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display='none' }} />
                   </a>
                 ))}
               </div>
@@ -507,11 +517,16 @@ export default function OutsourceJobDetailPage() {
           {job.paymentSlipPath && (
             <div className="mt-4">
               <p className="text-sm text-gray-400 mb-2">สลิปโอนเงิน</p>
-              <a href={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '')}${job.paymentSlipPath}`} target="_blank" rel="noopener noreferrer" className="block">
+              <a href={fileUrl(job.paymentSlipPath)} target="_blank" rel="noopener noreferrer" className="inline-block">
                 <img
-                  src={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '')}${job.paymentSlipPath}`}
+                  src={fileUrl(job.paymentSlipPath)}
                   alt="สลิปโอนเงิน"
                   className="max-w-xs rounded-lg border border-slate-600 hover:border-blue-500 transition cursor-pointer"
+                  onError={(e) => {
+                    const el = e.target as HTMLImageElement
+                    el.style.display = 'none'
+                    el.parentElement!.insertAdjacentHTML('afterend', `<a href="${fileUrl(job.paymentSlipPath)}" target="_blank" class="text-sm text-blue-400 underline">เปิดลิงก์โดยตรง</a>`)
+                  }}
                 />
               </a>
             </div>
