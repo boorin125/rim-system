@@ -377,14 +377,12 @@ export default function EquipmentPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white">Equipment Management</h1>
-          <p className="text-gray-400 mt-1">
-            จัดการอุปกรณ์ IT ทั้งหมดในระบบ
-          </p>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Equipment Management</h1>
+          <p className="text-gray-400 mt-1">จัดการอุปกรณ์ IT ทั้งหมดในระบบ</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           {viewOnly && (
             <span className="px-3 py-1.5 bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded-lg text-sm font-medium">
               View Only
@@ -395,10 +393,10 @@ export default function EquipmentPage() {
           {isItManager && (
             <button
               onClick={() => router.push('/dashboard/equipment/retirement-requests')}
-              className="flex items-center gap-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 rounded-lg transition duration-200"
+              className="flex items-center gap-2 px-3 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 rounded-lg transition duration-200 text-sm"
               title="คำขอปลดระวางอุปกรณ์"
             >
-              <Trash2 className="w-5 h-5" />
+              <Trash2 className="w-4 h-4 shrink-0" />
               <span className="hidden sm:inline">คำขอปลดระวาง</span>
             </button>
           )}
@@ -407,10 +405,10 @@ export default function EquipmentPage() {
           {!viewOnly && (
             <button
               onClick={() => setShowImportModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white rounded-lg transition duration-200"
+              className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white rounded-lg transition duration-200 text-sm"
               title="จัดการ Inventory (Import/Export)"
             >
-              <Download className="w-5 h-5" />
+              <Download className="w-4 h-4 shrink-0" />
               <span className="hidden sm:inline">Inventory</span>
             </button>
           )}
@@ -419,11 +417,11 @@ export default function EquipmentPage() {
           {canCreate && !viewOnly && (
             <button
               onClick={() => router.push('/dashboard/equipment/new')}
-              className="flex items-center space-x-2 px-4 py-2 text-white rounded-lg transition hover:brightness-110"
+              className="flex items-center gap-2 px-3 py-2 text-white rounded-lg transition hover:brightness-110 text-sm"
               style={{ backgroundColor: themeHighlight }}
             >
-              <Plus className="w-5 h-5" />
-              <span>เพิ่มอุปกรณ์</span>
+              <Plus className="w-4 h-4 shrink-0" />
+              <span className="hidden sm:inline">เพิ่มอุปกรณ์</span>
             </button>
           )}
         </div>
