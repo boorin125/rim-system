@@ -87,30 +87,30 @@ const warrantyConfig: Record<string, { label: string; color: string }> = {
 
 type TabKey = 'ACTIVE' | 'INACTIVE' | 'RETIRED'
 
-const TABS: { key: TabKey; label: string; statusFilter: string; icon: React.ComponentType<any>; color: string; activeClass: string }[] = [
+const TABS: { key: TabKey; label: string; statusFilter: string; icon: React.ComponentType<any>; activeTextColor: string; activeBorderColor: string }[] = [
   {
     key: 'ACTIVE',
     label: 'Active',
     statusFilter: 'ACTIVE,MAINTENANCE',
     icon: CheckCircle,
-    color: 'text-green-400',
-    activeClass: 'border-green-400 text-green-400 bg-green-500/10',
+    activeTextColor: 'text-green-400',
+    activeBorderColor: 'border-green-400',
   },
   {
     key: 'INACTIVE',
     label: 'Inactive',
     statusFilter: 'INACTIVE',
     icon: AlertCircle,
-    color: 'text-gray-400',
-    activeClass: 'border-gray-400 text-gray-300 bg-gray-500/10',
+    activeTextColor: 'text-gray-300',
+    activeBorderColor: 'border-gray-400',
   },
   {
     key: 'RETIRED',
     label: 'ปลดระวาง',
     statusFilter: 'RETIRED',
     icon: ArchiveX,
-    color: 'text-red-400',
-    activeClass: 'border-red-400 text-red-400 bg-red-500/10',
+    activeTextColor: 'text-red-400',
+    activeBorderColor: 'border-red-400',
   },
 ]
 
@@ -430,25 +430,27 @@ export default function EquipmentPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-slate-800/60 p-1 rounded-xl w-fit border border-slate-700/50">
-        {TABS.map((tab) => {
-          const Icon = tab.icon
-          const isActive = activeTab === tab.key
-          return (
-            <button
-              key={tab.key}
-              onClick={() => handleTabChange(tab.key)}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all border ${
-                isActive
-                  ? tab.activeClass + ' border-opacity-50'
-                  : 'border-transparent text-gray-500 hover:text-gray-300 hover:bg-slate-700/50'
-              }`}
-            >
-              <Icon className={`w-4 h-4 ${isActive ? '' : 'opacity-60'}`} />
-              {tab.label}
-            </button>
-          )
-        })}
+      <div className="border-b border-gray-700/50 overflow-x-auto scrollbar-hide">
+        <nav className="flex gap-1 min-w-max">
+          {TABS.map((tab) => {
+            const Icon = tab.icon
+            const isActive = activeTab === tab.key
+            return (
+              <button
+                key={tab.key}
+                onClick={() => handleTabChange(tab.key)}
+                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors -mb-px ${
+                  isActive
+                    ? `${tab.activeBorderColor} ${tab.activeTextColor}`
+                    : 'border-transparent text-gray-400 hover:text-white hover:border-gray-500'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                {tab.label}
+              </button>
+            )
+          })}
+        </nav>
       </div>
 
       {/* Filters */}
