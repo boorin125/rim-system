@@ -24,31 +24,38 @@ export function usePushNotification() {
 
     ;(async () => {
       try {
+        console.log('[Push] Starting registration...')
         // 1. Register service worker
         const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' })
         await navigator.serviceWorker.ready
+        console.log('[Push] Service worker ready')
 
         // 2. Check current permission — don't ask if already denied
+        console.log('[Push] Permission:', Notification.permission)
         if (Notification.permission === 'denied') return
 
         // 3. Fetch VAPID public key from server
         const keyRes = await fetch(`${API_URL}/push/vapid-public-key`, {
           headers: { Authorization: `Bearer ${token}` },
         })
+        console.log('[Push] VAPID key response:', keyRes.status)
         if (!keyRes.ok) return
         const { publicKey } = await keyRes.json()
+        console.log('[Push] Got public key:', !!publicKey)
         if (!publicKey) return
 
         // 4. Check if already subscribed with same key
         const existingSub = await reg.pushManager.getSubscription()
+        console.log('[Push] Existing subscription:', !!existingSub)
         if (existingSub) {
-          // Re-send to backend in case it was lost (e.g. new device session)
           await sendSubscriptionToServer(existingSub, token)
           return
         }
 
         // 5. Request permission (shows browser prompt)
+        console.log('[Push] Requesting permission...')
         const permission = await Notification.requestPermission()
+        console.log('[Push] Permission result:', permission)
         if (permission !== 'granted') return
 
         // 6. Subscribe
@@ -59,8 +66,9 @@ export function usePushNotification() {
 
         // 7. Send subscription to our backend
         await sendSubscriptionToServer(subscription, token)
-      } catch {
-        // Silent — push is non-critical
+        console.log('[Push] Subscribed successfully')
+      } catch (err) {
+        console.error('[Push] Error:', err)
       }
     })()
   }, [])
