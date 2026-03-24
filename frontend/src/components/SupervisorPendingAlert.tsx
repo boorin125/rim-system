@@ -52,6 +52,7 @@ export default function SupervisorPendingAlert({ userId, onDismiss }: Props) {
   const [loading, setLoading] = useState(true)
   const [checkedAt, setCheckedAt] = useState(new Date())
   const [slaNames, setSlaNames] = useState<Record<string, string>>({})
+  const [themeHighlight, setThemeHighlight] = useState('#f59e0b')
   const [isDark, setIsDark] = useState(() =>
     typeof window === 'undefined' || !document.documentElement.classList.contains('light')
   )
@@ -61,6 +62,17 @@ export default function SupervisorPendingAlert({ userId, onDismiss }: Props) {
       setIsDark(!document.documentElement.classList.contains('light'))
     )
     obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => obs.disconnect()
+  }, [])
+
+  useEffect(() => {
+    const readHighlight = () => {
+      const val = getComputedStyle(document.documentElement).getPropertyValue('--theme-highlight').trim()
+      if (val) setThemeHighlight(val)
+    }
+    readHighlight()
+    const obs = new MutationObserver(readHighlight)
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] })
     return () => obs.disconnect()
   }, [])
 
@@ -309,7 +321,10 @@ export default function SupervisorPendingAlert({ userId, onDismiss }: Props) {
           </button>
           <button
             onClick={handleDismiss}
-            className="flex items-center gap-2 px-5 py-2 text-sm bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium transition-colors"
+            className="flex items-center gap-2 px-5 py-2 text-sm text-white rounded-lg font-medium transition-all"
+            style={{ backgroundColor: themeHighlight }}
+            onMouseEnter={e => (e.currentTarget.style.filter = 'brightness(0.88)')}
+            onMouseLeave={e => (e.currentTarget.style.filter = '')}
           >
             <CheckCheck className="w-4 h-4" />
             รับทราบ
