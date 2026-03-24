@@ -32,7 +32,6 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   const pathname = usePathname()
   const interceptorsSet = useRef(false)
   const logoutShown = useRef(false)
-  const sessionWarnShown = useRef(false)
 
   // Handle logout - clear storage and redirect
   const handleLogout = useCallback((reason?: string) => {
@@ -137,7 +136,6 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
             localStorage.setItem('user', JSON.stringify(user))
             if (sessionExpiresAt) {
               localStorage.setItem('sessionExpiresAt', sessionExpiresAt)
-              sessionWarnShown.current = false // reset warning for new session window
             }
 
             // Update authorization header
@@ -198,15 +196,8 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         const minLeft = msLeft / 60000
 
         if (msLeft <= 0) {
-          // Session expired — force logout
+          // Session expired — force logout immediately, no warning
           handleLogout('Session หมดอายุแล้ว กรุณาเข้าสู่ระบบใหม่')
-        } else if (minLeft <= 10 && !sessionWarnShown.current) {
-          sessionWarnShown.current = true
-          const expireStr = expiresAt.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
-          toast(`⚠️ Session จะหมดอายุเวลา ${expireStr} (อีก ${Math.ceil(minLeft)} นาที)`, {
-            duration: 10000,
-            style: { background: '#854d0e', color: '#fef3c7' },
-          })
         }
       }
     }
