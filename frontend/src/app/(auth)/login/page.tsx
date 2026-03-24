@@ -79,7 +79,8 @@ function LoginContent() {
     return `hsl(${Math.round(h * 360)}, ${Math.max(Math.round(s * 100), 30)}%, 42%)`
   }
   const highlightColor = getHighlightColor(branding.theme.bgEnd)
-  const btnStyle = { backgroundColor: highlightColor }
+  // In light mode, use lighter button (55% lightness instead of 42%)
+  const btnStyle = { backgroundColor: isDark ? highlightColor : highlightColor.replace(', 42%)', ', 55%)') }
   const [showPassword, setShowPassword] = useState(false)
   const [showRegPassword, setShowRegPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
@@ -331,7 +332,7 @@ function LoginContent() {
                     <button
                       type="button"
                       onClick={() => setShowForgot(true)}
-                      className="text-sm text-white/80 hover:text-white transition duration-200"
+                      className={`text-sm transition duration-200 ${isDark ? 'text-white/80 hover:text-white' : 'text-slate-500 hover:text-slate-700'}`}
                     >
                       ลืมรหัสผ่าน?
                     </button>
@@ -352,13 +353,14 @@ function LoginContent() {
                   </button>
 
                   {/* Register Link */}
-                  <div className="text-center pt-4 border-t border-gray-700/50">
-                    <p className="text-gray-400">
+                  <div className={`text-center pt-4 border-t ${isDark ? 'border-gray-700/50' : 'border-slate-300/70'}`}>
+                    <p className={isDark ? 'text-gray-400' : 'text-slate-500'}>
                       ยังไม่มีบัญชี?{' '}
                       <button
                         type="button"
                         onClick={() => setIsFlipped(true)}
-                        className="font-medium text-white hover:text-white/70 transition duration-200"
+                        className={`font-medium transition duration-200 ${isDark ? 'text-white hover:text-white/70' : 'hover:opacity-70'}`}
+                        style={isDark ? {} : { color: btnStyle.backgroundColor }}
                       >
                         สมัครสมาชิก
                       </button>
@@ -565,13 +567,14 @@ function LoginContent() {
                   </button>
 
                   {/* Back to Login */}
-                  <div className="text-center pt-4 border-t border-gray-700/50">
-                    <p className="text-gray-400">
+                  <div className={`text-center pt-4 border-t ${isDark ? 'border-gray-700/50' : 'border-slate-300/70'}`}>
+                    <p className={isDark ? 'text-gray-400' : 'text-slate-500'}>
                       มีบัญชีอยู่แล้ว?{' '}
                       <button
                         type="button"
                         onClick={() => setIsFlipped(false)}
-                        className="font-medium text-white hover:text-white/70 transition duration-200"
+                        className={`font-medium transition duration-200 ${isDark ? 'text-white hover:text-white/70' : 'hover:opacity-70'}`}
+                        style={isDark ? {} : { color: btnStyle.backgroundColor }}
                       >
                         เข้าสู่ระบบ
                       </button>
@@ -624,11 +627,12 @@ function LoginContent() {
                   </button>
 
                   {/* Back to Login */}
-                  <div className="text-center pt-4 border-t border-gray-700/50">
+                  <div className={`text-center pt-4 border-t ${isDark ? 'border-gray-700/50' : 'border-slate-300/70'}`}>
                     <button
                       type="button"
                       onClick={() => setShowForgot(false)}
-                      className="font-medium text-white hover:text-white/70 transition duration-200"
+                      className={`font-medium transition duration-200 ${isDark ? 'text-white hover:text-white/70' : 'hover:opacity-70'}`}
+                      style={isDark ? {} : { color: btnStyle.backgroundColor }}
                     >
                       ← กลับสู่หน้าเข้าสู่ระบบ
                     </button>
