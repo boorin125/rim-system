@@ -59,13 +59,21 @@ export class IncidentsService {
   }
 
   /**
-   * Helper to check if user ONLY has a specific role (no other roles)
+   * Helper to check if user's HIGHEST-privilege role is the given role.
+   * Ignores low-privilege roles like READ_ONLY / END_USER that may co-exist.
    */
+  private readonly ROLE_RANK: Record<string, number> = {
+    SUPER_ADMIN: 8, IT_MANAGER: 7, FINANCE_ADMIN: 6,
+    SUPERVISOR: 5, HELP_DESK: 4, TECHNICIAN: 3, END_USER: 2, READ_ONLY: 1,
+  };
+
   private hasOnlyRole(user: any, role: UserRole): boolean {
-    if (Array.isArray(user.roles)) {
-      return user.roles.length === 1 && user.roles.includes(role);
-    }
-    return user.role === role;
+    const roles: string[] = Array.isArray(user.roles) ? user.roles : (user.role ? [user.role] : []);
+    if (roles.length === 0) return false;
+    const highest = roles.reduce((best, r) =>
+      (this.ROLE_RANK[r] ?? 0) > (this.ROLE_RANK[best] ?? 0) ? r : best
+    );
+    return highest === role;
   }
 
   /**
@@ -841,9 +849,12 @@ export class IncidentsService {
   async findAll(filterDto: any, user: any) {
     const where: any = {};
 
-    // TECHNICIAN: Only see assigned incidents (via junction table)
+    // TECHNICIAN: Only see assigned incidents (junction table OR legacy assigneeId)
     if (this.hasOnlyRole(user, UserRole.TECHNICIAN)) {
-      where.assignees = { some: { userId: user.id } };
+      where.OR = [
+        { assignees: { some: { userId: user.id } } },
+        { assigneeId: user.id },
+      ];
     }
 
     // SUPERVISOR: Only see incidents with resolutionType = ONSITE or already past OPEN status
@@ -879,7 +890,10 @@ export class IncidentsService {
       const requestedId = parseInt(filterDto.assigneeId);
       // Technician can only filter by their own ID (cannot query other users)
       if (this.hasOnlyRole(user, UserRole.TECHNICIAN)) {
-        where.assignees = { some: { userId: user.id } };
+        where.OR = [
+          { assignees: { some: { userId: user.id } } },
+          { assigneeId: user.id },
+        ];
       } else {
         where.assignees = { some: { userId: requestedId } };
       }
