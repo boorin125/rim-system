@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus, Trash2, Package, Camera, AlertCircle, Search, Cpu, ArrowRightLeft } from 'lucide-react';
 import axios from 'axios';
+import BarcodeScannerModal from './BarcodeScannerModal';
 
 export interface SparePart {
   id: string;
@@ -65,7 +66,7 @@ export default function SparePartForm({
   storeId,
   incidentEquipmentIds,
 }: SparePartFormProps) {
-  const [scanningFor, setScanningFor] = useState<{ partId: string; field: 'oldSerialNo' | 'newSerialNo' } | null>(null);
+  const [scanningFor, setScanningFor] = useState<{ partId: string; field: 'oldSerialNo' | 'newSerialNo' | 'oldComponentSerial' | 'newComponentSerial' } | null>(null);
 
   // Store equipment list for Device dropdown
   const [storeEquipment, setStoreEquipment] = useState<DeviceSuggestion[]>([]);
@@ -123,6 +124,24 @@ export default function SparePartForm({
           ? mapped.filter(d => incidentEquipmentIds.includes(d.id))
           : mapped;
         setFilteredStoreEquipment(filtered);
+
+        // Auto-select if only 1 device
+        if (filtered.length === 1) {
+          const d = filtered[0];
+          const parts: string[] = [];
+          if (d.position) parts.push(d.position);
+          if (d.brand) parts.push(d.brand);
+          if (d.model) parts.push(d.model);
+          if (parts.length === 0) parts.push(d.name);
+          const displayName = parts.join(' ');
+          onChange(
+            spareParts.map(p =>
+              p.repairType === 'EQUIPMENT_REPLACEMENT' && !p.selectedDeviceId
+                ? { ...p, selectedDeviceId: d.id, oldDeviceName: displayName, oldSerialNo: d.serialNumber || '', oldEquipmentId: d.id, newDeviceName: p.newDeviceName || d.name }
+                : p
+            )
+          );
+        }
       } catch (error) {
         console.error('Failed to fetch store equipment:', error);
       } finally {
@@ -205,23 +224,22 @@ export default function SparePartForm({
     return storeEquipment.find(d => d.id === part.selectedDeviceId)?.category;
   };
 
-  // Fetch distinct brand suggestions for a category
+  // Fetch distinct brand suggestions for a category (fetch all, filter client-side)
   const fetchBrandSuggestions = async (partId: string, query: string) => {
     const category = getOldDeviceCategory(partId);
-    if (!query) { setShowBrandDropdown(null); return; }
     try {
       const token = localStorage.getItem('token');
-      const params: any = { limit: 200 };
+      const params: any = { limit: 500 };
       if (category) params.category = category;
-      if (query) params.brand = query;
       const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/equipment`, {
         params,
         headers: { Authorization: `Bearer ${token}` },
       });
       const list = res.data?.data || [];
-      const brands = [...new Set<string>(list.map((e: any) => e.brand).filter(Boolean))].sort();
-      setBrandSuggestions(prev => ({ ...prev, [partId]: brands }));
-      setShowBrandDropdown(brands.length > 0 ? partId : null);
+      const allBrands = [...new Set<string>(list.map((e: any) => e.brand).filter(Boolean))].sort();
+      const filtered = query ? allBrands.filter(b => b.toLowerCase().includes(query.toLowerCase())) : allBrands;
+      setBrandSuggestions(prev => ({ ...prev, [partId]: filtered }));
+      setShowBrandDropdown(filtered.length > 0 ? partId : null);
     } catch { setShowBrandDropdown(null); }
   };
 
@@ -400,67 +418,26 @@ export default function SparePartForm({
     );
   };
 
-  const handleScanBarcode = async (partId: string, field: 'oldSerialNo' | 'newSerialNo') => {
-    if (!('BarcodeDetector' in window)) {
-      alert('Barcode scanning is not supported in this browser. Please enter serial number manually.');
-      return;
-    }
+  const handleScanBarcode = (partId: string, field: 'oldSerialNo' | 'newSerialNo' | 'oldComponentSerial' | 'newComponentSerial') => {
+    setScanningFor({ partId, field });
+  };
 
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment' } 
-      });
-
-      const video = document.createElement('video');
-      video.srcObject = stream;
-      video.setAttribute('playsinline', 'true');
-      await video.play();
-
-      const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
-
-      const barcodeDetector = new (window as any).BarcodeDetector({
-        formats: ['code_128', 'code_39', 'ean_13', 'qr_code']
-      });
-
-      setScanningFor({ partId, field });
-
-      const scanLoop = async () => {
-        if (!context) return;
-
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-        try {
-          const barcodes = await barcodeDetector.detect(canvas);
-          
-          if (barcodes.length > 0) {
-            const barcode = barcodes[0];
-            updateSparePart(partId, field, barcode.rawValue);
-            
-            stream.getTracks().forEach(track => track.stop());
-            setScanningFor(null);
-            return;
-          }
-        } catch (err) {
-          console.error('Barcode detection error:', err);
-        }
-
-        requestAnimationFrame(scanLoop);
-      };
-
-      scanLoop();
-
-    } catch (err) {
-      console.error('Camera access error:', err);
-      alert('Could not access camera. Please check permissions and try again.');
-      setScanningFor(null);
-    }
+  const handleBarcodeDetected = (value: string) => {
+    if (!scanningFor) return;
+    updateSparePart(scanningFor.partId, scanningFor.field, value);
+    setScanningFor(null);
   };
 
   return (
     <div className="space-y-4">
+      {/* Barcode Scanner Modal */}
+      <BarcodeScannerModal
+        isOpen={!!scanningFor}
+        label="สแกน Serial Number"
+        onDetect={handleBarcodeDetected}
+        onClose={() => setScanningFor(null)}
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -744,28 +721,45 @@ export default function SparePartForm({
                     <Package className="w-4 h-4" />
                     เลือก Device ที่ต้องการเปลี่ยน
                   </h5>
-                  <select
-                    value={part.selectedDeviceId || ''}
-                    onChange={(e) => handleDeviceSelect(part.id, e.target.value ? Number(e.target.value) : '')}
-                    disabled={disabled || loadingStoreEquipment}
-                    className="w-full px-3 py-2.5 text-sm bg-slate-700/50 border border-slate-600/50 text-white rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent disabled:bg-slate-800/30 disabled:cursor-not-allowed"
-                  >
-                    <option value="">-- เลือก Device --</option>
-                    {filteredStoreEquipment.map((device) => (
-                      <option key={device.id} value={device.id}>
-                        {device.name}
-                        {device.brand || device.model
-                          ? ` — ${[device.brand, device.model].filter(Boolean).join(' ')}`
-                          : ''}
-                        {device.serialNumber ? ` (S/N: ${device.serialNumber})` : ''}
-                      </option>
-                    ))}
-                  </select>
-                  {loadingStoreEquipment && (
-                    <p className="text-xs text-yellow-300 mt-1">กำลังโหลดข้อมูล Equipment...</p>
-                  )}
-                  {!loadingStoreEquipment && filteredStoreEquipment.length === 0 && (
-                    <p className="text-xs text-gray-400 mt-1">ไม่พบ Equipment ในสาขานี้ — สามารถกรอกข้อมูลเองได้</p>
+                  {loadingStoreEquipment ? (
+                    <p className="text-xs text-yellow-300">กำลังโหลดข้อมูล Equipment...</p>
+                  ) : filteredStoreEquipment.length === 0 ? (
+                    <p className="text-xs text-gray-400">ไม่พบ Equipment ในสาขานี้ — สามารถกรอกข้อมูลเองได้</p>
+                  ) : filteredStoreEquipment.length === 1 ? (
+                    // Single device — show as static badge
+                    <div className="flex items-center gap-2 p-2 bg-yellow-900/30 border border-yellow-600/40 rounded-lg">
+                      <Package className="w-4 h-4 text-yellow-400 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white truncate">
+                          {filteredStoreEquipment[0].name}
+                          {filteredStoreEquipment[0].brand || filteredStoreEquipment[0].model
+                            ? ` — ${[filteredStoreEquipment[0].brand, filteredStoreEquipment[0].model].filter(Boolean).join(' ')}`
+                            : ''}
+                        </p>
+                        {filteredStoreEquipment[0].serialNumber && (
+                          <p className="text-xs text-yellow-300 font-mono">S/N: {filteredStoreEquipment[0].serialNumber}</p>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    // Multiple devices — dropdown
+                    <select
+                      value={part.selectedDeviceId || ''}
+                      onChange={(e) => handleDeviceSelect(part.id, e.target.value ? Number(e.target.value) : '')}
+                      disabled={disabled}
+                      className="w-full px-3 py-2.5 text-sm bg-slate-700/50 border border-slate-600/50 text-white rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent disabled:bg-slate-800/30 disabled:cursor-not-allowed [&>option]:bg-slate-800 [&>option]:text-white"
+                    >
+                      <option value="">-- เลือก Device --</option>
+                      {filteredStoreEquipment.map((device) => (
+                        <option key={device.id} value={device.id}>
+                          {device.name}
+                          {device.brand || device.model
+                            ? ` — ${[device.brand, device.model].filter(Boolean).join(' ')}`
+                            : ''}
+                          {device.serialNumber ? ` (S/N: ${device.serialNumber})` : ''}
+                        </option>
+                      ))}
+                    </select>
                   )}
                 </div>
               )}
@@ -912,7 +906,7 @@ export default function SparePartForm({
                         fetchBrandSuggestions(part.id, e.target.value);
                       }}
                       onFocus={() => {
-                        if (part.newBrand) fetchBrandSuggestions(part.id, part.newBrand);
+                        fetchBrandSuggestions(part.id, part.newBrand || '');
                       }}
                       disabled={disabled}
                       placeholder="e.g., HP, Dell, Epson"

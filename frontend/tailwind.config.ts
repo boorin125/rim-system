@@ -49,6 +49,7 @@ const config: Config = {
         'slide-in': 'slideIn 0.4s ease-out',
         'flip': 'flip 0.6s ease-out',
         'shimmer': 'shimmer 1.5s infinite',
+        'scan-line': 'scanLine 1.5s ease-in-out infinite',
       },
       keyframes: {
         fadeIn: {
@@ -66,6 +67,11 @@ const config: Config = {
         shimmer: {
           '0%': { transform: 'translateX(-100%)' },
           '100%': { transform: 'translateX(200%)' },
+        },
+        scanLine: {
+          '0%': { top: '8px' },
+          '50%': { top: 'calc(100% - 8px)' },
+          '100%': { top: '8px' },
         },
       },
     },
