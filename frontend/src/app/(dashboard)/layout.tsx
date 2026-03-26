@@ -273,6 +273,8 @@ export default function DashboardLayout({
         )
         if (res.data) {
           setOrgSettings(res.data)
+          // Cache for instant apply on next refresh
+          localStorage.setItem('orgSettings', JSON.stringify(res.data))
         }
       } catch {
         // Use defaults if not found
@@ -282,27 +284,38 @@ export default function DashboardLayout({
 
   }, [router])
 
-  // Dynamic browser tab title + favicon from org settings — re-apply on every navigation
-  useEffect(() => {
-    if (!orgSettings) return
-
-    const appName = orgSettings.organizationName
-      ? `${orgSettings.organizationName} Incident Management`
+  // Helper: apply title + favicon from org settings object
+  const applyBranding = (settings: { organizationName?: string; logoPath?: string }) => {
+    const appName = settings.organizationName
+      ? `${settings.organizationName} Incident Management`
       : 'Incident Management'
     document.title = appName
 
-    // Favicon
-    if (orgSettings.logoPath) {
+    if (settings.logoPath) {
       const API_BASE = (process.env.NEXT_PUBLIC_API_URL || '').replace('/api', '')
-      const logoUrl = orgSettings.logoPath.startsWith('http')
-        ? orgSettings.logoPath
-        : `${API_BASE}${orgSettings.logoPath}`
+      const logoUrl = settings.logoPath.startsWith('http')
+        ? settings.logoPath
+        : `${API_BASE}${settings.logoPath}`
       const existing = document.querySelector("link[rel~='icon']") as HTMLLinkElement
       const link = existing || document.createElement('link')
       link.rel = 'icon'
       link.href = logoUrl
       if (!existing) document.head.appendChild(link)
     }
+  }
+
+  // Apply cached branding immediately on mount (before API responds)
+  useEffect(() => {
+    const cached = localStorage.getItem('orgSettings')
+    if (cached) {
+      try { applyBranding(JSON.parse(cached)) } catch {}
+    }
+  }, [])
+
+  // Re-apply when org settings load from API or on navigation
+  useEffect(() => {
+    if (!orgSettings) return
+    applyBranding(orgSettings)
   }, [orgSettings, pathname])
 
   // Supervisor: show pending incidents alert on login and every hour
