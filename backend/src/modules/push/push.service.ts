@@ -73,11 +73,23 @@ export class PushService implements OnModuleInit {
 
     if (subscriptions.length === 0) return;
 
+    // Resolve org logo for notification icon
+    let orgIcon = payload.icon;
+    if (!orgIcon) {
+      try {
+        const logoSetting = await this.prisma.systemConfig.findUnique({ where: { key: 'organization_logo' } });
+        if (logoSetting?.value) {
+          const appUrl = (process.env.FRONTEND_URL || 'http://localhost').replace(/\/$/, '');
+          orgIcon = `${appUrl}${logoSetting.value}`;
+        }
+      } catch {}
+    }
+
     const message = JSON.stringify({
       title: payload.title,
       body: payload.body,
-      icon: payload.icon || '/icons/icon-192x192.png',
-      badge: payload.badge || '/icons/badge-72x72.png',
+      icon: orgIcon || '/icons/icon-192x192.png',
+      badge: orgIcon || '/icons/badge-72x72.png',
       url: payload.url || '/',
       tag: payload.tag || 'rim-notification',
     });

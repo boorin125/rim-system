@@ -282,6 +282,30 @@ export default function DashboardLayout({
 
   }, [router])
 
+  // Dynamic browser tab title + favicon from org settings
+  useEffect(() => {
+    if (!orgSettings) return
+
+    // Tab title
+    const appName = orgSettings.organizationName
+      ? `${orgSettings.organizationName} Incident Management`
+      : 'Incident Management'
+    document.title = appName
+
+    // Favicon
+    if (orgSettings.logoPath) {
+      const API_BASE = (process.env.NEXT_PUBLIC_API_URL || '').replace('/api', '')
+      const logoUrl = orgSettings.logoPath.startsWith('http')
+        ? orgSettings.logoPath
+        : `${API_BASE}${orgSettings.logoPath}`
+      const existing = document.querySelector("link[rel~='icon']") as HTMLLinkElement
+      const link = existing || document.createElement('link')
+      link.rel = 'icon'
+      link.href = logoUrl
+      if (!existing) document.head.appendChild(link)
+    }
+  }, [orgSettings])
+
   // Supervisor: show pending incidents alert on login and every hour
   useEffect(() => {
     if (!user) return
