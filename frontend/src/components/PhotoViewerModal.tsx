@@ -155,7 +155,7 @@ export default function PhotoViewerModal({
 
       {/* Image Container - click empty area to close */}
       <div
-        className="flex-1 flex items-center justify-center overflow-hidden relative"
+        className="flex-1 relative overflow-auto flex items-center justify-center"
         onClick={(e) => {
           if (e.target === e.currentTarget) onClose()
         }}
@@ -172,23 +172,21 @@ export default function PhotoViewerModal({
         )}
 
         {/* Image */}
-        <div
-          className="overflow-auto max-w-full max-h-full p-4"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) onClose()
+        <img
+          src={currentPhoto}
+          alt={`Photo ${currentIndex + 1}`}
+          className="transition-transform duration-200 select-none"
+          style={{
+            maxWidth: zoom === 1 ? '100%' : 'none',
+            maxHeight: zoom === 1 ? '100%' : 'none',
+            transform: zoom !== 1 ? `scale(${zoom})` : undefined,
+            transformOrigin: 'center center',
+            padding: '1rem',
+            boxSizing: 'border-box',
           }}
-        >
-          <img
-            src={currentPhoto}
-            alt={`Photo ${currentIndex + 1}`}
-            className="max-w-none transition-transform duration-200"
-            style={{
-              transform: `scale(${zoom})`,
-              transformOrigin: 'center center',
-            }}
-            draggable={false}
-          />
-        </div>
+          draggable={false}
+          onClick={(e) => e.stopPropagation()}
+        />
 
         {/* Next Button */}
         {photos.length > 1 && (
