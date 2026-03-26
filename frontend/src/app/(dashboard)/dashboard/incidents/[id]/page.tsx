@@ -191,15 +191,6 @@ export default function IncidentDetailPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Update document title when incident loads
-  useEffect(() => {
-    if (incident) {
-      document.title = `Incident #${incident.ticketNumber || incident.id} - RIM System`
-    }
-    return () => {
-      document.title = 'RIM System'
-    }
-  }, [incident])
 
   // Fetch KB articles when incident loads
   useEffect(() => {

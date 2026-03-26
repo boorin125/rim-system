@@ -282,11 +282,10 @@ export default function DashboardLayout({
 
   }, [router])
 
-  // Dynamic browser tab title + favicon from org settings
+  // Dynamic browser tab title + favicon from org settings — re-apply on every navigation
   useEffect(() => {
     if (!orgSettings) return
 
-    // Tab title
     const appName = orgSettings.organizationName
       ? `${orgSettings.organizationName} Incident Management`
       : 'Incident Management'
@@ -304,7 +303,7 @@ export default function DashboardLayout({
       link.href = logoUrl
       if (!existing) document.head.appendChild(link)
     }
-  }, [orgSettings])
+  }, [orgSettings, pathname])
 
   // Supervisor: show pending incidents alert on login and every hour
   useEffect(() => {
