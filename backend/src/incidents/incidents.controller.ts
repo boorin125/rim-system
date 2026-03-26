@@ -321,7 +321,7 @@ export class IncidentsController {
    * 7. Waits for Help Desk confirmation
    */
   @Post(':id/resolve')
-  @Roles(UserRole.TECHNICIAN)
+  @Roles(UserRole.TECHNICIAN, UserRole.IT_MANAGER)
   resolve(
     @Param('id') id: string,
     @Body() resolveDto: ResolveIncidentDto,
@@ -342,7 +342,7 @@ export class IncidentsController {
    * - Correct resolution note
    */
   @Patch(':id/update-resolve')
-  @Roles(UserRole.TECHNICIAN)
+  @Roles(UserRole.TECHNICIAN, UserRole.IT_MANAGER)
   updateResolve(
     @Param('id') id: string,
     @Body() updateDto: UpdateResolveDto,
@@ -357,7 +357,7 @@ export class IncidentsController {
    * Sets techConfirmedAt, sends notification to Help Desk
    */
   @Post(':id/tech-confirm')
-  @Roles(UserRole.TECHNICIAN)
+  @Roles(UserRole.TECHNICIAN, UserRole.IT_MANAGER)
   techConfirmResolve(@Param('id') id: string, @Request() req) {
     return this.incidentsService.techConfirmResolve(id, req.user.id);
   }

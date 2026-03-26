@@ -292,7 +292,7 @@ export default function DashboardPage() {
   const needsAttention = showMyJobs
     ? activeIncidents
         .filter(i => ['ASSIGNED', 'IN_PROGRESS'].includes(i.status) && (
-          Number(i.assigneeId) === userId ||
+          Number((i as any).assignee?.id ?? (i as any).assigneeId) === userId ||
           i.assignees?.some(a => Number(a.user?.id) === userId)
         ))
         .slice(0, 10)
