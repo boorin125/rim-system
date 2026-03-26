@@ -130,7 +130,7 @@ export default function ResponseModal({
     : ''
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+    <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
       <div className="glass-card border border-slate-700/50 rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg max-h-[95vh] flex flex-col animate-fade-in">
         {/* Header */}
         <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-700/50 bg-slate-800/30 rounded-t-2xl">

@@ -597,7 +597,7 @@ export default function EquipmentDetailPage() {
           {/* Image Lightbox */}
           {showImageLightbox && equipment.imagePath && (
             <div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
               onClick={() => setShowImageLightbox(false)}
             >
               <button className="absolute top-4 right-4 p-2 text-white hover:text-gray-300" onClick={() => setShowImageLightbox(false)}>

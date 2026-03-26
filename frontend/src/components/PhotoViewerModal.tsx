@@ -102,7 +102,7 @@ export default function PhotoViewerModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-[60] flex flex-col">
+    <div className="fixed inset-0 bg-black/90 z-[60] flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between p-4 bg-black/50">
         <div className="text-white">

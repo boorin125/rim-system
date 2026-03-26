@@ -506,7 +506,7 @@ export default function UpdateResolveModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 pt-20 sm:pt-4 bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 pt-20 sm:pt-4 bg-black/50">
       {/* ✅ Dark theme glass-card */}
       <div className="glass-card border border-slate-700/50 rounded-xl w-full max-w-4xl max-h-[calc(100vh-88px)] sm:max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}

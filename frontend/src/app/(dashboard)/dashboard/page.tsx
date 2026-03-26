@@ -751,7 +751,7 @@ export default function DashboardPage() {
       const closeFn = () => setShowPendingModal(false)
 
       return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
           <div className="bg-slate-800 border border-slate-600/50 rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[85vh]">
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700/60">

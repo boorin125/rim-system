@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>X-tremeservice Incident Management</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap');
+
+  :root {
+    --primary: #1d4ed8;
+    --primary-light: #eff6ff;
+    --text: #0f172a;
+    --text-2: #334155;
+    --text-3: #64748b;
+    --border: #cbd5e1;
+    --surface: #ffffff;
+    --surface2: #f8fafc;
+    --bg: #f1f5f9;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans Thai', sans-serif;
+    --slide-w: 1280px;
+    --slide-h: 720px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--sans);
+    background: #94a3b8;
+    display: flex; flex-direction: column;
+    align-items: center; gap: 24px;
+    padding: 32px 24px;
+  }
+
+  /* ── SLIDE ── */
+  .slide {
+    width: var(--slide-w);
+    height: var(--slide-h);
+    background: #f0f7ff;
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.25);
+    display: flex; flex-direction: column;
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  /* top bar */
+  .slide-bar {
+    height: 6px; background: var(--primary); flex-shrink: 0;
+  }
+
+  /* header strip */
+  .slide-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 48px; border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .slide-brand {
+    font-family: var(--mono); font-size: 13px; font-weight: 700;
+    color: var(--text); letter-spacing: 0.5px;
+  }
+  .slide-num {
+    font-family: var(--mono); font-size: 12px; color: var(--text-3);
+  }
+
+  /* body */
+  .slide-body {
+    flex: 1; padding: 36px 48px; overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+
+  .sec-label {
+    font-family: var(--mono); font-size: 12px; font-weight: 600;
+    color: var(--primary); letter-spacing: 2px; text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .sec-label::before { content: '// '; opacity: 0.5; }
+
+  .sec-title {
+    font-size: 34px; font-weight: 700; color: var(--text);
+    line-height: 1.2; margin-bottom: 6px;
+  }
+  .sec-title em { font-style: normal; color: var(--primary); }
+  .sec-sub { font-size: 15px; color: var(--text-3); margin-bottom: 24px; }
+
+  /* ── SLIDE 1: HERO ── */
+  .hero-layout {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 48px; align-items: center; flex: 1;
+  }
+  .hero-title {
+    font-size: 48px; font-weight: 700; line-height: 1.15;
+    color: var(--text); margin-bottom: 16px;
+  }
+  .hero-title strong { color: var(--primary); }
+  .hero-desc { font-size: 16px; color: var(--text-2); line-height: 1.8; }
+  .hero-label {
+    font-family: var(--mono); font-size: 12px; color: var(--text-3);
+    letter-spacing: 2px; text-transform: uppercase; margin-bottom: 14px;
+  }
+  .metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .mbox {
+    background: var(--surface2); border: 2px solid var(--border);
+    border-radius: 8px; padding: 20px;
+  }
+  .mbox.blue { background: var(--primary-light); border-color: #93c5fd; }
+  .mnum { font-family: var(--mono); font-size: 40px; font-weight: 700; color: var(--primary); line-height: 1; }
+  .mlabel { font-size: 13px; color: var(--text-3); margin-top: 6px; font-weight: 500; line-height: 1.5; }
+
+  /* ── SLIDE 2: FLOW ── */
+  .flow-box {
+    background: var(--surface); border: 2px solid var(--border);
+    border-radius: 8px; overflow: hidden; margin-bottom: 16px;
+  }
+  .flow-topbar {
+    background: var(--surface2); border-bottom: 1px solid var(--border);
+    padding: 10px 20px; display: flex; align-items: center; gap: 10px;
+  }
+  .dots { display: flex; gap: 6px; }
+  .d { width: 11px; height: 11px; border-radius: 50%; }
+  .flow-topbar-title { font-family: var(--mono); font-size: 12px; color: var(--text-3); }
+  .flow-inner { padding: 20px 24px; display: flex; align-items: center; }
+  .fn {
+    flex: 1; background: var(--surface2); border: 2px solid var(--border);
+    border-radius: 8px; padding: 14px 10px; text-align: center;
+  }
+  .fn.hl { background: var(--primary-light); border-color: #93c5fd; }
+  .fn-ico { font-size: 26px; margin-bottom: 6px; }
+  .fn-t { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+  .fn-r { font-family: var(--mono); font-size: 10px; color: var(--text-3); }
+  .fn-b {
+    display: inline-block; margin-top: 7px;
+    font-family: var(--mono); font-size: 10px; font-weight: 700;
+    padding: 2px 8px; border-radius: 3px;
+  }
+  .b-g { background: #d1fae5; color: #065f46; }
+  .b-b { background: #dbeafe; color: #1e40af; }
+  .b-a { background: #fef3c7; color: #92400e; }
+  .fa { flex-shrink: 0; padding: 0 6px; color: #94a3b8; font-size: 18px; margin-top: -18px; }
+
+  .saving3 {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 1px; background: var(--border);
+    border: 2px solid var(--border); border-radius: 8px; overflow: hidden;
+  }
+  .scell { background: var(--surface); padding: 14px 16px; }
+  .sc-l { font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--primary); margin-bottom: 5px; letter-spacing: 1px; text-transform: uppercase; }
+  .sc-v { font-size: 13px; font-weight: 500; color: var(--text); line-height: 1.6; }
+
+  /* ── SLIDE 3: STAT ── */
+  .stat-layout {
+    display: flex; align-items: center; justify-content: center;
+    flex: 1; gap: 80px;
+  }
+  .big-num {
+    font-family: var(--mono); font-size: 140px; font-weight: 700;
+    color: var(--primary); line-height: 1;
+  }
+  .big-num span { font-size: 70px; }
+  .stat-right { max-width: 480px; }
+  .stat-year {
+    font-family: var(--mono); font-size: 13px; font-weight: 700;
+    color: var(--primary); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 12px;
+  }
+  .stat-title { font-size: 32px; font-weight: 700; color: var(--text); margin-bottom: 12px; line-height: 1.3; }
+  .stat-desc { font-size: 17px; color: var(--text-2); line-height: 1.8; }
+  .stat-note {
+    margin-top: 20px; background: var(--primary-light); border: 2px solid #93c5fd;
+    border-radius: 8px; padding: 14px 18px;
+    font-size: 15px; color: var(--text-2); line-height: 1.7;
+  }
+
+  /* ── SLIDE 4: STATUS ── */
+  .st-table { border: 2px solid var(--border); border-radius: 8px; overflow: hidden; flex: 1; display: flex; flex-direction: column; }
+  .st-row { display: flex; align-items: stretch; border-bottom: 1px solid var(--border); flex: 1; }
+  .st-row:last-child { border-bottom: none; }
+  .st-row.head { background: var(--surface2); flex: 0 0 52px; }
+  .st-col1 { width: 160px; flex-shrink: 0; padding: 0 14px; border-right: 1px solid var(--border); display: flex; align-items: center; }
+  .st-col2 { flex: 1; padding: 0 16px; display: flex; align-items: center; font-size: 14px; color: var(--text-2); }
+  .st-col3 { width: 140px; flex-shrink: 0; padding: 0 14px; border-left: 1px solid var(--border); display: flex; align-items: center; font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--text-3); }
+  .st-badge {
+    font-family: var(--mono); font-size: 12px; font-weight: 700;
+    padding: 3px 10px; border-radius: 4px; display: inline-block;
+  }
+  .th { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--text-3); letter-spacing: 1px; text-transform: uppercase; }
+
+  /* ── SLIDE 5: ANALYTICS ── */
+  .ana-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; flex: 1; }
+  .acard { background: var(--surface2); border: 2px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .acard-h {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 13px 16px; display: flex; align-items: center; gap: 10px;
+  }
+  .acard-h-ico { font-size: 20px; }
+  .acard-h-t { font-size: 15px; font-weight: 700; }
+  .acard-b { padding: 14px 16px; }
+  .acard-desc { font-size: 13px; color: var(--text-2); margin-bottom: 12px; line-height: 1.6; }
+  .aitem { display: flex; gap: 10px; font-size: 13px; color: var(--text-2); padding: 7px 10px; background: var(--surface); border-radius: 5px; border: 1px solid var(--border); margin-bottom: 7px; }
+  .arr { font-family: var(--mono); color: var(--primary); font-weight: 700; flex-shrink: 0; }
+
+  /* ── SLIDE 6: CAPABILITIES ── */
+  .cap-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; flex: 1; }
+  .cap-item {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px 16px; display: flex; gap: 14px; align-items: flex-start;
+  }
+  .cap-num { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--primary); flex-shrink: 0; min-width: 28px; }
+  .cap-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .cap-badge {
+    display: inline-block; font-family: var(--mono); font-size: 10px; font-weight: 600;
+    padding: 1px 8px; border-radius: 3px; margin-bottom: 6px;
+  }
+  .cap-desc { font-size: 12px; color: var(--text-3); line-height: 1.6; }
+
+  /* ── PRINT ── */
+  @media print {
+    body { background: white; padding: 0; gap: 0; }
+    .slide {
+      width: 100vw; height: 100vh;
+      border-radius: 0; box-shadow: none;
+      page-break-after: always;
+      break-after: page;
+    }
+    @page { size: landscape; margin: 0; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════ SLIDE 1 ═══════════════════════════════════ -->
+<div class="slide">
+  <div class="slide-bar"></div>
+  <div class="slide-header">
+    <div class="slide-brand"><span style="color:#dc2626;">X</span>-tremeservice Incident Management</div>
+    <div class="slide-num">01 / 06</div>
+  </div>
+  <div class="slide-body">
+    <div class="hero-layout">
+      <div>
+        <div style="margin-bottom:28px; margin-top:-80px;">
+          <div style="font-size:16px;font-weight:600;color:var(--text-3);letter-spacing:1px;margin-bottom:4px;text-shadow:0 1px 4px rgba(0,0,0,0.1);">Exclusively Developed for</div>
+          <div style="font-family:var(--mono);font-size:56px;font-weight:700;color:var(--primary);letter-spacing:-1px;line-height:1;text-shadow:0 4px 20px rgba(29,78,216,0.35), 0 1px 4px rgba(29,78,216,0.2);">Watsons</div>
+        </div>
+        <div style="font-family:var(--mono);font-size:13px;font-weight:600;color:var(--text-3);letter-spacing:3px;text-transform:uppercase;margin-bottom:10px;">// SYSTEM OVERVIEW</div>
+        <h1 class="hero-title">
+          ลดต้นทุนงานซ่อม<br>
+          ด้วย <strong>การคัดกรอง</strong><br>
+          ก่อน Onsite
+        </h1>
+        <p class="hero-desc">
+          ระบบบริหารจัดการงานซ่อมและแจ้งเหตุ ออกแบบมาเพื่อ
+          คัดกรองงานก่อนส่งช่างออกพื้นที่ วิเคราะห์ปัญหาที่เกิดซ้ำ
+          และติดตามสถานะงานแบบ Real-time
+        </p>
+      </div>
+      <div class="metrics-grid">
+        <div class="mbox blue">
+          <div class="mnum">2</div>
+          <div class="mlabel">ด่านคัดกรองก่อน Onsite<br>(Helpdesk + Supervisor)</div>
+        </div>
+        <div class="mbox">
+          <div class="mnum">360°</div>
+          <div class="mlabel">วิเคราะห์ปัญหา<br>รายสาขา รายอุปกรณ์</div>
+        </div>
+        <div class="mbox">
+          <div class="mnum">RT</div>
+          <div class="mlabel">Real-time Tracking<br>และแจ้งเตือนอัตโนมัติ</div>
+        </div>
+        <div class="mbox blue">
+          <div class="mnum">PDF</div>
+          <div class="mlabel">Service Report<br>สร้างอัตโนมัติ</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ SLIDE 2 ═══════════════════════════════════ -->
+<div class="slide">
+  <div class="slide-bar"></div>
+  <div class="slide-header">
+    <div class="slide-brand"><span style="color:#dc2626;">X</span>-tremeservice Incident Management</div>
+    <div class="slide-num">02 / 06</div>
+  </div>
+  <div class="slide-body">
+    <div class="sec-label">CORE FLOW</div>
+    <div class="sec-title">กระบวนการคัดกรอง <em>2 ชั้น</em></div>
+    <div class="sec-sub">ลด Onsite ที่ไม่จำเป็น ด้วย Helpdesk วิเคราะห์ระยะไกล และ Supervisor สกรีนก่อนอนุมัติ</div>
+
+    <div class="flow-box">
+      <div class="flow-topbar">
+        <div class="dots"><div class="d" style="background:#fca5a5"></div><div class="d" style="background:#fcd34d"></div><div class="d" style="background:#6ee7b7"></div></div>
+        <div class="flow-topbar-title">incident_workflow.process</div>
+      </div>
+      <div class="flow-inner">
+        <div class="fn"><div class="fn-ico">📞</div><div class="fn-t">แจ้งปัญหา</div><div class="fn-r">Helpdesk</div><div class="fn-b b-b">OPEN</div></div>
+        <div class="fa">→</div>
+        <div class="fn hl"><div class="fn-ico">🎧</div><div class="fn-t">วิเคราะห์ระยะไกล</div><div class="fn-r">Helpdesk</div><div class="fn-b b-g">ด่านที่ 1</div></div>
+        <div class="fa">→</div>
+        <div class="fn hl"><div class="fn-ico">👔</div><div class="fn-t">Supervisor สกรีน</div><div class="fn-r">Supervisor</div><div class="fn-b b-a">ด่านที่ 2</div></div>
+        <div class="fa">→</div>
+        <div class="fn"><div class="fn-ico">🔧</div><div class="fn-t">Onsite (จำเป็น)</div><div class="fn-r">Technician</div><div class="fn-b b-b">ASSIGNED</div></div>
+        <div class="fa">→</div>
+        <div class="fn"><div class="fn-ico">📄</div><div class="fn-t">Resolve + SR</div><div class="fn-r">Technician</div><div class="fn-b b-g">RESOLVED</div></div>
+        <div class="fa">→</div>
+        <div class="fn"><div class="fn-ico">✅</div><div class="fn-t">ปิดงาน</div><div class="fn-r">Helpdesk</div><div class="fn-b b-g">CLOSED</div></div>
+      </div>
+    </div>
+
+    <div class="saving3">
+      <div class="scell">
+        <div class="sc-l">ด่านที่ 1 — Helpdesk</div>
+        <div class="sc-v">วินิจฉัยและแก้ไขจากระยะไกล เช่น Reboot, ตั้งค่า, แนะนำการใช้งาน — ปิดงานได้ทันทีโดยไม่ต้องส่งช่าง</div>
+      </div>
+      <div class="scell">
+        <div class="sc-l">ด่านที่ 2 — Supervisor</div>
+        <div class="sc-v">ตรวจสอบด้านเทคนิคเชิงลึก ก่อนอนุมัติ Onsite — มอบหมายช่างที่เหมาะสม หรือส่งเป็น Outsource พิจารณาตามความเร่งด่วนของงาน</div>
+      </div>
+      <div class="scell">
+        <div class="sc-l">ผลลัพธ์</div>
+        <div class="sc-v">ช่างออกพื้นที่เฉพาะงานที่ผ่านการคัดกรองแล้วเท่านั้น ลดค่าเดินทางและเวลาที่สูญเปล่า</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ SLIDE 3 ═══════════════════════════════════ -->
+<div class="slide">
+  <div class="slide-bar"></div>
+  <div class="slide-header">
+    <div class="slide-brand"><span style="color:#dc2626;">X</span>-tremeservice Incident Management</div>
+    <div class="slide-num">03 / 06</div>
+  </div>
+  <div class="slide-body">
+    <div class="sec-label">PROVEN RESULT</div>
+    <div class="stat-layout">
+      <div class="big-num">90.47<span>%</span></div>
+      <div class="stat-right">
+        <div class="stat-year">ข้อมูลจริง ปี 2025</div>
+        <div class="stat-title">AVG Support<br>by Call &amp; Remote</div>
+        <div class="stat-desc">งานกว่า <strong>90%</strong> สามารถแก้ไขได้<br>จากระยะไกล โดยไม่ต้องส่งช่างออกพื้นที่</div>
+        <div class="stat-note">
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;align-items:center;gap:10px;"><span style="color:var(--primary);font-weight:700;">•</span> ลดระยะเวลา Downtime เพิ่มยอดขาย</div>
+            <div style="display:flex;align-items:center;gap:10px;"><span style="color:var(--primary);font-weight:700;">•</span> ลดค่าใช้จ่ายในการ Service</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ SLIDE 4 ═══════════════════════════════════ -->
+<div class="slide">
+  <div class="slide-bar"></div>
+  <div class="slide-header">
+    <div class="slide-brand"><span style="color:#dc2626;">X</span>-tremeservice Incident Management</div>
+    <div class="slide-num">04 / 06</div>
+  </div>
+  <div class="slide-body">
+    <div class="sec-label">STATUS LIFECYCLE</div>
+    <div class="sec-title">สถานะงานและผู้รับผิดชอบ</div>
+    <div class="st-table">
+      <div class="st-row head">
+        <div class="st-col1"><span class="th">Status</span></div>
+        <div class="st-col2"><span class="th">ความหมาย</span></div>
+        <div class="st-col3"><span class="th">ผู้รับผิดชอบ</span></div>
+      </div>
+      <div class="st-row">
+        <div class="st-col1"><span class="st-badge" style="background:#dbeafe;color:#1e40af;">OPEN</span></div>
+        <div class="st-col2">งานถูกสร้าง รอการวิเคราะห์จาก Helpdesk</div>
+        <div class="st-col3">Helpdesk</div>
+      </div>
+      <div class="st-row">
+        <div class="st-col1"><span class="st-badge" style="background:#e0e7ff;color:#3730a3;">ASSIGNED</span></div>
+        <div class="st-col2">Supervisor มอบหมายช่างแล้ว Monitor Support ด้านเทคนิค</div>
+        <div class="st-col3">Supervisor</div>
+      </div>
+      <div class="st-row">
+        <div class="st-col1"><span class="st-badge" style="background:#fef3c7;color:#92400e;">ONSITE</span></div>
+        <div class="st-col2">ช่าง Check-in ณ สถานที่แล้ว กำลังประเมินปัญหา</div>
+        <div class="st-col3">Technician</div>
+      </div>
+      <div class="st-row">
+        <div class="st-col1"><span class="st-badge" style="background:#cffafe;color:#155e75;">IN_PROGRESS</span></div>
+        <div class="st-col2">กำลังดำเนินการแก้ไข</div>
+        <div class="st-col3">Technician</div>
+      </div>
+      <div class="st-row">
+        <div class="st-col1"><span class="st-badge" style="background:#d1fae5;color:#065f46;">RESOLVED</span></div>
+        <div class="st-col2">ช่างแก้ไขเสร็จ อัพโหลด Service Report แล้ว รอ Helpdesk ยืนยัน</div>
+        <div class="st-col3">Technician</div>
+      </div>
+      <div class="st-row">
+        <div class="st-col1"><span class="st-badge" style="background:#dcfce7;color:#14532d;">CLOSED</span></div>
+        <div class="st-col2">ปิดงานสมบูรณ์ บันทึกข้อมูลครบถ้วน</div>
+        <div class="st-col3">Helpdesk</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ SLIDE 5 ═══════════════════════════════════ -->
+<div class="slide">
+  <div class="slide-bar"></div>
+  <div class="slide-header">
+    <div class="slide-brand"><span style="color:#dc2626;">X</span>-tremeservice Incident Management</div>
+    <div class="slide-num">05 / 06</div>
+  </div>
+  <div class="slide-body">
+    <div class="sec-label">ANALYTICS</div>
+    <div class="sec-title">วิเคราะห์ปัญหา <em>เชิงลึก</em></div>
+    <div class="sec-sub">ข้อมูลทุกงานถูกบันทึกและวิเคราะห์ได้ เพื่อป้องกันปัญหาที่เกิดซ้ำ</div>
+    <div class="ana-grid">
+      <div class="acard">
+        <div class="acard-h"><div class="acard-h-ico">🏪</div><div class="acard-h-t">สาขาที่แจ้งงานบ่อย</div></div>
+        <div class="acard-b">
+          <div class="acard-desc">ระบุสาขาที่มีปัญหาสะสม วางแผนป้องกันและจัดสรรทรัพยากรได้ตรงจุด</div>
+          <div class="aitem"><span class="arr">→</span>จัดอันดับสาขาตามจำนวนงาน</div>
+          <div class="aitem"><span class="arr">→</span>เปรียบเทียบรายเดือน / รายไตรมาส</div>
+          <div class="aitem"><span class="arr">→</span>ระบุสาขาที่ควรได้รับ PM เพิ่ม</div>
+        </div>
+      </div>
+      <div class="acard">
+        <div class="acard-h"><div class="acard-h-ico">🔁</div><div class="acard-h-t">ปัญหาที่เกิดซ้ำ</div></div>
+        <div class="acard-b">
+          <div class="acard-desc">ติดตาม Pattern ของปัญหาที่วนซ้ำ วิเคราะห์ผลของการแก้ไขที่ผ่านมา</div>
+          <div class="aitem"><span class="arr">→</span>จัดกลุ่มปัญหาตาม Category</div>
+          <div class="aitem"><span class="arr">→</span>ติดตาม Re-opened incidents</div>
+          <div class="aitem"><span class="arr">→</span>ระบุ Pattern ตามช่วงเวลา</div>
+        </div>
+      </div>
+      <div class="acard">
+        <div class="acard-h"><div class="acard-h-ico">🖥️</div><div class="acard-h-t">อุปกรณ์ที่มีปัญหาซ้ำ</div></div>
+        <div class="acard-b">
+          <div class="acard-desc">ประวัติการซ่อมรายอุปกรณ์ ช่วยตัดสินใจว่าควรซ่อมต่อหรือเปลี่ยนใหม่</div>
+          <div class="aitem"><span class="arr">→</span>ประวัติซ่อมต่อเนื่องรายเครื่อง</div>
+          <div class="aitem"><span class="arr">→</span>สะสมค่าซ่อมเทียบราคาอุปกรณ์ใหม่</div>
+          <div class="aitem"><span class="arr">→</span>แจ้งเตือนเมื่อเกินเกณฑ์ที่กำหนด</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ SLIDE 6 ═══════════════════════════════════ -->
+<div class="slide">
+  <div class="slide-bar"></div>
+  <div class="slide-header">
+    <div class="slide-brand"><span style="color:#dc2626;">X</span>-tremeservice Incident Management</div>
+    <div class="slide-num">06 / 06</div>
+  </div>
+  <div class="slide-body">
+    <div class="sec-label">CAPABILITIES</div>
+    <div class="sec-title">สิ่งที่ระบบ <em>ช่วยได้</em></div>
+    <div class="cap-grid">
+      <div class="cap-item">
+        <div class="cap-num">01</div>
+        <div>
+          <div class="cap-title">ลด Onsite ที่ไม่จำเป็น</div>
+          <div><span class="cap-badge" style="background:#dbeafe;color:#1e40af;">COST SAVING</span></div>
+          <div class="cap-desc">คัดกรอง 2 ชั้น Helpdesk แก้ไขระยะไกล + Supervisor อนุมัติก่อน Dispatch ลดระยะเวลาในการ Downtime เพิ่มยอดขาย</div>
+        </div>
+      </div>
+      <div class="cap-item">
+        <div class="cap-num">02</div>
+        <div>
+          <div class="cap-title">ติดตาม Real-time</div>
+          <div><span class="cap-badge" style="background:#d1fae5;color:#065f46;">MONITORING</span></div>
+          <div class="cap-desc">แจ้งเตือน Push Notification อัตโนมัติทุก Event ติดตาม GPS Check-in และสถานะงานได้ตลอดเวลา สามารถปรับเปลี่ยนตามสถานการณ์ได้</div>
+        </div>
+      </div>
+      <div class="cap-item">
+        <div class="cap-num">03</div>
+        <div>
+          <div class="cap-title">วิเคราะห์สาขา / อุปกรณ์</div>
+          <div><span class="cap-badge" style="background:#e0e7ff;color:#3730a3;">ANALYTICS</span></div>
+          <div class="cap-desc">ระบุสาขาที่แจ้งงานบ่อย ปัญหาที่เกิดซ้ำ และอุปกรณ์ที่ควรเปลี่ยนใหม่ จากข้อมูลประวัติจริง พร้อมเก็บบันทึกข้อมูลอุปกรณ์อย่างถูกต้อง ตรวจสอบได้ทุกเวลา</div>
+        </div>
+      </div>
+      <div class="cap-item">
+        <div class="cap-num">04</div>
+        <div>
+          <div class="cap-title">Preventive Maintenance</div>
+          <div><span class="cap-badge" style="background:#fef3c7;color:#92400e;">PROACTIVE</span></div>
+          <div class="cap-desc">วางแผน PM ตามกำหนด Checklist และ Inventory รายอุปกรณ์ สามารถแยกทำทีละจุดได้โดยไม่กระทบการขาย</div>
+        </div>
+      </div>
+      <div class="cap-item">
+        <div class="cap-num">05</div>
+        <div>
+          <div class="cap-title">เอกสารดิจิทัลครบถ้วน</div>
+          <div><span class="cap-badge" style="background:#d1fae5;color:#065f46;">DOCUMENTATION</span></div>
+          <div class="cap-desc">Service Report ปรับใช้ได้ทั้งแบบ Hard Paper และแบบ Online ลายเซ็นดิจิทัล สร้าง PDF อัตโนมัติ ทุกงานมีหลักฐานครบถ้วน สามารถตรวจสอบย้อนกลับได้ตลอดเวลา และป้องกันการปลอมแปลง</div>
+        </div>
+      </div>
+      <div class="cap-item">
+        <div class="cap-num">06</div>
+        <div>
+          <div class="cap-title">Report &amp; Analyze</div>
+          <div><span class="cap-badge" style="background:#d1fae5;color:#065f46;">REPORTING</span></div>
+          <div class="cap-desc">ดู Report ได้ครอบคลุมทุกมิติ ทั้งรายงานสถิติงาน SLA Performance และรายอุปกรณ์ พร้อมรองรับการ Export ไปใช้งานได้หลายรูปแบบ</div>
+        </div>
+      </div>
+      <div class="cap-item" style="grid-column: 1 / -1;">
+        <div class="cap-num">07</div>
+        <div>
+          <div class="cap-title">Audit Log</div>
+          <div><span class="cap-badge" style="background:#e0e7ff;color:#3730a3;">SECURITY</span></div>
+          <div class="cap-desc">บันทึกทุกการกระทำในระบบแบบ Real-time ระบุตัวตนผู้ดำเนินการ วันเวลา และการเปลี่ยนแปลงที่เกิดขึ้น รองรับการตรวจสอบย้อนหลัง ป้องกันการแก้ไขข้อมูลโดยไม่ได้รับอนุญาต</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

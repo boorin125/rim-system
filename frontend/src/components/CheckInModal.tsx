@@ -137,7 +137,7 @@ export default function CheckInModal({ isOpen, onClose, incidentId, onCheckIn }:
   const canAddMore = beforePhotos.length < MAX_PHOTOS;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50">
       {/* Sheet on mobile (bottom), centered dialog on sm+ */}
       <div className="glass-card border border-slate-700/50 rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg max-h-[92vh] sm:max-h-[88vh] flex flex-col animate-fade-in">
 

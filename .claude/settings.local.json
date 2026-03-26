@@ -34,7 +34,14 @@
       "Bash(1 <<'EOF'\nINSERT INTO \"incident_assignees\" \\(\"incident_id\", \"user_id\", \"assigned_at\"\\)\nSELECT \"id\", \"assignee_id\", \"updated_at\" FROM \"incidents\" WHERE \"assignee_id\" IS NOT NULL\nON CONFLICT \\(\"incident_id\", \"user_id\"\\) DO NOTHING;\nEOF)",
       "Bash(npm ls:*)",
       "Bash(cmd /c \"rd /s /q D:\\\\Projects\\\\RIM-System\\\\frontend\\\\.next\")",
-      "Bash(head:*)"
+      "Bash(head:*)",
+      "Bash(grep -n \"setCurrentUser\\\\|localStorage\" d:/Projects/RIM-System/frontend/src/app/\\\\\\(dashboard\\\\\\)/dashboard/incidents/[id]/page.tsx)",
+      "Bash(grep -n \"_higherThan\\\\|higherThan\" d:/Projects/RIM-System/frontend/src/app/\\\\\\(dashboard\\\\\\)/dashboard/incidents/[id]/page.tsx)",
+      "Bash(grep -n \"canResolve\\\\|showResolve\" d:/Projects/RIM-System/frontend/src/app/\\\\\\(dashboard\\\\\\)/dashboard/incidents/[id]/page.tsx)",
+      "Bash(grep -n \"assignedTechId\" d:/Projects/RIM-System/frontend/src/app/\\\\\\(dashboard\\\\\\)/dashboard/incidents/[id]/page.tsx)",
+      "Bash(grep -n \"signedReport\\\\|ServiceReport\\\\|lightbox\\\\|onClick.*img\\\\|enlarged\\\\|fullscreen\\\\|zoom\" d:/Projects/RIM-System/frontend/src/app/\\\\\\(dashboard\\\\\\)/dashboard/incidents/[id]/page.tsx)",
+      "Bash(grep -n \"openPhotoViewer\\\\|photoViewer\\\\|PhotoViewer\\\\|lightbox\\\\|Lightbox\" d:/Projects/RIM-System/frontend/src/app/\\\\\\(dashboard\\\\\\)/dashboard/incidents/[id]/page.tsx)",
+      "Bash(git add:*)"
     ]
   }
 }
