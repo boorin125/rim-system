@@ -367,11 +367,11 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 pt-20 sm:pt-4 bg-black/50 backdrop-blur-sm">
-      <div className="glass-card border border-slate-700/50 rounded-xl w-full max-w-4xl max-h-[calc(100vh-88px)] sm:max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/50 backdrop-blur-sm">
+      <div className="glass-card border border-slate-700/50 rounded-t-2xl sm:rounded-xl w-full max-w-4xl max-h-[92vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-700/50 bg-slate-800/30">
-          <h2 className="text-2xl font-bold text-white">Resolve Incident</h2>
+        <div className="flex items-center justify-between px-4 py-3 sm:p-6 border-b border-slate-700/50 bg-slate-800/30">
+          <h2 className="text-lg sm:text-2xl font-bold text-white">Resolve Incident</h2>
           <button
             onClick={handleClose}
             className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors"
@@ -382,7 +382,7 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
         </div>
 
         {/* Content - Scrollable */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto px-4 py-4 sm:p-6 space-y-5 sm:space-y-6">
           {/* Error Message */}
           {error && (
             <div className="p-4 bg-red-900/30 border border-red-700/50 rounded-lg">
@@ -402,9 +402,9 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
               SECTION 1: After Photos (ด้านบน)
               ======================================== */}
           <div>
-            <label className="block text-sm font-medium text-gray-200 mb-3">
-              After Photos (หลังซ่อม)
-              <span className="text-gray-400 ml-2">สูงสุด 20 รูป</span>
+            <label className="flex items-center justify-between text-sm font-medium text-gray-200 mb-3">
+              <span>After Photos <span className="text-gray-300">(หลังซ่อม)</span></span>
+              <span className="text-xs text-gray-400 font-normal">สูงสุด 20 รูป</span>
             </label>
             
             {/* Hidden inputs */}
@@ -597,9 +597,9 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-200 mb-3">
-              รูป Service Report ที่เซ็นแล้ว{onlineSRToken ? ' (กรณีใช้ SR แบบกระดาษ)' : ''} (ไม่บังคับ)
-              <span className="text-gray-400 ml-2">สูงสุด 5 รูป</span>
+            <label className="flex items-center justify-between text-sm font-medium text-gray-200 mb-3">
+              <span>รูป Service Report ที่เซ็นแล้ว{onlineSRToken ? <span className="text-gray-400 font-normal"> (กระดาษ)</span> : ''}</span>
+              <span className="text-xs text-gray-400 font-normal">สูงสุด 5 รูป</span>
             </label>
 
             {/* Hidden inputs for SR */}
@@ -665,18 +665,18 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end space-x-3 p-6 border-t border-slate-700/50 bg-slate-800/30">
+        <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 sm:gap-3 px-4 py-3 sm:p-6 border-t border-slate-700/50 bg-slate-800/30">
           <button
             onClick={handleClose}
             disabled={isSubmitting}
-            className="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full sm:w-auto px-6 py-3 sm:py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl sm:rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
           >
-            Cancel
+            ยกเลิก
           </button>
           <button
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+            className="w-full sm:w-auto px-6 py-3 sm:py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl sm:rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm font-medium"
           >
             {isSubmitting ? (
               <>
@@ -684,7 +684,7 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
                 <span>กำลังบันทึก...</span>
               </>
             ) : (
-              <span>Submit Resolution</span>
+              <span>ยืนยันปิดงาน</span>
             )}
           </button>
         </div>
