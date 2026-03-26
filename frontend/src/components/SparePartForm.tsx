@@ -671,9 +671,9 @@ export default function SparePartForm({
                             />
                             <button
                               type="button"
-                              onClick={() => handleScanBarcode(part.id, 'oldSerialNo')}
+                              onClick={() => handleScanBarcode(part.id, 'oldComponentSerial')}
                               disabled={disabled || scanningFor !== null}
-                              className="px-3 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-500 disabled:bg-slate-800 disabled:cursor-not-allowed transition-colors"
+                              className="min-w-[44px] min-h-[44px] px-3 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-500 disabled:bg-slate-800 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
                               title="Scan barcode"
                             >
                               <Camera className="w-4 h-4" />
@@ -696,9 +696,9 @@ export default function SparePartForm({
                             />
                             <button
                               type="button"
-                              onClick={() => handleScanBarcode(part.id, 'newSerialNo')}
+                              onClick={() => handleScanBarcode(part.id, 'newComponentSerial')}
                               disabled={disabled || scanningFor !== null}
-                              className="px-3 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-500 disabled:bg-slate-800 disabled:cursor-not-allowed transition-colors"
+                              className="min-w-[44px] min-h-[44px] px-3 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-500 disabled:bg-slate-800 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
                               title="Scan barcode"
                             >
                               <Camera className="w-4 h-4" />
@@ -900,7 +900,7 @@ export default function SparePartForm({
                           type="button"
                           onClick={() => handleScanBarcode(part.id, 'oldSerialNo')}
                           disabled={disabled || scanningFor !== null}
-                          className="px-3 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-500 disabled:bg-slate-800 disabled:cursor-not-allowed transition-colors"
+                          className="min-w-[44px] min-h-[44px] px-3 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-500 disabled:bg-slate-800 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
                           title="Scan barcode"
                         >
                           <Camera className="w-4 h-4" />
@@ -1023,7 +1023,7 @@ export default function SparePartForm({
                         type="button"
                         onClick={() => handleScanBarcode(part.id, 'newSerialNo')}
                         disabled={disabled || scanningFor !== null}
-                        className="px-3 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-500 disabled:bg-slate-800 disabled:cursor-not-allowed transition-colors"
+                        className="min-w-[44px] min-h-[44px] px-3 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-500 disabled:bg-slate-800 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
                         title="Scan barcode"
                       >
                         <Camera className="w-4 h-4" />
