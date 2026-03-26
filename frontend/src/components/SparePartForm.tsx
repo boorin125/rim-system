@@ -770,117 +770,145 @@ export default function SparePartForm({
                   <AlertCircle className="w-4 h-4" />
                   Old Device (Removed)
                 </h5>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {/* Old Device Name with Autocomplete */}
-                  <div className="relative" ref={el => { oldDropdownRefs.current[part.id] = el }}>
-                    <label className="block text-xs font-medium text-gray-200 mb-1">
-                      Device Name <span className="text-red-400">*</span>
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={part.oldDeviceName}
-                        onChange={(e) =>
-                          handleDeviceNameChange(part.id, 'oldDeviceName', e.target.value)
-                        }
-                        onFocus={() => {
-                          if (part.oldDeviceName.length >= 2) {
-                            setShowOldDropdown(part.id);
-                          }
-                        }}
-                        disabled={disabled}
-                        placeholder="e.g., POS Terminal HP RP2"
-                        className="w-full px-3 py-2 pr-8 text-sm bg-slate-700/50 border border-slate-600/50 text-white placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent disabled:bg-slate-800/30 disabled:cursor-not-allowed"
-                        required
-                      />
-                      <Search className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    </div>
 
-                    {/* Autocomplete Dropdown - แสดง Equipment จริงจากระบบ */}
-                    {showOldDropdown === part.id && oldDeviceSuggestions[part.id]?.length > 0 && (
-                      <div className="absolute z-10 w-full mt-1 bg-slate-700 border border-slate-600 rounded-lg shadow-xl max-h-72 overflow-y-auto">
-                        {isSearching && (
-                          <div className="p-3 text-center text-sm text-gray-400">
-                            กำลังค้นหาอุปกรณ์...
+                {part.oldEquipmentId ? (
+                  /* ── Read-only: device selected from DB ── */
+                  (() => {
+                    const dev = storeEquipment.find(d => d.id === part.oldEquipmentId);
+                    const brandModel = dev
+                      ? ([dev.brand, dev.model].filter(Boolean).join(' ') || dev.name || '-')
+                      : (part.oldDeviceName || '-');
+                    return (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-200 mb-1">Brand / Model</label>
+                          <div className="px-3 py-2.5 bg-slate-800/60 border border-red-700/40 rounded-lg text-sm text-white select-all">
+                            {brandModel}
                           </div>
-                        )}
-                        {oldDeviceSuggestions[part.id].map((device) => (
-                          <button
-                            key={device.id}
-                            type="button"
-                            onClick={() => selectDevice(part.id, 'oldDeviceName', device)}
-                            className="w-full px-3 py-2.5 text-left hover:bg-slate-600 transition-colors border-b border-slate-600/50 last:border-0"
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                  {device.position && (
-                                    <span className="text-xs px-1.5 py-0.5 bg-yellow-900/40 text-yellow-300 rounded font-medium">
-                                      {device.position}
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-200 mb-1">Serial No.</label>
+                          <div className="px-3 py-2.5 bg-slate-800/60 border border-red-700/40 rounded-lg text-sm font-mono text-red-200 select-all">
+                            {part.oldSerialNo || '-'}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()
+                ) : (
+                  /* ── Manual input: no device selected ── */
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* Old Device Brand/Model with Autocomplete */}
+                    <div className="relative" ref={el => { oldDropdownRefs.current[part.id] = el }}>
+                      <label className="block text-xs font-medium text-gray-200 mb-1">
+                        Brand / Model <span className="text-red-400">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={part.oldDeviceName}
+                          onChange={(e) =>
+                            handleDeviceNameChange(part.id, 'oldDeviceName', e.target.value)
+                          }
+                          onFocus={() => {
+                            if (part.oldDeviceName.length >= 2) {
+                              setShowOldDropdown(part.id);
+                            }
+                          }}
+                          disabled={disabled}
+                          placeholder="e.g., HP RP2 / Epson TM-T82"
+                          className="w-full px-3 py-2 pr-8 text-sm bg-slate-700/50 border border-slate-600/50 text-white placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent disabled:bg-slate-800/30 disabled:cursor-not-allowed"
+                          required
+                        />
+                        <Search className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      </div>
+
+                      {/* Autocomplete Dropdown */}
+                      {showOldDropdown === part.id && oldDeviceSuggestions[part.id]?.length > 0 && (
+                        <div className="absolute z-10 w-full mt-1 bg-slate-700 border border-slate-600 rounded-lg shadow-xl max-h-72 overflow-y-auto">
+                          {isSearching && (
+                            <div className="p-3 text-center text-sm text-gray-400">
+                              กำลังค้นหาอุปกรณ์...
+                            </div>
+                          )}
+                          {oldDeviceSuggestions[part.id].map((device) => (
+                            <button
+                              key={device.id}
+                              type="button"
+                              onClick={() => selectDevice(part.id, 'oldDeviceName', device)}
+                              className="w-full px-3 py-2.5 text-left hover:bg-slate-600 transition-colors border-b border-slate-600/50 last:border-0"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    {device.position && (
+                                      <span className="text-xs px-1.5 py-0.5 bg-yellow-900/40 text-yellow-300 rounded font-medium">
+                                        {device.position}
+                                      </span>
+                                    )}
+                                    <p className="text-sm text-white font-medium truncate">{device.name}</p>
+                                  </div>
+                                  <p className="text-xs text-blue-400 font-mono">S/N: {device.serialNumber}</p>
+                                  {device.brand && device.model && (
+                                    <p className="text-xs text-gray-400">{device.brand} {device.model}</p>
+                                  )}
+                                  {device.storeName && (
+                                    <p className="text-xs text-gray-500">📍 {device.storeName}</p>
+                                  )}
+                                </div>
+                                <div className="flex flex-col items-end gap-1">
+                                  {device.category && (
+                                    <span className="text-xs px-2 py-0.5 bg-blue-900/30 text-blue-300 rounded">
+                                      {device.category}
                                     </span>
                                   )}
-                                  <p className="text-sm text-white font-medium truncate">{device.name}</p>
+                                  {device.status && (
+                                    <span className={`text-xs px-2 py-0.5 rounded ${
+                                      device.status === 'ACTIVE' ? 'bg-green-900/30 text-green-300' :
+                                      device.status === 'MAINTENANCE' ? 'bg-yellow-900/30 text-yellow-300' :
+                                      'bg-gray-900/30 text-gray-300'
+                                    }`}>
+                                      {device.status}
+                                    </span>
+                                  )}
                                 </div>
-                                <p className="text-xs text-blue-400 font-mono">S/N: {device.serialNumber}</p>
-                                {device.brand && device.model && (
-                                  <p className="text-xs text-gray-400">{device.brand} {device.model}</p>
-                                )}
-                                {device.storeName && (
-                                  <p className="text-xs text-gray-500">📍 {device.storeName}</p>
-                                )}
                               </div>
-                              <div className="flex flex-col items-end gap-1">
-                                {device.category && (
-                                  <span className="text-xs px-2 py-0.5 bg-blue-900/30 text-blue-300 rounded">
-                                    {device.category}
-                                  </span>
-                                )}
-                                {device.status && (
-                                  <span className={`text-xs px-2 py-0.5 rounded ${
-                                    device.status === 'ACTIVE' ? 'bg-green-900/30 text-green-300' :
-                                    device.status === 'MAINTENANCE' ? 'bg-yellow-900/30 text-yellow-300' :
-                                    'bg-gray-900/30 text-gray-300'
-                                  }`}>
-                                    {device.status}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
 
-                  {/* Old Serial No with Barcode Scanner */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-200 mb-1">
-                      Serial No. <span className="text-red-400">*</span>
-                    </label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={part.oldSerialNo}
-                        onChange={(e) =>
-                          updateSparePart(part.id, 'oldSerialNo', e.target.value)
-                        }
-                        disabled={disabled}
-                        placeholder="Scan or enter serial number"
-                        className="flex-1 px-3 py-2 text-sm bg-slate-700/50 border border-slate-600/50 text-white placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent disabled:bg-slate-800/30 disabled:cursor-not-allowed"
-                        required
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleScanBarcode(part.id, 'oldSerialNo')}
-                        disabled={disabled || scanningFor !== null}
-                        className="px-3 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-500 disabled:bg-slate-800 disabled:cursor-not-allowed transition-colors"
-                        title="Scan barcode"
-                      >
-                        <Camera className="w-4 h-4" />
-                      </button>
+                    {/* Old Serial No with Barcode Scanner */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-200 mb-1">
+                        Serial No. <span className="text-red-400">*</span>
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={part.oldSerialNo}
+                          onChange={(e) =>
+                            updateSparePart(part.id, 'oldSerialNo', e.target.value)
+                          }
+                          disabled={disabled}
+                          placeholder="Scan or enter serial number"
+                          className="flex-1 px-3 py-2 text-sm bg-slate-700/50 border border-slate-600/50 text-white placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent disabled:bg-slate-800/30 disabled:cursor-not-allowed"
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleScanBarcode(part.id, 'oldSerialNo')}
+                          disabled={disabled || scanningFor !== null}
+                          className="px-3 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-500 disabled:bg-slate-800 disabled:cursor-not-allowed transition-colors"
+                          title="Scan barcode"
+                        >
+                          <Camera className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
 
               {/* NEW DEVICE SECTION */}
