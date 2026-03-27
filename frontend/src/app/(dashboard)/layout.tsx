@@ -32,6 +32,7 @@ import axios from 'axios'
 import NotificationBell from '@/components/NotificationBell'
 import SupervisorPendingAlert from '@/components/SupervisorPendingAlert'
 import SingleTabGuard from '@/components/SingleTabGuard'
+import PwaInstallPrompt from '@/components/PwaInstallPrompt'
 import { hasMenuAccess, getUserRoles } from '@/config/permissions'
 import { LicenseProvider, useLicense } from '@/context/LicenseContext'
 import { usePushNotification } from '@/hooks/usePushNotification'
@@ -528,6 +529,8 @@ export default function DashboardLayout({
     <div className="min-h-screen" style={{ background: mainBg }}>
       {/* Single Tab Guard — warns when app is open in multiple tabs */}
       <SingleTabGuard />
+      {/* PWA Install Prompt */}
+      <PwaInstallPrompt />
 
       {/* Background Pattern */}
       <div className="fixed inset-0 bg-pattern"></div>

@@ -9,6 +9,15 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'RIM System - Rubjobb Incident Management',
   description: 'IT Service Management and Incident Tracking System',
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'RIM System',
+  },
+  other: {
+    'mobile-web-app-capable': 'yes',
+  },
 }
 
 export default function RootLayout({
@@ -21,6 +30,9 @@ export default function RootLayout({
       <head>
         {/* Prevent flash of wrong theme — runs before paint */}
         <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem('colorTheme')||'dark';document.documentElement.className=t;}catch(e){document.documentElement.className='dark';}})()` }} />
+        {/* PWA */}
+        <meta name="theme-color" content="#2563eb" />
+        <link rel="apple-touch-icon" href="/api/pwa-icon" />
       </head>
       <body className={inter.className}>
         <Providers>
