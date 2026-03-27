@@ -782,21 +782,36 @@ export default function SparePartForm({
                     : filteredStoreEquipment.length === 1 ? filteredStoreEquipment[0] : null;
 
                   if (dev) {
-                    const brandModel = [dev.brand, dev.model].filter(Boolean).join(' ') || dev.name || '-';
+                    const brand = dev.brand || '-';
+                    const model = dev.model || '-';
                     const serial = part.oldSerialNo || dev.serialNumber || '-';
                     return (
                       /* ── Read-only: device from DB ── */
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-2">
                         <div>
-                          <label className="block text-xs font-medium text-gray-200 mb-1">Brand / Model</label>
-                          <div className="px-3 py-2.5 bg-slate-800/60 border border-red-700/40 rounded-lg text-sm text-white select-all">
-                            {brandModel}
+                          <label className="block text-xs font-medium text-gray-200 mb-1">ชื่ออุปกรณ์</label>
+                          <div className="px-3 py-2 bg-slate-800/60 border border-red-700/40 rounded-lg text-sm text-gray-300">
+                            {dev.name}
                           </div>
                         </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-200 mb-1">Serial No.</label>
-                          <div className="px-3 py-2.5 bg-slate-800/60 border border-red-700/40 rounded-lg text-sm font-mono text-red-200 select-all">
-                            {serial}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-200 mb-1">Brand</label>
+                            <div className="px-3 py-2.5 bg-slate-800/60 border border-red-700/40 rounded-lg text-sm text-white select-all">
+                              {brand}
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-200 mb-1">Model</label>
+                            <div className="px-3 py-2.5 bg-slate-800/60 border border-red-700/40 rounded-lg text-sm text-white select-all">
+                              {model}
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-200 mb-1">Serial No.</label>
+                            <div className="px-3 py-2.5 bg-slate-800/60 border border-red-700/40 rounded-lg text-sm font-mono text-red-200 select-all">
+                              {serial}
+                            </div>
                           </div>
                         </div>
                       </div>
