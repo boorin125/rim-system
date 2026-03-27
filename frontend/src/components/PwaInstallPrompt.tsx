@@ -34,14 +34,33 @@ export default function PwaInstallPrompt() {
       return
     }
 
-    // Android Chrome — listen for beforeinstallprompt
-    const handler = (e: Event) => {
+    // Android Chrome — event may have already fired before component mounted
+    const existing = (window as any).__pwaPrompt as BeforeInstallPromptEvent | null
+    if (existing) {
+      setDeferredPrompt(existing)
+      setTimeout(() => setShow(true), 2000)
+      return
+    }
+
+    // Otherwise wait for it
+    const onReady = () => {
+      const prompt = (window as any).__pwaPrompt as BeforeInstallPromptEvent | null
+      if (prompt) {
+        setDeferredPrompt(prompt)
+        setTimeout(() => setShow(true), 2000)
+      }
+    }
+    const onPrompt = (e: Event) => {
       e.preventDefault()
       setDeferredPrompt(e as BeforeInstallPromptEvent)
-      setTimeout(() => setShow(true), 3000)
+      setTimeout(() => setShow(true), 2000)
     }
-    window.addEventListener('beforeinstallprompt', handler)
-    return () => window.removeEventListener('beforeinstallprompt', handler)
+    window.addEventListener('pwaPromptReady', onReady)
+    window.addEventListener('beforeinstallprompt', onPrompt)
+    return () => {
+      window.removeEventListener('pwaPromptReady', onReady)
+      window.removeEventListener('beforeinstallprompt', onPrompt)
+    }
   }, [])
 
   const handleInstall = async () => {

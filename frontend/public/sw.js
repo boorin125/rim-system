@@ -1,4 +1,4 @@
-// RIM-System Service Worker — Web Push Notifications
+// RIM-System Service Worker — Web Push Notifications + PWA
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -7,6 +7,9 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(clients.claim());
 });
+
+// Required for Chrome to fire beforeinstallprompt (PWA installability)
+self.addEventListener('fetch', () => {});
 
 // Handle incoming push event from server
 self.addEventListener('push', (event) => {

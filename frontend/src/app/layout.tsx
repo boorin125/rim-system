@@ -33,6 +33,8 @@ export default function RootLayout({
         {/* PWA */}
         <meta name="theme-color" content="#2563eb" />
         <link rel="apple-touch-icon" href="/api/pwa-icon" />
+        {/* Capture beforeinstallprompt before React mounts — stored globally */}
+        <script dangerouslySetInnerHTML={{ __html: `window.__pwaPrompt=null;window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__pwaPrompt=e;window.dispatchEvent(new Event('pwaPromptReady'));});` }} />
       </head>
       <body className={inter.className}>
         <Providers>
