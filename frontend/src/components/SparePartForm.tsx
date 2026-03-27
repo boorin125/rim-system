@@ -125,23 +125,6 @@ export default function SparePartForm({
           : mapped;
         setFilteredStoreEquipment(filtered);
 
-        // Auto-select if only 1 device
-        if (filtered.length === 1) {
-          const d = filtered[0];
-          const parts: string[] = [];
-          if (d.position) parts.push(d.position);
-          if (d.brand) parts.push(d.brand);
-          if (d.model) parts.push(d.model);
-          if (parts.length === 0) parts.push(d.name);
-          const displayName = parts.join(' ');
-          onChange(
-            spareParts.map(p =>
-              p.repairType === 'EQUIPMENT_REPLACEMENT' && !p.selectedDeviceId
-                ? { ...p, selectedDeviceId: d.id, oldDeviceName: displayName, oldSerialNo: d.serialNumber || '', oldEquipmentId: d.id, newDeviceName: p.newDeviceName || d.name }
-                : p
-            )
-          );
-        }
       } catch (error) {
         console.error('Failed to fetch store equipment:', error);
       } finally {
@@ -150,6 +133,26 @@ export default function SparePartForm({
     };
     fetchStoreEquipment();
   }, [storeId]);
+
+  // Auto-select the single device whenever a new EQUIPMENT_REPLACEMENT part is added
+  // (runs after storeEquipment loads AND whenever spareParts.length changes)
+  useEffect(() => {
+    if (filteredStoreEquipment.length !== 1) return;
+    const d = filteredStoreEquipment[0];
+    const needsUpdate = spareParts.some(
+      p => p.repairType === 'EQUIPMENT_REPLACEMENT' && !p.selectedDeviceId
+    );
+    if (!needsUpdate) return;
+    const displayName = [d.position, d.brand, d.model].filter(Boolean).join(' ') || d.name;
+    onChange(
+      spareParts.map(p =>
+        p.repairType === 'EQUIPMENT_REPLACEMENT' && !p.selectedDeviceId
+          ? { ...p, selectedDeviceId: d.id, oldDeviceName: displayName, oldSerialNo: d.serialNumber || '', oldEquipmentId: d.id, newDeviceName: p.newDeviceName || d.name }
+          : p
+      )
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredStoreEquipment, spareParts.length]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -771,14 +774,18 @@ export default function SparePartForm({
                   Old Device (Removed)
                 </h5>
 
-                {part.oldEquipmentId ? (
-                  /* ── Read-only: device selected from DB ── */
-                  (() => {
-                    const dev = storeEquipment.find(d => d.id === part.oldEquipmentId);
-                    const brandModel = dev
-                      ? ([dev.brand, dev.model].filter(Boolean).join(' ') || dev.name || '-')
-                      : (part.oldDeviceName || '-');
+                {(() => {
+                  // Resolve the "old" device from DB — prefer explicit selection,
+                  // fall back to the single-device case (badge shown above)
+                  const dev = part.oldEquipmentId
+                    ? storeEquipment.find(d => d.id === part.oldEquipmentId)
+                    : filteredStoreEquipment.length === 1 ? filteredStoreEquipment[0] : null;
+
+                  if (dev) {
+                    const brandModel = [dev.brand, dev.model].filter(Boolean).join(' ') || dev.name || '-';
+                    const serial = part.oldSerialNo || dev.serialNumber || '-';
                     return (
+                      /* ── Read-only: device from DB ── */
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <label className="block text-xs font-medium text-gray-200 mb-1">Brand / Model</label>
@@ -789,13 +796,13 @@ export default function SparePartForm({
                         <div>
                           <label className="block text-xs font-medium text-gray-200 mb-1">Serial No.</label>
                           <div className="px-3 py-2.5 bg-slate-800/60 border border-red-700/40 rounded-lg text-sm font-mono text-red-200 select-all">
-                            {part.oldSerialNo || '-'}
+                            {serial}
                           </div>
                         </div>
                       </div>
                     );
-                  })()
-                ) : (
+                  }
+                  return (
                   /* ── Manual input: no device selected ── */
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {/* Old Device Brand/Model with Autocomplete */}
@@ -908,7 +915,8 @@ export default function SparePartForm({
                       </div>
                     </div>
                   </div>
-                )}
+                  );
+                })()}
               </div>
 
               {/* NEW DEVICE SECTION */}
