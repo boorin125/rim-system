@@ -161,16 +161,16 @@ export class EmailService {
 
             const oldSerial = part.oldSerialNo || '-';
             const newSerial = part.newSerialNo || '-';
-            const rowBg = index % 2 === 0 ? '#1e293b' : '#162032';
+            const rowBg = index % 2 === 0 ? '#ffffff' : '#f8fafc';
 
             return `
               <tr style="background-color: ${rowBg};">
-                <td style="padding: 9px 12px; border: 1px solid #334155; text-align: center; color: #64748b; font-size: 12px;">${index + 1}</td>
-                <td style="padding: 9px 12px; border: 1px solid #334155; color: #e2e8f0; font-weight: 600;">${equipName}</td>
-                <td style="padding: 9px 12px; border: 1px solid #334155; color: #94a3b8;">${oldBrandModel}</td>
-                <td style="padding: 9px 12px; border: 1px solid #334155; font-family: monospace; font-size: 12px; color: #94a3b8;">${oldSerial}</td>
-                <td style="padding: 9px 12px; border: 1px solid #334155; color: #10b981;">${newBrandModel}</td>
-                <td style="padding: 9px 12px; border: 1px solid #334155; font-family: monospace; font-size: 12px; color: #10b981; font-weight: 600;">${newSerial}</td>
+                <td style="padding: 9px 12px; border: 1px solid #cbd5e1; text-align: center; color: #64748b; font-size: 12px;">${index + 1}</td>
+                <td style="padding: 9px 12px; border: 1px solid #cbd5e1; color: #1e293b; font-weight: 600;">${equipName}</td>
+                <td style="padding: 9px 12px; border: 1px solid #cbd5e1; color: #475569;">${oldBrandModel}</td>
+                <td style="padding: 9px 12px; border: 1px solid #cbd5e1; font-family: monospace; font-size: 12px; color: #475569;">${oldSerial}</td>
+                <td style="padding: 9px 12px; border: 1px solid #cbd5e1; color: #059669;">${newBrandModel}</td>
+                <td style="padding: 9px 12px; border: 1px solid #cbd5e1; font-family: monospace; font-size: 12px; color: #059669; font-weight: 600;">${newSerial}</td>
               </tr>
             `;
           })
@@ -178,16 +178,16 @@ export class EmailService {
 
         sparePartsHtml = `
           <div style="margin-top: 24px;">
-            <h3 style="color: #10b981; margin: 0 0 12px 0; font-size: 15px;">🔧 Spare Parts Used</h3>
+            <h3 style="color: #059669; margin: 0 0 12px 0; font-size: 15px;">🔧 Spare Parts Used</h3>
             <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
               <thead>
-                <tr style="background-color: #0f172a;">
-                  <th style="padding: 10px 12px; text-align: center; border: 1px solid #334155; color: #64748b; width: 32px;">#</th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #334155; color: #94a3b8;">Equipment Name</th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #334155; color: #94a3b8;">Old Equipment<br><span style="font-weight: normal; font-size: 11px; color: #64748b;">(Brand / Model)</span></th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #334155; color: #94a3b8;">Old Serial No.</th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #334155; color: #10b981;">New Equipment<br><span style="font-weight: normal; font-size: 11px; color: #34d399;">(Brand / Model)</span></th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #334155; color: #10b981;">New Serial No.</th>
+                <tr style="background-color: #f1f5f9;">
+                  <th style="padding: 10px 12px; text-align: center; border: 1px solid #cbd5e1; color: #475569; width: 32px;">#</th>
+                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #cbd5e1; color: #1e293b;">Equipment Name</th>
+                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #cbd5e1; color: #1e293b;">Old Equipment<br><span style="font-weight: normal; font-size: 11px; color: #64748b;">(Brand / Model)</span></th>
+                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #cbd5e1; color: #1e293b;">Old Serial No.</th>
+                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #cbd5e1; color: #059669;">New Equipment<br><span style="font-weight: normal; font-size: 11px; color: #10b981;">(Brand / Model)</span></th>
+                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #cbd5e1; color: #059669;">New Serial No.</th>
                 </tr>
               </thead>
               <tbody>
@@ -206,51 +206,51 @@ export class EmailService {
           <meta charset="utf-8">
           <title>Incident Closed - ${ticketNumber}</title>
         </head>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #e2e8f0; background-color: #0f172a; padding: 20px;">
-          <div style="max-width: 600px; margin: 0 auto; background-color: #1e293b; border-radius: 10px; padding: 30px; border: 1px solid #334155;">
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #1e293b; background-color: #f1f5f9; padding: 20px;">
+          <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 10px; padding: 30px; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
 
             <!-- Header -->
-            <div style="text-align: center; padding-bottom: 20px; border-bottom: 2px solid #10b981;">
-              <h1 style="color: #10b981; margin: 0;">✅ Incident Closed</h1>
-              <p style="color: #94a3b8; margin: 5px 0 0 0;">${headerName}</p>
+            <div style="text-align: center; padding-bottom: 20px; border-bottom: 2px solid #059669;">
+              <h1 style="color: #059669; margin: 0;">✅ Incident Closed</h1>
+              <p style="color: #64748b; margin: 5px 0 0 0;">${headerName}</p>
             </div>
 
             <!-- Incident Info -->
             <div style="margin-top: 25px;">
-              <h2 style="color: #10b981; margin-bottom: 10px; font-size: 16px;">Incident Details</h2>
+              <h2 style="color: #059669; margin-bottom: 10px; font-size: 16px;">Incident Details</h2>
 
               <table style="width: 100%; border-collapse: collapse;">
                 <tr>
-                  <td style="padding: 6px 10px; background-color: #0f172a; border: 1px solid #334155; font-weight: bold; width: 20%; font-size: 13px;">Ticket No.:</td>
-                  <td style="padding: 6px 10px; background-color: #1e293b; border: 1px solid #334155; font-size: 13px;">${ticketNumber}</td>
+                  <td style="padding: 7px 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; font-weight: bold; width: 30%; font-size: 13px; color: #475569;">Ticket No.:</td>
+                  <td style="padding: 7px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-size: 13px; color: #1e293b;">${ticketNumber}</td>
                 </tr>
                 <tr>
-                  <td style="padding: 6px 10px; background-color: #0f172a; border: 1px solid #334155; font-weight: bold; font-size: 13px;">Title:</td>
-                  <td style="padding: 6px 10px; background-color: #1e293b; border: 1px solid #334155; font-size: 13px;">${title}</td>
+                  <td style="padding: 7px 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; font-weight: bold; font-size: 13px; color: #475569;">Title:</td>
+                  <td style="padding: 7px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-size: 13px; color: #1e293b;">${title}</td>
                 </tr>
                 <tr>
-                  <td style="padding: 6px 10px; background-color: #0f172a; border: 1px solid #334155; font-weight: bold; font-size: 13px;">Store:</td>
-                  <td style="padding: 6px 10px; background-color: #1e293b; border: 1px solid #334155; font-size: 13px;">${storeDisplay}</td>
+                  <td style="padding: 7px 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; font-weight: bold; font-size: 13px; color: #475569;">Store:</td>
+                  <td style="padding: 7px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-size: 13px; color: #1e293b;">${storeDisplay}</td>
                 </tr>
                 <tr>
-                  <td style="padding: 6px 10px; background-color: #0f172a; border: 1px solid #334155; font-weight: bold; font-size: 13px;">Technician:</td>
-                  <td style="padding: 6px 10px; background-color: #1e293b; border: 1px solid #334155; font-size: 13px;">${technicianName}</td>
+                  <td style="padding: 7px 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; font-weight: bold; font-size: 13px; color: #475569;">Technician:</td>
+                  <td style="padding: 7px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-size: 13px; color: #1e293b;">${technicianName}</td>
                 </tr>
                 ${checkInAt ? `<tr>
-                  <td style="padding: 6px 10px; background-color: #0f172a; border: 1px solid #334155; font-weight: bold; font-size: 13px;">Check in At:</td>
-                  <td style="padding: 6px 10px; background-color: #1e293b; border: 1px solid #334155; font-size: 13px;">${new Date(checkInAt).toLocaleString('th-TH')}</td>
+                  <td style="padding: 7px 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; font-weight: bold; font-size: 13px; color: #475569;">Check in At:</td>
+                  <td style="padding: 7px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-size: 13px; color: #1e293b;">${new Date(checkInAt).toLocaleString('th-TH')}</td>
                 </tr>` : ''}
                 <tr>
-                  <td style="padding: 6px 10px; background-color: #0f172a; border: 1px solid #334155; font-weight: bold; font-size: 13px;">Resolved At:</td>
-                  <td style="padding: 6px 10px; background-color: #1e293b; border: 1px solid #334155; font-size: 13px;">${new Date(resolvedAt).toLocaleString('th-TH')}</td>
+                  <td style="padding: 7px 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; font-weight: bold; font-size: 13px; color: #475569;">Resolved At:</td>
+                  <td style="padding: 7px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-size: 13px; color: #1e293b;">${new Date(resolvedAt).toLocaleString('th-TH')}</td>
                 </tr>
               </table>
             </div>
 
             <!-- Resolution Note -->
             <div style="margin-top: 20px;">
-              <h3 style="color: #10b981; margin-bottom: 10px;">Resolution:</h3>
-              <div style="background-color: #0f172a; padding: 15px; border-radius: 5px; border: 1px solid #334155; white-space: pre-wrap;">
+              <h3 style="color: #059669; margin-bottom: 10px;">Resolution:</h3>
+              <div style="background-color: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0; white-space: pre-wrap; color: #1e293b; font-size: 13px;">
                 ${resolutionNote}
               </div>
             </div>
@@ -261,23 +261,23 @@ export class EmailService {
             <!-- Public Links -->
             <div style="margin-top: 25px; text-align: center;">
               ${publicIncidentLink ? `
-              <div style="margin-bottom: 15px;">
-                <a href="${publicIncidentLink}" style="color: #3b82f6; text-decoration: underline; font-weight: bold; font-size: 14px;">
+              <div style="margin-bottom: 12px;">
+                <a href="${publicIncidentLink}" style="display: inline-block; background-color: #2563eb; color: #ffffff; text-decoration: none; font-weight: bold; font-size: 14px; padding: 10px 20px; border-radius: 6px;">
                   📋 View Incident Details
                 </a>
               </div>
               ` : ''}
               ${ratingLink ? `
-              <div style="margin-bottom: 15px;">
-                <a href="${ratingLink}" style="color: #f59e0b; text-decoration: underline; font-weight: bold; font-size: 14px;">
+              <div style="margin-bottom: 12px;">
+                <a href="${ratingLink}" style="display: inline-block; background-color: #d97706; color: #ffffff; text-decoration: none; font-weight: bold; font-size: 14px; padding: 10px 20px; border-radius: 6px;">
                   ⭐ Rate This Service
                 </a>
-                <p style="color: #94a3b8; font-size: 12px; margin-top: 8px;">Please take a moment to rate our service. Your feedback helps us improve.</p>
+                <p style="color: #64748b; font-size: 12px; margin-top: 8px;">Please take a moment to rate our service. Your feedback helps us improve.</p>
               </div>
               ` : ''}
               ${serviceReportLink ? `
-              <div style="margin-bottom: 15px;">
-                <a href="${serviceReportLink}" style="color: #10b981; text-decoration: underline; font-weight: bold; font-size: 14px;">
+              <div style="margin-bottom: 12px;">
+                <a href="${serviceReportLink}" style="display: inline-block; background-color: #059669; color: #ffffff; text-decoration: none; font-weight: bold; font-size: 14px; padding: 10px 20px; border-radius: 6px;">
                   📝 Service Report / เอกสารปิดงาน
                 </a>
               </div>
@@ -285,7 +285,7 @@ export class EmailService {
             </div>
 
             <!-- Footer -->
-            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #334155; text-align: center; color: #64748b; font-size: 12px;">
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; color: #94a3b8; font-size: 12px;">
               <p>This is an automated notification from ${config.fromName}.</p>
             </div>
 
@@ -377,55 +377,55 @@ export class EmailService {
           <meta charset="utf-8">
           <title>Technician Response - ${ticketNumber}</title>
         </head>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #e2e8f0; background-color: #0f172a; padding: 20px;">
-          <div style="max-width: 600px; margin: 0 auto; background-color: #1e293b; border-radius: 10px; padding: 30px; border: 1px solid #334155;">
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #1e293b; background-color: #f1f5f9; padding: 20px;">
+          <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 10px; padding: 30px; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
 
             <!-- Header -->
-            <div style="text-align: center; padding-bottom: 20px; border-bottom: 2px solid #8b5cf6;">
-              <h1 style="color: #8b5cf6; margin: 0;">📋 Technician Response</h1>
-              <p style="color: #94a3b8; margin: 5px 0 0 0;">${headerName}</p>
+            <div style="text-align: center; padding-bottom: 20px; border-bottom: 2px solid #7c3aed;">
+              <h1 style="color: #7c3aed; margin: 0;">📋 Technician Response</h1>
+              <p style="color: #64748b; margin: 5px 0 0 0;">${headerName}</p>
             </div>
 
             <!-- Response Info -->
             <div style="margin-top: 25px;">
-              <h2 style="color: #8b5cf6; margin-bottom: 10px; font-size: 16px;">Response Details</h2>
+              <h2 style="color: #7c3aed; margin-bottom: 10px; font-size: 16px;">Response Details</h2>
 
               <table style="width: 100%; border-collapse: collapse;">
                 <tr>
-                  <td style="padding: 6px 10px; background-color: #0f172a; border: 1px solid #334155; font-weight: bold; width: 20%; font-size: 13px;">Ticket No.:</td>
-                  <td style="padding: 6px 10px; background-color: #1e293b; border: 1px solid #334155; font-size: 13px;">${ticketNumber}</td>
+                  <td style="padding: 7px 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; font-weight: bold; width: 30%; font-size: 13px; color: #475569;">Ticket No.:</td>
+                  <td style="padding: 7px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-size: 13px; color: #1e293b;">${ticketNumber}</td>
                 </tr>
                 <tr>
-                  <td style="padding: 6px 10px; background-color: #0f172a; border: 1px solid #334155; font-weight: bold; font-size: 13px;">Title:</td>
-                  <td style="padding: 6px 10px; background-color: #1e293b; border: 1px solid #334155; font-size: 13px;">${title}</td>
+                  <td style="padding: 7px 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; font-weight: bold; font-size: 13px; color: #475569;">Title:</td>
+                  <td style="padding: 7px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-size: 13px; color: #1e293b;">${title}</td>
                 </tr>
                 <tr>
-                  <td style="padding: 6px 10px; background-color: #0f172a; border: 1px solid #334155; font-weight: bold; font-size: 13px;">Store:</td>
-                  <td style="padding: 6px 10px; background-color: #1e293b; border: 1px solid #334155; font-size: 13px;">${storeDisplay}</td>
+                  <td style="padding: 7px 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; font-weight: bold; font-size: 13px; color: #475569;">Store:</td>
+                  <td style="padding: 7px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-size: 13px; color: #1e293b;">${storeDisplay}</td>
                 </tr>
                 <tr>
-                  <td style="padding: 6px 10px; background-color: #0f172a; border: 1px solid #334155; font-weight: bold; font-size: 13px;">Technician:</td>
-                  <td style="padding: 6px 10px; background-color: #1e293b; border: 1px solid #334155; font-size: 13px;">${technicianName}</td>
+                  <td style="padding: 7px 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; font-weight: bold; font-size: 13px; color: #475569;">Technician:</td>
+                  <td style="padding: 7px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-size: 13px; color: #1e293b;">${technicianName}</td>
                 </tr>
               </table>
             </div>
 
             <!-- Message Section -->
             <div style="margin-top: 20px;">
-              <h3 style="color: #a78bfa; margin-bottom: 10px; font-size: 14px;">Message from Technician:</h3>
-              <div style="background-color: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 15px;">
-                <p style="margin: 0; white-space: pre-wrap;">${responseMessage}</p>
+              <h3 style="color: #7c3aed; margin-bottom: 10px; font-size: 14px;">Message from Technician:</h3>
+              <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px;">
+                <p style="margin: 0; white-space: pre-wrap; color: #1e293b; font-size: 13px;">${responseMessage}</p>
               </div>
             </div>
 
             <!-- ETA Section (below message) -->
-            <div style="margin-top: 20px; background-color: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 20px; text-align: center;">
-              <p style="color: #e2e8f0; font-size: 16px; font-weight: bold; margin: 0;">เวลาที่จะเดินทางไปถึงสาขา ${etaFormatted}</p>
+            <div style="margin-top: 20px; background-color: #faf5ff; border: 2px solid #c4b5fd; border-radius: 10px; padding: 20px; text-align: center;">
+              <p style="color: #5b21b6; font-size: 16px; font-weight: bold; margin: 0;">เวลาที่จะเดินทางไปถึงสาขา ${etaFormatted}</p>
             </div>
 
             <!-- Footer -->
-            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #334155; text-align: center;">
-              <p style="color: #64748b; font-size: 12px; margin: 0;">
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center;">
+              <p style="color: #94a3b8; font-size: 12px; margin: 0;">
                 This is an automated notification from ${config.fromName}.
               </p>
             </div>
