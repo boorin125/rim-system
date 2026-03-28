@@ -170,8 +170,8 @@ export class EmailService {
                 <td style="padding: 9px 12px; border: 1px solid #cbd5e1; color: #1e293b; font-weight: 600; font-size: 13px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">${equipName}</td>
                 <td style="padding: 9px 12px; border: 1px solid #cbd5e1; color: #475569; font-size: 13px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">${oldBrandModel}</td>
                 <td style="padding: 9px 12px; border: 1px solid #cbd5e1; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; font-size: 13px; color: #475569;">${oldSerial}</td>
-                <td style="padding: 9px 12px; border: 1px solid #cbd5e1; color: #059669; font-size: 13px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">${newBrandModel}</td>
-                <td style="padding: 9px 12px; border: 1px solid #cbd5e1; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; font-size: 13px; color: #059669; font-weight: 600;">${newSerial}</td>
+                <td style="padding: 9px 12px; border: 1px solid #cbd5e1; color: #475569; font-size: 13px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">${newBrandModel}</td>
+                <td style="padding: 9px 12px; border: 1px solid #cbd5e1; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; font-size: 13px; color: #475569; font-weight: 600;">${newSerial}</td>
               </tr>
             `;
           })
@@ -187,8 +187,8 @@ export class EmailService {
                   <th style="padding: 10px 12px; text-align: left; border: 1px solid #cbd5e1; color: #1e293b;">Equipment Name</th>
                   <th style="padding: 10px 12px; text-align: left; border: 1px solid #cbd5e1; color: #1e293b;">Old Equipment<br><span style="font-weight: normal; font-size: 11px; color: #64748b;">(Brand / Model)</span></th>
                   <th style="padding: 10px 12px; text-align: left; border: 1px solid #cbd5e1; color: #1e293b;">Old Serial No.</th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #cbd5e1; color: #059669;">New Equipment<br><span style="font-weight: normal; font-size: 11px; color: #10b981;">(Brand / Model)</span></th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #cbd5e1; color: #059669;">New Serial No.</th>
+                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #cbd5e1; color: #1e293b;">New Equipment<br><span style="font-weight: normal; font-size: 11px; color: #64748b;">(Brand / Model)</span></th>
+                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #cbd5e1; color: #1e293b;">New Serial No.</th>
                 </tr>
               </thead>
               <tbody>
