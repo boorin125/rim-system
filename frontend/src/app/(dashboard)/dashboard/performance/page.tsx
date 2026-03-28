@@ -1021,21 +1021,22 @@ function MiniGaugeCard({ label, score, displayValue, weight, icon: Icon, target,
   // W=180 H=148: end_y = 90+74*0.5+6.5=133 < 148 ✓  top=90-74=16 ✓
   const W = 180, H = 148, cx = 90, cy = 90, r = 74, sw = 13
   return (
-    <div className="glass-card p-4 rounded-2xl flex flex-col items-center text-center"
+    <div className="relative glass-card p-4 rounded-2xl flex flex-col items-center text-center"
       style={{ boxShadow: `0 2px 20px ${color}1A` }}>
+      {/* Tips button — fixed to top-right corner of card */}
+      {tips && tips.length > 0 && (
+        <button
+          onClick={() => setShowTips(v => !v)}
+          className={`absolute top-2.5 right-2.5 p-1 rounded-md transition-colors ${showTips ? 'text-amber-400' : 'text-gray-600 hover:text-amber-400'}`}
+          title="Tips เพิ่มคะแนน"
+        >
+          <Lightbulb className="w-3.5 h-3.5" />
+        </button>
+      )}
       {/* Header row */}
-      <div className="flex items-start gap-1.5 mb-1 w-full justify-center min-h-[2.5rem] relative">
+      <div className="flex items-start gap-1.5 mb-1 justify-center min-h-[2.5rem]">
         <Icon className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-gray-400" />
         <span className="text-xs font-medium text-gray-400 leading-tight">{label}</span>
-        {tips && tips.length > 0 && (
-          <button
-            onClick={() => setShowTips(v => !v)}
-            className={`absolute right-0 top-0 p-0.5 rounded-md transition-colors ${showTips ? 'text-amber-400' : 'text-gray-600 hover:text-amber-400'}`}
-            title="Tips เพิ่มคะแนน"
-          >
-            <Lightbulb className="w-3.5 h-3.5" />
-          </button>
-        )}
       </div>
 
       {/* Gauge */}
