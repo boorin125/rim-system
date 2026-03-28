@@ -31,8 +31,8 @@ export default function TechConfirmModal({
   const hasOnlineSR = !!incident.serviceReportToken;
   const pendingOnlineSignature = hasOnlineSR && !hasCustomerSignature;
 
-  // Must have at least one proof: signed photo OR online customer signature OR online SR sent (even if not signed yet)
-  const hasServiceReportProof = signedPhotosCount > 0 || hasCustomerSignature || hasOnlineSR;
+  // Must have at least one proof: signed photo OR online customer signature
+  const hasServiceReportProof = signedPhotosCount > 0 || hasCustomerSignature;
   const canConfirm = hasServiceReportProof;
 
   return (
@@ -141,7 +141,7 @@ export default function TechConfirmModal({
               <p className="text-xs text-red-300">
                 <span className="font-semibold">ไม่สามารถยืนยันปิดงานได้</span> — กรุณาดำเนินการอย่างใดอย่างหนึ่งก่อน:
                 <br />• อัปโหลดรูปใบงานที่ลูกค้าเซ็นแล้ว (Signed Report Photo)
-                <br />• หรือสร้าง Service Report Online แล้วส่งให้ลูกค้า
+                <br />• หรือรอลูกค้าเซ็น Service Report Online ผ่านลิงก์
               </p>
             </div>
           )}
