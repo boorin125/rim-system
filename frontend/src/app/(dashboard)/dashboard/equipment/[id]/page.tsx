@@ -39,6 +39,7 @@ import {
   X,
 } from 'lucide-react'
 import axios from 'axios'
+import { compressImage } from '@/utils/imageUtils'
 import toast from 'react-hot-toast'
 import BackButton from '@/components/BackButton'
 import { canPerformAction, getUserRoles } from '@/config/permissions'
@@ -202,8 +203,9 @@ export default function EquipmentDetailPage() {
     setImageUploading(true)
     try {
       const token = localStorage.getItem('token')
+      const compressed = await compressImage(file, { maxWidth: 1920, maxHeight: 1920, quality: 0.85 })
       const formData = new FormData()
-      formData.append('file', file)
+      formData.append('file', compressed)
       const res = await axios.patch(
         `${process.env.NEXT_PUBLIC_API_URL}/equipment/${params.id}/image`,
         formData,

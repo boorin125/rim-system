@@ -40,6 +40,7 @@ import {
   ZoomIn,
 } from 'lucide-react'
 import axios from 'axios'
+import { compressImage } from '@/utils/imageUtils'
 import toast from 'react-hot-toast'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts'
 import BackButton from '@/components/BackButton'
@@ -671,15 +672,12 @@ export default function StoreDetailPage() {
   const handleLayoutUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (!['image/jpeg', 'image/jpg'].includes(file.type)) {
-      toast.error('รองรับเฉพาะไฟล์ JPEG/JPG เท่านั้น')
-      return
-    }
-    const formData = new FormData()
-    formData.append('file', file)
     try {
       setLayoutUploading(true)
       const token = localStorage.getItem('token')
+      const compressed = await compressImage(file, { maxWidth: 1920, maxHeight: 1920, quality: 0.85 })
+      const formData = new FormData()
+      formData.append('file', compressed)
       await axios.patch(
         `${process.env.NEXT_PUBLIC_API_URL}/stores/${id}/layout-image`,
         formData,

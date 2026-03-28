@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Upload, Trash2, Camera, Mic, MicOff, FileText, CheckCircle, FlipHorizontal2 } from 'lucide-react';
 import SparePartForm from './SparePartForm';
-import { fixImagesOrientation } from '@/utils/fixImageOrientation';
+import { compressImages } from '@/utils/imageUtils';
 
 interface ResolveIncidentModalProps {
   isOpen: boolean;
@@ -204,7 +204,7 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
     return null;
   };
 
-  // Handle photo upload — fix EXIF orientation for iOS Safari before storing
+  // Handle photo upload — compress + convert to JPEG + fix EXIF orientation
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
 
@@ -213,19 +213,17 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
       return;
     }
 
-    // Reset input immediately (before async work)
     if (fileInputRef.current) fileInputRef.current.value = '';
 
-    // Fix EXIF orientation (no-op on non-JPEG or orientation=1)
-    const fixedFiles = await fixImagesOrientation(files);
-    const newPreviewUrls = fixedFiles.map(file => URL.createObjectURL(file));
+    const compressed = await compressImages(files, { maxWidth: 1920, maxHeight: 1920, quality: 0.85 });
+    const newPreviewUrls = compressed.map(file => URL.createObjectURL(file));
 
-    setAfterPhotos(prev => [...prev, ...fixedFiles]);
+    setAfterPhotos(prev => [...prev, ...compressed]);
     setPreviewUrls(prev => [...prev, ...newPreviewUrls]);
     setError('');
   };
 
-  // Handle signed SR photo upload — fix EXIF orientation for iOS Safari
+  // Handle signed SR photo upload — compress + convert to JPEG + fix EXIF orientation
   const handleSignedSrUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (signedSrPhotos.length + files.length > 5) {
@@ -235,9 +233,9 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
     if (srGalleryInputRef.current) srGalleryInputRef.current.value = '';
     if (srCameraInputRef.current) srCameraInputRef.current.value = '';
 
-    const fixedFiles = await fixImagesOrientation(files);
-    const newUrls = fixedFiles.map(file => URL.createObjectURL(file));
-    setSignedSrPhotos(prev => [...prev, ...fixedFiles]);
+    const compressed = await compressImages(files, { maxWidth: 1920, maxHeight: 1920, quality: 0.85 });
+    const newUrls = compressed.map(file => URL.createObjectURL(file));
+    setSignedSrPhotos(prev => [...prev, ...compressed]);
     setSignedSrPreviewUrls(prev => [...prev, ...newUrls]);
     setError('');
   };

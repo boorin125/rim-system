@@ -2,6 +2,7 @@
 'use client'
 
 import { formatStore } from '@/utils/formatStore'
+import { compressImage } from '@/utils/imageUtils'
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
@@ -583,14 +584,15 @@ function PaymentModal({ agreedPrice, shippingCost, jobId, onConfirm, onClose }: 
   const handleSlipSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    setSlipFile(file)
-    setSlipPreview(URL.createObjectURL(file))
 
     // Upload immediately
     setUploading(true)
     try {
+      const compressed = await compressImage(file, { maxWidth: 1920, maxHeight: 1920, quality: 0.85 })
+      setSlipFile(compressed)
+      setSlipPreview(URL.createObjectURL(compressed))
       const formData = new FormData()
-      formData.append('slip', file)
+      formData.append('slip', compressed)
       const token = localStorage.getItem('token')
       const res = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/outsource/jobs/${jobId}/payment-slip`,
@@ -803,7 +805,8 @@ function DocumentSubmissionSection({ jobId, job, onSuccess }: { jobId: any; job:
     const file = e.target.files?.[0]
     if (!file) return
     setUploading(type)
-    const path = await uploadFile(file)
+    const compressed = await compressImage(file, { maxWidth: 1920, maxHeight: 1920, quality: 0.85 })
+    const path = await uploadFile(compressed)
     if (path) {
       if (type === 'slip') setSlipPath(path)
       else if (type === 'workOrder') setWorkOrderPath(path)

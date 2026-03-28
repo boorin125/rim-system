@@ -3,6 +3,7 @@
 
 import { useState, useRef } from 'react'
 import { X, Camera, Trash2, Upload, FlipHorizontal2 } from 'lucide-react'
+import { compressImage, fileToBase64 } from '@/utils/imageUtils'
 
 interface AddBeforePhotosModalProps {
   isOpen: boolean
@@ -25,35 +26,16 @@ export default function AddBeforePhotosModal({
   const remainingSlots = maxPhotos - currentPhotoCount
   const canAddMore = photos.length < remainingSlots
 
-  const compressImage = (file: File, maxWidth = 1200, quality = 0.8): Promise<string> =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        const img = new Image()
-        img.onload = () => {
-          const canvas = document.createElement('canvas')
-          let { width, height } = img
-          if (width > maxWidth) { height = (height * maxWidth) / width; width = maxWidth }
-          canvas.width = width; canvas.height = height
-          const ctx = canvas.getContext('2d')
-          if (!ctx) { reject(new Error('canvas error')); return }
-          ctx.drawImage(img, 0, 0, width, height)
-          resolve(canvas.toDataURL('image/jpeg', quality))
-        }
-        img.onerror = () => reject(new Error('load error'))
-        img.src = e.target?.result as string
-      }
-      reader.onerror = () => reject(new Error('read error'))
-      reader.readAsDataURL(file)
-    })
-
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files) return
     const availableSlots = remainingSlots - photos.length
     const newPhotos: string[] = []
     for (let i = 0; i < Math.min(files.length, availableSlots); i++) {
-      try { newPhotos.push(await compressImage(files[i])) } catch {}
+      try {
+        const compressed = await compressImage(files[i], { maxWidth: 1200, maxHeight: 1200, quality: 0.8 })
+        newPhotos.push(await fileToBase64(compressed))
+      } catch {}
     }
     setPhotos((prev) => [...prev, ...newPhotos])
     if (e.target) e.target.value = ''
