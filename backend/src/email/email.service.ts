@@ -378,55 +378,55 @@ export class EmailService {
           <meta charset="utf-8">
           <title>Technician Response - ${ticketNumber}</title>
         </head>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #1e293b; background-color: #f1f5f9; padding: 20px;">
+        <body style="font-family: Tahoma, 'Segoe UI', Arial, sans-serif; line-height: 1.8; color: #1e293b; background-color: #f1f5f9; padding: 20px;">
           <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 10px; padding: 30px; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
 
             <!-- Header -->
             <div style="text-align: center; padding-bottom: 20px; border-bottom: 2px solid #7c3aed;">
-              <h1 style="color: #7c3aed; margin: 0;">📋 Technician Response</h1>
-              <p style="color: #64748b; margin: 5px 0 0 0;">${headerName}</p>
+              <h1 style="color: #7c3aed; margin: 0; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">📋 Technician Response</h1>
+              <p style="color: #64748b; margin: 5px 0 0 0; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">${headerName}</p>
             </div>
 
             <!-- Response Info -->
             <div style="margin-top: 25px;">
-              <h2 style="color: #7c3aed; margin-bottom: 10px; font-size: 16px;">Response Details</h2>
+              <h2 style="color: #7c3aed; margin-bottom: 10px; font-size: 16px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">Response Details</h2>
 
               <table style="width: 100%; border-collapse: collapse;">
                 <tr>
-                  <td style="padding: 7px 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; font-weight: bold; width: 30%; font-size: 13px; color: #475569;">Ticket No.:</td>
-                  <td style="padding: 7px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-size: 13px; color: #1e293b;">${ticketNumber}</td>
+                  <td style="padding: 8px 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; font-weight: bold; width: 30%; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #475569;">Ticket No.:</td>
+                  <td style="padding: 8px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #1e293b;">${ticketNumber}</td>
                 </tr>
                 <tr>
-                  <td style="padding: 7px 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; font-weight: bold; font-size: 13px; color: #475569;">Title:</td>
-                  <td style="padding: 7px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-size: 13px; color: #1e293b;">${title}</td>
+                  <td style="padding: 8px 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; font-weight: bold; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #475569;">Title:</td>
+                  <td style="padding: 8px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #1e293b;">${title}</td>
                 </tr>
                 <tr>
-                  <td style="padding: 7px 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; font-weight: bold; font-size: 13px; color: #475569;">Store:</td>
-                  <td style="padding: 7px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-size: 13px; color: #1e293b;">${storeDisplay}</td>
+                  <td style="padding: 8px 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; font-weight: bold; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #475569;">Store:</td>
+                  <td style="padding: 8px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #1e293b;">${storeDisplay}</td>
                 </tr>
                 <tr>
-                  <td style="padding: 7px 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; font-weight: bold; font-size: 13px; color: #475569;">Technician:</td>
-                  <td style="padding: 7px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-size: 13px; color: #1e293b;">${technicianName}</td>
+                  <td style="padding: 8px 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; font-weight: bold; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #475569;">Technician:</td>
+                  <td style="padding: 8px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #1e293b;">${technicianName}</td>
                 </tr>
               </table>
             </div>
 
             <!-- Message Section -->
             <div style="margin-top: 20px;">
-              <h3 style="color: #7c3aed; margin-bottom: 10px; font-size: 14px;">Message from Technician:</h3>
+              <h3 style="color: #7c3aed; margin-bottom: 10px; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">Message from Technician:</h3>
               <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px;">
-                <p style="margin: 0; white-space: pre-wrap; color: #1e293b; font-size: 13px;">${responseMessage}</p>
+                <p style="margin: 0; white-space: pre-wrap; color: #1e293b; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; line-height: 1.8;">${responseMessage}</p>
               </div>
             </div>
 
             <!-- ETA Section (below message) -->
             <div style="margin-top: 20px; background-color: #faf5ff; border: 2px solid #c4b5fd; border-radius: 10px; padding: 20px; text-align: center;">
-              <p style="color: #5b21b6; font-size: 16px; font-weight: bold; margin: 0;">เวลาที่จะเดินทางไปถึงสาขา ${etaFormatted}</p>
+              <p style="color: #5b21b6; font-size: 16px; font-weight: bold; margin: 0; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">เวลาที่จะเดินทางไปถึงสาขา ${etaFormatted}</p>
             </div>
 
             <!-- Footer -->
             <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center;">
-              <p style="color: #94a3b8; font-size: 12px; margin: 0;">
+              <p style="color: #94a3b8; font-size: 12px; margin: 0; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">
                 This is an automated notification from ${config.fromName}.
               </p>
             </div>
