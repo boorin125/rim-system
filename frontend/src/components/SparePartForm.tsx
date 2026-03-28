@@ -246,24 +246,26 @@ export default function SparePartForm({
     } catch { setShowBrandDropdown(null); }
   };
 
-  // Fetch distinct model suggestions for a category + brand
+  // Fetch distinct model suggestions for a category + brand (query is optional — show all under brand if empty)
   const fetchModelSuggestions = async (partId: string, query: string, brand: string) => {
     const category = getOldDeviceCategory(partId);
-    if (!query) { setShowModelDropdown(null); return; }
+    // Require at least a brand or a query to avoid fetching the entire DB
+    if (!brand && !query) { setShowModelDropdown(null); return; }
     try {
       const token = localStorage.getItem('token');
-      const params: any = { limit: 200 };
+      const params: any = { limit: 300 };
       if (category) params.category = category;
       if (brand) params.brand = brand;
-      if (query) params.model = query;
       const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/equipment`, {
         params,
         headers: { Authorization: `Bearer ${token}` },
       });
       const list = res.data?.data || [];
-      const models = [...new Set<string>(list.map((e: any) => e.model).filter(Boolean))].sort();
-      setModelSuggestions(prev => ({ ...prev, [partId]: models }));
-      setShowModelDropdown(models.length > 0 ? partId : null);
+      const allModels = [...new Set<string>(list.map((e: any) => e.model).filter(Boolean))].sort();
+      // Filter client-side by query text if user has typed something
+      const filtered = query ? allModels.filter(m => m.toLowerCase().includes(query.toLowerCase())) : allModels;
+      setModelSuggestions(prev => ({ ...prev, [partId]: filtered }));
+      setShowModelDropdown(filtered.length > 0 ? partId : null);
     } catch { setShowModelDropdown(null); }
   };
 
@@ -974,6 +976,8 @@ export default function SparePartForm({
                               e.preventDefault();
                               updateSparePart(part.id, 'newBrand', brand);
                               setShowBrandDropdown(null);
+                              // Auto-load models for the chosen brand immediately
+                              fetchModelSuggestions(part.id, part.newModel || '', brand);
                             }}
                             className="px-3 py-2 text-sm text-white hover:bg-slate-700 cursor-pointer"
                           >
@@ -1000,7 +1004,7 @@ export default function SparePartForm({
                         fetchModelSuggestions(part.id, e.target.value, part.newBrand || '');
                       }}
                       onFocus={() => {
-                        if (part.newModel) fetchModelSuggestions(part.id, part.newModel, part.newBrand || '');
+                        fetchModelSuggestions(part.id, part.newModel || '', part.newBrand || '');
                       }}
                       disabled={disabled}
                       placeholder="e.g., EloPOS X10, ProBook 450"
