@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Upload, Trash2, Camera, Mic, MicOff, FileText, CheckCircle, FlipHorizontal2 } from 'lucide-react';
 import SparePartForm from './SparePartForm';
+import { fixImagesOrientation } from '@/utils/fixImageOrientation';
 
 interface ResolveIncidentModalProps {
   isOpen: boolean;
@@ -203,41 +204,42 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
     return null;
   };
 
-  // Handle photo upload
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle photo upload — fix EXIF orientation for iOS Safari before storing
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    
+
     if (afterPhotos.length + files.length > 20) {
       setError('สามารถอัพโหลดรูปได้สูงสุด 20 รูป');
       return;
     }
 
-    // Create preview URLs
-    const newPreviewUrls = files.map(file => URL.createObjectURL(file));
-    
-    setAfterPhotos(prev => [...prev, ...files]);
+    // Reset input immediately (before async work)
+    if (fileInputRef.current) fileInputRef.current.value = '';
+
+    // Fix EXIF orientation (no-op on non-JPEG or orientation=1)
+    const fixedFiles = await fixImagesOrientation(files);
+    const newPreviewUrls = fixedFiles.map(file => URL.createObjectURL(file));
+
+    setAfterPhotos(prev => [...prev, ...fixedFiles]);
     setPreviewUrls(prev => [...prev, ...newPreviewUrls]);
     setError('');
-    
-    // Reset input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
   };
 
-  // Handle signed SR photo upload
-  const handleSignedSrUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle signed SR photo upload — fix EXIF orientation for iOS Safari
+  const handleSignedSrUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (signedSrPhotos.length + files.length > 5) {
       setError('อัปโหลดรูป SR ที่เซ็นแล้วได้สูงสุด 5 รูป');
       return;
     }
-    const newUrls = files.map(file => URL.createObjectURL(file));
-    setSignedSrPhotos(prev => [...prev, ...files]);
-    setSignedSrPreviewUrls(prev => [...prev, ...newUrls]);
-    setError('');
     if (srGalleryInputRef.current) srGalleryInputRef.current.value = '';
     if (srCameraInputRef.current) srCameraInputRef.current.value = '';
+
+    const fixedFiles = await fixImagesOrientation(files);
+    const newUrls = fixedFiles.map(file => URL.createObjectURL(file));
+    setSignedSrPhotos(prev => [...prev, ...fixedFiles]);
+    setSignedSrPreviewUrls(prev => [...prev, ...newUrls]);
+    setError('');
   };
 
   const handleRemoveSignedSrPhoto = (index: number) => {
