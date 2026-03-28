@@ -33,6 +33,8 @@ import {
   ShieldX,
   ArrowUpDown,
   Activity,
+  Lightbulb,
+  ChevronDown,
 } from 'lucide-react'
 import { getUserRoles, getAccessLevel } from '@/config/permissions'
 
@@ -1010,20 +1012,33 @@ function GaugeArc({ percent, cx, cy, r, strokeWidth = 20, startAngle = -210, swe
 
 // ── Mini gauge card (SLA / Cust Sat / First Fix / Reopen) ──
 
-function MiniGaugeCard({ label, score, displayValue, weight, icon: Icon, target, subtitle }: {
+function MiniGaugeCard({ label, score, displayValue, weight, icon: Icon, target, subtitle, tips }: {
   label: string; score: number; displayValue: string; weight: number
-  icon: React.ElementType; target?: string; subtitle?: string
+  icon: React.ElementType; target?: string; subtitle?: string; tips?: string[]
 }) {
+  const [showTips, setShowTips] = useState(false)
   const color = gaugeColor(score)
   // W=180 H=148: end_y = 90+74*0.5+6.5=133 < 148 ✓  top=90-74=16 ✓
   const W = 180, H = 148, cx = 90, cy = 90, r = 74, sw = 13
   return (
     <div className="glass-card p-4 rounded-2xl flex flex-col items-center text-center"
       style={{ boxShadow: `0 2px 20px ${color}1A` }}>
-      <div className="flex items-start gap-1.5 mb-1 justify-center min-h-[2.5rem]">
+      {/* Header row */}
+      <div className="flex items-start gap-1.5 mb-1 w-full justify-center min-h-[2.5rem] relative">
         <Icon className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-gray-400" />
         <span className="text-xs font-medium text-gray-400 leading-tight">{label}</span>
+        {tips && tips.length > 0 && (
+          <button
+            onClick={() => setShowTips(v => !v)}
+            className={`absolute right-0 top-0 p-0.5 rounded-md transition-colors ${showTips ? 'text-amber-400' : 'text-gray-600 hover:text-amber-400'}`}
+            title="Tips เพิ่มคะแนน"
+          >
+            <Lightbulb className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
+
+      {/* Gauge */}
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: '120px' }}>
         <GaugeArc percent={score} cx={cx} cy={cy} r={r} strokeWidth={sw} color={color} />
         <text x={cx} y={cy - 12} textAnchor="middle" fill="white" fontSize="21" fontWeight="700">{displayValue}</text>
@@ -1031,41 +1046,86 @@ function MiniGaugeCard({ label, score, displayValue, weight, icon: Icon, target,
       </svg>
       <p className="text-xs text-gray-500 mt-0.5">W: {weight}%{target ? ` · ${target}` : ''}</p>
       {subtitle && <p className="text-xs text-gray-600 mt-0.5">{subtitle}</p>}
+
+      {/* Tips panel */}
+      {showTips && tips && tips.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-amber-500/20 w-full text-left">
+          <p className="text-xs font-semibold text-amber-400 mb-2 flex items-center gap-1">
+            <Lightbulb className="w-3 h-3" /> วิธีเพิ่มคะแนน
+          </p>
+          <ul className="space-y-1.5">
+            {tips.map((tip, i) => (
+              <li key={i} className="text-xs text-gray-400 flex items-start gap-1.5">
+                <span className="text-amber-400/70 flex-shrink-0 mt-0.5">•</span>
+                {tip}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   )
 }
 
 // ── Metric row (bar chart style for time/volume metrics) ───
 
-function MetricRow({ icon: Icon, label, value, score, weight, target, color, barColor }: {
+function MetricRow({ icon: Icon, label, value, score, weight, target, color, barColor, tips }: {
   icon: React.ElementType; label: string; value: string; score: number; weight: number
-  target?: string; color: string; barColor: (s: number) => string
+  target?: string; color: string; barColor: (s: number) => string; tips?: string[]
 }) {
+  const [showTips, setShowTips] = useState(false)
   const iconCls: Record<string, string> = {
     blue: 'text-blue-400 bg-blue-500/15', indigo: 'text-indigo-400 bg-indigo-500/15', purple: 'text-purple-400 bg-purple-500/15',
   }
   const sc = (s: number) => s >= 90 ? 'text-emerald-400' : s >= 80 ? 'text-green-400' : s >= 70 ? 'text-yellow-400' : s >= 60 ? 'text-orange-400' : 'text-red-400'
   return (
-    <div className="flex items-center gap-3 p-3 bg-slate-800/40 rounded-xl">
-      <div className={`p-2 rounded-lg flex-shrink-0 ${iconCls[color] || 'text-gray-400 bg-gray-500/15'}`}>
-        <Icon className="w-4 h-4" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between mb-1.5">
-          <span className="text-sm font-medium text-white">{label}</span>
-          <div className="flex items-center gap-2 text-xs">
-            {target && <span className="text-gray-500">Target: {target}</span>}
-            <span className="text-gray-600">W: {weight}%</span>
-            <span className={`font-semibold ${sc(score)}`}>{score.toFixed(0)}</span>
+    <div className="p-3 bg-slate-800/40 rounded-xl">
+      <div className="flex items-center gap-3">
+        <div className={`p-2 rounded-lg flex-shrink-0 ${iconCls[color] || 'text-gray-400 bg-gray-500/15'}`}>
+          <Icon className="w-4 h-4" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-sm font-medium text-white">{label}</span>
+            <div className="flex items-center gap-2 text-xs">
+              {target && <span className="text-gray-500">Target: {target}</span>}
+              <span className="text-gray-600">W: {weight}%</span>
+              <span className={`font-semibold ${sc(score)}`}>{score.toFixed(0)}</span>
+              {tips && tips.length > 0 && (
+                <button
+                  onClick={() => setShowTips(v => !v)}
+                  className={`ml-1 p-0.5 rounded transition-colors ${showTips ? 'text-amber-400' : 'text-gray-600 hover:text-amber-400'}`}
+                  title="Tips เพิ่มคะแนน"
+                >
+                  <Lightbulb className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex-1 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+              <div className={`h-full rounded-full transition-all ${barColor(score)}`} style={{ width: `${Math.min(score, 100)}%` }} />
+            </div>
+            <span className="text-sm text-white font-medium flex-shrink-0 min-w-[90px] text-right">{value}</span>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex-1 h-1.5 bg-slate-700 rounded-full overflow-hidden">
-            <div className={`h-full rounded-full transition-all ${barColor(score)}`} style={{ width: `${Math.min(score, 100)}%` }} />
-          </div>
-          <span className="text-sm text-white font-medium flex-shrink-0 min-w-[90px] text-right">{value}</span>
-        </div>
       </div>
+      {/* Tips panel */}
+      {showTips && tips && tips.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-amber-500/20 ml-11">
+          <p className="text-xs font-semibold text-amber-400 mb-2 flex items-center gap-1">
+            <Lightbulb className="w-3 h-3" /> วิธีเพิ่มคะแนน
+          </p>
+          <ul className="space-y-1.5">
+            {tips.map((tip, i) => (
+              <li key={i} className="text-xs text-gray-400 flex items-start gap-1.5">
+                <span className="text-amber-400/70 flex-shrink-0 mt-0.5">•</span>
+                {tip}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   )
 }
@@ -1170,24 +1230,48 @@ function PerformanceDetail({ data, fmtTime, fmtPct, barColor }: {
           score={data.metrics.slaCompliance.score}
           displayValue={fmtPct(data.metrics.slaCompliance.value)}
           weight={data.metrics.slaCompliance.weight}
-          icon={ShieldCheck} target={`${data.metrics.slaCompliance.target}%`} />
+          icon={ShieldCheck} target={`${data.metrics.slaCompliance.target}%`}
+          tips={[
+            'รับงานและเริ่มดำเนินการทันทีหลังได้รับมอบหมาย',
+            'จัดลำดับความสำคัญงาน Priority สูงก่อนเสมอ',
+            'แจ้ง Supervisor ล่วงหน้าหากคาดว่างานจะล่าช้า',
+            'ติดตามงานที่ใกล้ครบ SLA ก่อนจะเกินกำหนด',
+          ]} />
         <MiniGaugeCard label="Customer Satisfaction"
           score={data.metrics.customerSatisfaction.score ?? 0}
           displayValue={data.metrics.customerSatisfaction.rating != null
             ? `${data.metrics.customerSatisfaction.rating.toFixed(1)}/5` : 'N/A'}
           weight={data.metrics.customerSatisfaction.weight}
           icon={Star} target="5.0"
-          subtitle={`${data.metrics.customerSatisfaction.totalRatings} ratings`} />
+          subtitle={`${data.metrics.customerSatisfaction.totalRatings} ratings`}
+          tips={[
+            'ทักทายและแนะนำตัวก่อนเริ่มงานทุกครั้ง',
+            'อธิบายสิ่งที่กำลังทำและผลลัพธ์ที่คาดหวัง',
+            'ถามลูกค้าว่าพอใจก่อนออกจากพื้นที่',
+            'ทำความสะอาดและเก็บอุปกรณ์ให้เรียบร้อยหลังงาน',
+          ]} />
         <MiniGaugeCard label="First Time Fix"
           score={data.metrics.firstTimeFix.score}
           displayValue={fmtPct(data.metrics.firstTimeFix.value)}
           weight={data.metrics.firstTimeFix.weight}
-          icon={ThumbsUp} target={`${data.metrics.firstTimeFix.target}%`} />
+          icon={ThumbsUp} target={`${data.metrics.firstTimeFix.target}%`}
+          tips={[
+            'อ่าน History งานและ Root Cause ก่อนลงพื้นที่',
+            'เตรียมอะไหล่และเครื่องมือให้ครบก่อนออกเดินทาง',
+            'วินิจฉัยปัญหาให้ครบถ้วนก่อนเริ่มซ่อม',
+            'ทดสอบระบบอย่างละเอียดก่อนปิดงานทุกครั้ง',
+          ]} />
         <MiniGaugeCard label="Reopen Rate"
           score={data.metrics.reopenRate.score}
           displayValue={fmtPct(data.metrics.reopenRate.value)}
           weight={data.metrics.reopenRate.weight}
-          icon={RotateCcw} target={`≤${data.metrics.reopenRate.target}%`} />
+          icon={RotateCcw} target={`≤${data.metrics.reopenRate.target}%`}
+          tips={[
+            'ทดสอบซ้ำหลายรอบและแก้ Root Cause จริงก่อนปิดงาน',
+            'บันทึก Resolution Notes ให้ครบถ้วนชัดเจน',
+            'แนะนำการใช้งานที่ถูกต้องและวิธีป้องกันปัญหาซ้ำ',
+            'Follow up ลูกค้า 1–2 วันหลังปิดงาน',
+          ]} />
       </div>
 
       {/* ── TIME & VOLUME METRICS (bar rows) ── */}
@@ -1199,17 +1283,35 @@ function PerformanceDetail({ data, fmtTime, fmtPct, barColor }: {
           <MetricRow icon={BarChart3} label="Work Volume"
             value={`${data.metrics.workVolume.value} งาน`}
             score={data.metrics.workVolume.score} weight={data.metrics.workVolume.weight}
-            target={`${data.metrics.workVolume.target} งาน`} color="blue" barColor={barColor} />
+            target={`${data.metrics.workVolume.target} งาน`} color="blue" barColor={barColor}
+            tips={[
+              'วางแผนเส้นทางให้มีประสิทธิภาพ จัดกลุ่มงานในพื้นที่ใกล้กัน',
+              'แจ้งความพร้อมรับงานเพิ่มเมื่อปิดงานเร็วกว่ากำหนด',
+              'บันทึกข้อมูลผ่าน App ทันทีเพื่อลดเวลา Admin',
+              'ประสานงานกับลูกค้าล่วงหน้าเพื่อลดเวลารอหน้างาน',
+            ]} />
           <MetricRow icon={Timer} label="Resolution Time"
             value={fmtTime(data.metrics.resolutionTime.value, data.metrics.resolutionTime.unit)}
             score={data.metrics.resolutionTime.score} weight={data.metrics.resolutionTime.weight}
             target={fmtTime(data.metrics.resolutionTime.standard, data.metrics.resolutionTime.unit)}
-            color="indigo" barColor={barColor} />
+            color="indigo" barColor={barColor}
+            tips={[
+              'เตรียมอุปกรณ์ Diagnose และอะไหล่สำรองทั่วไปติดตัวตลอด',
+              'ศึกษา Knowledge Base และคู่มือสินค้าล่วงหน้า',
+              'ขอความช่วยเหลือจาก Senior Tech ทันทีเมื่อติดขัด',
+              'หลีกเลี่ยงการเดินทางกลับมาขออะไหล่เพิ่ม',
+            ]} />
           <MetricRow icon={Zap} label="Response Time"
             value={fmtTime(data.metrics.responseTime.value, data.metrics.responseTime.unit)}
             score={data.metrics.responseTime.score} weight={data.metrics.responseTime.weight}
             target={fmtTime(data.metrics.responseTime.standard, data.metrics.responseTime.unit)}
-            color="purple" barColor={barColor} />
+            color="purple" barColor={barColor}
+            tips={[
+              'ตอบรับงานภายใน 15 นาทีหลังได้รับแจ้งทุกครั้ง',
+              'แจ้ง ETA ที่ชัดเจนให้ Helpdesk และลูกค้าทราบทันที',
+              'เปิดการแจ้งเตือน App ตลอดเวลาทำการ',
+              'แจ้งทันทีหากมีเหตุจำเป็นที่ทำให้ Response ช้า',
+            ]} />
         </div>
       </div>
     </div>
