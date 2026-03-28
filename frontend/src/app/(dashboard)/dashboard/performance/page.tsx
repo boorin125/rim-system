@@ -978,103 +978,239 @@ function SlaLineChart({ data }: { data: SlaTrendEntry[] }) {
 
 // ==================== SUB-COMPONENTS ====================
 
-function PerformanceDetail({ data, fmtTime, fmtPct, barColor }: {
-  data: PerformanceData
-  fmtTime: (v: number, u?: string) => string
-  fmtPct: (v: number | null) => string
-  barColor: (s: number) => string
-}) {
-  return (
-    <div className="space-y-6">
-      {/* Grade Card */}
-      <div className="glass-card p-6 rounded-2xl">
-        <div className="flex flex-col md:flex-row items-center gap-6">
-          <div className={`flex flex-col items-center justify-center p-6 rounded-2xl bg-gradient-to-br ${GRADE_BG[data.grade] || 'from-gray-600 to-gray-700'}`}>
-            <span className="text-5xl font-bold text-white">{data.grade}</span>
-            <span className="text-sm text-white/80 mt-1">{data.gradeDescription}</span>
-          </div>
-          <div className="flex-1 text-center md:text-left">
-            <div className="flex items-baseline gap-2 justify-center md:justify-start">
-              <span className="text-4xl font-bold text-white">{data.overallScore.toFixed(1)}</span>
-              <span className="text-gray-400">/ 100</span>
-            </div>
-            <p className="text-gray-400 mt-1">Overall Score</p>
-            {data.ranking && data.totalTechnicians && (
-              <div className="flex items-center gap-2 mt-3 justify-center md:justify-start">
-                <Trophy className="w-5 h-5 text-yellow-400" />
-                <span className="text-white">อันดับที่ <strong>{data.ranking}</strong> จาก {data.totalTechnicians} คน</span>
-              </div>
-            )}
-            {data.comparison && (
-              <div className="flex items-center gap-4 mt-2 text-sm text-gray-400 justify-center md:justify-start">
-                <span>Team Avg: {data.comparison.teamAvgScore?.toFixed(1)}</span>
-                <span>Top: {data.comparison.topPerformerScore?.toFixed(1)}</span>
-              </div>
-            )}
-          </div>
-          {data.bonusPoints > 0 && (
-            <div className="text-center p-4 bg-purple-500/20 rounded-xl">
-              <Award className="w-8 h-8 text-purple-400 mx-auto" />
-              <span className="text-2xl font-bold text-purple-400">+{data.bonusPoints.toFixed(1)}</span>
-              <p className="text-xs text-gray-400">Bonus</p>
-            </div>
-          )}
-        </div>
-      </div>
+// ── Gauge helpers ──────────────────────────────────────────
 
-      {/* Metrics */}
-      <div className="glass-card p-6 rounded-2xl">
-        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <BarChart3 className="w-5 h-5 text-blue-400" /> Metrics Breakdown
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <MetricCard icon={CheckCircle2} label="SLA Compliance" value={fmtPct(data.metrics.slaCompliance.value)} score={data.metrics.slaCompliance.score} weight={data.metrics.slaCompliance.weight} target={`${data.metrics.slaCompliance.target}%`} color="green" barColor={barColor} />
-          <MetricCard icon={BarChart3} label="Work Volume" value={`${data.metrics.workVolume.value} งาน`} score={data.metrics.workVolume.score} weight={data.metrics.workVolume.weight} target={`${data.metrics.workVolume.target} งาน`} color="blue" barColor={barColor} />
-          <MetricCard icon={Timer} label="Resolution Time" value={fmtTime(data.metrics.resolutionTime.value, data.metrics.resolutionTime.unit)} score={data.metrics.resolutionTime.score} weight={data.metrics.resolutionTime.weight} target={fmtTime(data.metrics.resolutionTime.standard, data.metrics.resolutionTime.unit)} color="indigo" barColor={barColor} />
-          <MetricCard icon={Zap} label="Response Time" value={fmtTime(data.metrics.responseTime.value, data.metrics.responseTime.unit)} score={data.metrics.responseTime.score} weight={data.metrics.responseTime.weight} target={fmtTime(data.metrics.responseTime.standard, data.metrics.responseTime.unit)} color="purple" barColor={barColor} />
-          <MetricCard icon={ThumbsUp} label="First Time Fix" value={fmtPct(data.metrics.firstTimeFix.value)} score={data.metrics.firstTimeFix.score} weight={data.metrics.firstTimeFix.weight} target={`${data.metrics.firstTimeFix.target}%`} color="emerald" barColor={barColor} />
-          <MetricCard icon={RotateCcw} label="Reopen Rate" value={fmtPct(data.metrics.reopenRate.value)} score={data.metrics.reopenRate.score} weight={data.metrics.reopenRate.weight} target={`≤${data.metrics.reopenRate.target}%`} color="orange" barColor={barColor} />
-          <MetricCard icon={Star} label="Customer Satisfaction" value={data.metrics.customerSatisfaction.rating ? `${data.metrics.customerSatisfaction.rating.toFixed(1)}/5` : '-'} score={data.metrics.customerSatisfaction.score || 0} weight={data.metrics.customerSatisfaction.weight} target="5.0" color="yellow" barColor={barColor} subtitle={`${data.metrics.customerSatisfaction.totalRatings} ratings`} />
+function gaugeColor(score: number): string {
+  return score >= 90 ? '#10b981' : score >= 80 ? '#22c55e' : score >= 70 ? '#eab308' : score >= 60 ? '#f97316' : '#ef4444'
+}
+
+function GaugeArc({ percent, cx, cy, r, strokeWidth = 20, startAngle = -210, sweepAngle = 240, color }: {
+  percent: number; cx: number; cy: number; r: number; strokeWidth?: number
+  startAngle?: number; sweepAngle?: number; color: string
+}) {
+  const p = Math.min(Math.max(percent, 0), 100)
+  const toRad = (d: number) => (d * Math.PI) / 180
+  const pt = (deg: number) => ({ x: cx + r * Math.cos(toRad(deg)), y: cy + r * Math.sin(toRad(deg)) })
+  const s = pt(startAngle), e = pt(startAngle + sweepAngle)
+  const ve = pt(startAngle + (sweepAngle * p) / 100)
+  const la = sweepAngle * p / 100 > 180 ? 1 : 0
+  const tla = sweepAngle > 180 ? 1 : 0
+  return (
+    <g>
+      <path d={`M ${s.x} ${s.y} A ${r} ${r} 0 ${tla} 1 ${e.x} ${e.y}`}
+        fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={strokeWidth} strokeLinecap="round" />
+      {p > 0 && (
+        <path d={`M ${s.x} ${s.y} A ${r} ${r} 0 ${la} 1 ${ve.x} ${ve.y}`}
+          fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"
+          style={{ filter: `drop-shadow(0 0 8px ${color})` }} />
+      )}
+    </g>
+  )
+}
+
+// ── Mini gauge card (SLA / Cust Sat / First Fix / Reopen) ──
+
+function MiniGaugeCard({ label, score, displayValue, weight, icon: Icon, target, subtitle }: {
+  label: string; score: number; displayValue: string; weight: number
+  icon: React.ElementType; target?: string; subtitle?: string
+}) {
+  const color = gaugeColor(score)
+  // W=180 H=148: end_y = 90+74*0.5+6.5=133 < 148 ✓  top=90-74=16 ✓
+  const W = 180, H = 148, cx = 90, cy = 90, r = 74, sw = 13
+  return (
+    <div className="glass-card p-4 rounded-2xl flex flex-col items-center text-center"
+      style={{ boxShadow: `0 2px 20px ${color}1A` }}>
+      <div className="flex items-start gap-1.5 mb-1 justify-center min-h-[2.5rem]">
+        <Icon className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-gray-400" />
+        <span className="text-xs font-medium text-gray-400 leading-tight">{label}</span>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: '120px' }}>
+        <GaugeArc percent={score} cx={cx} cy={cy} r={r} strokeWidth={sw} color={color} />
+        <text x={cx} y={cy - 12} textAnchor="middle" fill="white" fontSize="21" fontWeight="700">{displayValue}</text>
+        <text x={cx} y={cy + 10} textAnchor="middle" fill={color} fontSize="12" fontWeight="600">{score.toFixed(0)} pts</text>
+      </svg>
+      <p className="text-xs text-gray-500 mt-0.5">W: {weight}%{target ? ` · ${target}` : ''}</p>
+      {subtitle && <p className="text-xs text-gray-600 mt-0.5">{subtitle}</p>}
+    </div>
+  )
+}
+
+// ── Metric row (bar chart style for time/volume metrics) ───
+
+function MetricRow({ icon: Icon, label, value, score, weight, target, color, barColor }: {
+  icon: React.ElementType; label: string; value: string; score: number; weight: number
+  target?: string; color: string; barColor: (s: number) => string
+}) {
+  const iconCls: Record<string, string> = {
+    blue: 'text-blue-400 bg-blue-500/15', indigo: 'text-indigo-400 bg-indigo-500/15', purple: 'text-purple-400 bg-purple-500/15',
+  }
+  const sc = (s: number) => s >= 90 ? 'text-emerald-400' : s >= 80 ? 'text-green-400' : s >= 70 ? 'text-yellow-400' : s >= 60 ? 'text-orange-400' : 'text-red-400'
+  return (
+    <div className="flex items-center gap-3 p-3 bg-slate-800/40 rounded-xl">
+      <div className={`p-2 rounded-lg flex-shrink-0 ${iconCls[color] || 'text-gray-400 bg-gray-500/15'}`}>
+        <Icon className="w-4 h-4" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-sm font-medium text-white">{label}</span>
+          <div className="flex items-center gap-2 text-xs">
+            {target && <span className="text-gray-500">Target: {target}</span>}
+            <span className="text-gray-600">W: {weight}%</span>
+            <span className={`font-semibold ${sc(score)}`}>{score.toFixed(0)}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex-1 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+            <div className={`h-full rounded-full transition-all ${barColor(score)}`} style={{ width: `${Math.min(score, 100)}%` }} />
+          </div>
+          <span className="text-sm text-white font-medium flex-shrink-0 min-w-[90px] text-right">{value}</span>
         </div>
       </div>
     </div>
   )
 }
 
-function MetricCard({ icon: Icon, label, value, score, weight, target, color, barColor, subtitle }: {
-  icon: React.ElementType; label: string; value: string; score: number; weight: number
-  target?: string; color: string; barColor: (s: number) => string; subtitle?: string
+// ── Main performance detail (technician view + manager modal) ──
+
+function PerformanceDetail({ data, fmtTime, fmtPct, barColor }: {
+  data: PerformanceData
+  fmtTime: (v: number, u?: string) => string
+  fmtPct: (v: number | null) => string
+  barColor: (s: number) => string
 }) {
-  const cls: Record<string, string> = {
-    green: 'text-green-400 bg-green-500/20', blue: 'text-blue-400 bg-blue-500/20',
-    indigo: 'text-indigo-400 bg-indigo-500/20', purple: 'text-purple-400 bg-purple-500/20',
-    emerald: 'text-emerald-400 bg-emerald-500/20', orange: 'text-orange-400 bg-orange-500/20',
-    yellow: 'text-yellow-400 bg-yellow-500/20',
-  }
+  const mainColor = gaugeColor(data.overallScore)
+  // Big gauge: W=320 H=268 cx=160 cy=178 r=142 sw=22
+  // end_y = 178+142*0.5+11=260 < 268 ✓  top=178-142=36 ✓
+  const gW = 320, gH = 268, gcx = 160, gcy = 178, gr = 142, gsw = 22
+  const toRad = (d: number) => (d * Math.PI) / 180
+
   return (
-    <div className="p-4 bg-slate-800/50 border border-slate-700/50 rounded-xl">
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <div className={`p-2 rounded-lg ${cls[color]}`}><Icon className="w-4 h-4" /></div>
-          <div>
-            <p className="text-sm font-medium text-gray-300">{label}</p>
-            <p className="text-xs text-gray-500">Weight: {weight}%</p>
+    <div className="space-y-5">
+
+      {/* ── HERO: Big Gauge + Grade Info ── */}
+      <div className="glass-card p-6 rounded-2xl" style={{ boxShadow: `0 0 32px ${mainColor}18` }}>
+        <div className="flex flex-col md:flex-row items-center gap-6 md:gap-10">
+
+          {/* Big Score Gauge */}
+          <div className="w-full md:w-72 flex-shrink-0">
+            <svg viewBox={`0 0 ${gW} ${gH}`} className="w-full" style={{ maxHeight: '220px' }}>
+              <GaugeArc percent={data.overallScore} cx={gcx} cy={gcy} r={gr} strokeWidth={gsw} color={mainColor} />
+              {/* Grade-threshold tick marks */}
+              {[60, 70, 80, 90].map(v => {
+                const deg = -210 + (240 * v / 100)
+                const cos = Math.cos(toRad(deg)), sin = Math.sin(toRad(deg))
+                return (
+                  <line key={v}
+                    x1={gcx + (gr - gsw * 0.45) * cos} y1={gcy + (gr - gsw * 0.45) * sin}
+                    x2={gcx + (gr + gsw * 0.45) * cos} y2={gcy + (gr + gsw * 0.45) * sin}
+                    stroke="rgba(0,0,0,0.4)" strokeWidth="2" />
+                )
+              })}
+              {/* Score */}
+              <text x={gcx} y={gcy - 22} textAnchor="middle" fill="white" fontSize="54" fontWeight="800" fontFamily="monospace">
+                {data.overallScore.toFixed(1)}
+              </text>
+              <text x={gcx} y={gcy + 6} textAnchor="middle" fill="#64748b" fontSize="15">/ 100 pts</text>
+              <text x={gcx} y={gcy + 36} textAnchor="middle" fill={mainColor} fontSize="26" fontWeight="900" letterSpacing="3">
+                {data.grade}
+              </text>
+            </svg>
+          </div>
+
+          {/* Info Panel */}
+          <div className="flex-1 w-full space-y-4 text-center md:text-left">
+            {/* Grade badge + description */}
+            <div className="flex flex-col sm:flex-row items-center md:items-start gap-4 justify-center md:justify-start">
+              <div className={`flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br ${GRADE_BG[data.grade] || 'from-gray-600 to-gray-700'} shadow-lg flex-shrink-0`}>
+                <span className="text-3xl font-bold text-white">{data.grade}</span>
+              </div>
+              <div>
+                <p className="text-xl font-semibold text-white">{data.gradeDescription}</p>
+                <p className="text-gray-400 text-sm mt-0.5">เดือน {data.period}</p>
+                {data.ranking && data.totalTechnicians && (
+                  <div className="flex items-center gap-1.5 mt-2 justify-center md:justify-start">
+                    <Trophy className="w-4 h-4 text-yellow-400 flex-shrink-0" />
+                    <span className="text-gray-300 text-sm">
+                      อันดับที่ <strong className="text-white text-base">{data.ranking}</strong>
+                      <span className="text-gray-500"> / {data.totalTechnicians} คน</span>
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Comparison */}
+            {data.comparison && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 bg-slate-800/60 border border-slate-700/50 rounded-xl text-center">
+                  <p className="text-2xl font-bold text-gray-300">{data.comparison.teamAvgScore?.toFixed(1)}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Team Average</p>
+                </div>
+                <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-xl text-center">
+                  <p className="text-2xl font-bold text-yellow-300">{data.comparison.topPerformerScore?.toFixed(1)}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Top Score</p>
+                </div>
+              </div>
+            )}
+
+            {/* Bonus */}
+            {data.bonusPoints > 0 && (
+              <div className="flex items-center gap-2 p-3 bg-purple-500/15 border border-purple-500/20 rounded-xl justify-center md:justify-start">
+                <Award className="w-5 h-5 text-purple-400 flex-shrink-0" />
+                <span className="text-purple-300 font-semibold">+{data.bonusPoints.toFixed(1)} Bonus Points</span>
+              </div>
+            )}
           </div>
         </div>
-        <span className="text-lg font-bold text-white">{value}</span>
       </div>
-      <div className="mb-2">
-        <div className="flex items-center justify-between text-xs mb-1">
-          <span className="text-gray-400">Score</span>
-          <span className={`font-medium ${score >= 80 ? 'text-green-400' : score >= 60 ? 'text-yellow-400' : 'text-red-400'}`}>{score.toFixed(1)}</span>
-        </div>
-        <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-          <div className={`h-full transition-all ${barColor(score)}`} style={{ width: `${Math.min(score, 100)}%` }} />
-        </div>
+
+      {/* ── MINI GAUGES: 4 key indicators ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <MiniGaugeCard label="SLA Compliance"
+          score={data.metrics.slaCompliance.score}
+          displayValue={fmtPct(data.metrics.slaCompliance.value)}
+          weight={data.metrics.slaCompliance.weight}
+          icon={ShieldCheck} target={`${data.metrics.slaCompliance.target}%`} />
+        <MiniGaugeCard label="Customer Satisfaction"
+          score={data.metrics.customerSatisfaction.score ?? 0}
+          displayValue={data.metrics.customerSatisfaction.rating != null
+            ? `${data.metrics.customerSatisfaction.rating.toFixed(1)}/5` : 'N/A'}
+          weight={data.metrics.customerSatisfaction.weight}
+          icon={Star} target="5.0"
+          subtitle={`${data.metrics.customerSatisfaction.totalRatings} ratings`} />
+        <MiniGaugeCard label="First Time Fix"
+          score={data.metrics.firstTimeFix.score}
+          displayValue={fmtPct(data.metrics.firstTimeFix.value)}
+          weight={data.metrics.firstTimeFix.weight}
+          icon={ThumbsUp} target={`${data.metrics.firstTimeFix.target}%`} />
+        <MiniGaugeCard label="Reopen Rate"
+          score={data.metrics.reopenRate.score}
+          displayValue={fmtPct(data.metrics.reopenRate.value)}
+          weight={data.metrics.reopenRate.weight}
+          icon={RotateCcw} target={`≤${data.metrics.reopenRate.target}%`} />
       </div>
-      <div className="flex items-center justify-between text-xs text-gray-500">
-        <span>Target: {target}</span>
-        {subtitle && <span>{subtitle}</span>}
+
+      {/* ── TIME & VOLUME METRICS (bar rows) ── */}
+      <div className="glass-card p-5 rounded-2xl">
+        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <BarChart3 className="w-3.5 h-3.5" /> Time &amp; Volume Metrics
+        </h3>
+        <div className="space-y-3">
+          <MetricRow icon={BarChart3} label="Work Volume"
+            value={`${data.metrics.workVolume.value} งาน`}
+            score={data.metrics.workVolume.score} weight={data.metrics.workVolume.weight}
+            target={`${data.metrics.workVolume.target} งาน`} color="blue" barColor={barColor} />
+          <MetricRow icon={Timer} label="Resolution Time"
+            value={fmtTime(data.metrics.resolutionTime.value, data.metrics.resolutionTime.unit)}
+            score={data.metrics.resolutionTime.score} weight={data.metrics.resolutionTime.weight}
+            target={fmtTime(data.metrics.resolutionTime.standard, data.metrics.resolutionTime.unit)}
+            color="indigo" barColor={barColor} />
+          <MetricRow icon={Zap} label="Response Time"
+            value={fmtTime(data.metrics.responseTime.value, data.metrics.responseTime.unit)}
+            score={data.metrics.responseTime.score} weight={data.metrics.responseTime.weight}
+            target={fmtTime(data.metrics.responseTime.standard, data.metrics.responseTime.unit)}
+            color="purple" barColor={barColor} />
+        </div>
       </div>
     </div>
   )
