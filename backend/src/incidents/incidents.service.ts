@@ -3003,11 +3003,35 @@ export class IncidentsService {
               select: { id: true, name: true, brand: true, model: true },
             });
             const equipMap = new Map(equipments.map((e) => [e.id, e]));
-            emailSpareParts = emailSpareParts.map((sp: any) => ({
-              ...sp,
-              oldEquipment: sp.oldEquipmentId ? (equipMap.get(sp.oldEquipmentId) ?? null) : null,
-              newEquipment: sp.newEquipmentId ? (equipMap.get(sp.newEquipmentId) ?? null) : null,
-            }));
+
+            // Fetch EquipmentLog for old equipments in this incident to recover pre-update brand/model.
+            // When new serial is not in Equipment DB, the backend overwrites oldEquipment.brand/model
+            // with new device values (UPDATED log action). We use oldValue from the log to restore them.
+            const oldEquipIds = emailSpareParts.filter((sp: any) => sp.oldEquipmentId).map((sp: any) => sp.oldEquipmentId);
+            const equipLogs = oldEquipIds.length > 0
+              ? await this.prisma.equipmentLog.findMany({
+                  where: { source: 'INCIDENT', sourceId: id, equipmentId: { in: oldEquipIds } },
+                  select: { equipmentId: true, oldValue: true },
+                  orderBy: { createdAt: 'asc' },
+                })
+              : [];
+            const logOldValueMap = new Map(equipLogs.map((l) => [l.equipmentId, l.oldValue as any]));
+
+            emailSpareParts = emailSpareParts.map((sp: any) => {
+              const currentEquip = sp.oldEquipmentId ? (equipMap.get(sp.oldEquipmentId) ?? null) : null;
+              const logOld = sp.oldEquipmentId ? logOldValueMap.get(sp.oldEquipmentId) : null;
+              // If log has brand/model old values (UPDATED case), use them to avoid showing new device data
+              const oldEquipForEmail = currentEquip ? {
+                ...currentEquip,
+                brand: logOld?.brand !== undefined ? logOld.brand : currentEquip.brand,
+                model: logOld?.model !== undefined ? logOld.model : currentEquip.model,
+              } : null;
+              return {
+                ...sp,
+                oldEquipment: oldEquipForEmail,
+                newEquipment: sp.newEquipmentId ? (equipMap.get(sp.newEquipmentId) ?? null) : null,
+              };
+            });
           }
         }
 
@@ -3033,12 +3057,12 @@ export class IncidentsService {
           serviceReportLink,
         };
 
-        // 1) Internal email (IT Support + CC team) — WITHOUT rating link
+        // 1) Internal email (IT Support + CC team) — WITH rating link
         await this.emailService.sendIncidentClosureEmail({
           ...commonEmailData,
           to: toEmail,
           cc: ccEmails,
-          ratingLink: null,
+          ratingLink,
         });
 
         // 2) Store email — WITH rating link (only if store email exists and CC store enabled)
