@@ -1027,7 +1027,7 @@ function MiniGaugeCard({ label, score, displayValue, weight, icon: Icon, target,
       {tips && tips.length > 0 && (
         <button
           onClick={() => setShowTips(v => !v)}
-          className={`absolute top-2.5 right-2.5 p-1 rounded-md transition-colors ${showTips ? 'text-amber-400' : 'text-gray-600 hover:text-amber-400'}`}
+          className={`absolute top-2 right-2 p-1 rounded-md transition-colors ${showTips ? 'text-amber-300' : 'text-amber-500 hover:text-amber-300'}`}
           title="Tips เพิ่มคะแนน"
         >
           <Lightbulb className="w-3.5 h-3.5" />
@@ -1095,7 +1095,7 @@ function MetricRow({ icon: Icon, label, value, score, weight, target, color, bar
               {tips && tips.length > 0 && (
                 <button
                   onClick={() => setShowTips(v => !v)}
-                  className={`ml-1 p-0.5 rounded transition-colors ${showTips ? 'text-amber-400' : 'text-gray-600 hover:text-amber-400'}`}
+                  className={`ml-1 p-0.5 rounded transition-colors ${showTips ? 'text-amber-300' : 'text-amber-500 hover:text-amber-300'}`}
                   title="Tips เพิ่มคะแนน"
                 >
                   <Lightbulb className="w-3.5 h-3.5" />
