@@ -360,7 +360,7 @@ export default function PublicRatingPage() {
         </div>
 
         {/* Rating Form */}
-        <form onSubmit={handleSubmit} className="glass-card p-6 rounded-2xl">
+        <form onSubmit={handleSubmit} noValidate className="glass-card p-6 rounded-2xl">
           {/* Overall Rating */}
           <div className="text-center mb-8">
             <p className="text-gray-400 mb-4">คะแนนโดยรวม *</p>
