@@ -25,7 +25,13 @@ const processQueue = (error: AxiosError | null, token: string | null = null) => 
 }
 
 // Public paths that don't require authentication
-const publicPaths = ['/login', '/register', '/forgot-password', '/reset-password']
+const publicPaths = [
+  '/login', '/register', '/forgot-password', '/reset-password',
+  '/rate/',           // Public rating page
+  '/service-report/', // Public service report
+  '/incident/',       // Public incident view
+  '/inventory-sign/', // Public inventory sign
+]
 
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
