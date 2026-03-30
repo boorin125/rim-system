@@ -195,44 +195,57 @@ export class RatingsService {
     }
 
     // Create rating
-    const rating = await this.prisma.incidentRating.create({
-      data: {
-        incidentId: incident.id,
-        rating: dto.rating,
-        comment: dto.comment,
-        qualityRating: dto.qualityRating,
-        professionalismRating: dto.professionalismRating,
-        politenessRating: dto.politenessRating,
-        raterName: dto.raterName,
-        raterEmail: dto.raterEmail,
-        raterIp,
-        userAgent,
-      },
-    });
+    let rating: any;
+    try {
+      rating = await this.prisma.incidentRating.create({
+        data: {
+          incidentId: incident.id,
+          rating: dto.rating,
+          comment: dto.comment,
+          qualityRating: dto.qualityRating,
+          professionalismRating: dto.professionalismRating,
+          politenessRating: dto.politenessRating,
+          raterName: dto.raterName,
+          raterEmail: dto.raterEmail,
+          raterIp,
+          userAgent,
+        },
+      });
+    } catch (err) {
+      this.logger.error('Failed to create incidentRating:', err);
+      throw err;
+    }
 
     // Update technician's cumulative rating: new = (current + newRating) / 2
     if (incident.assigneeId) {
-      const technician = await this.prisma.user.findUnique({
-        where: { id: incident.assigneeId },
-        select: { cumulativeRating: true },
-      });
-      const currentRating = technician?.cumulativeRating ?? 5.0;
-      const newCumulative = (currentRating + dto.rating) / 2;
-      await this.prisma.user.update({
-        where: { id: incident.assigneeId },
-        data: { cumulativeRating: Math.round(newCumulative * 100) / 100 },
-      });
+      try {
+        const technician = await this.prisma.user.findUnique({
+          where: { id: incident.assigneeId },
+          select: { cumulativeRating: true },
+        });
+        const currentRating = technician?.cumulativeRating ?? 5.0;
+        const newCumulative = (currentRating + dto.rating) / 2;
+        await this.prisma.user.update({
+          where: { id: incident.assigneeId },
+          data: { cumulativeRating: Math.round(newCumulative * 100) / 100 },
+        });
+      } catch (err) {
+        this.logger.error('Failed to update cumulativeRating:', err);
+        // Non-fatal: rating was already saved
+      }
     }
 
-    // Send notification to technician
+    // Send notification to technician (non-fatal)
     if (incident.assigneeId) {
-      await this.notificationsService.createNotification(
-        incident.assigneeId,
-        'INCIDENT_CONFIRMED', // Reuse existing type
-        'คุณได้รับคะแนนประเมิน!',
-        `Incident ${incident.ticketNumber} ได้รับการประเมิน ${dto.rating} ดาว${dto.comment ? `: "${dto.comment}"` : ''}`,
-        incident.id,
-      );
+      this.notificationsService
+        .createNotification(
+          incident.assigneeId,
+          'INCIDENT_CONFIRMED',
+          'คุณได้รับคะแนนประเมิน!',
+          `Incident ${incident.ticketNumber} ได้รับการประเมิน ${dto.rating} ดาว${dto.comment ? `: "${dto.comment}"` : ''}`,
+          incident.id,
+        )
+        .catch((err) => this.logger.error('Failed to send rating notification:', err));
     }
 
     return {
