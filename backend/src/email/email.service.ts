@@ -133,10 +133,13 @@ export class EmailService {
         checkInAt,
         resolvedAt,
         confirmedAt,
+        beforePhotos,
+        afterPhotos,
         publicIncidentLink,
-        ratingLink,
-        serviceReportLink,
       } = data;
+
+      // Base URL for serving uploaded photos (same host as API, without /api suffix)
+      const apiBase = (process.env.FRONTEND_URL || 'http://localhost:3001').replace(/\/api$/, '');
 
       // Store display: "storeCode storeName" (no brackets)
       const storeDisplay = storeCode ? `${storeCode} ${storeName}` : storeName;
@@ -195,6 +198,34 @@ export class EmailService {
                 ${spareRows}
               </tbody>
             </table>
+          </div>
+        `;
+      }
+
+      // Build photos HTML (before + after photos as small inline images)
+      let photosHtml = '';
+      const allBeforePhotos = (beforePhotos || []).filter(Boolean);
+      const allAfterPhotos = (afterPhotos || []).filter(Boolean);
+      if (allBeforePhotos.length > 0 || allAfterPhotos.length > 0) {
+        const renderPhotoRow = (photos: string[]) =>
+          photos
+            .map(
+              (p) =>
+                `<img src="${apiBase}/uploads/${p}" alt="photo" style="width:180px;height:135px;object-fit:cover;border-radius:4px;border:1px solid #e2e8f0;margin:4px;" />`,
+            )
+            .join('');
+
+        photosHtml = `
+          <div style="margin-top: 20px;">
+            <h3 style="color: #059669; margin: 0 0 12px 0; font-size: 15px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">📷 Photos</h3>
+            ${allBeforePhotos.length > 0 ? `
+            <p style="margin: 0 0 6px 0; font-size: 13px; font-weight: 600; color: #475569; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">Before:</p>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px;">${renderPhotoRow(allBeforePhotos)}</div>
+            ` : ''}
+            ${allAfterPhotos.length > 0 ? `
+            <p style="margin: 0 0 6px 0; font-size: 13px; font-weight: 600; color: #475569; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">After:</p>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;">${renderPhotoRow(allAfterPhotos)}</div>
+            ` : ''}
           </div>
         `;
       }
@@ -259,31 +290,17 @@ export class EmailService {
             <!-- Spare Parts (if any) -->
             ${sparePartsHtml}
 
+            <!-- Photos (if any) -->
+            ${photosHtml}
+
             <!-- Public Links -->
+            ${publicIncidentLink ? `
             <div style="margin-top: 25px; padding: 16px; background-color: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
-              ${publicIncidentLink ? `
-              <div style="margin-bottom: 10px;">
-                <a href="${publicIncidentLink}" style="color: #2563eb; text-decoration: none; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; font-weight: bold;">
-                  📋 View Incident Details
-                </a>
-              </div>
-              ` : ''}
-              ${serviceReportLink ? `
-              <div style="margin-bottom: 10px;">
-                <a href="${serviceReportLink}" style="color: #059669; text-decoration: none; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; font-weight: bold;">
-                  📝 Service Report / <span style="font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">เอกสารปิดงาน</span>
-                </a>
-              </div>
-              ` : ''}
-              ${ratingLink ? `
-              <div style="margin-bottom: 4px;">
-                <a href="${ratingLink}" style="color: #d97706; text-decoration: none; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; font-weight: bold;">
-                  ⭐ <span style="font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">ให้คะแนนการบริการ / Rate This Service</span>
-                </a>
-              </div>
-              <p style="color: #94a3b8; font-size: 12px; margin: 4px 0 0 0; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">กรุณาสละเวลาให้คะแนนเพื่อช่วยพัฒนาบริการของเรา</p>
-              ` : ''}
+              <a href="${publicIncidentLink}" style="color: #2563eb; text-decoration: none; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; font-weight: bold;">
+                📋 View Incident Details
+              </a>
             </div>
+            ` : ''}
 
             <!-- Footer -->
             <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; color: #94a3b8; font-size: 12px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">

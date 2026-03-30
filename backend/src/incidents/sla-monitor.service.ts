@@ -333,34 +333,34 @@ export class SlaMonitorService {
         : `${(b / 1_048_576).toFixed(0)} MB`;
 
       const html = `
-        <div style="font-family:sans-serif;max-width:600px;margin:0 auto">
-          <div style="background:#ef4444;color:#fff;padding:16px 24px;border-radius:8px 8px 0 0">
-            <h2 style="margin:0">⚠️ แจ้งเตือน: พื้นที่ Disk ใกล้เต็ม</h2>
+        <div style="font-family:Tahoma,'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
+          <div style="background:#ef4444;color:#fff;padding:16px 24px">
+            <h2 style="margin:0;font-size:17px">⚠️ แจ้งเตือน: พื้นที่ Disk ใกล้เต็ม</h2>
           </div>
-          <div style="background:#1e293b;color:#e2e8f0;padding:24px;border-radius:0 0 8px 8px">
-            <p>พื้นที่จัดเก็บข้อมูลบนเซิร์ฟเวอร์ถูกใช้งานแล้ว <strong style="color:#f87171">${disk.usedPercent}%</strong> ซึ่งเกินขีดจำกัดที่ตั้งไว้ที่ <strong>${threshold}%</strong></p>
-            <table style="width:100%;border-collapse:collapse;margin:16px 0">
-              <tr style="background:#0f172a">
-                <td style="padding:10px 16px;color:#94a3b8">พื้นที่ทั้งหมด</td>
-                <td style="padding:10px 16px;text-align:right;font-weight:600">${formatBytes(disk.total)}</td>
+          <div style="padding:24px;color:#1e293b">
+            <p style="margin:0 0 16px 0;font-size:14px">พื้นที่จัดเก็บข้อมูลบนเซิร์ฟเวอร์ถูกใช้งานแล้ว <strong style="color:#dc2626">${disk.usedPercent}%</strong> ซึ่งเกินขีดจำกัดที่ตั้งไว้ที่ <strong>${threshold}%</strong></p>
+            <table style="width:100%;border-collapse:collapse;margin:0 0 16px 0;font-size:14px">
+              <tr style="background:#f8fafc">
+                <td style="padding:10px 16px;border:1px solid #e2e8f0;color:#475569">พื้นที่ทั้งหมด</td>
+                <td style="padding:10px 16px;border:1px solid #e2e8f0;text-align:right;font-weight:600;color:#1e293b">${formatBytes(disk.total)}</td>
               </tr>
               <tr>
-                <td style="padding:10px 16px;color:#94a3b8">ใช้งานแล้ว</td>
-                <td style="padding:10px 16px;text-align:right;font-weight:600;color:#f87171">${formatBytes(disk.used)} (${disk.usedPercent}%)</td>
+                <td style="padding:10px 16px;border:1px solid #e2e8f0;color:#475569">ใช้งานแล้ว</td>
+                <td style="padding:10px 16px;border:1px solid #e2e8f0;text-align:right;font-weight:600;color:#dc2626">${formatBytes(disk.used)} (${disk.usedPercent}%)</td>
               </tr>
-              <tr style="background:#0f172a">
-                <td style="padding:10px 16px;color:#94a3b8">พื้นที่ว่าง</td>
-                <td style="padding:10px 16px;text-align:right;font-weight:600;color:#4ade80">${formatBytes(disk.free)}</td>
+              <tr style="background:#f8fafc">
+                <td style="padding:10px 16px;border:1px solid #e2e8f0;color:#475569">พื้นที่ว่าง</td>
+                <td style="padding:10px 16px;border:1px solid #e2e8f0;text-align:right;font-weight:600;color:#059669">${formatBytes(disk.free)}</td>
               </tr>
             </table>
-            <p style="color:#94a3b8;font-size:13px">กรุณาลบไฟล์ที่ไม่จำเป็นหรือเพิ่มพื้นที่จัดเก็บข้อมูลเพื่อป้องกันระบบทำงานผิดพลาด</p>
-            <p style="color:#64748b;font-size:12px;margin-top:24px">แจ้งเตือนโดยระบบ RIM System — ${new Date().toLocaleString('th-TH')}</p>
+            <p style="color:#64748b;font-size:13px;margin:0 0 24px 0">กรุณาลบไฟล์ที่ไม่จำเป็นหรือเพิ่มพื้นที่จัดเก็บข้อมูลเพื่อป้องกันระบบทำงานผิดพลาด</p>
+            <p style="color:#94a3b8;font-size:12px;margin:0;border-top:1px solid #e2e8f0;padding-top:16px">แจ้งเตือนโดยระบบ X-treme Service System — ${new Date().toLocaleString('th-TH')}</p>
           </div>
         </div>`;
 
       await this.emailService.sendEmail({
         to: alertEmail,
-        subject: `[RIM System] ⚠️ พื้นที่ Disk ใกล้เต็ม (${disk.usedPercent}%)`,
+        subject: `[X-treme Service System] ⚠️ พื้นที่ Disk ใกล้เต็ม (${disk.usedPercent}%)`,
         html,
       });
 
