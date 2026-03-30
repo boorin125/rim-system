@@ -207,11 +207,16 @@ export class EmailService {
       const allBeforePhotos = (beforePhotos || []).filter(Boolean);
       const allAfterPhotos = (afterPhotos || []).filter(Boolean);
       if (allBeforePhotos.length > 0 || allAfterPhotos.length > 0) {
+        // Resolve photo src: base64 data URL → use as-is; full URL → use as-is; relative path → prefix with uploads URL
+        const resolvePhotoSrc = (p: string): string => {
+          if (p.startsWith('data:') || p.startsWith('http://') || p.startsWith('https://')) return p;
+          return `${apiBase}/uploads/${p}`;
+        };
         const renderPhotoRow = (photos: string[]) =>
           photos
             .map(
               (p) =>
-                `<img src="${apiBase}/uploads/${p}" alt="photo" style="width:180px;height:135px;object-fit:cover;border-radius:4px;border:1px solid #e2e8f0;margin:4px;" />`,
+                `<img src="${resolvePhotoSrc(p)}" alt="photo" style="width:180px;height:135px;object-fit:cover;border-radius:4px;border:1px solid #e2e8f0;margin:4px;" />`,
             )
             .join('');
 
