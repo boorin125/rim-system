@@ -90,14 +90,14 @@ export default function ResponseModal({
         }
       )
 
-      toast.success('ตอบรับงานสำเร็จ')
+      toast.success('แจ้งกำหนดการเข้าซ่อมสำเร็จ')
       onSuccess()
       onClose()
     } catch (err: any) {
-      const message = err.response?.data?.message || 'ไม่สามารถตอบรับงานได้'
+      const message = err.response?.data?.message || 'ไม่สามารถแจ้งกำหนดการได้'
       // ถ้าเป็น error "ได้ตอบรับไปแล้ว" แปลว่า response สำเร็จแล้ว → ปิด modal และ refresh
       if (err.response?.status === 400 && message.includes('ตอบรับ')) {
-        toast.success('ได้ตอบรับงานนี้ไปแล้ว')
+        toast.success('ได้แจ้งกำหนดการเข้าซ่อมนี้ไปแล้ว')
         onSuccess()
         onClose()
       } else {
@@ -140,7 +140,7 @@ export default function ResponseModal({
             </div>
             <div>
               <h2 className="text-lg font-bold text-white">Response</h2>
-              <p className="text-xs text-gray-400">ตอบรับงาน {ticketNumber}</p>
+              <p className="text-xs text-gray-400">แจ้งกำหนดการเข้าซ่อม {ticketNumber}</p>
             </div>
           </div>
           <button
@@ -264,7 +264,7 @@ export default function ResponseModal({
             ) : (
               <>
                 <Send className="w-4 h-4" />
-                ตอบรับงาน
+                แจ้งกำหนดการเข้าซ่อม
               </>
             )}
           </button>

@@ -1017,10 +1017,10 @@ SLA Breach Time: ${slaBreachText}`
     isAssignedToMe &&
     !incident?.techConfirmedAt
 
-  // Confirm & Close - HELP_DESK เท่านั้น AND tech must have confirmed
+  // Confirm & Close - HELP_DESK หรือ IT_MANAGER AND tech must have confirmed
   const canConfirm =
     incident?.status === 'RESOLVED' &&
-    isHelpDesk &&
+    (isHelpDesk || hasRole('IT_MANAGER')) &&
     !!incident?.techConfirmedAt
 
   // Reopen - HELP_DESK เท่านั้น และต้องเป็น CLOSED
@@ -1229,7 +1229,7 @@ SLA Breach Time: ${slaBreachText}`
           {canResponse && (
             <button onClick={() => setShowResponse(true)}
               className="w-full sm:w-auto sm:min-w-[130px] flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition duration-200 text-sm font-medium">
-              <MessageSquare className="w-4 h-4 shrink-0" /><span>Response</span>
+              <MessageSquare className="w-4 h-4 shrink-0" /><span>แจ้งกำหนดการเข้าซ่อม</span>
             </button>
           )}
           {canCheckIn && (
@@ -1279,7 +1279,7 @@ SLA Breach Time: ${slaBreachText}`
             </button>
           )}
           {/* Helpdesk info: waiting for tech to confirm */}
-          {incident?.status === 'RESOLVED' && isHelpDesk && !incident?.techConfirmedAt && (
+          {incident?.status === 'RESOLVED' && (isHelpDesk || hasRole('IT_MANAGER')) && !incident?.techConfirmedAt && (
             <div className="flex items-start gap-3 p-3 bg-amber-900/20 border border-amber-700/50 rounded-lg">
               <Clock className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
               <div className="text-sm text-amber-200">
