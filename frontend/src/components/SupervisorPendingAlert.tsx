@@ -9,6 +9,7 @@ import {
   Clock,
   CheckCheck,
   RefreshCw,
+  User,
 } from 'lucide-react'
 import axios from 'axios'
 import { formatStore } from '@/utils/formatStore'
@@ -298,6 +299,17 @@ export default function SupervisorPendingAlert({ userId, onDismiss }: Props) {
                     <p className="text-sm text-white font-medium mt-0.5 truncate">{incident.title}</p>
                     {incident.store && (
                       <p className="text-xs text-gray-400 mt-0.5">{formatStore(incident.store)}</p>
+                    )}
+                    {incident.assignees && incident.assignees.length > 0 ? (
+                      <p className="text-xs text-blue-400 mt-0.5 flex items-center gap-1">
+                        <User className="w-3 h-3 shrink-0" />
+                        {incident.assignees.map(a => `${a.user?.firstName ?? ''} ${a.user?.lastName ?? ''}`.trim()).filter(Boolean).join(', ')}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
+                        <User className="w-3 h-3 shrink-0" />
+                        ยังไม่ได้มอบหมาย
+                      </p>
                     )}
                   </div>
 
