@@ -332,6 +332,12 @@ export class SlaMonitorService {
         ? `${(b / 1_073_741_824).toFixed(1)} GB`
         : `${(b / 1_048_576).toFixed(0)} MB`;
 
+      // 3-color bar: green (0-60%), orange (60-85%), red (85-100%), gray = free
+      const greenW  = Math.min(disk.usedPercent, 60);
+      const orangeW = Math.max(0, Math.min(disk.usedPercent, 85) - 60);
+      const redW    = Math.max(0, disk.usedPercent - 85);
+      const freeW   = 100 - disk.usedPercent;
+
       const html = `
         <div style="font-family:Tahoma,'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
           <div style="background:#ef4444;color:#fff;padding:16px 24px">
@@ -339,6 +345,26 @@ export class SlaMonitorService {
           </div>
           <div style="padding:24px;color:#1e293b">
             <p style="margin:0 0 16px 0;font-size:14px">พื้นที่จัดเก็บข้อมูลบนเซิร์ฟเวอร์ถูกใช้งานแล้ว <strong style="color:#dc2626">${disk.usedPercent}%</strong> ซึ่งเกินขีดจำกัดที่ตั้งไว้ที่ <strong>${threshold}%</strong></p>
+
+            <!-- 3-color disk bar -->
+            <table style="width:100%;border-collapse:collapse;border-radius:6px;overflow:hidden;margin:0 0 6px 0">
+              <tr style="height:28px">
+                ${greenW  > 0 ? `<td style="width:${greenW}%;background:#22c55e;"></td>` : ''}
+                ${orangeW > 0 ? `<td style="width:${orangeW}%;background:#f97316;"></td>` : ''}
+                ${redW    > 0 ? `<td style="width:${redW}%;background:#ef4444;"></td>` : ''}
+                ${freeW   > 0 ? `<td style="width:${freeW}%;background:#e2e8f0;"></td>` : ''}
+              </tr>
+            </table>
+            <!-- Legend -->
+            <table style="width:100%;border-collapse:collapse;margin:0 0 20px 0;font-size:12px">
+              <tr>
+                <td style="padding:4px 6px"><span style="display:inline-block;width:10px;height:10px;background:#22c55e;border-radius:2px;margin-right:4px;vertical-align:middle"></span>ปกติ (0–60%)</td>
+                <td style="padding:4px 6px"><span style="display:inline-block;width:10px;height:10px;background:#f97316;border-radius:2px;margin-right:4px;vertical-align:middle"></span>เฝ้าระวัง (60–85%)</td>
+                <td style="padding:4px 6px"><span style="display:inline-block;width:10px;height:10px;background:#ef4444;border-radius:2px;margin-right:4px;vertical-align:middle"></span>วิกฤต (85%+)</td>
+              </tr>
+            </table>
+
+            <!-- Stats table -->
             <table style="width:100%;border-collapse:collapse;margin:0 0 16px 0;font-size:14px">
               <tr style="background:#f8fafc">
                 <td style="padding:10px 16px;border:1px solid #e2e8f0;color:#475569">พื้นที่ทั้งหมด</td>

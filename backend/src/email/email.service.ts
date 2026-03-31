@@ -243,7 +243,7 @@ export class EmailService {
           <meta charset="utf-8">
           <title>Incident Closed - ${ticketNumber}</title>
         </head>
-        <body style="font-family: Tahoma, 'Segoe UI', Arial, sans-serif; line-height: 1.8; color: #1e293b; background-color: #f1f5f9; padding: 20px;">
+        <body style="font-family: Tahoma, 'Segoe UI', Arial, sans-serif; line-height: 1.8; color: #1e293b; background-color: #ffffff; padding: 20px;">
           <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 10px; padding: 30px; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
 
             <!-- Header -->
@@ -400,7 +400,7 @@ export class EmailService {
           <meta charset="utf-8">
           <title>Technician Response - ${ticketNumber}</title>
         </head>
-        <body style="font-family: Tahoma, 'Segoe UI', Arial, sans-serif; line-height: 1.8; color: #1e293b; background-color: #f1f5f9; padding: 20px;">
+        <body style="font-family: Tahoma, 'Segoe UI', Arial, sans-serif; line-height: 1.8; color: #1e293b; background-color: #ffffff; padding: 20px;">
           <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 10px; padding: 30px; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
 
             <!-- Header -->
