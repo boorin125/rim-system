@@ -128,11 +128,9 @@ export class EmailService {
         storeCode,
         technicianName,
         resolutionNote,
-        usedSpareParts,
         spareParts,
         checkInAt,
         resolvedAt,
-        confirmedAt,
         beforePhotos,
         afterPhotos,
         publicIncidentLink,
@@ -151,7 +149,7 @@ export class EmailService {
         const spareRows = (spareParts as any[])
           .map((part, index) => {
             const isComponent = part.repairType === 'COMPONENT_REPLACEMENT';
-            const rowBg = index % 2 === 0 ? '#ffffff' : '#f8fafc';
+            const rowBg = '#ffffff';
 
             if (isComponent) {
               // COMPONENT_REPLACEMENT: Equipment Name = parentEquipment, columns = component info
@@ -227,7 +225,7 @@ export class EmailService {
         sparePartsHtml = `
           <div style="margin-top: 24px;">
             <h3 style="color: #059669; margin: 0 0 12px 0; font-size: 15px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">🔧 Spare Parts</h3>
-            <div style="padding: 14px 16px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; color: #64748b; font-size: 13px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">
+            <div style="padding: 14px 16px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; color: #64748b; font-size: 13px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">
               ไม่มีการเปลี่ยนสแปร์พาร์ท
             </div>
           </div>
@@ -289,37 +287,45 @@ export class EmailService {
               <h2 style="color: #059669; margin-bottom: 10px; font-size: 16px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">Incident Details</h2>
 
               <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                  <tr style="background-color: #dcfce7;">
+                    <th style="padding: 8px 10px; border: 1px solid #bbf7d0; text-align: left; font-size: 13px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #15803d; font-weight: bold; width: 30%;">Field</th>
+                    <th style="padding: 8px 10px; border: 1px solid #bbf7d0; text-align: left; font-size: 13px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #15803d; font-weight: bold;">Detail</th>
+                  </tr>
+                </thead>
+                <tbody>
                 <tr>
-                  <td style="padding: 8px 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; font-weight: bold; width: 30%; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #475569;">Ticket No.:</td>
+                  <td style="padding: 8px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-weight: bold; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #475569;">Ticket No.:</td>
                   <td style="padding: 8px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #1e293b;">${ticketNumber}</td>
                 </tr>
                 <tr>
-                  <td style="padding: 8px 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; font-weight: bold; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #475569;">Title:</td>
+                  <td style="padding: 8px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-weight: bold; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #475569;">Title:</td>
                   <td style="padding: 8px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #1e293b;">${title}</td>
                 </tr>
                 <tr>
-                  <td style="padding: 8px 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; font-weight: bold; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #475569;">Store:</td>
+                  <td style="padding: 8px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-weight: bold; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #475569;">Store:</td>
                   <td style="padding: 8px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #1e293b;">${storeDisplay}</td>
                 </tr>
                 <tr>
-                  <td style="padding: 8px 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; font-weight: bold; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #475569;">Technician:</td>
+                  <td style="padding: 8px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-weight: bold; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #475569;">Technician:</td>
                   <td style="padding: 8px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #1e293b;">${technicianName}</td>
                 </tr>
                 ${checkInAt ? `<tr>
-                  <td style="padding: 8px 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; font-weight: bold; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #475569;">Check in At:</td>
+                  <td style="padding: 8px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-weight: bold; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #475569;">Check in At:</td>
                   <td style="padding: 8px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #1e293b;">${new Date(checkInAt).toLocaleString('th-TH')}</td>
                 </tr>` : ''}
                 <tr>
-                  <td style="padding: 8px 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; font-weight: bold; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #475569;">Resolved At:</td>
+                  <td style="padding: 8px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-weight: bold; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #475569;">Resolved At:</td>
                   <td style="padding: 8px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #1e293b;">${new Date(resolvedAt).toLocaleString('th-TH')}</td>
                 </tr>
+                </tbody>
               </table>
             </div>
 
             <!-- Resolution Note -->
             <div style="margin-top: 20px;">
               <h3 style="color: #059669; margin-bottom: 10px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">Resolution:</h3>
-              <div style="background-color: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0; white-space: pre-wrap; color: #1e293b; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; line-height: 1.8;">
+              <div style="background-color: #ffffff; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0; white-space: pre-wrap; color: #1e293b; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; line-height: 1.8;">
                 ${resolutionNote}
               </div>
             </div>
@@ -332,7 +338,7 @@ export class EmailService {
 
             <!-- Public Links -->
             ${publicIncidentLink ? `
-            <div style="margin-top: 25px; padding: 16px; background-color: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <div style="margin-top: 25px; padding: 16px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0;">
               <a href="${publicIncidentLink}" style="color: #2563eb; text-decoration: none; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; font-weight: bold;">
                 📋 View Incident Details
               </a>
@@ -400,7 +406,6 @@ export class EmailService {
         storeName,
         storeCode,
         technicianName,
-        technicianPhone,
         estimatedArrivalTime,
         responseMessage,
       } = data;
@@ -446,35 +451,43 @@ export class EmailService {
               <h2 style="color: #7c3aed; margin-bottom: 10px; font-size: 16px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">Response Details</h2>
 
               <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                  <tr style="background-color: #ede9fe;">
+                    <th style="padding: 8px 10px; border: 1px solid #ddd6fe; text-align: left; font-size: 13px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #6d28d9; font-weight: bold; width: 30%;">Field</th>
+                    <th style="padding: 8px 10px; border: 1px solid #ddd6fe; text-align: left; font-size: 13px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #6d28d9; font-weight: bold;">Detail</th>
+                  </tr>
+                </thead>
+                <tbody>
                 <tr>
-                  <td style="padding: 8px 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; font-weight: bold; width: 30%; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #475569;">Ticket No.:</td>
+                  <td style="padding: 8px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-weight: bold; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #475569;">Ticket No.:</td>
                   <td style="padding: 8px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #1e293b;">${ticketNumber}</td>
                 </tr>
                 <tr>
-                  <td style="padding: 8px 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; font-weight: bold; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #475569;">Title:</td>
+                  <td style="padding: 8px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-weight: bold; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #475569;">Title:</td>
                   <td style="padding: 8px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #1e293b;">${title}</td>
                 </tr>
                 <tr>
-                  <td style="padding: 8px 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; font-weight: bold; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #475569;">Store:</td>
+                  <td style="padding: 8px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-weight: bold; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #475569;">Store:</td>
                   <td style="padding: 8px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #1e293b;">${storeDisplay}</td>
                 </tr>
                 <tr>
-                  <td style="padding: 8px 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; font-weight: bold; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #475569;">Technician:</td>
+                  <td style="padding: 8px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-weight: bold; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #475569;">Technician:</td>
                   <td style="padding: 8px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: #1e293b;">${technicianName}</td>
                 </tr>
+                </tbody>
               </table>
             </div>
 
             <!-- Message Section -->
             <div style="margin-top: 20px;">
               <h3 style="color: #7c3aed; margin-bottom: 10px; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">Message from Technician:</h3>
-              <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px;">
+              <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px;">
                 <p style="margin: 0; white-space: pre-wrap; color: #1e293b; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; line-height: 1.8;">${responseMessage}</p>
               </div>
             </div>
 
             <!-- ETA Section (below message) -->
-            <div style="margin-top: 20px; background-color: #faf5ff; border: 2px solid #c4b5fd; border-radius: 10px; padding: 20px; text-align: center;">
+            <div style="margin-top: 20px; background-color: #ffffff; border: 2px solid #c4b5fd; border-radius: 10px; padding: 20px; text-align: center;">
               <p style="color: #5b21b6; font-size: 16px; font-weight: bold; margin: 0; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">เวลาที่จะเดินทางไปถึงสาขา ${etaFormatted}</p>
             </div>
 
