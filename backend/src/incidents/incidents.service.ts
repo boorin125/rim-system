@@ -491,31 +491,50 @@ export class IncidentsService {
       return;
     }
 
-    const oldSerial = transformedSp.oldSerialNo;
-    const newSerial = transformedSp.newSerialNo;
+    const oldSerial = transformedSp.oldSerialNo?.trim();
+    const newSerial = transformedSp.newSerialNo?.trim();
     if (!oldSerial && !newSerial) return;
 
     let oldEquipmentId = originalSp.oldEquipmentId || null;
     let newEquipmentId = originalSp.newEquipmentId || null;
 
-    // If no equipment IDs provided, look up by serial number
+    // If no equipment IDs provided, look up by serial number (case-insensitive + trimmed)
     if (!oldEquipmentId && oldSerial) {
-      const oldEquip = await prisma.equipment.findUnique({ where: { serialNumber: oldSerial } });
+      const oldEquip = await prisma.equipment.findFirst({
+        where: { serialNumber: { equals: oldSerial, mode: 'insensitive' } },
+      });
       if (oldEquip) oldEquipmentId = oldEquip.id;
     }
 
     if (!newEquipmentId && newSerial) {
-      const newEquip = await prisma.equipment.findUnique({ where: { serialNumber: newSerial } });
+      const newEquip = await prisma.equipment.findFirst({
+        where: { serialNumber: { equals: newSerial, mode: 'insensitive' } },
+      });
       if (newEquip) newEquipmentId = newEquip.id;
     }
 
+    // If neither equipment found after all lookups, warn and return
+    if (!oldEquipmentId && !newEquipmentId) {
+      console.warn(
+        `[Equipment Sync] ⚠️ Incident ${ticketNumber}: ไม่พบ Equipment ใน DB` +
+        ` — Serial เก่า: "${oldSerial ?? '-'}" | Serial ใหม่: "${newSerial ?? '-'}"` +
+        ` | Device: "${originalSp.newDeviceName ?? '-'}" — กรุณาตรวจสอบและอัพเดตด้วยตนเอง`,
+      );
+      return;
+    }
+
     // Update old equipment → INACTIVE (replaced via spare part)
+    // Also correct serial number if tech typed the real serial (different from mock/DB value)
     if (oldEquipmentId) {
       const oldEquip = await prisma.equipment.findUnique({ where: { id: oldEquipmentId } });
-      if (oldEquip && oldEquip.status !== EquipmentStatus.INACTIVE) {
+      if (oldEquip) {
+        const serialCorrected = oldSerial && oldSerial !== oldEquip.serialNumber;
+        const updatePayload: any = { status: EquipmentStatus.INACTIVE };
+        if (serialCorrected) updatePayload.serialNumber = oldSerial;
+
         await prisma.equipment.update({
           where: { id: oldEquipmentId },
-          data: { status: EquipmentStatus.INACTIVE },
+          data: updatePayload,
         });
 
         await prisma.equipmentLog.create({
@@ -524,10 +543,11 @@ export class IncidentsService {
             action: EquipmentLogAction.REPLACED_OUT,
             source: EquipmentLogSource.INCIDENT,
             sourceId: incidentId ?? null,
-            description: `ถูกถอดออกจาก Incident ${ticketNumber} และเปลี่ยนเป็นอุปกรณ์ใหม่`,
+            description: `ถูกถอดออกจาก Incident ${ticketNumber} และเปลี่ยนเป็นอุปกรณ์ใหม่` +
+              (serialCorrected ? ` (แก้ Serial: "${oldEquip.serialNumber}" → "${oldSerial}")` : ''),
             changedBy: userId,
             oldValue: { status: oldEquip.status, storeId: oldEquip.storeId, serialNumber: oldEquip.serialNumber },
-            newValue: { status: 'INACTIVE' },
+            newValue: { status: 'INACTIVE', ...(serialCorrected ? { serialNumber: oldSerial } : {}) },
           },
         });
       }
@@ -548,8 +568,9 @@ export class IncidentsService {
           if (oldEquip && oldEquip.name) updateData.name = oldEquip.name;
         }
 
-        if (originalSp.newBrand !== undefined) updateData.brand = originalSp.newBrand || null;
-        if (originalSp.newModel !== undefined) updateData.model = originalSp.newModel || null;
+        // Only overwrite brand/model when new values are explicitly provided
+        if (originalSp.newBrand) updateData.brand = originalSp.newBrand;
+        if (originalSp.newModel) updateData.model = originalSp.newModel;
         else if (originalSp.newDeviceName) updateData.model = originalSp.newDeviceName;
 
         await prisma.equipment.update({ where: { id: newEquipmentId }, data: updateData });
@@ -575,8 +596,9 @@ export class IncidentsService {
       if (oldEquip) {
         const updateData: any = { serialNumber: newSerial, status: EquipmentStatus.ACTIVE };
 
-        if (originalSp.newBrand !== undefined) updateData.brand = originalSp.newBrand || null;
-        if (originalSp.newModel !== undefined) updateData.model = originalSp.newModel || null;
+        // Only overwrite brand/model when new values are explicitly provided
+        if (originalSp.newBrand) updateData.brand = originalSp.newBrand;
+        if (originalSp.newModel) updateData.model = originalSp.newModel;
         else if (originalSp.newDeviceName) updateData.model = originalSp.newDeviceName;
 
         await prisma.equipment.update({ where: { id: oldEquipmentId }, data: updateData });
@@ -2995,7 +3017,7 @@ export class IncidentsService {
         let emailSpareParts: any[] = updated.spareParts || [];
         if (emailSpareParts.length > 0) {
           const equipIds = emailSpareParts
-            .flatMap((sp: any) => [sp.oldEquipmentId, sp.newEquipmentId])
+            .flatMap((sp: any) => [sp.oldEquipmentId, sp.newEquipmentId, sp.parentEquipmentId])
             .filter(Boolean) as number[];
           if (equipIds.length > 0) {
             const equipments = await this.prisma.equipment.findMany({
@@ -3030,6 +3052,7 @@ export class IncidentsService {
                 ...sp,
                 oldEquipment: oldEquipForEmail,
                 newEquipment: sp.newEquipmentId ? (equipMap.get(sp.newEquipmentId) ?? null) : null,
+                parentEquipment: sp.parentEquipmentId ? (equipMap.get(sp.parentEquipmentId) ?? null) : null,
               };
             });
           }
