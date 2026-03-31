@@ -1955,11 +1955,6 @@ export class IncidentsService {
       );
     }
 
-    // Check if already responded
-    if (incident.respondedAt) {
-      throw new BadRequestException('ได้ตอบรับงานนี้ไปแล้ว');
-    }
-
     const estimatedArrivalTime = new Date(dto.estimatedArrivalTime);
 
     // Update incident with response data

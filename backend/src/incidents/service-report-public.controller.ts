@@ -222,6 +222,11 @@ export class ServiceReportPublicController {
       throw new NotFoundException('ไม่พบ Service Report หรือลิงก์ไม่ถูกต้อง');
     }
 
+    // Block signing if incident is closed
+    if (incident.status === 'CLOSED') {
+      throw new BadRequestException('ไม่สามารถเซ็นเอกสารได้ เนื่องจาก Incident นี้ปิดแล้ว');
+    }
+
     // Check if already signed
     if (incident.customerSignedAt) {
       throw new BadRequestException('เอกสารนี้ได้รับการเซ็นแล้ว');

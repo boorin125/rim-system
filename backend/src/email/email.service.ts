@@ -245,34 +245,40 @@ export class EmailService {
 
       sparePartsHtml = equipHtml + compHtml;
 
-      // Build photos HTML (before + after photos as small inline images)
+      // Build photos HTML — thumbnails 5/row, clickable to view full size
       let photosHtml = '';
       const allBeforePhotos = (beforePhotos || []).filter(Boolean);
       const allAfterPhotos = (afterPhotos || []).filter(Boolean);
       if (allBeforePhotos.length > 0 || allAfterPhotos.length > 0) {
-        // Resolve photo src: base64 data URL → use as-is; full URL → use as-is; relative path → prefix with uploads URL
         const resolvePhotoSrc = (p: string): string => {
           if (p.startsWith('data:') || p.startsWith('http://') || p.startsWith('https://')) return p;
           return `${apiBase}/uploads/${p}`;
         };
-        const renderPhotoRow = (photos: string[]) =>
-          photos
-            .map(
-              (p) =>
-                `<img src="${resolvePhotoSrc(p)}" alt="photo" style="width:180px;height:135px;object-fit:cover;border-radius:4px;border:1px solid #e2e8f0;margin:4px;" />`,
-            )
-            .join('');
+        // Render photos in rows of 5 using table layout (email-safe), each thumbnail clickable
+        const renderPhotoGrid = (photos: string[]) => {
+          const thumbSize = 90;
+          const cells = photos.map((p) => {
+            const src = resolvePhotoSrc(p);
+            return `<td style="padding:2px;"><a href="${src}" target="_blank" style="display:block;"><img src="${src}" alt="photo" style="width:${thumbSize}px;height:${thumbSize}px;object-fit:cover;border-radius:4px;border:1px solid #cbd5e1;display:block;" /></a></td>`;
+          });
+          // Split into rows of 5
+          const rows: string[] = [];
+          for (let i = 0; i < cells.length; i += 5) {
+            rows.push(`<tr>${cells.slice(i, i + 5).join('')}</tr>`);
+          }
+          return `<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;">${rows.join('')}</table>`;
+        };
 
         photosHtml = `
           <div style="margin-top: 20px;">
             <h3 style="color: #059669; margin: 0 0 12px 0; font-size: 15px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">📷 Photos</h3>
             ${allBeforePhotos.length > 0 ? `
             <p style="margin: 0 0 6px 0; font-size: 13px; font-weight: 600; color: #475569; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">Before:</p>
-            <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px;">${renderPhotoRow(allBeforePhotos)}</div>
+            <div style="margin-bottom:12px;">${renderPhotoGrid(allBeforePhotos)}</div>
             ` : ''}
             ${allAfterPhotos.length > 0 ? `
             <p style="margin: 0 0 6px 0; font-size: 13px; font-weight: 600; color: #475569; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">After:</p>
-            <div style="display:flex;flex-wrap:wrap;gap:4px;">${renderPhotoRow(allAfterPhotos)}</div>
+            <div>${renderPhotoGrid(allAfterPhotos)}</div>
             ` : ''}
           </div>
         `;
