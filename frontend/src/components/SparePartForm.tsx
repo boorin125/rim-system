@@ -154,6 +154,25 @@ export default function SparePartForm({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filteredStoreEquipment, spareParts.length]);
 
+  // Auto-fill parentEquipment for COMPONENT_REPLACEMENT when incident has exactly 1 device
+  useEffect(() => {
+    if (filteredStoreEquipment.length !== 1) return;
+    const d = filteredStoreEquipment[0];
+    const needsUpdate = spareParts.some(
+      p => p.repairType === 'COMPONENT_REPLACEMENT' && !p.parentEquipmentId
+    );
+    if (!needsUpdate) return;
+    const displayName = [d.position, d.brand, d.model].filter(Boolean).join(' ') || d.name;
+    onChange(
+      spareParts.map(p =>
+        p.repairType === 'COMPONENT_REPLACEMENT' && !p.parentEquipmentId
+          ? { ...p, parentEquipmentName: displayName, parentEquipmentId: d.id }
+          : p
+      )
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredStoreEquipment, spareParts.length]);
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -557,82 +576,94 @@ export default function SparePartForm({
                       <Package className="w-4 h-4" />
                       อุปกรณ์หลัก (Parent Equipment)
                     </h5>
-                    <div className="relative" ref={el => { oldDropdownRefs.current[`parent-${part.id}`] = el }}>
-                      <label className="block text-xs font-medium text-gray-200 mb-1">
-                        ชื่ออุปกรณ์ <span className="text-red-400">*</span>
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          value={part.parentEquipmentName || ''}
-                          onChange={async (e) => {
-                            updateSparePart(part.id, 'parentEquipmentName', e.target.value);
-                            if (e.target.value.length >= 2) {
-                              const suggestions = await searchDevices(e.target.value);
-                              setOldDeviceSuggestions(prev => ({ ...prev, [`parent-${part.id}`]: suggestions }));
-                              setShowOldDropdown(`parent-${part.id}`);
-                            }
-                          }}
-                          onFocus={() => {
-                            if ((part.parentEquipmentName || '').length >= 2) {
-                              setShowOldDropdown(`parent-${part.id}`);
-                            }
-                          }}
-                          disabled={disabled}
-                          placeholder="e.g., UPS APC Smart 1500VA"
-                          className="w-full px-3 py-2 pr-8 text-sm bg-slate-700/50 border border-slate-600/50 text-white placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:bg-slate-800/30 disabled:cursor-not-allowed"
-                          required
-                        />
-                        <Search className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    {/* Single device: show read-only chip */}
+                    {filteredStoreEquipment.length === 1 ? (
+                      <div className="flex items-center gap-2 px-3 py-2 bg-purple-900/30 border border-purple-600/40 rounded-lg">
+                        <Package className="w-4 h-4 text-purple-400 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-white font-medium truncate">
+                            {part.parentEquipmentName || [filteredStoreEquipment[0].position, filteredStoreEquipment[0].brand, filteredStoreEquipment[0].model].filter(Boolean).join(' ') || filteredStoreEquipment[0].name}
+                          </p>
+                          <p className="text-xs text-purple-400 font-mono">S/N: {filteredStoreEquipment[0].serialNumber}</p>
+                        </div>
+                        <span className="text-xs text-purple-400 shrink-0">Auto</span>
                       </div>
+                    ) : (
+                      /* Multiple devices: live-search filtered to incident equipment only */
+                      <div className="relative" ref={el => { oldDropdownRefs.current[`parent-${part.id}`] = el }}>
+                        <label className="block text-xs font-medium text-gray-200 mb-1">
+                          ชื่ออุปกรณ์ <span className="text-red-400">*</span>
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={part.parentEquipmentName || ''}
+                            onChange={(e) => {
+                              const updatedParts = spareParts.map(p =>
+                                p.id === part.id
+                                  ? { ...p, parentEquipmentName: e.target.value, parentEquipmentId: undefined }
+                                  : p
+                              );
+                              onChange(updatedParts);
+                              setShowOldDropdown(`parent-${part.id}`);
+                            }}
+                            onFocus={() => setShowOldDropdown(`parent-${part.id}`)}
+                            disabled={disabled}
+                            placeholder="พิมพ์เพื่อค้นหาอุปกรณ์..."
+                            className="w-full px-3 py-2 pr-8 text-sm bg-slate-700/50 border border-slate-600/50 text-white placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:bg-slate-800/30 disabled:cursor-not-allowed"
+                            required
+                          />
+                          <Search className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        </div>
 
-                      {/* Parent Equipment Autocomplete Dropdown */}
-                      {showOldDropdown === `parent-${part.id}` && oldDeviceSuggestions[`parent-${part.id}`]?.length > 0 && (
-                        <div className="absolute z-10 w-full mt-1 bg-slate-700 border border-slate-600 rounded-lg shadow-xl max-h-72 overflow-y-auto">
-                          {oldDeviceSuggestions[`parent-${part.id}`].map((device) => (
-                            <button
-                              key={device.id}
-                              type="button"
-                              onClick={() => {
-                                let deviceName = device.position ? `[${device.position}] ` : '';
-                                deviceName += device.brand && device.model
-                                  ? `${device.name} (${device.brand} ${device.model})`
-                                  : device.name;
-
-                                const updatedParts = spareParts.map((p) => {
-                                  if (p.id !== part.id) return p;
-                                  return {
-                                    ...p,
-                                    parentEquipmentName: deviceName,
-                                    parentEquipmentId: device.id,
-                                  };
-                                });
-                                onChange(updatedParts);
-                                setShowOldDropdown(null);
-                              }}
-                              className="w-full px-3 py-2.5 text-left hover:bg-slate-600 transition-colors border-b border-slate-600/50 last:border-0"
-                            >
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2">
+                        {/* Dropdown: filtered from incident equipment only */}
+                        {showOldDropdown === `parent-${part.id}` && (() => {
+                          const q = (part.parentEquipmentName || '').toLowerCase();
+                          const filtered = filteredStoreEquipment.filter(d =>
+                            !q ||
+                            d.name.toLowerCase().includes(q) ||
+                            (d.brand || '').toLowerCase().includes(q) ||
+                            (d.model || '').toLowerCase().includes(q) ||
+                            (d.position || '').toLowerCase().includes(q)
+                          );
+                          return filtered.length > 0 ? (
+                            <div className="absolute z-10 w-full mt-1 bg-slate-700 border border-slate-600 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                              {filtered.map((device) => (
+                                <button
+                                  key={device.id}
+                                  type="button"
+                                  onClick={() => {
+                                    const deviceName = [device.position, device.brand, device.model].filter(Boolean).join(' ') || device.name;
+                                    onChange(spareParts.map(p =>
+                                      p.id === part.id
+                                        ? { ...p, parentEquipmentName: deviceName, parentEquipmentId: device.id }
+                                        : p
+                                    ));
+                                    setShowOldDropdown(null);
+                                  }}
+                                  className="w-full px-3 py-2.5 text-left hover:bg-slate-600 transition-colors border-b border-slate-600/50 last:border-0"
+                                >
+                                  <div className="flex items-start gap-2">
                                     {device.position && (
-                                      <span className="text-xs px-1.5 py-0.5 bg-yellow-900/40 text-yellow-300 rounded font-medium">
+                                      <span className="text-xs px-1.5 py-0.5 bg-yellow-900/40 text-yellow-300 rounded font-medium shrink-0">
                                         {device.position}
                                       </span>
                                     )}
-                                    <p className="text-sm text-white font-medium truncate">{device.name}</p>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm text-white font-medium truncate">{device.name}</p>
+                                      {(device.brand || device.model) && (
+                                        <p className="text-xs text-gray-400">{[device.brand, device.model].filter(Boolean).join(' ')}</p>
+                                      )}
+                                      <p className="text-xs text-purple-400 font-mono">S/N: {device.serialNumber}</p>
+                                    </div>
                                   </div>
-                                  <p className="text-xs text-purple-400 font-mono">S/N: {device.serialNumber}</p>
-                                  {device.storeName && (
-                                    <p className="text-xs text-gray-500">📍 {device.storeName}</p>
-                                  )}
-                                </div>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                                </button>
+                              ))}
+                            </div>
+                          ) : null;
+                        })()}
+                      </div>
+                    )}
                   </div>
 
                   {/* Component Details */}
@@ -786,9 +817,12 @@ export default function SparePartForm({
                   if (dev) {
                     const brand = dev.brand || '-';
                     const model = dev.model || '-';
-                    const serial = part.oldSerialNo || dev.serialNumber || '-';
+                    // Use part.oldSerialNo if tech has overridden it, otherwise fall back to DB value
+                    const displaySerial = part.oldSerialNo || dev.serialNumber || '';
+                    const isMockSerial = dev.serialNumber && part.oldSerialNo &&
+                      part.oldSerialNo.trim().toLowerCase() !== dev.serialNumber.trim().toLowerCase();
                     return (
-                      /* ── Read-only: device from DB ── */
+                      /* ── Device from DB: name/brand/model read-only, serial editable ── */
                       <div className="space-y-2">
                         <div>
                           <label className="block text-xs font-medium text-gray-200 mb-1">ชื่ออุปกรณ์</label>
@@ -810,10 +844,23 @@ export default function SparePartForm({
                             </div>
                           </div>
                           <div>
-                            <label className="block text-xs font-medium text-gray-200 mb-1">Serial No.</label>
-                            <div className="px-3 py-2.5 bg-slate-800/60 border border-red-700/40 rounded-lg text-sm font-mono text-red-200 select-all">
-                              {serial}
-                            </div>
+                            <label className="block text-xs font-medium text-gray-200 mb-1">
+                              Serial No. จริง
+                              <span className="text-gray-400 font-normal ml-1">(แก้ได้ถ้า DB ไม่ตรง)</span>
+                            </label>
+                            <input
+                              type="text"
+                              value={displaySerial}
+                              onChange={(e) => updateSparePart(part.id, 'oldSerialNo', e.target.value)}
+                              disabled={disabled}
+                              placeholder={dev.serialNumber || 'Serial No.'}
+                              className="w-full px-3 py-2.5 bg-slate-800/60 border border-red-700/40 rounded-lg text-sm font-mono text-red-200 focus:ring-2 focus:ring-red-500 focus:border-transparent disabled:cursor-not-allowed"
+                            />
+                            {isMockSerial && (
+                              <p className="text-xs text-amber-400 mt-1 flex items-center gap-1">
+                                ⚠️ Serial ใน DB: <span className="font-mono">{dev.serialNumber}</span> → จะถูกแก้เป็น <span className="font-mono">{part.oldSerialNo}</span>
+                              </p>
+                            )}
                           </div>
                         </div>
                       </div>
