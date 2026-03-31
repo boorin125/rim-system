@@ -74,6 +74,7 @@ export class ServiceReportPublicController {
             newComponentSerial: true,
             oldEquipment: { select: { name: true, brand: true, model: true } },
             newEquipment: { select: { name: true, brand: true, model: true } },
+            parentEquipment: { select: { name: true } },
           },
         },
       },
@@ -172,6 +173,7 @@ export class ServiceReportPublicController {
           equipmentName: s.oldEquipment?.name || sp.deviceName || '-',
           oldBrandModel: [s.oldEquipment?.brand, s.oldEquipment?.model].filter(Boolean).join(' ') || '-',
           newBrandModel: [s.newBrand, s.newModel].filter(Boolean).join(' ') || [s.newEquipment?.brand, s.newEquipment?.model].filter(Boolean).join(' ') || '-',
+          parentEquipmentName: s.parentEquipment?.name || null,
         };
       }),
       beforePhotos: incident.beforePhotos,

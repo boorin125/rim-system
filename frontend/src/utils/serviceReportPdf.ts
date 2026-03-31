@@ -42,6 +42,10 @@ export interface ServiceReportData {
     equipmentName?: string
     oldBrandModel?: string
     newBrandModel?: string
+    componentName?: string
+    oldComponentSerial?: string
+    newComponentSerial?: string
+    parentEquipmentName?: string | null
   }[]
   createdAt: string
   checkInAt?: string
@@ -466,26 +470,12 @@ async function generateClassicPDF(data: ServiceReportData, options: PdfOptions):
 
   // ========== SPARE PARTS ==========
   y += sectionGap
-  autoTable(doc, { startY: y, body: [['อะไหล่ที่เปลี่ยน / Spare Parts']], theme: 'grid', styles: sectionHeaderStyle, margin: { left: margin, right: margin } })
-  y = (doc as any).lastAutoTable.finalY
 
   {
-    const hasParts = data.usedSpareParts && data.spareParts.length > 0
-    const spRows: string[][] = []
-    if (hasParts) {
-      for (const sp of data.spareParts) {
-        spRows.push([
-          String(spRows.length + 1),
-          sp.equipmentName || sp.deviceName || '-',
-          sp.oldBrandModel || '-',
-          sp.oldSerialNo || '-',
-          sp.newBrandModel || '-',
-          sp.newSerialNo || '-',
-        ])
-      }
-    } else {
-      spRows.push(['', 'ไม่มีการเปลี่ยนอะไหล่', '', '', '', ''])
-    }
+    const equipParts = data.spareParts.filter(sp => sp.repairType !== 'COMPONENT_REPLACEMENT')
+    const compParts = data.spareParts.filter(sp => sp.repairType === 'COMPONENT_REPLACEMENT')
+    const hasEquip = equipParts.length > 0
+    const hasComp = compParts.length > 0
 
     const colW = (contentWidth - 7) / 5
     const spColWidths = {
@@ -496,17 +486,70 @@ async function generateClassicPDF(data: ServiceReportData, options: PdfOptions):
       4: { cellWidth: colW },
       5: { cellWidth: colW },
     }
-    autoTable(doc, {
-      startY: y,
-      head: [['#', 'Equipment Name', 'อุปกรณ์เดิม/ Old', 'Old Serial No.', 'อุปกรณ์ใหม่/ New', 'New Serial No.']],
-      body: spRows,
-      theme: 'grid',
-      styles: { font, fontSize: 6.5, cellPadding: { top: 1, bottom: 1, left: 2, right: 2 }, ...gridLine, textColor: [0, 0, 0] },
-      headStyles: { fillColor: [220, 220, 220], textColor: [40, 40, 40], fontStyle: 'bold', fontSize: 6.5 },
-      columnStyles: spColWidths,
-      margin: { left: margin, right: margin },
-    })
-    y = (doc as any).lastAutoTable.finalY
+
+    // TABLE 1: Spare Parts Used (EQUIPMENT_REPLACEMENT) — always shown unless hasComp only
+    if (hasEquip || !hasComp) {
+      autoTable(doc, { startY: y, body: [['อะไหล่ที่เปลี่ยน / Spare Parts Used']], theme: 'grid', styles: sectionHeaderStyle, margin: { left: margin, right: margin } })
+      y = (doc as any).lastAutoTable.finalY
+
+      const spRows: string[][] = []
+      if (hasEquip) {
+        for (const sp of equipParts) {
+          spRows.push([
+            String(spRows.length + 1),
+            sp.equipmentName || sp.deviceName || '-',
+            sp.oldBrandModel || '-',
+            sp.oldSerialNo || '-',
+            sp.newBrandModel || '-',
+            sp.newSerialNo || '-',
+          ])
+        }
+      } else {
+        spRows.push(['', 'ไม่มีการใช้สแปร์พาร์ท', '', '', '', ''])
+      }
+
+      autoTable(doc, {
+        startY: y,
+        head: [['#', 'Equipment Name', 'อุปกรณ์เดิม/ Old', 'Old Serial No.', 'อุปกรณ์ใหม่/ New', 'New Serial No.']],
+        body: spRows,
+        theme: 'grid',
+        styles: { font, fontSize: 6.5, cellPadding: { top: 1, bottom: 1, left: 2, right: 2 }, ...gridLine, textColor: [0, 0, 0] },
+        headStyles: { fillColor: [220, 220, 220], textColor: [40, 40, 40], fontStyle: 'bold', fontSize: 6.5 },
+        columnStyles: spColWidths,
+        margin: { left: margin, right: margin },
+      })
+      y = (doc as any).lastAutoTable.finalY
+    }
+
+    // TABLE 2: Parts Used (COMPONENT_REPLACEMENT) — only if hasComp
+    if (hasComp) {
+      autoTable(doc, { startY: y, body: [['ชิ้นส่วนที่เปลี่ยน / Parts Used']], theme: 'grid', styles: sectionHeaderStyle, margin: { left: margin, right: margin } })
+      y = (doc as any).lastAutoTable.finalY
+
+      const compRows: string[][] = []
+      for (const sp of compParts) {
+        compRows.push([
+          String(compRows.length + 1),
+          sp.parentEquipmentName || sp.deviceName || '-',
+          sp.componentName || '-',
+          sp.oldComponentSerial || '-',
+          sp.componentName || '-',
+          sp.newComponentSerial || '-',
+        ])
+      }
+
+      autoTable(doc, {
+        startY: y,
+        head: [['#', 'อุปกรณ์ (Parent)', 'Old Part', 'Old S/N', 'New Part', 'New S/N']],
+        body: compRows,
+        theme: 'grid',
+        styles: { font, fontSize: 6.5, cellPadding: { top: 1, bottom: 1, left: 2, right: 2 }, ...gridLine, textColor: [0, 0, 0] },
+        headStyles: { fillColor: [220, 220, 220], textColor: [40, 40, 40], fontStyle: 'bold', fontSize: 6.5 },
+        columnStyles: spColWidths,
+        margin: { left: margin, right: margin },
+      })
+      y = (doc as any).lastAutoTable.finalY
+    }
   }
 
   // Remark + Status
@@ -718,29 +761,11 @@ async function generateModernPDF(data: ServiceReportData, options: PdfOptions): 
   y += mCommentH + 3
 
   // ========== SPARE PARTS ==========
-  doc.setFillColor(primaryTint[0], primaryTint[1], primaryTint[2])
-  doc.roundedRect(margin, y, contentWidth, sectionLabelH, 1, 1, 'F')
-  doc.setFont(font, 'bold'); doc.setFontSize(7.5); doc.setTextColor(26, 26, 26)
-  doc.text('อะไหล่ที่เปลี่ยน / Spare Parts', margin + 4, y + 4.8)
-  y += sectionLabelH
-
   {
-    const hasParts = data.usedSpareParts && data.spareParts.length > 0
-    const spRows: string[][] = []
-    if (hasParts) {
-      for (const sp of data.spareParts) {
-        spRows.push([
-          String(spRows.length + 1),
-          sp.equipmentName || sp.deviceName || '-',
-          sp.oldBrandModel || '-',
-          sp.oldSerialNo || '-',
-          sp.newBrandModel || '-',
-          sp.newSerialNo || '-',
-        ])
-      }
-    } else {
-      spRows.push(['', 'ไม่มีการเปลี่ยนอะไหล่', '', '', '', ''])
-    }
+    const equipParts = data.spareParts.filter(sp => sp.repairType !== 'COMPONENT_REPLACEMENT')
+    const compParts = data.spareParts.filter(sp => sp.repairType === 'COMPONENT_REPLACEMENT')
+    const hasEquip = equipParts.length > 0
+    const hasComp = compParts.length > 0
 
     const modColW = (contentWidth - 8) / 5
     const spColWidths = {
@@ -751,18 +776,78 @@ async function generateModernPDF(data: ServiceReportData, options: PdfOptions): 
       4: { cellWidth: modColW },
       5: { cellWidth: modColW },
     }
-    autoTable(doc, {
-      startY: y,
-      head: [['#', 'Equipment Name', 'อุปกรณ์เดิม/ Old', 'Old Serial No.', 'อุปกรณ์ใหม่/ New', 'New Serial No.']],
-      body: spRows,
-      theme: 'striped',
-      styles: { font, fontSize: 6.5, cellPadding: { top: 1.5, bottom: 1.5, left: 2, right: 2 }, textColor: textDark, lineWidth: 0 },
-      headStyles: { fillColor: lightBg, textColor: textGray, fontStyle: 'bold', fontSize: 6.5 },
-      alternateRowStyles: { fillColor: [248, 250, 252] },
-      columnStyles: spColWidths,
-      margin: { left: margin, right: margin },
-    })
-    y = (doc as any).lastAutoTable.finalY
+
+    // TABLE 1: Spare Parts Used (EQUIPMENT_REPLACEMENT) — always shown unless hasComp only
+    if (hasEquip || !hasComp) {
+      doc.setFillColor(primaryTint[0], primaryTint[1], primaryTint[2])
+      doc.roundedRect(margin, y, contentWidth, sectionLabelH, 1, 1, 'F')
+      doc.setFont(font, 'bold'); doc.setFontSize(7.5); doc.setTextColor(26, 26, 26)
+      doc.text('อะไหล่ที่เปลี่ยน / Spare Parts Used', margin + 4, y + 4.8)
+      y += sectionLabelH
+
+      const spRows: string[][] = []
+      if (hasEquip) {
+        for (const sp of equipParts) {
+          spRows.push([
+            String(spRows.length + 1),
+            sp.equipmentName || sp.deviceName || '-',
+            sp.oldBrandModel || '-',
+            sp.oldSerialNo || '-',
+            sp.newBrandModel || '-',
+            sp.newSerialNo || '-',
+          ])
+        }
+      } else {
+        spRows.push(['', 'ไม่มีการใช้สแปร์พาร์ท', '', '', '', ''])
+      }
+
+      autoTable(doc, {
+        startY: y,
+        head: [['#', 'Equipment Name', 'อุปกรณ์เดิม/ Old', 'Old Serial No.', 'อุปกรณ์ใหม่/ New', 'New Serial No.']],
+        body: spRows,
+        theme: 'striped',
+        styles: { font, fontSize: 6.5, cellPadding: { top: 1.5, bottom: 1.5, left: 2, right: 2 }, textColor: textDark, lineWidth: 0 },
+        headStyles: { fillColor: lightBg, textColor: textGray, fontStyle: 'bold', fontSize: 6.5 },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        columnStyles: spColWidths,
+        margin: { left: margin, right: margin },
+      })
+      y = (doc as any).lastAutoTable.finalY
+    }
+
+    // TABLE 2: Parts Used (COMPONENT_REPLACEMENT) — only if hasComp
+    if (hasComp) {
+      doc.setFillColor(primaryTint[0], primaryTint[1], primaryTint[2])
+      doc.roundedRect(margin, y, contentWidth, sectionLabelH, 1, 1, 'F')
+      doc.setFont(font, 'bold'); doc.setFontSize(7.5); doc.setTextColor(26, 26, 26)
+      doc.text('ชิ้นส่วนที่เปลี่ยน / Parts Used', margin + 4, y + 4.8)
+      y += sectionLabelH
+
+      const compRows: string[][] = []
+      for (const sp of compParts) {
+        compRows.push([
+          String(compRows.length + 1),
+          sp.parentEquipmentName || sp.deviceName || '-',
+          sp.componentName || '-',
+          sp.oldComponentSerial || '-',
+          sp.componentName || '-',
+          sp.newComponentSerial || '-',
+        ])
+      }
+
+      autoTable(doc, {
+        startY: y,
+        head: [['#', 'อุปกรณ์ (Parent)', 'Old Part', 'Old S/N', 'New Part', 'New S/N']],
+        body: compRows,
+        theme: 'striped',
+        styles: { font, fontSize: 6.5, cellPadding: { top: 1.5, bottom: 1.5, left: 2, right: 2 }, textColor: textDark, lineWidth: 0 },
+        headStyles: { fillColor: lightBg, textColor: textGray, fontStyle: 'bold', fontSize: 6.5 },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        columnStyles: spColWidths,
+        margin: { left: margin, right: margin },
+      })
+      y = (doc as any).lastAutoTable.finalY
+    }
   }
 
   // ========== STATUS BAR ==========
@@ -995,47 +1080,90 @@ async function generateCompactPDF(
   // ═══════════════════════════════════════════
   // SPARE PARTS
   // ═══════════════════════════════════════════
-  doc.setFillColor(248, 248, 248)
-  doc.rect(margin, y, cW, 5.5, 'F')
-  doc.setDrawColor(accent[0], accent[1], accent[2]); doc.setLineWidth(0.5)
-  doc.line(margin, y, margin, y + 5.5)
-  doc.setFont(font, 'bold'); doc.setFontSize(7.5); doc.setTextColor(30,30,30)
-  doc.text('อะไหล่ที่เปลี่ยน  (Spare Parts)', margin + 3, y + 4)
-  y += 5.5
+  {
+    const equipParts = data.spareParts.filter(sp => sp.repairType !== 'COMPONENT_REPLACEMENT')
+    const compParts = data.spareParts.filter(sp => sp.repairType === 'COMPONENT_REPLACEMENT')
+    const hasEquip = equipParts.length > 0
+    const hasComp = compParts.length > 0
 
-  const hasParts = data.usedSpareParts && data.spareParts.length > 0
-  const spRows = hasParts
-    ? data.spareParts.map((sp, i) => [
-        String(i + 1),
-        sp.equipmentName || sp.deviceName || '-',
-        sp.oldBrandModel || '-',
-        sp.oldSerialNo || '-',
-        sp.newBrandModel || '-',
-        sp.newSerialNo || '-',
-        sp.repairType || '-',
-      ])
-    : [['', 'ไม่มีการเปลี่ยนอะไหล่  (No spare parts used)', '', '', '', '', '']]
-
-  const spColW = (cW - 7) / 6
-  autoTable(doc, {
-    startY: y,
-    head: [['#', 'อุปกรณ์/Equipment', 'Old Brand/Model', 'Old S/N', 'New Brand/Model', 'New S/N', 'ประเภท']],
-    body: spRows,
-    theme: 'grid',
-    styles: { font, fontSize: 6.5, cellPadding: { top: 1, bottom: 1, left: 2, right: 1 }, textColor: [20,20,20], lineColor: [180,180,180], lineWidth: 0.18 },
-    headStyles: { fillColor: [50,50,50], textColor: [255,255,255], fontStyle: 'bold', fontSize: 6.5 },
-    columnStyles: {
-      0: { cellWidth: 7, halign: 'center' },
-      1: { cellWidth: spColW + 4 },
+    const spColW = (cW - 7) / 5
+    const spColWidths = {
+      0: { cellWidth: 7, halign: 'center' as const },
+      1: { cellWidth: spColW },
       2: { cellWidth: spColW },
       3: { cellWidth: spColW },
       4: { cellWidth: spColW },
       5: { cellWidth: spColW },
-      6: { cellWidth: spColW - 4 },
-    },
-    margin: { left: margin, right: margin },
-  })
-  y = (doc as any).lastAutoTable.finalY + 3
+    }
+
+    // TABLE 1: Spare Parts Used (EQUIPMENT_REPLACEMENT) — always shown unless hasComp only
+    if (hasEquip || !hasComp) {
+      doc.setFillColor(248, 248, 248)
+      doc.rect(margin, y, cW, 5.5, 'F')
+      doc.setDrawColor(accent[0], accent[1], accent[2]); doc.setLineWidth(0.5)
+      doc.line(margin, y, margin, y + 5.5)
+      doc.setFont(font, 'bold'); doc.setFontSize(7.5); doc.setTextColor(30,30,30)
+      doc.text('อะไหล่ที่เปลี่ยน  (Spare Parts Used)', margin + 3, y + 4)
+      y += 5.5
+
+      const spRows: string[][] = hasEquip
+        ? equipParts.map((sp, i) => [
+            String(i + 1),
+            sp.equipmentName || sp.deviceName || '-',
+            sp.oldBrandModel || '-',
+            sp.oldSerialNo || '-',
+            sp.newBrandModel || '-',
+            sp.newSerialNo || '-',
+          ])
+        : [['', 'ไม่มีการใช้สแปร์พาร์ท', '', '', '', '']]
+
+      autoTable(doc, {
+        startY: y,
+        head: [['#', 'อุปกรณ์/Equipment', 'Old Brand/Model', 'Old S/N', 'New Brand/Model', 'New S/N']],
+        body: spRows,
+        theme: 'grid',
+        styles: { font, fontSize: 6.5, cellPadding: { top: 1, bottom: 1, left: 2, right: 1 }, textColor: [20,20,20], lineColor: [180,180,180], lineWidth: 0.18 },
+        headStyles: { fillColor: [50,50,50], textColor: [255,255,255], fontStyle: 'bold', fontSize: 6.5 },
+        columnStyles: spColWidths,
+        margin: { left: margin, right: margin },
+      })
+      y = (doc as any).lastAutoTable.finalY
+    }
+
+    // TABLE 2: Parts Used (COMPONENT_REPLACEMENT) — only if hasComp
+    if (hasComp) {
+      doc.setFillColor(248, 248, 248)
+      doc.rect(margin, y, cW, 5.5, 'F')
+      doc.setDrawColor(accent[0], accent[1], accent[2]); doc.setLineWidth(0.5)
+      doc.line(margin, y, margin, y + 5.5)
+      doc.setFont(font, 'bold'); doc.setFontSize(7.5); doc.setTextColor(30,30,30)
+      doc.text('ชิ้นส่วนที่เปลี่ยน  (Parts Used)', margin + 3, y + 4)
+      y += 5.5
+
+      const compRows: string[][] = compParts.map((sp, i) => [
+        String(i + 1),
+        sp.parentEquipmentName || sp.deviceName || '-',
+        sp.componentName || '-',
+        sp.oldComponentSerial || '-',
+        sp.componentName || '-',
+        sp.newComponentSerial || '-',
+      ])
+
+      autoTable(doc, {
+        startY: y,
+        head: [['#', 'อุปกรณ์ (Parent)', 'Old Part', 'Old S/N', 'New Part', 'New S/N']],
+        body: compRows,
+        theme: 'grid',
+        styles: { font, fontSize: 6.5, cellPadding: { top: 1, bottom: 1, left: 2, right: 1 }, textColor: [20,20,20], lineColor: [180,180,180], lineWidth: 0.18 },
+        headStyles: { fillColor: [80,40,120], textColor: [255,255,255], fontStyle: 'bold', fontSize: 6.5 },
+        columnStyles: spColWidths,
+        margin: { left: margin, right: margin },
+      })
+      y = (doc as any).lastAutoTable.finalY
+    }
+
+    y += 3
+  }
 
   // ═══════════════════════════════════════════
   // STATUS ROW

@@ -59,6 +59,7 @@ interface ServiceReport {
     componentName?: string
     oldComponentSerial?: string
     newComponentSerial?: string
+    parentEquipmentName?: string | null
   }[]
   beforePhotos?: string[]
   afterPhotos?: string[]
@@ -255,7 +256,10 @@ export default function ServiceReportPage() {
         ...report,
         reportUrl: window.location.href,
       }
-      await generateServiceReportPDF(pdfData, { style: (report.templateStyle as 'classic' | 'modern') || 'classic' })
+      await generateServiceReportPDF(pdfData, {
+        style: (report.templateStyle as 'classic' | 'modern') || 'classic',
+        blankSignature: !report.isSigned,
+      })
     } catch (err: any) {
       console.error('PDF generation failed:', err)
       alert(`เกิดข้อผิดพลาดในการสร้าง PDF\n${err?.message || String(err)}`)
@@ -466,9 +470,12 @@ export default function ServiceReportPage() {
             {/* Title Bar with Ticket Badge */}
             <div className="px-6 py-3 flex items-center justify-between" style={{ backgroundColor: accentColor }}>
               <h2 className="text-white font-bold text-base tracking-wide">SERVICE REPORT / ใบรายงานบริการ</h2>
-              <span className="text-white font-bold text-sm">
-                {report.ticketNumber}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded border border-red-300">
+                  ฉบับ COPY
+                </span>
+                <span className="text-white font-bold text-sm">{report.ticketNumber}</span>
+              </div>
             </div>
 
             {/* Detail Cards Grid */}
@@ -784,32 +791,30 @@ export default function ServiceReportPage() {
             )}
 
             {/* Download & QR Section */}
-            {report.isSigned && (
-              <div className="px-6 mb-4">
-                <div className="bg-slate-50 rounded-xl p-5">
-                  <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                    <button
-                      onClick={handleDownloadPDF}
-                      disabled={isGeneratingPdf}
-                      className="flex items-center gap-2 px-6 py-2.5 text-white font-semibold rounded-xl transition disabled:opacity-50"
-                      style={{ backgroundColor: accentColor }}
-                    >
-                      {isGeneratingPdf ? (
-                        <><Loader2 className="w-5 h-5 animate-spin" /> Generating PDF...</>
-                      ) : (
-                        <><Download className="w-5 h-5" /> Download PDF</>
-                      )}
-                    </button>
-                    <div className="text-center">
-                      <p className="text-xs text-gray-500 mb-1">Scan to view digital copy</p>
-                      <div className="bg-white p-1.5 border border-gray-200 rounded-lg inline-block">
-                        <QRCodeDisplay url={typeof window !== 'undefined' ? window.location.href : ''} size={100} />
-                      </div>
+            <div className="px-6 mb-4">
+              <div className="bg-slate-50 rounded-xl p-5">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                  <button
+                    onClick={handleDownloadPDF}
+                    disabled={isGeneratingPdf}
+                    className="flex items-center gap-2 px-6 py-2.5 text-white font-semibold rounded-xl transition disabled:opacity-50"
+                    style={{ backgroundColor: accentColor }}
+                  >
+                    {isGeneratingPdf ? (
+                      <><Loader2 className="w-5 h-5 animate-spin" /> Generating PDF...</>
+                    ) : (
+                      <><Download className="w-5 h-5" /> Download PDF (ฉบับ Copy)</>
+                    )}
+                  </button>
+                  <div className="text-center">
+                    <p className="text-xs text-gray-500 mb-1">Scan to view digital copy</p>
+                    <div className="bg-white p-1.5 border border-gray-200 rounded-lg inline-block">
+                      <QRCodeDisplay url={typeof window !== 'undefined' ? window.location.href : ''} size={100} />
                     </div>
                   </div>
                 </div>
               </div>
-            )}
+            </div>
 
             {/* Modern Footer with accent line */}
             <div className="mx-6 mb-6 mt-4">
@@ -891,8 +896,11 @@ export default function ServiceReportPage() {
           </div>
 
           {/* Title Bar */}
-          <div className="bg-gray-800 text-white text-center py-2">
+          <div className="bg-gray-800 text-white text-center py-2 relative">
             <h2 className="text-base font-bold tracking-wider">SERVICE REPORT / ใบรายงานบริการ</h2>
+            <span className="absolute right-4 top-1/2 -translate-y-1/2 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded border border-red-300">
+              ฉบับ COPY
+            </span>
           </div>
 
           {/* Section 1: Detail Info */}
@@ -1289,30 +1297,28 @@ export default function ServiceReportPage() {
           )}
 
           {/* Download & QR Section */}
-          {report.isSigned && (
-            <div className="border-x border-b border-gray-400 -mt-px p-4">
-              <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                <button
-                  onClick={handleDownloadPDF}
-                  disabled={isGeneratingPdf}
-                  className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition disabled:opacity-50"
-                >
-                  {isGeneratingPdf ? (
-                    <><Loader2 className="w-5 h-5 animate-spin" /> Generating PDF...</>
-                  ) : (
-                    <><Download className="w-5 h-5" /> Download PDF</>
-                  )}
-                </button>
+          <div className="border-x border-b border-gray-400 -mt-px p-4">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+              <button
+                onClick={handleDownloadPDF}
+                disabled={isGeneratingPdf}
+                className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition disabled:opacity-50"
+              >
+                {isGeneratingPdf ? (
+                  <><Loader2 className="w-5 h-5 animate-spin" /> Generating PDF...</>
+                ) : (
+                  <><Download className="w-5 h-5" /> Download PDF (ฉบับ Copy)</>
+                )}
+              </button>
 
-                <div className="text-center">
-                  <p className="text-xs text-gray-500 mb-1">Scan to view digital copy</p>
-                  <div className="bg-white p-1.5 border border-gray-200 rounded inline-block">
-                    <QRCodeDisplay url={typeof window !== 'undefined' ? window.location.href : ''} size={100} />
-                  </div>
+              <div className="text-center">
+                <p className="text-xs text-gray-500 mb-1">Scan to view digital copy</p>
+                <div className="bg-white p-1.5 border border-gray-200 rounded inline-block">
+                  <QRCodeDisplay url={typeof window !== 'undefined' ? window.location.href : ''} size={100} />
                 </div>
               </div>
             </div>
-          )}
+          </div>
 
           </div>
 
