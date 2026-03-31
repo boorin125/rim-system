@@ -73,27 +73,25 @@ export default function ConfirmCloseModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-50 p-4 pt-20 sm:pt-4">
-      <div className="glass-card border border-slate-700/50 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[calc(100vh-88px)] sm:max-h-[90vh] flex flex-col animate-fade-in">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4">
+      <div className="glass-card border border-slate-700/50 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] sm:max-h-[88vh] flex flex-col animate-fade-in">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-700/50 bg-slate-800/30">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700/50 bg-slate-800/30 flex-shrink-0">
           <div>
-            <h2 className="text-2xl font-bold text-white">Confirm Incident Closure</h2>
-            <p className="text-sm text-gray-300 mt-1">
-              Review resolution and confirm to close incident
-            </p>
+            <h2 className="text-lg font-bold text-white">Confirm Incident Closure</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Review resolution and confirm to close incident</p>
           </div>
           <button
             onClick={onClose}
             disabled={isConfirming}
-            className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors disabled:opacity-50 text-gray-300"
+            className="p-1.5 hover:bg-slate-700/50 rounded-lg transition-colors disabled:opacity-50 text-gray-300"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
           {/* Error Message */}
           {error && (
             <div className="flex items-start gap-3 p-4 bg-red-900/20 border border-red-700/50 rounded-lg">
@@ -146,36 +144,27 @@ export default function ConfirmCloseModal({
           {incident.usedSpareParts && incident.spareParts && incident.spareParts.length > 0 && (
             <div>
               <h3 className="font-semibold text-white mb-3">Spare Parts Used</h3>
-              <div className="space-y-3">
-                {incident.spareParts.map((part, index) => (
-                  <div
-                    key={index}
-                    className="bg-slate-800/30 border border-slate-700/50 rounded-lg p-4"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium text-white">
-                        {part.deviceName}
-                      </h4>
-                      <span className="text-xs text-gray-400">Part #{index + 1}</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <p className="text-gray-400 mb-1">Old Serial No.</p>
-                        <p className="text-white font-mono">{part.oldSerialNo}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-400 mb-1">New Serial No.</p>
-                        <p className="text-white font-mono">{part.newSerialNo}</p>
-                      </div>
-                    </div>
-                    {part.notes && (
-                      <div className="mt-2 pt-2 border-t border-slate-700/50">
-                        <p className="text-xs text-gray-400">Notes:</p>
-                        <p className="text-sm text-gray-200">{part.notes}</p>
-                      </div>
-                    )}
-                  </div>
-                ))}
+              <div className="overflow-x-auto rounded-lg border border-slate-700/50">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-slate-700/60 text-gray-300 text-xs uppercase">
+                      <th className="px-3 py-2.5 text-center w-10">#</th>
+                      <th className="px-3 py-2.5 text-left">Part</th>
+                      <th className="px-3 py-2.5 text-left">Old Serial No.</th>
+                      <th className="px-3 py-2.5 text-left">New Serial No.</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {incident.spareParts.map((part, index) => (
+                      <tr key={index} className="border-t border-slate-700/40 hover:bg-slate-700/20">
+                        <td className="px-3 py-2.5 text-center text-gray-400">{index + 1}</td>
+                        <td className="px-3 py-2.5 text-white font-medium">{part.deviceName || '-'}</td>
+                        <td className="px-3 py-2.5 text-gray-300 font-mono text-xs">{part.oldSerialNo || '-'}</td>
+                        <td className="px-3 py-2.5 text-gray-300 font-mono text-xs">{part.newSerialNo || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
@@ -342,10 +331,7 @@ export default function ConfirmCloseModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between gap-3 p-6 border-t border-slate-700/50 bg-slate-800/30">
-          <p className="text-sm text-gray-300">
-            Confirm that the work has been completed satisfactorily
-          </p>
+        <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-slate-700/50 bg-slate-800/30 flex-shrink-0">
           <div className="flex gap-3">
             <button
               onClick={onClose}
