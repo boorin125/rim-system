@@ -56,6 +56,9 @@ interface ServiceReport {
     oldSerialNo: string
     newSerialNo: string
     repairType: string
+    equipmentName?: string
+    oldBrandModel?: string
+    newBrandModel?: string
     componentName?: string
     oldComponentSerial?: string
     newComponentSerial?: string
@@ -147,7 +150,7 @@ export default function ServiceReportPage() {
   }, [report])
 
   useEffect(() => {
-    if (report && !report.isSigned && !report.isExpired) {
+    if (report && !report.isSigned && !report.isExpired && report.status !== 'CLOSED') {
       const timer = setTimeout(initSignaturePad, 100)
       return () => clearTimeout(timer)
     }
@@ -538,67 +541,93 @@ export default function ServiceReportPage() {
               </div>
             </div>
 
-            {/* Spare Parts */}
-            <div className="px-6 mb-4">
-              <div className="px-4 py-2.5 rounded-t-xl font-bold text-sm" style={{ backgroundColor: primaryLight, color: '#1a1a1a' }}>
-                อะไหล่ที่เปลี่ยน / Spare Parts
-              </div>
-              <div className="bg-slate-50 rounded-b-xl p-4 overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-slate-100 text-gray-500">
-                      <th className="px-3 py-2 text-center rounded-tl-lg w-8 font-medium text-xs">#</th>
-                      <th className="px-3 py-2 text-left font-medium text-xs">Old Device / Part (อุปกรณ์เดิม)</th>
-                      <th className="px-3 py-2 text-left font-medium text-xs">Serial No.</th>
-                      <th className="px-3 py-2 text-left font-medium text-xs">New Device / Part (อุปกรณ์ใหม่)</th>
-                      <th className="px-3 py-2 text-left rounded-tr-lg font-medium text-xs">Serial No.</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(() => {
-                      const hasParts = report.usedSpareParts && report.spareParts.length > 0
-                      const totalRows = 3
-                      const dataRows = hasParts ? report.spareParts.length : 0
-                      const emptyRows = Math.max(0, totalRows - dataRows)
-                      return (
-                        <>
-                          {hasParts ? (
-                            report.spareParts.map((sp, idx) => {
-                              const names = sp.deviceName?.includes(' → ')
-                                ? sp.deviceName.split(' → ')
-                                : [sp.deviceName, sp.deviceName]
-                              return (
+            {/* Spare Parts — Device Used + Spare Part Used */}
+            {(() => {
+              const equipParts = report.spareParts.filter(sp => sp.repairType !== 'COMPONENT_REPLACEMENT')
+              const compParts = report.spareParts.filter(sp => sp.repairType === 'COMPONENT_REPLACEMENT')
+              const hasEquip = equipParts.length > 0
+              const hasComp = compParts.length > 0
+              return (
+                <>
+                  {/* TABLE 1: Device Used */}
+                  {(hasEquip || !hasComp) && (
+                    <div className="px-6 mb-2">
+                      <div className="px-4 py-2.5 rounded-t-xl font-bold text-sm" style={{ backgroundColor: primaryLight, color: '#1a1a1a' }}>
+                        อุปกรณ์ที่เปลี่ยน / Device Used
+                      </div>
+                      <div className="bg-slate-50 rounded-b-xl p-4 overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr style={{ backgroundColor: primaryColor }}>
+                              <th className="px-3 py-2 text-center w-8 font-medium text-xs text-white">#</th>
+                              <th className="px-3 py-2 text-left font-medium text-xs text-white">Device Name</th>
+                              <th className="px-3 py-2 text-left font-medium text-xs text-white">Old Brand/Model</th>
+                              <th className="px-3 py-2 text-left font-medium text-xs text-white">Old Serial No.</th>
+                              <th className="px-3 py-2 text-left font-medium text-xs text-white">New Brand/Model</th>
+                              <th className="px-3 py-2 text-left font-medium text-xs text-white">New Serial No.</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {hasEquip ? (
+                              equipParts.map((sp, idx) => (
                                 <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                                   <td className="px-3 py-2 text-center text-gray-500 border-b border-gray-200">{idx + 1}</td>
-                                  <td className="px-3 py-2 text-gray-800 border-b border-gray-200">{(names[0] || '').trim() || '-'}</td>
+                                  <td className="px-3 py-2 text-gray-800 border-b border-gray-200">{sp.deviceName || '-'}</td>
+                                  <td className="px-3 py-2 text-gray-800 border-b border-gray-200">{sp.oldBrandModel || '-'}</td>
                                   <td className="px-3 py-2 text-gray-800 font-mono text-xs border-b border-gray-200">{sp.oldSerialNo || '-'}</td>
-                                  <td className="px-3 py-2 text-gray-800 border-b border-gray-200">{(names[1] || names[0] || '').trim() || '-'}</td>
+                                  <td className="px-3 py-2 text-gray-800 border-b border-gray-200">{sp.newBrandModel || '-'}</td>
                                   <td className="px-3 py-2 text-gray-800 font-mono text-xs border-b border-gray-200">{sp.newSerialNo || '-'}</td>
                                 </tr>
-                              )
-                            })
-                          ) : (
-                            <tr className="bg-white">
-                              <td className="px-3 py-2 text-center text-gray-400 border-b border-gray-200"></td>
-                              <td className="px-3 py-2 text-gray-400 border-b border-gray-200" colSpan={4}>ไม่มีการเปลี่ยนอะไหล่</td>
+                              ))
+                            ) : (
+                              <tr className="bg-white">
+                                <td className="px-3 py-2 text-center text-gray-400 border-b border-gray-200"></td>
+                                <td className="px-3 py-2 text-gray-400 border-b border-gray-200" colSpan={5}>ไม่มีการใช้ Spare Part</td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                  {/* TABLE 2: Spare Part Used */}
+                  {hasComp && (
+                    <div className="px-6 mb-2">
+                      <div className="px-4 py-2.5 rounded-t-xl font-bold text-sm" style={{ backgroundColor: primaryLight, color: '#1a1a1a' }}>
+                        ชิ้นส่วนที่เปลี่ยน / Spare Part Used
+                      </div>
+                      <div className="bg-slate-50 rounded-b-xl p-4 overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr style={{ backgroundColor: primaryColor }}>
+                              <th className="px-3 py-2 text-center w-8 font-medium text-xs text-white">#</th>
+                              <th className="px-3 py-2 text-left font-medium text-xs text-white">Device Name</th>
+                              <th className="px-3 py-2 text-left font-medium text-xs text-white">Old Part</th>
+                              <th className="px-3 py-2 text-left font-medium text-xs text-white">Old Serial No.</th>
+                              <th className="px-3 py-2 text-left font-medium text-xs text-white">New Part</th>
+                              <th className="px-3 py-2 text-left font-medium text-xs text-white">New Serial No.</th>
                             </tr>
-                          )}
-                          {Array.from({ length: hasParts ? emptyRows : totalRows - 1 }).map((_, idx) => (
-                            <tr key={`empty-${idx}`} className={((hasParts ? dataRows : 1) + idx) % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                              <td className="px-3 py-2 text-center text-gray-300 border-b border-gray-100"></td>
-                              <td className="px-3 py-2 border-b border-gray-100">&nbsp;</td>
-                              <td className="px-3 py-2 border-b border-gray-100">&nbsp;</td>
-                              <td className="px-3 py-2 border-b border-gray-100">&nbsp;</td>
-                              <td className="px-3 py-2 border-b border-gray-100">&nbsp;</td>
-                            </tr>
-                          ))}
-                        </>
-                      )
-                    })()}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                          </thead>
+                          <tbody>
+                            {compParts.map((sp, idx) => (
+                              <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                <td className="px-3 py-2 text-center text-gray-500 border-b border-gray-200">{idx + 1}</td>
+                                <td className="px-3 py-2 text-gray-800 border-b border-gray-200">{sp.parentEquipmentName || sp.deviceName || '-'}</td>
+                                <td className="px-3 py-2 text-gray-800 border-b border-gray-200">{sp.componentName || '-'}</td>
+                                <td className="px-3 py-2 text-gray-800 font-mono text-xs border-b border-gray-200">{sp.oldComponentSerial || '-'}</td>
+                                <td className="px-3 py-2 text-gray-800 border-b border-gray-200">{sp.componentName || '-'}</td>
+                                <td className="px-3 py-2 text-gray-800 font-mono text-xs border-b border-gray-200">{sp.newComponentSerial || '-'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )
+            })()}
+            <div className="mb-2" />
 
             {/* Remark + Status Row */}
             <div className="px-6 mb-4">
@@ -669,6 +698,12 @@ export default function ServiceReportPage() {
                         {report.resolvedAt && formatDate(report.resolvedAt)}
                       </p>
                     </div>
+                  </div>
+                ) : report.status === 'CLOSED' ? (
+                  <div className="py-8 text-center">
+                    <AlertCircle className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                    <p className="text-gray-600 font-semibold">Incident นี้ปิดแล้ว</p>
+                    <p className="text-gray-400 text-sm mt-1">ไม่สามารถเซ็นลายเซ็นได้</p>
                   </div>
                 ) : report.signedReportPhotos && report.signedReportPhotos.length > 0 ? (
                   <div className="py-8 text-center">
@@ -1022,78 +1057,96 @@ export default function ServiceReportPage() {
 
           </div>
 
-          {/* Section 3: Spare Parts (separate box) */}
-          <div className="mt-4 mx-4">
-          <div className="border border-gray-400">
-            <div className="bg-gray-200 border-b border-gray-400 px-3 py-1.5">
-              <span className="font-bold text-gray-700 text-sm">
-                อะไหล่ที่เปลี่ยน / Spare Parts
-              </span>
-            </div>
-            <div className="px-3 py-2">
-              <table className="w-full text-sm border-collapse">
-                <thead>
-                  <tr className="bg-gray-200">
-                    <th className="border border-gray-400 px-2 py-1.5 text-gray-700 text-center w-8">#</th>
-                    <th className="border border-gray-400 px-2 py-1.5 text-gray-700 text-left">
-                      Old Device / Part (อุปกรณ์เดิม)
-                    </th>
-                    <th className="border border-gray-400 px-2 py-1.5 text-gray-700 text-left">
-                      Serial No.
-                    </th>
-                    <th className="border border-gray-400 px-2 py-1.5 text-gray-700 text-left">
-                      New Device / Part (อุปกรณ์ใหม่)
-                    </th>
-                    <th className="border border-gray-400 px-2 py-1.5 text-gray-700 text-left">
-                      Serial No.
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(() => {
-                    const hasParts = report.usedSpareParts && report.spareParts.length > 0
-                    const totalRows = 5
-                    const dataRows = hasParts ? report.spareParts.length : 0
-                    const emptyRows = Math.max(0, totalRows - dataRows)
-                    return (
-                      <>
-                        {hasParts ? (
-                          report.spareParts.map((sp, idx) => {
-                            const names = sp.deviceName?.includes(' → ')
-                              ? sp.deviceName.split(' → ')
-                              : [sp.deviceName, sp.deviceName]
-                            return (
+          {/* Section 3: Spare Parts (separate box) — Device Used + Spare Part Used */}
+          {(() => {
+            const equipParts = report.spareParts.filter(sp => sp.repairType !== 'COMPONENT_REPLACEMENT')
+            const compParts = report.spareParts.filter(sp => sp.repairType === 'COMPONENT_REPLACEMENT')
+            const hasEquip = equipParts.length > 0
+            const hasComp = compParts.length > 0
+            return (
+              <>
+                {/* TABLE 1: Device Used */}
+                {(hasEquip || !hasComp) && (
+                  <div className="mt-4 mx-4">
+                  <div className="border border-gray-400">
+                    <div className="bg-gray-200 border-b border-gray-400 px-3 py-1.5">
+                      <span className="font-bold text-gray-700 text-sm">อุปกรณ์ที่เปลี่ยน / Device Used</span>
+                    </div>
+                    <div className="px-3 py-2">
+                      <table className="w-full text-sm border-collapse">
+                        <thead>
+                          <tr style={{ backgroundColor: primaryColor }}>
+                            <th className="border border-gray-400 px-2 py-1.5 text-white text-center w-8">#</th>
+                            <th className="border border-gray-400 px-2 py-1.5 text-white text-left">Device Name</th>
+                            <th className="border border-gray-400 px-2 py-1.5 text-white text-left">Old Brand/Model</th>
+                            <th className="border border-gray-400 px-2 py-1.5 text-white text-left">Old Serial No.</th>
+                            <th className="border border-gray-400 px-2 py-1.5 text-white text-left">New Brand/Model</th>
+                            <th className="border border-gray-400 px-2 py-1.5 text-white text-left">New Serial No.</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {hasEquip ? (
+                            equipParts.map((sp, idx) => (
                               <tr key={idx}>
                                 <td className="border border-gray-400 px-2 py-1.5 text-center text-gray-500">{idx + 1}</td>
-                                <td className="border border-gray-400 px-2 py-1.5 text-black">{(names[0] || '').trim() || '-'}</td>
+                                <td className="border border-gray-400 px-2 py-1.5 text-black">{sp.deviceName || '-'}</td>
+                                <td className="border border-gray-400 px-2 py-1.5 text-black">{sp.oldBrandModel || '-'}</td>
                                 <td className="border border-gray-400 px-2 py-1.5 text-black font-mono text-xs">{sp.oldSerialNo || '-'}</td>
-                                <td className="border border-gray-400 px-2 py-1.5 text-black">{(names[1] || names[0] || '').trim() || '-'}</td>
+                                <td className="border border-gray-400 px-2 py-1.5 text-black">{sp.newBrandModel || '-'}</td>
                                 <td className="border border-gray-400 px-2 py-1.5 text-black font-mono text-xs">{sp.newSerialNo || '-'}</td>
                               </tr>
-                            )
-                          })
-                        ) : (
-                          <tr>
-                            <td className="border border-gray-400 px-2 py-1.5 text-center text-gray-400"></td>
-                            <td className="border border-gray-400 px-2 py-1.5 text-gray-400" colSpan={4}>ไม่มีการเปลี่ยนอะไหล่</td>
+                            ))
+                          ) : (
+                            <tr>
+                              <td className="border border-gray-400 px-2 py-1.5 text-center text-gray-400"></td>
+                              <td className="border border-gray-400 px-2 py-1.5 text-gray-400" colSpan={5}>ไม่มีการใช้ Spare Part</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                  </div>
+                )}
+                {/* TABLE 2: Spare Part Used */}
+                {hasComp && (
+                  <div className="mt-2 mx-4">
+                  <div className="border border-gray-400">
+                    <div className="bg-gray-200 border-b border-gray-400 px-3 py-1.5">
+                      <span className="font-bold text-gray-700 text-sm">ชิ้นส่วนที่เปลี่ยน / Spare Part Used</span>
+                    </div>
+                    <div className="px-3 py-2">
+                      <table className="w-full text-sm border-collapse">
+                        <thead>
+                          <tr style={{ backgroundColor: primaryColor }}>
+                            <th className="border border-gray-400 px-2 py-1.5 text-white text-center w-8">#</th>
+                            <th className="border border-gray-400 px-2 py-1.5 text-white text-left">Device Name</th>
+                            <th className="border border-gray-400 px-2 py-1.5 text-white text-left">Old Part</th>
+                            <th className="border border-gray-400 px-2 py-1.5 text-white text-left">Old Serial No.</th>
+                            <th className="border border-gray-400 px-2 py-1.5 text-white text-left">New Part</th>
+                            <th className="border border-gray-400 px-2 py-1.5 text-white text-left">New Serial No.</th>
                           </tr>
-                        )}
-                        {Array.from({ length: hasParts ? emptyRows : totalRows - 1 }).map((_, idx) => (
-                          <tr key={`empty-${idx}`}>
-                            <td className="border border-gray-400 px-2 py-1.5 text-center text-gray-300"></td>
-                            <td className="border border-gray-400 px-2 py-1.5">&nbsp;</td>
-                            <td className="border border-gray-400 px-2 py-1.5">&nbsp;</td>
-                            <td className="border border-gray-400 px-2 py-1.5">&nbsp;</td>
-                            <td className="border border-gray-400 px-2 py-1.5">&nbsp;</td>
-                          </tr>
-                        ))}
-                      </>
-                    )
-                  })()}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                        </thead>
+                        <tbody>
+                          {compParts.map((sp, idx) => (
+                            <tr key={idx}>
+                              <td className="border border-gray-400 px-2 py-1.5 text-center text-gray-500">{idx + 1}</td>
+                              <td className="border border-gray-400 px-2 py-1.5 text-black">{sp.parentEquipmentName || sp.deviceName || '-'}</td>
+                              <td className="border border-gray-400 px-2 py-1.5 text-black">{sp.componentName || '-'}</td>
+                              <td className="border border-gray-400 px-2 py-1.5 text-black font-mono text-xs">{sp.oldComponentSerial || '-'}</td>
+                              <td className="border border-gray-400 px-2 py-1.5 text-black">{sp.componentName || '-'}</td>
+                              <td className="border border-gray-400 px-2 py-1.5 text-black font-mono text-xs">{sp.newComponentSerial || '-'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                  </div>
+                )}
+              </>
+            )
+          })()}
           {/* หมายเหตุ (Remark) */}
           <div className="border-x border-b border-gray-400 -mt-px">
             <div className="flex items-start">
@@ -1175,6 +1228,12 @@ export default function ServiceReportPage() {
                     {report.resolvedAt && formatDate(report.resolvedAt)}
                   </p>
                 </div>
+              </div>
+            ) : report.status === 'CLOSED' ? (
+              <div className="p-8 text-center">
+                <AlertCircle className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                <p className="text-gray-600 font-semibold">Incident นี้ปิดแล้ว</p>
+                <p className="text-gray-400 text-sm mt-1">ไม่สามารถเซ็นลายเซ็นได้</p>
               </div>
             ) : report.signedReportPhotos && report.signedReportPhotos.length > 0 ? (
               <div className="p-8 text-center">

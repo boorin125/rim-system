@@ -149,26 +149,24 @@ export class EmailService {
       const hasEquip = equipParts.length > 0;
       const hasComp = compParts.length > 0;
 
-      // Build equipHtml: Spare Parts Used section
+      // Build equipHtml: Device Used section
       let equipHtml = '';
       if (hasEquip || !hasComp) {
         const equipRows = hasEquip
           ? (equipParts as any[]).map((part, index) => {
-              const equipName = part.oldEquipment?.name || part.deviceName || '-';
-              const oldBrandModel =
-                [part.oldEquipment?.brand, part.oldEquipment?.model].filter(Boolean).join(' ') ||
-                part.deviceName || '-';
-              const newBrandModel =
+              const deviceName = part.equipmentName || part.oldEquipment?.name || part.deviceName || '-';
+              const oldBrandModel = part.oldBrandModel ||
+                [part.oldEquipment?.brand, part.oldEquipment?.model].filter(Boolean).join(' ') || '-';
+              const newBrandModel = part.newBrandModel ||
                 [part.newBrand, part.newModel].filter(Boolean).join(' ') ||
-                [part.newEquipment?.brand, part.newEquipment?.model].filter(Boolean).join(' ') ||
-                '-';
+                [part.newEquipment?.brand, part.newEquipment?.model].filter(Boolean).join(' ') || '-';
               const oldSerial = part.oldSerialNo || '-';
               const newSerial = part.newSerialNo || '-';
               return `
                 <tr style="background-color: #ffffff;">
                   <td style="padding: 9px 12px; border: 1px solid #cbd5e1; text-align: center; color: #64748b; font-size: 13px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">${index + 1}</td>
                   <td style="padding: 9px 12px; border: 1px solid #cbd5e1; font-size: 13px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">
-                    <div style="font-weight:600;color:#1e293b;">${equipName}</div>
+                    <div style="font-weight:600;color:#1e293b;">${deviceName}</div>
                   </td>
                   <td style="padding: 9px 12px; border: 1px solid #cbd5e1; color: #475569; font-size: 13px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">${oldBrandModel}</td>
                   <td style="padding: 9px 12px; border: 1px solid #cbd5e1; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; font-size: 13px; color: #475569;">${oldSerial}</td>
@@ -177,20 +175,20 @@ export class EmailService {
                 </tr>
               `;
             }).join('')
-          : `<tr><td colspan="6" style="padding: 14px 16px; border: 1px solid #e2e8f0; color: #64748b; font-size: 13px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">ไม่มีการเปลี่ยนสแปร์พาร์ท</td></tr>`;
+          : `<tr><td colspan="6" style="padding: 14px 16px; border: 1px solid #e2e8f0; color: #64748b; font-size: 13px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">ไม่มีการใช้ Spare Part</td></tr>`;
 
         equipHtml = `
           <div style="margin-top: 24px;">
-            <h3 style="color: #059669; margin: 0 0 12px 0; font-size: 15px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">🔧 Spare Parts Used</h3>
+            <h3 style="color: #1e40af; margin: 0 0 12px 0; font-size: 15px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">Device Used</h3>
             <table style="width: 100%; border-collapse: collapse; font-size: 13px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">
               <thead>
-                <tr style="background-color: #f1f5f9;">
-                  <th style="padding: 10px 12px; text-align: center; border: 1px solid #cbd5e1; color: #475569; width: 32px;">#</th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #cbd5e1; color: #1e293b;">Equipment Name</th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #cbd5e1; color: #1e293b;">Old Brand/Model</th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #cbd5e1; color: #1e293b;">Old Serial No.</th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #cbd5e1; color: #1e293b;">New Brand/Model</th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #cbd5e1; color: #1e293b;">New Serial No.</th>
+                <tr style="background-color: #1e40af;">
+                  <th style="padding: 10px 12px; text-align: center; border: 1px solid #1e40af; color: #ffffff; width: 32px;">#</th>
+                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #1e40af; color: #ffffff;">Device Name</th>
+                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #1e40af; color: #ffffff;">Old Brand/Model</th>
+                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #1e40af; color: #ffffff;">Old Serial No.</th>
+                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #1e40af; color: #ffffff;">New Brand/Model</th>
+                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #1e40af; color: #ffffff;">New Serial No.</th>
                 </tr>
               </thead>
               <tbody>
@@ -201,21 +199,19 @@ export class EmailService {
         `;
       }
 
-      // Build compHtml: Parts Used section (only if hasComp)
+      // Build compHtml: Spare Part Used section (only if hasComp)
       let compHtml = '';
       if (hasComp) {
         const compRows = (compParts as any[]).map((part, index) => {
-          const equipName = part.parentEquipment?.name || part.deviceName || '-';
+          const deviceName = part.parentEquipmentName || part.parentEquipment?.name || part.deviceName || '-';
           const componentLabel = part.componentName || '-';
           const oldSerial = part.oldComponentSerial || '-';
           const newSerial = part.newComponentSerial || '-';
-          const typeTag = `<span style="font-size:11px;background:#ede9fe;color:#7c3aed;padding:1px 6px;border-radius:4px;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">Part</span>`;
           return `
             <tr style="background-color: #ffffff;">
               <td style="padding: 9px 12px; border: 1px solid #cbd5e1; text-align: center; color: #64748b; font-size: 13px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">${index + 1}</td>
               <td style="padding: 9px 12px; border: 1px solid #cbd5e1; font-size: 13px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">
-                <div style="font-weight:600;color:#1e293b;">${equipName}</div>
-                <div style="margin-top:3px;">${typeTag}</div>
+                <div style="font-weight:600;color:#1e293b;">${deviceName}</div>
               </td>
               <td style="padding: 9px 12px; border: 1px solid #cbd5e1; color: #475569; font-size: 13px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">${componentLabel}</td>
               <td style="padding: 9px 12px; border: 1px solid #cbd5e1; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; font-size: 13px; color: #475569;">${oldSerial}</td>
@@ -227,16 +223,16 @@ export class EmailService {
 
         compHtml = `
           <div style="margin-top: 24px;">
-            <h3 style="color: #7c3aed; margin: 0 0 12px 0; font-size: 15px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">🔩 Parts Used</h3>
+            <h3 style="color: #1e40af; margin: 0 0 12px 0; font-size: 15px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">Spare Part Used</h3>
             <table style="width: 100%; border-collapse: collapse; font-size: 13px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">
               <thead>
-                <tr style="background-color: #f5f3ff;">
-                  <th style="padding: 10px 12px; text-align: center; border: 1px solid #cbd5e1; color: #475569; width: 32px;">#</th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #cbd5e1; color: #1e293b;">Equipment Name</th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #cbd5e1; color: #1e293b;">Old Part (Component)</th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #cbd5e1; color: #1e293b;">Old S/N</th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #cbd5e1; color: #1e293b;">New Part (Component)</th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #cbd5e1; color: #1e293b;">New S/N</th>
+                <tr style="background-color: #1e40af;">
+                  <th style="padding: 10px 12px; text-align: center; border: 1px solid #1e40af; color: #ffffff; width: 32px;">#</th>
+                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #1e40af; color: #ffffff;">Device Name</th>
+                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #1e40af; color: #ffffff;">Old Part</th>
+                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #1e40af; color: #ffffff;">Old Serial No.</th>
+                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #1e40af; color: #ffffff;">New Part</th>
+                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #1e40af; color: #ffffff;">New Serial No.</th>
                 </tr>
               </thead>
               <tbody>

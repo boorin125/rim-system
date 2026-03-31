@@ -487,9 +487,9 @@ async function generateClassicPDF(data: ServiceReportData, options: PdfOptions):
       5: { cellWidth: colW },
     }
 
-    // TABLE 1: Spare Parts Used (EQUIPMENT_REPLACEMENT) — always shown unless hasComp only
+    // TABLE 1: Device Used (EQUIPMENT_REPLACEMENT) — always shown unless hasComp only
     if (hasEquip || !hasComp) {
-      autoTable(doc, { startY: y, body: [['อะไหล่ที่เปลี่ยน / Spare Parts Used']], theme: 'grid', styles: sectionHeaderStyle, margin: { left: margin, right: margin } })
+      autoTable(doc, { startY: y, body: [['อุปกรณ์ที่เปลี่ยน / Device Used']], theme: 'grid', styles: sectionHeaderStyle, margin: { left: margin, right: margin } })
       y = (doc as any).lastAutoTable.finalY
 
       const spRows: string[][] = []
@@ -505,12 +505,12 @@ async function generateClassicPDF(data: ServiceReportData, options: PdfOptions):
           ])
         }
       } else {
-        spRows.push(['', 'ไม่มีการใช้สแปร์พาร์ท', '', '', '', ''])
+        spRows.push(['', 'ไม่มีการใช้ Spare Part', '', '', '', ''])
       }
 
       autoTable(doc, {
         startY: y,
-        head: [['#', 'Equipment Name', 'อุปกรณ์เดิม/ Old', 'Old Serial No.', 'อุปกรณ์ใหม่/ New', 'New Serial No.']],
+        head: [['#', 'Device Name', 'Old Brand/Model', 'Old Serial No.', 'New Brand/Model', 'New Serial No.']],
         body: spRows,
         theme: 'grid',
         styles: { font, fontSize: 6.5, cellPadding: { top: 1, bottom: 1, left: 2, right: 2 }, ...gridLine, textColor: [0, 0, 0] },
@@ -521,9 +521,9 @@ async function generateClassicPDF(data: ServiceReportData, options: PdfOptions):
       y = (doc as any).lastAutoTable.finalY
     }
 
-    // TABLE 2: Parts Used (COMPONENT_REPLACEMENT) — only if hasComp
+    // TABLE 2: Spare Part Used (COMPONENT_REPLACEMENT) — only if hasComp
     if (hasComp) {
-      autoTable(doc, { startY: y, body: [['ชิ้นส่วนที่เปลี่ยน / Parts Used']], theme: 'grid', styles: sectionHeaderStyle, margin: { left: margin, right: margin } })
+      autoTable(doc, { startY: y, body: [['ชิ้นส่วนที่เปลี่ยน / Spare Part Used']], theme: 'grid', styles: sectionHeaderStyle, margin: { left: margin, right: margin } })
       y = (doc as any).lastAutoTable.finalY
 
       const compRows: string[][] = []
@@ -540,7 +540,7 @@ async function generateClassicPDF(data: ServiceReportData, options: PdfOptions):
 
       autoTable(doc, {
         startY: y,
-        head: [['#', 'อุปกรณ์ (Parent)', 'Old Part', 'Old S/N', 'New Part', 'New S/N']],
+        head: [['#', 'Device Name', 'Old Part', 'Old Serial No.', 'New Part', 'New Serial No.']],
         body: compRows,
         theme: 'grid',
         styles: { font, fontSize: 6.5, cellPadding: { top: 1, bottom: 1, left: 2, right: 2 }, ...gridLine, textColor: [0, 0, 0] },
@@ -777,12 +777,12 @@ async function generateModernPDF(data: ServiceReportData, options: PdfOptions): 
       5: { cellWidth: modColW },
     }
 
-    // TABLE 1: Spare Parts Used (EQUIPMENT_REPLACEMENT) — always shown unless hasComp only
+    // TABLE 1: Device Used (EQUIPMENT_REPLACEMENT) — always shown unless hasComp only
     if (hasEquip || !hasComp) {
       doc.setFillColor(primaryTint[0], primaryTint[1], primaryTint[2])
       doc.roundedRect(margin, y, contentWidth, sectionLabelH, 1, 1, 'F')
       doc.setFont(font, 'bold'); doc.setFontSize(7.5); doc.setTextColor(26, 26, 26)
-      doc.text('อะไหล่ที่เปลี่ยน / Spare Parts Used', margin + 4, y + 4.8)
+      doc.text('อุปกรณ์ที่เปลี่ยน / Device Used', margin + 4, y + 4.8)
       y += sectionLabelH
 
       const spRows: string[][] = []
@@ -798,16 +798,16 @@ async function generateModernPDF(data: ServiceReportData, options: PdfOptions): 
           ])
         }
       } else {
-        spRows.push(['', 'ไม่มีการใช้สแปร์พาร์ท', '', '', '', ''])
+        spRows.push(['', 'ไม่มีการใช้ Spare Part', '', '', '', ''])
       }
 
       autoTable(doc, {
         startY: y,
-        head: [['#', 'Equipment Name', 'อุปกรณ์เดิม/ Old', 'Old Serial No.', 'อุปกรณ์ใหม่/ New', 'New Serial No.']],
+        head: [['#', 'Device Name', 'Old Brand/Model', 'Old Serial No.', 'New Brand/Model', 'New Serial No.']],
         body: spRows,
         theme: 'striped',
         styles: { font, fontSize: 6.5, cellPadding: { top: 1.5, bottom: 1.5, left: 2, right: 2 }, textColor: textDark, lineWidth: 0 },
-        headStyles: { fillColor: lightBg, textColor: textGray, fontStyle: 'bold', fontSize: 6.5 },
+        headStyles: { fillColor: accent, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 6.5 },
         alternateRowStyles: { fillColor: [248, 250, 252] },
         columnStyles: spColWidths,
         margin: { left: margin, right: margin },
@@ -815,12 +815,12 @@ async function generateModernPDF(data: ServiceReportData, options: PdfOptions): 
       y = (doc as any).lastAutoTable.finalY
     }
 
-    // TABLE 2: Parts Used (COMPONENT_REPLACEMENT) — only if hasComp
+    // TABLE 2: Spare Part Used (COMPONENT_REPLACEMENT) — only if hasComp
     if (hasComp) {
       doc.setFillColor(primaryTint[0], primaryTint[1], primaryTint[2])
       doc.roundedRect(margin, y, contentWidth, sectionLabelH, 1, 1, 'F')
       doc.setFont(font, 'bold'); doc.setFontSize(7.5); doc.setTextColor(26, 26, 26)
-      doc.text('ชิ้นส่วนที่เปลี่ยน / Parts Used', margin + 4, y + 4.8)
+      doc.text('ชิ้นส่วนที่เปลี่ยน / Spare Part Used', margin + 4, y + 4.8)
       y += sectionLabelH
 
       const compRows: string[][] = []
@@ -837,11 +837,11 @@ async function generateModernPDF(data: ServiceReportData, options: PdfOptions): 
 
       autoTable(doc, {
         startY: y,
-        head: [['#', 'อุปกรณ์ (Parent)', 'Old Part', 'Old S/N', 'New Part', 'New S/N']],
+        head: [['#', 'Device Name', 'Old Part', 'Old Serial No.', 'New Part', 'New Serial No.']],
         body: compRows,
         theme: 'striped',
         styles: { font, fontSize: 6.5, cellPadding: { top: 1.5, bottom: 1.5, left: 2, right: 2 }, textColor: textDark, lineWidth: 0 },
-        headStyles: { fillColor: lightBg, textColor: textGray, fontStyle: 'bold', fontSize: 6.5 },
+        headStyles: { fillColor: accent, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 6.5 },
         alternateRowStyles: { fillColor: [248, 250, 252] },
         columnStyles: spColWidths,
         margin: { left: margin, right: margin },
@@ -1096,14 +1096,14 @@ async function generateCompactPDF(
       5: { cellWidth: spColW },
     }
 
-    // TABLE 1: Spare Parts Used (EQUIPMENT_REPLACEMENT) — always shown unless hasComp only
+    // TABLE 1: Device Used (EQUIPMENT_REPLACEMENT) — always shown unless hasComp only
     if (hasEquip || !hasComp) {
       doc.setFillColor(248, 248, 248)
       doc.rect(margin, y, cW, 5.5, 'F')
       doc.setDrawColor(accent[0], accent[1], accent[2]); doc.setLineWidth(0.5)
       doc.line(margin, y, margin, y + 5.5)
       doc.setFont(font, 'bold'); doc.setFontSize(7.5); doc.setTextColor(30,30,30)
-      doc.text('อะไหล่ที่เปลี่ยน  (Spare Parts Used)', margin + 3, y + 4)
+      doc.text('อุปกรณ์ที่เปลี่ยน  (Device Used)', margin + 3, y + 4)
       y += 5.5
 
       const spRows: string[][] = hasEquip
@@ -1115,29 +1115,29 @@ async function generateCompactPDF(
             sp.newBrandModel || '-',
             sp.newSerialNo || '-',
           ])
-        : [['', 'ไม่มีการใช้สแปร์พาร์ท', '', '', '', '']]
+        : [['', 'ไม่มีการใช้ Spare Part', '', '', '', '']]
 
       autoTable(doc, {
         startY: y,
-        head: [['#', 'อุปกรณ์/Equipment', 'Old Brand/Model', 'Old S/N', 'New Brand/Model', 'New S/N']],
+        head: [['#', 'Device Name', 'Old Brand/Model', 'Old Serial No.', 'New Brand/Model', 'New Serial No.']],
         body: spRows,
         theme: 'grid',
         styles: { font, fontSize: 6.5, cellPadding: { top: 1, bottom: 1, left: 2, right: 1 }, textColor: [20,20,20], lineColor: [180,180,180], lineWidth: 0.18 },
-        headStyles: { fillColor: [50,50,50], textColor: [255,255,255], fontStyle: 'bold', fontSize: 6.5 },
+        headStyles: { fillColor: accent, textColor: [255,255,255], fontStyle: 'bold', fontSize: 6.5 },
         columnStyles: spColWidths,
         margin: { left: margin, right: margin },
       })
       y = (doc as any).lastAutoTable.finalY
     }
 
-    // TABLE 2: Parts Used (COMPONENT_REPLACEMENT) — only if hasComp
+    // TABLE 2: Spare Part Used (COMPONENT_REPLACEMENT) — only if hasComp
     if (hasComp) {
       doc.setFillColor(248, 248, 248)
       doc.rect(margin, y, cW, 5.5, 'F')
       doc.setDrawColor(accent[0], accent[1], accent[2]); doc.setLineWidth(0.5)
       doc.line(margin, y, margin, y + 5.5)
       doc.setFont(font, 'bold'); doc.setFontSize(7.5); doc.setTextColor(30,30,30)
-      doc.text('ชิ้นส่วนที่เปลี่ยน  (Parts Used)', margin + 3, y + 4)
+      doc.text('ชิ้นส่วนที่เปลี่ยน  (Spare Part Used)', margin + 3, y + 4)
       y += 5.5
 
       const compRows: string[][] = compParts.map((sp, i) => [
@@ -1151,11 +1151,11 @@ async function generateCompactPDF(
 
       autoTable(doc, {
         startY: y,
-        head: [['#', 'อุปกรณ์ (Parent)', 'Old Part', 'Old S/N', 'New Part', 'New S/N']],
+        head: [['#', 'Device Name', 'Old Part', 'Old Serial No.', 'New Part', 'New Serial No.']],
         body: compRows,
         theme: 'grid',
         styles: { font, fontSize: 6.5, cellPadding: { top: 1, bottom: 1, left: 2, right: 1 }, textColor: [20,20,20], lineColor: [180,180,180], lineWidth: 0.18 },
-        headStyles: { fillColor: [80,40,120], textColor: [255,255,255], fontStyle: 'bold', fontSize: 6.5 },
+        headStyles: { fillColor: accent, textColor: [255,255,255], fontStyle: 'bold', fontSize: 6.5 },
         columnStyles: spColWidths,
         margin: { left: margin, right: margin },
       })
