@@ -1179,7 +1179,6 @@ export default function ServiceReportPage() {
               </div>
             </div>
           </div>
-          </div>
 
           {/* Section 3: Signatures */}
           <div className="mt-4 mx-4">
