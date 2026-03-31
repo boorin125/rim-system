@@ -877,6 +877,9 @@ export default function ServiceReportPage() {
   }
 
   // ==================== CLASSIC TEMPLATE ====================
+  // Define theme color for classic template table headers
+  const classicPrimaryColor = report.themeColors?.bgStart || '#1e40af'
+
   return (
     <>
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800">
@@ -1075,7 +1078,7 @@ export default function ServiceReportPage() {
                     <div className="px-3 py-2">
                       <table className="w-full text-sm border-collapse">
                         <thead>
-                          <tr style={{ backgroundColor: primaryColor }}>
+                          <tr style={{ backgroundColor: classicPrimaryColor }}>
                             <th className="border border-gray-400 px-2 py-1.5 text-white text-center w-8">#</th>
                             <th className="border border-gray-400 px-2 py-1.5 text-white text-left">Device Name</th>
                             <th className="border border-gray-400 px-2 py-1.5 text-white text-left">Old Brand/Model</th>
@@ -1118,7 +1121,7 @@ export default function ServiceReportPage() {
                     <div className="px-3 py-2">
                       <table className="w-full text-sm border-collapse">
                         <thead>
-                          <tr style={{ backgroundColor: primaryColor }}>
+                          <tr style={{ backgroundColor: classicPrimaryColor }}>
                             <th className="border border-gray-400 px-2 py-1.5 text-white text-center w-8">#</th>
                             <th className="border border-gray-400 px-2 py-1.5 text-white text-left">Device Name</th>
                             <th className="border border-gray-400 px-2 py-1.5 text-white text-left">Old Part</th>
