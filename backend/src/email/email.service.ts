@@ -85,7 +85,7 @@ export class EmailService {
   }
 
   /**
-   * Send incident closure notification email
+   * Send incident closure notification email (with theme color + photo thumbnails)
    */
   async sendIncidentClosureEmail(data: {
     to: string;
@@ -112,12 +112,15 @@ export class EmailService {
       const config = await this.getSmtpConfig();
       const transporter = await this.createTransporter();
 
-      // Fetch organization name for header
-      const orgConfig = await this.prisma.systemConfig.findUnique({
-        where: { key: 'organization_name' },
+      // Fetch organization name + theme color
+      const orgConfigs = await this.prisma.systemConfig.findMany({
+        where: { key: { in: ['organization_name', 'theme_bg_start', 'theme_bg_end'] } },
       });
-      const orgName = orgConfig?.value || 'Incident Management';
+      const cfgMap: Record<string, string> = {};
+      for (const c of orgConfigs) cfgMap[c.key] = c.value;
+      const orgName = cfgMap['organization_name'] || 'Incident Management';
       const headerName = orgName ? `${orgName} Incident Management` : 'Incident Management';
+      const themeColor = cfgMap['theme_bg_start'] || '#1e40af';
 
       const {
         to,
@@ -179,16 +182,16 @@ export class EmailService {
 
         equipHtml = `
           <div style="margin-top: 24px;">
-            <h3 style="color: #1e40af; margin: 0 0 12px 0; font-size: 15px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">Device Used</h3>
+            <h3 style="color: ${themeColor}; margin: 0 0 12px 0; font-size: 15px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">Device Used</h3>
             <table style="width: 100%; border-collapse: collapse; font-size: 13px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">
               <thead>
-                <tr style="background-color: #1e40af;">
-                  <th style="padding: 10px 12px; text-align: center; border: 1px solid #1e40af; color: #ffffff; width: 32px;">#</th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #1e40af; color: #ffffff;">Device Name</th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #1e40af; color: #ffffff;">Old Brand/Model</th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #1e40af; color: #ffffff;">Old Serial No.</th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #1e40af; color: #ffffff;">New Brand/Model</th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #1e40af; color: #ffffff;">New Serial No.</th>
+                <tr style="background-color: ${themeColor};">
+                  <th style="padding: 10px 12px; text-align: center; border: 1px solid ${themeColor}; color: #ffffff; width: 32px;">#</th>
+                  <th style="padding: 10px 12px; text-align: left; border: 1px solid ${themeColor}; color: #ffffff;">Device Name</th>
+                  <th style="padding: 10px 12px; text-align: left; border: 1px solid ${themeColor}; color: #ffffff;">Old Brand/Model</th>
+                  <th style="padding: 10px 12px; text-align: left; border: 1px solid ${themeColor}; color: #ffffff;">Old Serial No.</th>
+                  <th style="padding: 10px 12px; text-align: left; border: 1px solid ${themeColor}; color: #ffffff;">New Brand/Model</th>
+                  <th style="padding: 10px 12px; text-align: left; border: 1px solid ${themeColor}; color: #ffffff;">New Serial No.</th>
                 </tr>
               </thead>
               <tbody>
@@ -223,16 +226,16 @@ export class EmailService {
 
         compHtml = `
           <div style="margin-top: 24px;">
-            <h3 style="color: #1e40af; margin: 0 0 12px 0; font-size: 15px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">Spare Part Used</h3>
+            <h3 style="color: ${themeColor}; margin: 0 0 12px 0; font-size: 15px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">Spare Part Used</h3>
             <table style="width: 100%; border-collapse: collapse; font-size: 13px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">
               <thead>
-                <tr style="background-color: #1e40af;">
-                  <th style="padding: 10px 12px; text-align: center; border: 1px solid #1e40af; color: #ffffff; width: 32px;">#</th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #1e40af; color: #ffffff;">Device Name</th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #1e40af; color: #ffffff;">Old Part</th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #1e40af; color: #ffffff;">Old Serial No.</th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #1e40af; color: #ffffff;">New Part</th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid #1e40af; color: #ffffff;">New Serial No.</th>
+                <tr style="background-color: ${themeColor};">
+                  <th style="padding: 10px 12px; text-align: center; border: 1px solid ${themeColor}; color: #ffffff; width: 32px;">#</th>
+                  <th style="padding: 10px 12px; text-align: left; border: 1px solid ${themeColor}; color: #ffffff;">Device Name</th>
+                  <th style="padding: 10px 12px; text-align: left; border: 1px solid ${themeColor}; color: #ffffff;">Old Part</th>
+                  <th style="padding: 10px 12px; text-align: left; border: 1px solid ${themeColor}; color: #ffffff;">Old Serial No.</th>
+                  <th style="padding: 10px 12px; text-align: left; border: 1px solid ${themeColor}; color: #ffffff;">New Part</th>
+                  <th style="padding: 10px 12px; text-align: left; border: 1px solid ${themeColor}; color: #ffffff;">New Serial No.</th>
                 </tr>
               </thead>
               <tbody>
@@ -259,7 +262,8 @@ export class EmailService {
           const thumbSize = 90;
           const cells = photos.map((p) => {
             const src = resolvePhotoSrc(p);
-            return `<td style="padding:2px;"><a href="${src}" target="_blank" style="display:block;"><img src="${src}" alt="photo" style="width:${thumbSize}px;height:${thumbSize}px;object-fit:cover;border-radius:4px;border:1px solid #cbd5e1;display:block;" /></a></td>`;
+            // Use table-cell with fixed size + overflow:hidden for email-safe uniform boxes (no object-fit)
+            return `<td style="padding:2px;"><a href="${src}" target="_blank" style="display:block;width:${thumbSize}px;height:${thumbSize}px;overflow:hidden;border-radius:4px;border:1px solid #cbd5e1;"><img src="${src}" alt="photo" width="${thumbSize}" height="${thumbSize}" style="display:block;width:${thumbSize}px;height:${thumbSize}px;" /></a></td>`;
           });
           // Split into rows of 5
           const rows: string[] = [];
