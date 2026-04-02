@@ -182,16 +182,16 @@ export class EmailService {
 
         equipHtml = `
           <div style="margin-top: 24px;">
-            <h3 style="color: ${themeColor}; margin: 0 0 12px 0; font-size: 15px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">Device Used</h3>
+            <h3 style="color: #059669; margin: 0 0 12px 0; font-size: 15px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">Device Used</h3>
             <table style="width: 100%; border-collapse: collapse; font-size: 13px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">
               <thead>
-                <tr style="background-color: ${themeColor};">
-                  <th style="padding: 10px 12px; text-align: center; border: 1px solid ${themeColor}; color: #ffffff; width: 32px;">#</th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid ${themeColor}; color: #ffffff;">Equipment</th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid ${themeColor}; color: #ffffff;">Old Brand/Model</th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid ${themeColor}; color: #ffffff;">Old Serial No.</th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid ${themeColor}; color: #ffffff;">New Brand/Model</th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid ${themeColor}; color: #ffffff;">New Serial No.</th>
+                <tr style="background-color: #dcfce7;">
+                  <th style="padding: 8px 10px; text-align: center; border: 1px solid #bbf7d0; color: #15803d; font-weight: bold; width: 32px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">#</th>
+                  <th style="padding: 8px 10px; text-align: left; border: 1px solid #bbf7d0; color: #15803d; font-weight: bold; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">Equipment</th>
+                  <th style="padding: 8px 10px; text-align: left; border: 1px solid #bbf7d0; color: #15803d; font-weight: bold; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">Old Brand/Model</th>
+                  <th style="padding: 8px 10px; text-align: left; border: 1px solid #bbf7d0; color: #15803d; font-weight: bold; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">Old Serial No.</th>
+                  <th style="padding: 8px 10px; text-align: left; border: 1px solid #bbf7d0; color: #15803d; font-weight: bold; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">New Brand/Model</th>
+                  <th style="padding: 8px 10px; text-align: left; border: 1px solid #bbf7d0; color: #15803d; font-weight: bold; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">New Serial No.</th>
                 </tr>
               </thead>
               <tbody>
@@ -226,16 +226,16 @@ export class EmailService {
 
         compHtml = `
           <div style="margin-top: 24px;">
-            <h3 style="color: ${themeColor}; margin: 0 0 12px 0; font-size: 15px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">Spare Part Used</h3>
+            <h3 style="color: #059669; margin: 0 0 12px 0; font-size: 15px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">Spare Part Used</h3>
             <table style="width: 100%; border-collapse: collapse; font-size: 13px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">
               <thead>
-                <tr style="background-color: ${themeColor};">
-                  <th style="padding: 10px 12px; text-align: center; border: 1px solid ${themeColor}; color: #ffffff; width: 32px;">#</th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid ${themeColor}; color: #ffffff;">Equipment</th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid ${themeColor}; color: #ffffff;">Old Part</th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid ${themeColor}; color: #ffffff;">Old Serial No.</th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid ${themeColor}; color: #ffffff;">New Part</th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid ${themeColor}; color: #ffffff;">New Serial No.</th>
+                <tr style="background-color: #dcfce7;">
+                  <th style="padding: 8px 10px; text-align: center; border: 1px solid #bbf7d0; color: #15803d; font-weight: bold; width: 32px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">#</th>
+                  <th style="padding: 8px 10px; text-align: left; border: 1px solid #bbf7d0; color: #15803d; font-weight: bold; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">Equipment</th>
+                  <th style="padding: 8px 10px; text-align: left; border: 1px solid #bbf7d0; color: #15803d; font-weight: bold; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">Old Part</th>
+                  <th style="padding: 8px 10px; text-align: left; border: 1px solid #bbf7d0; color: #15803d; font-weight: bold; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">Old Serial No.</th>
+                  <th style="padding: 8px 10px; text-align: left; border: 1px solid #bbf7d0; color: #15803d; font-weight: bold; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">New Part</th>
+                  <th style="padding: 8px 10px; text-align: left; border: 1px solid #bbf7d0; color: #15803d; font-weight: bold; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">New Serial No.</th>
                 </tr>
               </thead>
               <tbody>
