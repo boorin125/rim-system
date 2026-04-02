@@ -473,12 +473,7 @@ export default function ServiceReportPage() {
             {/* Title Bar with Ticket Badge */}
             <div className="px-6 py-3 flex items-center justify-between" style={{ backgroundColor: accentColor }}>
               <h2 className="text-white font-bold text-base tracking-wide">SERVICE REPORT / ใบรายงานบริการ</h2>
-              <div className="flex items-center gap-2">
-                <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded border border-red-300">
-                  ฉบับ COPY
-                </span>
-                <span className="text-white font-bold text-sm">{report.ticketNumber}</span>
-              </div>
+              <span className="text-white font-bold text-sm">{report.ticketNumber}</span>
             </div>
 
             {/* Detail Cards Grid */}
@@ -838,7 +833,7 @@ export default function ServiceReportPage() {
                     {isGeneratingPdf ? (
                       <><Loader2 className="w-5 h-5 animate-spin" /> Generating PDF...</>
                     ) : (
-                      <><Download className="w-5 h-5" /> Download PDF (ฉบับ Copy)</>
+                      <><Download className="w-5 h-5" /> Download PDF</>
                     )}
                   </button>
                   <div className="text-center">
@@ -934,11 +929,8 @@ export default function ServiceReportPage() {
           </div>
 
           {/* Title Bar */}
-          <div className="bg-gray-800 text-white text-center py-2 relative">
+          <div className="bg-gray-800 text-white text-center py-2">
             <h2 className="text-base font-bold tracking-wider">SERVICE REPORT / ใบรายงานบริการ</h2>
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded border border-red-300">
-              ฉบับ COPY
-            </span>
           </div>
 
           {/* Section 1: Detail Info */}
@@ -1368,7 +1360,7 @@ export default function ServiceReportPage() {
                 {isGeneratingPdf ? (
                   <><Loader2 className="w-5 h-5 animate-spin" /> Generating PDF...</>
                 ) : (
-                  <><Download className="w-5 h-5" /> Download PDF (ฉบับ Copy)</>
+                  <><Download className="w-5 h-5" /> Download PDF</>
                 )}
               </button>
 
