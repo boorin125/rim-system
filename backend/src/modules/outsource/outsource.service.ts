@@ -389,11 +389,16 @@ export class OutsourceService {
     const limit = query?.limit || 20;
     const skip = (page - 1) * limit;
 
-    // Fetch the technician's responsible provinces
+    // Fetch the technician's data (type + provinces)
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { responsibleProvinces: true },
+      select: { technicianType: true, responsibleProvinces: true },
     });
+
+    // Only OUTSOURCE technicians can browse the marketplace
+    if (user?.technicianType !== 'OUTSOURCE') {
+      return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
+    }
 
     const where: any = {
       status: 'OPEN',
@@ -765,6 +770,15 @@ export class OutsourceService {
     const limit = query?.limit || 20;
     const skip = (page - 1) * limit;
 
+    // Only OUTSOURCE technicians can see their bids
+    const user = await this.prisma.user.findUnique({
+      where: { id: technicianId },
+      select: { technicianType: true },
+    });
+    if (user?.technicianType !== 'OUTSOURCE') {
+      return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
+    }
+
     const where: any = {
       technicianId,
     };
@@ -814,6 +828,15 @@ export class OutsourceService {
     const page = query?.page || 1;
     const limit = query?.limit || 20;
     const skip = (page - 1) * limit;
+
+    // Only OUTSOURCE technicians can see their outsource job history
+    const user = await this.prisma.user.findUnique({
+      where: { id: technicianId },
+      select: { technicianType: true },
+    });
+    if (user?.technicianType !== 'OUTSOURCE') {
+      return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
+    }
 
     const where: any = {
       awardedToId: technicianId,
