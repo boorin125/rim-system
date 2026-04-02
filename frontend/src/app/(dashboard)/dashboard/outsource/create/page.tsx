@@ -602,9 +602,9 @@ export default function CreateOutsourceJobPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">วันที่นัดเข้างาน</label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">วันที่และเวลานัดเข้างาน</label>
               <input
-                type="date"
+                type="datetime-local"
                 value={scheduledDate}
                 onChange={(e) => setScheduledDate(e.target.value)}
                 className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
