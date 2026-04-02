@@ -560,7 +560,7 @@ export default function ServiceReportPage() {
                           <thead>
                             <tr style={{ backgroundColor: primaryLight }}>
                               <th className="px-3 py-2 text-center w-8 font-medium text-xs text-gray-700">#</th>
-                              <th className="px-3 py-2 text-left font-medium text-xs text-gray-700">Device Name</th>
+                              <th className="px-3 py-2 text-left font-medium text-xs text-gray-700">Equipment</th>
                               <th className="px-3 py-2 text-left font-medium text-xs text-gray-700">Old Brand/Model</th>
                               <th className="px-3 py-2 text-left font-medium text-xs text-gray-700">Old Serial No.</th>
                               <th className="px-3 py-2 text-left font-medium text-xs text-gray-700">New Brand/Model</th>
@@ -601,7 +601,7 @@ export default function ServiceReportPage() {
                           <thead>
                             <tr style={{ backgroundColor: primaryLight }}>
                               <th className="px-3 py-2 text-center w-8 font-medium text-xs text-gray-700">#</th>
-                              <th className="px-3 py-2 text-left font-medium text-xs text-gray-700">Device Name</th>
+                              <th className="px-3 py-2 text-left font-medium text-xs text-gray-700">Equipment</th>
                               <th className="px-3 py-2 text-left font-medium text-xs text-gray-700">Old Part</th>
                               <th className="px-3 py-2 text-left font-medium text-xs text-gray-700">Old Serial No.</th>
                               <th className="px-3 py-2 text-left font-medium text-xs text-gray-700">New Part</th>
@@ -1080,7 +1080,7 @@ export default function ServiceReportPage() {
                         <thead>
                           <tr className="bg-gray-100">
                             <th className="border border-gray-400 px-2 py-1.5 text-gray-700 text-center w-8">#</th>
-                            <th className="border border-gray-400 px-2 py-1.5 text-gray-700 text-left">Device Name</th>
+                            <th className="border border-gray-400 px-2 py-1.5 text-gray-700 text-left">Equipment</th>
                             <th className="border border-gray-400 px-2 py-1.5 text-gray-700 text-left">Old Brand/Model</th>
                             <th className="border border-gray-400 px-2 py-1.5 text-gray-700 text-left">Old Serial No.</th>
                             <th className="border border-gray-400 px-2 py-1.5 text-gray-700 text-left">New Brand/Model</th>
@@ -1123,7 +1123,7 @@ export default function ServiceReportPage() {
                         <thead>
                           <tr className="bg-gray-100">
                             <th className="border border-gray-400 px-2 py-1.5 text-gray-700 text-center w-8">#</th>
-                            <th className="border border-gray-400 px-2 py-1.5 text-gray-700 text-left">Device Name</th>
+                            <th className="border border-gray-400 px-2 py-1.5 text-gray-700 text-left">Equipment</th>
                             <th className="border border-gray-400 px-2 py-1.5 text-gray-700 text-left">Old Part</th>
                             <th className="border border-gray-400 px-2 py-1.5 text-gray-700 text-left">Old Serial No.</th>
                             <th className="border border-gray-400 px-2 py-1.5 text-gray-700 text-left">New Part</th>

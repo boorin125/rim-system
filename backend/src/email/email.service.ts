@@ -187,7 +187,7 @@ export class EmailService {
               <thead>
                 <tr style="background-color: ${themeColor};">
                   <th style="padding: 10px 12px; text-align: center; border: 1px solid ${themeColor}; color: #ffffff; width: 32px;">#</th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid ${themeColor}; color: #ffffff;">Device Name</th>
+                  <th style="padding: 10px 12px; text-align: left; border: 1px solid ${themeColor}; color: #ffffff;">Equipment</th>
                   <th style="padding: 10px 12px; text-align: left; border: 1px solid ${themeColor}; color: #ffffff;">Old Brand/Model</th>
                   <th style="padding: 10px 12px; text-align: left; border: 1px solid ${themeColor}; color: #ffffff;">Old Serial No.</th>
                   <th style="padding: 10px 12px; text-align: left; border: 1px solid ${themeColor}; color: #ffffff;">New Brand/Model</th>
@@ -231,7 +231,7 @@ export class EmailService {
               <thead>
                 <tr style="background-color: ${themeColor};">
                   <th style="padding: 10px 12px; text-align: center; border: 1px solid ${themeColor}; color: #ffffff; width: 32px;">#</th>
-                  <th style="padding: 10px 12px; text-align: left; border: 1px solid ${themeColor}; color: #ffffff;">Device Name</th>
+                  <th style="padding: 10px 12px; text-align: left; border: 1px solid ${themeColor}; color: #ffffff;">Equipment</th>
                   <th style="padding: 10px 12px; text-align: left; border: 1px solid ${themeColor}; color: #ffffff;">Old Part</th>
                   <th style="padding: 10px 12px; text-align: left; border: 1px solid ${themeColor}; color: #ffffff;">Old Serial No.</th>
                   <th style="padding: 10px 12px; text-align: left; border: 1px solid ${themeColor}; color: #ffffff;">New Part</th>

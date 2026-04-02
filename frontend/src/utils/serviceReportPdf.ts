@@ -510,7 +510,7 @@ async function generateClassicPDF(data: ServiceReportData, options: PdfOptions):
 
       autoTable(doc, {
         startY: y,
-        head: [['#', 'Device Name', 'Old Brand/Model', 'Old Serial No.', 'New Brand/Model', 'New Serial No.']],
+        head: [['#', 'Equipment', 'Old Brand/Model', 'Old Serial No.', 'New Brand/Model', 'New Serial No.']],
         body: spRows,
         theme: 'grid',
         styles: { font, fontSize: 6.5, cellPadding: { top: 1, bottom: 1, left: 2, right: 2 }, ...gridLine, textColor: [0, 0, 0] },
@@ -540,7 +540,7 @@ async function generateClassicPDF(data: ServiceReportData, options: PdfOptions):
 
       autoTable(doc, {
         startY: y,
-        head: [['#', 'Device Name', 'Old Part', 'Old Serial No.', 'New Part', 'New Serial No.']],
+        head: [['#', 'Equipment', 'Old Part', 'Old Serial No.', 'New Part', 'New Serial No.']],
         body: compRows,
         theme: 'grid',
         styles: { font, fontSize: 6.5, cellPadding: { top: 1, bottom: 1, left: 2, right: 2 }, ...gridLine, textColor: [0, 0, 0] },
@@ -803,7 +803,7 @@ async function generateModernPDF(data: ServiceReportData, options: PdfOptions): 
 
       autoTable(doc, {
         startY: y,
-        head: [['#', 'Device Name', 'Old Brand/Model', 'Old Serial No.', 'New Brand/Model', 'New Serial No.']],
+        head: [['#', 'Equipment', 'Old Brand/Model', 'Old Serial No.', 'New Brand/Model', 'New Serial No.']],
         body: spRows,
         theme: 'striped',
         styles: { font, fontSize: 6.5, cellPadding: { top: 1.5, bottom: 1.5, left: 2, right: 2 }, textColor: textDark, lineWidth: 0 },
@@ -837,7 +837,7 @@ async function generateModernPDF(data: ServiceReportData, options: PdfOptions): 
 
       autoTable(doc, {
         startY: y,
-        head: [['#', 'Device Name', 'Old Part', 'Old Serial No.', 'New Part', 'New Serial No.']],
+        head: [['#', 'Equipment', 'Old Part', 'Old Serial No.', 'New Part', 'New Serial No.']],
         body: compRows,
         theme: 'striped',
         styles: { font, fontSize: 6.5, cellPadding: { top: 1.5, bottom: 1.5, left: 2, right: 2 }, textColor: textDark, lineWidth: 0 },
@@ -1119,7 +1119,7 @@ async function generateCompactPDF(
 
       autoTable(doc, {
         startY: y,
-        head: [['#', 'Device Name', 'Old Brand/Model', 'Old Serial No.', 'New Brand/Model', 'New Serial No.']],
+        head: [['#', 'Equipment', 'Old Brand/Model', 'Old Serial No.', 'New Brand/Model', 'New Serial No.']],
         body: spRows,
         theme: 'grid',
         styles: { font, fontSize: 6.5, cellPadding: { top: 1, bottom: 1, left: 2, right: 1 }, textColor: [20,20,20], lineColor: [180,180,180], lineWidth: 0.18 },
@@ -1151,7 +1151,7 @@ async function generateCompactPDF(
 
       autoTable(doc, {
         startY: y,
-        head: [['#', 'Device Name', 'Old Part', 'Old Serial No.', 'New Part', 'New Serial No.']],
+        head: [['#', 'Equipment', 'Old Part', 'Old Serial No.', 'New Part', 'New Serial No.']],
         body: compRows,
         theme: 'grid',
         styles: { font, fontSize: 6.5, cellPadding: { top: 1, bottom: 1, left: 2, right: 1 }, textColor: [20,20,20], lineColor: [180,180,180], lineWidth: 0.18 },
