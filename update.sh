@@ -29,6 +29,11 @@ echo -e "${YELLOW}→ Backup ฐานข้อมูลก่อนอัปเ
 BACKUP_FILE="rim_backup_$(date +%Y%m%d_%H%M%S).sql"
 $COMPOSE_CMD exec -T postgres pg_dump -U rimuser rimdb > "$BACKUP_FILE"
 echo -e "${GREEN}✅ Backup: ${BACKUP_FILE}${NC}"
+
+# เก็บไว้แค่ 3 backup ล่าสุด ลบเก่ากว่านั้นทิ้ง
+ls -t rim_backup_*.sql 2>/dev/null | tail -n +4 | xargs -r rm -f
+BACKUP_COUNT=$(ls rim_backup_*.sql 2>/dev/null | wc -l)
+echo -e "${GREEN}   (เก็บ backup ล่าสุด ${BACKUP_COUNT} ไฟล์)${NC}"
 echo ""
 
 # Pull new code
