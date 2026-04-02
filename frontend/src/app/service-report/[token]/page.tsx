@@ -558,13 +558,13 @@ export default function ServiceReportPage() {
                       <div className="bg-slate-50 rounded-b-xl p-4 overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead>
-                            <tr style={{ backgroundColor: primaryColor }}>
-                              <th className="px-3 py-2 text-center w-8 font-medium text-xs text-white">#</th>
-                              <th className="px-3 py-2 text-left font-medium text-xs text-white">Device Name</th>
-                              <th className="px-3 py-2 text-left font-medium text-xs text-white">Old Brand/Model</th>
-                              <th className="px-3 py-2 text-left font-medium text-xs text-white">Old Serial No.</th>
-                              <th className="px-3 py-2 text-left font-medium text-xs text-white">New Brand/Model</th>
-                              <th className="px-3 py-2 text-left font-medium text-xs text-white">New Serial No.</th>
+                            <tr style={{ backgroundColor: primaryLight }}>
+                              <th className="px-3 py-2 text-center w-8 font-medium text-xs text-gray-700">#</th>
+                              <th className="px-3 py-2 text-left font-medium text-xs text-gray-700">Device Name</th>
+                              <th className="px-3 py-2 text-left font-medium text-xs text-gray-700">Old Brand/Model</th>
+                              <th className="px-3 py-2 text-left font-medium text-xs text-gray-700">Old Serial No.</th>
+                              <th className="px-3 py-2 text-left font-medium text-xs text-gray-700">New Brand/Model</th>
+                              <th className="px-3 py-2 text-left font-medium text-xs text-gray-700">New Serial No.</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -599,13 +599,13 @@ export default function ServiceReportPage() {
                       <div className="bg-slate-50 rounded-b-xl p-4 overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead>
-                            <tr style={{ backgroundColor: primaryColor }}>
-                              <th className="px-3 py-2 text-center w-8 font-medium text-xs text-white">#</th>
-                              <th className="px-3 py-2 text-left font-medium text-xs text-white">Device Name</th>
-                              <th className="px-3 py-2 text-left font-medium text-xs text-white">Old Part</th>
-                              <th className="px-3 py-2 text-left font-medium text-xs text-white">Old Serial No.</th>
-                              <th className="px-3 py-2 text-left font-medium text-xs text-white">New Part</th>
-                              <th className="px-3 py-2 text-left font-medium text-xs text-white">New Serial No.</th>
+                            <tr style={{ backgroundColor: primaryLight }}>
+                              <th className="px-3 py-2 text-center w-8 font-medium text-xs text-gray-700">#</th>
+                              <th className="px-3 py-2 text-left font-medium text-xs text-gray-700">Device Name</th>
+                              <th className="px-3 py-2 text-left font-medium text-xs text-gray-700">Old Part</th>
+                              <th className="px-3 py-2 text-left font-medium text-xs text-gray-700">Old Serial No.</th>
+                              <th className="px-3 py-2 text-left font-medium text-xs text-gray-700">New Part</th>
+                              <th className="px-3 py-2 text-left font-medium text-xs text-gray-700">New Serial No.</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -1072,19 +1072,19 @@ export default function ServiceReportPage() {
                 {(hasEquip || !hasComp) && (
                   <div className="mt-4 mx-4">
                   <div className="border border-gray-400">
-                    <div className="bg-gray-200 border-b border-gray-400 px-3 py-1.5">
-                      <span className="font-bold text-gray-700 text-sm">อุปกรณ์ที่เปลี่ยน / Device Used</span>
+                    <div className="px-3 py-1.5" style={{ backgroundColor: classicPrimaryColor }}>
+                      <span className="font-bold text-white text-sm">อุปกรณ์ที่เปลี่ยน / Device Used</span>
                     </div>
                     <div className="px-3 py-2">
                       <table className="w-full text-sm border-collapse">
                         <thead>
-                          <tr style={{ backgroundColor: classicPrimaryColor }}>
-                            <th className="border border-gray-400 px-2 py-1.5 text-white text-center w-8">#</th>
-                            <th className="border border-gray-400 px-2 py-1.5 text-white text-left">Device Name</th>
-                            <th className="border border-gray-400 px-2 py-1.5 text-white text-left">Old Brand/Model</th>
-                            <th className="border border-gray-400 px-2 py-1.5 text-white text-left">Old Serial No.</th>
-                            <th className="border border-gray-400 px-2 py-1.5 text-white text-left">New Brand/Model</th>
-                            <th className="border border-gray-400 px-2 py-1.5 text-white text-left">New Serial No.</th>
+                          <tr className="bg-gray-100">
+                            <th className="border border-gray-400 px-2 py-1.5 text-gray-700 text-center w-8">#</th>
+                            <th className="border border-gray-400 px-2 py-1.5 text-gray-700 text-left">Device Name</th>
+                            <th className="border border-gray-400 px-2 py-1.5 text-gray-700 text-left">Old Brand/Model</th>
+                            <th className="border border-gray-400 px-2 py-1.5 text-gray-700 text-left">Old Serial No.</th>
+                            <th className="border border-gray-400 px-2 py-1.5 text-gray-700 text-left">New Brand/Model</th>
+                            <th className="border border-gray-400 px-2 py-1.5 text-gray-700 text-left">New Serial No.</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1115,19 +1115,19 @@ export default function ServiceReportPage() {
                 {hasComp && (
                   <div className="mt-2 mx-4">
                   <div className="border border-gray-400">
-                    <div className="bg-gray-200 border-b border-gray-400 px-3 py-1.5">
-                      <span className="font-bold text-gray-700 text-sm">ชิ้นส่วนที่เปลี่ยน / Spare Part Used</span>
+                    <div className="px-3 py-1.5" style={{ backgroundColor: classicPrimaryColor }}>
+                      <span className="font-bold text-white text-sm">ชิ้นส่วนที่เปลี่ยน / Spare Part Used</span>
                     </div>
                     <div className="px-3 py-2">
                       <table className="w-full text-sm border-collapse">
                         <thead>
-                          <tr style={{ backgroundColor: classicPrimaryColor }}>
-                            <th className="border border-gray-400 px-2 py-1.5 text-white text-center w-8">#</th>
-                            <th className="border border-gray-400 px-2 py-1.5 text-white text-left">Device Name</th>
-                            <th className="border border-gray-400 px-2 py-1.5 text-white text-left">Old Part</th>
-                            <th className="border border-gray-400 px-2 py-1.5 text-white text-left">Old Serial No.</th>
-                            <th className="border border-gray-400 px-2 py-1.5 text-white text-left">New Part</th>
-                            <th className="border border-gray-400 px-2 py-1.5 text-white text-left">New Serial No.</th>
+                          <tr className="bg-gray-100">
+                            <th className="border border-gray-400 px-2 py-1.5 text-gray-700 text-center w-8">#</th>
+                            <th className="border border-gray-400 px-2 py-1.5 text-gray-700 text-left">Device Name</th>
+                            <th className="border border-gray-400 px-2 py-1.5 text-gray-700 text-left">Old Part</th>
+                            <th className="border border-gray-400 px-2 py-1.5 text-gray-700 text-left">Old Serial No.</th>
+                            <th className="border border-gray-400 px-2 py-1.5 text-gray-700 text-left">New Part</th>
+                            <th className="border border-gray-400 px-2 py-1.5 text-gray-700 text-left">New Serial No.</th>
                           </tr>
                         </thead>
                         <tbody>
