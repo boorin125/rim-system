@@ -3,6 +3,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as nodemailer from 'nodemailer';
+import sharp from 'sharp';
 
 interface SmtpConfig {
   host: string;
@@ -104,6 +105,7 @@ export class EmailService {
     confirmedAt: Date;
     beforePhotos?: string[];
     afterPhotos?: string[];
+    signedReportPhotos?: string[];
     publicIncidentLink?: string | null;
     ratingLink?: string | null;
     serviceReportLink?: string | null;
@@ -120,7 +122,7 @@ export class EmailService {
       for (const c of orgConfigs) cfgMap[c.key] = c.value;
       const orgName = cfgMap['organization_name'] || 'Incident Management';
       const headerName = orgName ? `${orgName} Incident Management` : 'Incident Management';
-      const themeColor = cfgMap['theme_bg_start'] || '#1e40af';
+      // themeColor reserved for future use in closure email template
 
       const {
         to,
@@ -136,6 +138,7 @@ export class EmailService {
         resolvedAt,
         beforePhotos,
         afterPhotos,
+        signedReportPhotos,
         publicIncidentLink,
       } = data;
 
@@ -248,42 +251,98 @@ export class EmailService {
 
       sparePartsHtml = equipHtml + compHtml;
 
-      // Build photos HTML — thumbnails 5/row, clickable to view full size
+      // Build photos HTML — 3 sections: Before / After / Signed Report, 5/row uniform grid
+      // Resize each photo to 160×160px thumbnail via sharp before embedding (~10KB each vs ~400KB original)
+      // This keeps total email size ~300KB even for 30 photos
+      const resizePhotoForEmail = async (photo: string): Promise<string> => {
+        if (!photo.startsWith('data:')) return photo; // URL-based: pass through as-is
+        try {
+          const base64Data = photo.split(',')[1];
+          if (!base64Data) return photo;
+          const resized = await sharp(Buffer.from(base64Data, 'base64'))
+            .resize(160, 160, { fit: 'cover', position: 'centre' })
+            .jpeg({ quality: 65 })
+            .toBuffer();
+          return `data:image/jpeg;base64,${resized.toString('base64')}`;
+        } catch {
+          return photo; // fallback to original if resize fails
+        }
+      };
+
       let photosHtml = '';
       const allBeforePhotos = (beforePhotos || []).filter(Boolean);
       const allAfterPhotos = (afterPhotos || []).filter(Boolean);
-      if (allBeforePhotos.length > 0 || allAfterPhotos.length > 0) {
+      const allSignedPhotos = (signedReportPhotos || []).filter(Boolean);
+      if (allBeforePhotos.length > 0 || allAfterPhotos.length > 0 || allSignedPhotos.length > 0) {
+        // Resize all photos to thumbnails in parallel
+        const [thumbsBefore, thumbsAfter, thumbsSigned] = await Promise.all([
+          Promise.all(allBeforePhotos.map(resizePhotoForEmail)),
+          Promise.all(allAfterPhotos.map(resizePhotoForEmail)),
+          Promise.all(allSignedPhotos.map(resizePhotoForEmail)),
+        ]);
+
         const resolvePhotoSrc = (p: string): string => {
           if (p.startsWith('data:') || p.startsWith('http://') || p.startsWith('https://')) return p;
           return `${apiBase}/uploads/${p}`;
         };
-        // Render photos in rows of 5 using table layout (email-safe), each thumbnail clickable
+
+        // Render photos in a uniform grid: max 5/row, each photo equal square size
         const renderPhotoGrid = (photos: string[]) => {
-          const thumbSize = 90;
-          const cells = photos.map((p) => {
-            const src = resolvePhotoSrc(p);
-            // Use table-cell with fixed size + overflow:hidden for email-safe uniform boxes (no object-fit)
-            return `<td style="padding:2px;"><a href="${src}" target="_blank" style="display:block;width:${thumbSize}px;height:${thumbSize}px;overflow:hidden;border-radius:4px;border:1px solid #cbd5e1;"><img src="${src}" alt="photo" width="${thumbSize}" height="${thumbSize}" style="display:block;width:${thumbSize}px;height:${thumbSize}px;" /></a></td>`;
-          });
-          // Split into rows of 5
+          const cols = 5;
+          const tableWidth = 540; // fits within 600px body (30px padding each side)
+          const gap = 4;          // 2px padding per side
+          const imgSize = Math.floor(tableWidth / cols) - gap; // 104px
+          const cellSize = imgSize + gap; // 108px
+
+          const makeCell = (src: string) =>
+            `<td width="${cellSize}" style="padding:2px;width:${cellSize}px;height:${cellSize}px;">` +
+              `<a href="${src}" target="_blank" style="display:block;text-decoration:none;">` +
+                `<img src="${src}" alt="photo" width="${imgSize}" height="${imgSize}" ` +
+                  `style="display:block;width:${imgSize}px;height:${imgSize}px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;" />` +
+              `</a>` +
+            `</td>`;
+          const emptyCell = `<td width="${cellSize}" style="width:${cellSize}px;height:${cellSize}px;"></td>`;
+
+          const cells = photos.map((p) => makeCell(resolvePhotoSrc(p)));
           const rows: string[] = [];
-          for (let i = 0; i < cells.length; i += 5) {
-            rows.push(`<tr>${cells.slice(i, i + 5).join('')}</tr>`);
+          for (let i = 0; i < cells.length; i += cols) {
+            const slice = cells.slice(i, i + cols);
+            while (slice.length < cols) slice.push(emptyCell);
+            rows.push(`<tr>${slice.join('')}</tr>`);
           }
-          return `<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;">${rows.join('')}</table>`;
+          return (
+            `<table width="${tableWidth}" cellpadding="0" cellspacing="0" ` +
+              `style="border-collapse:collapse;width:${tableWidth}px;max-width:100%;">` +
+              rows.join('') +
+            `</table>`
+          );
         };
 
+        // Section header style (label above each grid)
+        const sectionLabel = (label: string) =>
+          `<p style="margin:0 0 6px 0;font-size:13px;font-weight:600;color:#475569;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">${label}</p>`;
+
+        const sections: string[] = [];
+        if (thumbsBefore.length > 0) {
+          sections.push(
+            `<div style="margin-bottom:16px;">${sectionLabel(`Before (${thumbsBefore.length} รูป)`)}${renderPhotoGrid(thumbsBefore)}</div>`
+          );
+        }
+        if (thumbsAfter.length > 0) {
+          sections.push(
+            `<div style="margin-bottom:16px;">${sectionLabel(`After (${thumbsAfter.length} รูป)`)}${renderPhotoGrid(thumbsAfter)}</div>`
+          );
+        }
+        if (thumbsSigned.length > 0) {
+          sections.push(
+            `<div style="margin-bottom:16px;">${sectionLabel(`Work Order (${thumbsSigned.length} รูป)`)}${renderPhotoGrid(thumbsSigned)}</div>`
+          );
+        }
+
         photosHtml = `
-          <div style="margin-top: 20px;">
-            <h3 style="color: #059669; margin: 0 0 12px 0; font-size: 15px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">📷 Photos</h3>
-            ${allBeforePhotos.length > 0 ? `
-            <p style="margin: 0 0 6px 0; font-size: 13px; font-weight: 600; color: #475569; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">Before:</p>
-            <div style="margin-bottom:12px;">${renderPhotoGrid(allBeforePhotos)}</div>
-            ` : ''}
-            ${allAfterPhotos.length > 0 ? `
-            <p style="margin: 0 0 6px 0; font-size: 13px; font-weight: 600; color: #475569; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">After:</p>
-            <div>${renderPhotoGrid(allAfterPhotos)}</div>
-            ` : ''}
+          <div style="margin-top:20px;">
+            <h3 style="color:#059669;margin:0 0 14px 0;font-size:15px;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">📷 Photos</h3>
+            ${sections.join('')}
           </div>
         `;
       }
@@ -361,8 +420,8 @@ export class EmailService {
 
             <!-- Public Links -->
             ${publicIncidentLink ? `
-            <div style="margin-top: 25px; padding: 16px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0;">
-              <a href="${publicIncidentLink}" style="color: #2563eb; text-decoration: none; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif; font-weight: bold;">
+            <div style="margin-top: 25px; text-align: center;">
+              <a href="${publicIncidentLink}" style="color: #2563eb; text-decoration: underline; font-size: 14px; font-family: Tahoma, 'Segoe UI', Arial, sans-serif;">
                 📋 View Incident Details
               </a>
             </div>
@@ -388,7 +447,7 @@ export class EmailService {
       };
 
       const info = await transporter.sendMail(mailOptions);
-      console.log('Email sent successfully:', info.messageId);
+      console.log(`Closure email sent to ${mailOptions.to} (${ticketNumber}):`, info.messageId);
     } catch (error) {
       console.error('Error sending email:', error);
     }

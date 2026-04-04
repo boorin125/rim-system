@@ -171,117 +171,68 @@ export default function PublicIncidentPage() {
             </div>
           </div>
 
-          <div className="p-6 space-y-6">
-            {/* Description */}
-            {incident.description && (
-              <div>
-                <h3 className="text-sm font-medium text-gray-400 mb-2 flex items-center gap-2">
-                  <FileText className="w-4 h-4" /> Description
-                </h3>
-                <p className="text-gray-300 whitespace-pre-wrap">{incident.description}</p>
-              </div>
-            )}
-
-            {/* Details Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Store */}
+          <div className="p-6 space-y-0">
+            {/* ── Section 1: Incident Details ── */}
+            <SectionHeader icon={FileText} title="Incident Details" />
+            <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3 mb-2">
               {incident.store && (
-                <InfoCard
-                  icon={MapPin}
-                  label="Store"
-                  value={`${incident.store.storeCode} - ${incident.store.name}`}
-                  sub={incident.store.province || undefined}
-                />
+                <InfoCard icon={MapPin} label="Store" value={`${incident.store.storeCode} - ${incident.store.name}`} sub={incident.store.province || undefined} />
               )}
-
-              {/* Category */}
               {incident.category && (
-                <InfoCard
-                  icon={FileText}
-                  label="Category"
-                  value={incident.category}
-                  sub={incident.subCategory || undefined}
-                />
+                <InfoCard icon={FileText} label="Category" value={incident.category} sub={incident.subCategory || undefined} />
               )}
-
-              {/* Technician */}
               {incident.technician && (
-                <InfoCard
-                  icon={User}
-                  label="Technician"
-                  value={incident.technician.name}
-                />
+                <InfoCard icon={User} label="Technician" value={incident.technician.name} />
               )}
-
-              {/* Resolved By */}
               {incident.resolvedBy && (
-                <InfoCard
-                  icon={CheckCircle}
-                  label="Resolved By"
-                  value={incident.resolvedBy.name}
-                />
+                <InfoCard icon={CheckCircle} label="Resolved By" value={incident.resolvedBy.name} />
               )}
-
-              {/* Timeline */}
-              <InfoCard
-                icon={Calendar}
-                label="Created"
-                value={formatDate(incident.createdAt)}
-              />
-
+              <InfoCard icon={Calendar} label="Created" value={formatDate(incident.createdAt)} />
               {incident.checkInAt && (
-                <InfoCard
-                  icon={Clock}
-                  label="Check-In"
-                  value={formatDate(incident.checkInAt)}
-                />
+                <InfoCard icon={Clock} label="Check-In" value={formatDate(incident.checkInAt)} />
               )}
-
               {incident.resolvedAt && (
-                <InfoCard
-                  icon={CheckCircle}
-                  label="Resolved"
-                  value={formatDate(incident.resolvedAt)}
-                />
+                <InfoCard icon={CheckCircle} label="Resolved" value={formatDate(incident.resolvedAt)} />
               )}
-
               {incident.confirmedAt && (
-                <InfoCard
-                  icon={CheckCircle}
-                  label="Confirmed Closed"
-                  value={formatDate(incident.confirmedAt)}
-                />
+                <InfoCard icon={CheckCircle} label="Confirmed Closed" value={formatDate(incident.confirmedAt)} />
               )}
             </div>
 
-            {/* Resolution Note */}
-            {incident.resolutionNote && (
-              <div>
-                <h3 className="text-sm font-medium text-gray-400 mb-2 flex items-center gap-2">
-                  <Wrench className="w-4 h-4" /> Resolution Note
-                </h3>
-                <div className="bg-slate-800/50 p-4 rounded-xl text-gray-300 whitespace-pre-wrap">
-                  {incident.resolutionNote}
+            {/* ── Section 2: Problem / Description ── */}
+            {incident.description && (
+              <>
+                <SectionHeader icon={AlertTriangle} title="ปัญหา / Description" />
+                <div className="p-4 mb-2">
+                  <p className="text-gray-300 whitespace-pre-wrap leading-relaxed">{incident.description}</p>
                 </div>
-              </div>
+              </>
             )}
 
-            {/* Spare Parts */}
+            {/* ── Section 3: Resolution ── */}
+            {incident.resolutionNote && (
+              <>
+                <SectionHeader icon={Wrench} title="การแก้ไข / Resolution" />
+                <div className="p-4 mb-2">
+                  <p className="text-gray-300 whitespace-pre-wrap leading-relaxed">{incident.resolutionNote}</p>
+                </div>
+              </>
+            )}
+
+            {/* ── Section 4: Spare Parts ── */}
             {incident.usedSpareParts && incident.spareParts.length > 0 && (
-              <div>
-                <h3 className="text-sm font-medium text-gray-400 mb-2 flex items-center gap-2">
-                  <Wrench className="w-4 h-4" /> Spare Parts Used
-                </h3>
-                <div className="overflow-x-auto">
+              <>
+                <SectionHeader icon={Wrench} title="ชิ้นส่วนที่เปลี่ยน / Spare Parts" />
+                <div className="p-4 mb-2 overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-slate-700/50">
-                        <th className="text-left py-2 px-3 text-gray-400">#</th>
-                        <th className="text-left py-2 px-3 text-gray-400">Old Equipment</th>
-                        <th className="text-left py-2 px-3 text-gray-400">Old Serial No.</th>
-                        <th className="text-center py-2 px-3 text-gray-400 w-8"></th>
-                        <th className="text-left py-2 px-3 text-gray-400">New Equipment</th>
-                        <th className="text-left py-2 px-3 text-gray-400">New Serial No.</th>
+                      <tr className="bg-emerald-900/30 border border-emerald-800/50">
+                        <th className="text-center py-2 px-3 text-emerald-400 font-semibold">#</th>
+                        <th className="text-left py-2 px-3 text-emerald-400 font-semibold">Old Equipment</th>
+                        <th className="text-left py-2 px-3 text-emerald-400 font-semibold">Old Serial No.</th>
+                        <th className="text-center py-2 px-3 text-emerald-400 w-8"></th>
+                        <th className="text-left py-2 px-3 text-emerald-400 font-semibold">New Equipment</th>
+                        <th className="text-left py-2 px-3 text-emerald-400 font-semibold">New Serial No.</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -290,63 +241,57 @@ export default function PublicIncidentPage() {
                           ? sp.deviceName.split(' → ')
                           : [sp.deviceName, sp.deviceName]
                         return (
-                          <tr key={idx} className="border-b border-slate-700/30">
-                            <td className="py-2 px-3 text-gray-500">{idx + 1}</td>
+                          <tr key={idx} className="border-b border-slate-700/30 hover:bg-slate-800/30">
+                            <td className="py-2 px-3 text-center text-gray-500">{idx + 1}</td>
                             <td className="py-2 px-3 text-gray-300">{(names[0] || '').trim()}</td>
                             <td className="py-2 px-3 text-gray-400 font-mono text-xs">{sp.oldSerialNo}</td>
-                            <td className="py-2 px-3 text-center text-green-400">→</td>
+                            <td className="py-2 px-3 text-center text-emerald-400 font-bold">→</td>
                             <td className="py-2 px-3 text-white font-medium">{(names[1] || names[0] || '').trim()}</td>
-                            <td className="py-2 px-3 text-green-400 font-mono text-xs">{sp.newSerialNo}</td>
+                            <td className="py-2 px-3 text-emerald-400 font-mono text-xs">{sp.newSerialNo}</td>
                           </tr>
                         )
                       })}
                     </tbody>
                   </table>
                 </div>
-              </div>
+              </>
             )}
 
-            {/* Photos */}
-            {(incident.beforePhotos?.length || incident.afterPhotos?.length) ? (
-              <div className="space-y-6">
-                {incident.beforePhotos && incident.beforePhotos.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-400 mb-2 flex items-center gap-2">
-                      <Camera className="w-4 h-4" /> Before Photos
-                    </h3>
-                    <div className="grid grid-cols-5 gap-2">
-                      {incident.beforePhotos.map((photo, idx) => (
-                        <img
-                          key={idx}
-                          src={getPhotoUrl(photo)}
-                          alt={`Before ${idx + 1}`}
-                          className="w-full h-24 object-cover rounded-lg border border-slate-700/50 cursor-pointer hover:opacity-80 transition-opacity"
-                          onClick={() => setLightboxPhoto(getPhotoUrl(photo))}
-                        />
-                      ))}
+            {/* ── Section 5: Photos ── */}
+            {(incident.beforePhotos?.length || incident.afterPhotos?.length) && (
+              <>
+                <SectionHeader icon={Camera} title="ภาพถ่าย / Photos" />
+                <div className="p-4 space-y-5 mb-2">
+                  {incident.beforePhotos && incident.beforePhotos.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wide">Before ({incident.beforePhotos.length})</p>
+                      <div className="grid grid-cols-5 gap-2">
+                        {incident.beforePhotos.map((photo, idx) => (
+                          <img key={idx} src={getPhotoUrl(photo)} alt={`Before ${idx + 1}`}
+                            className="w-full aspect-square object-cover rounded-lg border border-slate-700/50 cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={() => setLightboxPhoto(getPhotoUrl(photo))} />
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
-                {incident.afterPhotos && incident.afterPhotos.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-400 mb-2 flex items-center gap-2">
-                      <Camera className="w-4 h-4" /> After Photos
-                    </h3>
-                    <div className="grid grid-cols-5 gap-2">
-                      {incident.afterPhotos.map((photo, idx) => (
-                        <img
-                          key={idx}
-                          src={getPhotoUrl(photo)}
-                          alt={`After ${idx + 1}`}
-                          className="w-full h-24 object-cover rounded-lg border border-slate-700/50 cursor-pointer hover:opacity-80 transition-opacity"
-                          onClick={() => setLightboxPhoto(getPhotoUrl(photo))}
-                        />
-                      ))}
+                  )}
+                  {incident.afterPhotos && incident.afterPhotos.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wide">After ({incident.afterPhotos.length})</p>
+                      <div className="grid grid-cols-5 gap-2">
+                        {incident.afterPhotos.map((photo, idx) => (
+                          <img key={idx} src={getPhotoUrl(photo)} alt={`After ${idx + 1}`}
+                            className="w-full aspect-square object-cover rounded-lg border border-slate-700/50 cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={() => setLightboxPhoto(getPhotoUrl(photo))} />
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            ) : null}
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* ── Section 6: Rating & Links ── */}
+            <div className="border-t border-slate-700/50 pt-5 mt-2 space-y-4 px-0">
 
             {/* Rating */}
             {incident.isRated && incident.rating && (
@@ -389,7 +334,7 @@ export default function PublicIncidentPage() {
 
             {/* Service Report Link */}
             {incident.serviceReportToken && (
-              <div className="text-center pt-4">
+              <div className="text-center">
                 <a
                   href={`/service-report/${incident.serviceReportToken}`}
                   className="inline-flex items-center gap-2 px-6 py-3 bg-teal-500 hover:bg-teal-600 text-white font-semibold rounded-lg transition-colors"
@@ -400,6 +345,7 @@ export default function PublicIncidentPage() {
                 </a>
               </div>
             )}
+            </div>{/* end rating & links */}
           </div>
         </div>
 
@@ -429,6 +375,15 @@ export default function PublicIncidentPage() {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function SectionHeader({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
+  return (
+    <div className="flex items-center gap-2 px-4 py-2.5 bg-emerald-900/30 border-y border-emerald-800/40 mt-4 first:mt-0">
+      <Icon className="w-4 h-4 text-emerald-400 shrink-0" />
+      <span className="text-sm font-semibold text-emerald-300 tracking-wide">{title}</span>
     </div>
   )
 }

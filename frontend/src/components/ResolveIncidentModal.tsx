@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Upload, Trash2, Camera, Mic, MicOff, FileText, CheckCircle, FlipHorizontal2 } from 'lucide-react';
 import SparePartForm from './SparePartForm';
 import { compressImages } from '@/utils/imageUtils';
@@ -204,20 +205,19 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
     return null;
   };
 
-  // Handle photo upload — compress + convert to JPEG + fix EXIF orientation
+  // Handle photo upload — take only enough files to reach the 20-photo limit
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const MAX = 20;
     const files = Array.from(e.target.files || []);
-
-    if (afterPhotos.length + files.length > 20) {
-      setError('สามารถอัพโหลดรูปได้สูงสุด 20 รูป');
-      return;
-    }
-
     if (fileInputRef.current) fileInputRef.current.value = '';
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
 
-    const compressed = await compressImages(files, { maxWidth: 1920, maxHeight: 1920, quality: 0.85 });
+    const remaining = MAX - afterPhotos.length;
+    if (remaining <= 0) return;
+    const toAdd = files.slice(0, remaining);
+
+    const compressed = await compressImages(toAdd, { maxWidth: 1920, maxHeight: 1920, quality: 0.85 });
     const newPreviewUrls = compressed.map(file => URL.createObjectURL(file));
-
     setAfterPhotos(prev => [...prev, ...compressed]);
     setPreviewUrls(prev => [...prev, ...newPreviewUrls]);
     setError('');
@@ -364,13 +364,21 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
     onClose();
   };
 
-  if (!isOpen) return null;
+  // Lock body scroll while modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [isOpen]);
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/60">
+  if (!isOpen || typeof document === 'undefined') return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center sm:p-4 bg-black/60">
       <div className="glass-card border border-slate-700/50 rounded-t-2xl sm:rounded-xl w-full max-w-4xl h-[92vh] sm:h-auto sm:max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 sm:p-6 border-b border-slate-700/50 bg-slate-800/30">
+        <div className="shrink-0 flex items-center justify-between px-4 py-3 sm:p-6 border-b border-slate-700/50 bg-slate-800/30">
           <h2 className="text-lg sm:text-2xl font-bold text-white">Resolve Incident</h2>
           <button
             onClick={handleClose}
@@ -382,7 +390,7 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
         </div>
 
         {/* Content - Scrollable */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 sm:p-6 space-y-5 sm:space-y-6">
+        <div className="flex-1 overflow-y-auto min-h-0 px-4 py-4 sm:p-6 space-y-5 sm:space-y-6">
           {/* Error Message */}
           {error && (
             <div className="p-4 bg-red-900/30 border border-red-700/50 rounded-lg">
@@ -412,27 +420,33 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
             <input key={`after-${cameraFacing}`} ref={cameraInputRef} type="file" accept="image/*" capture={cameraFacing} onChange={handlePhotoUpload} className="hidden" />
 
             {/* Upload Area */}
-            <div className="space-y-2">
-              <div className="grid grid-cols-2 gap-2">
-                <button type="button" onClick={() => setTimeout(() => cameraInputRef.current?.click(), 0)}
-                  className="flex flex-col items-center justify-center gap-1.5 py-4 bg-blue-600/20 border-2 border-blue-500/50 rounded-xl hover:bg-blue-600/30 transition-all">
-                  <Camera className="w-6 h-6 text-blue-400" />
-                  <span className="text-xs font-medium text-blue-300">ถ่ายรูป</span>
-                  <span className="text-[10px] text-blue-400/70">{cameraFacing === 'environment' ? 'กล้องหลัง' : 'กล้องหน้า'}</span>
-                </button>
-                <button type="button" onClick={() => fileInputRef.current?.click()}
-                  className="flex flex-col items-center justify-center gap-1.5 py-4 bg-slate-800/40 border-2 border-slate-600/50 rounded-xl hover:bg-slate-700/40 transition-all">
-                  <Upload className="w-6 h-6 text-gray-400" />
-                  <span className="text-xs font-medium text-gray-300">เลือกจากคลัง</span>
-                  <span className="text-[10px] text-gray-500">Gallery</span>
+            {afterPhotos.length >= 20 ? (
+              <div className="flex items-center justify-center gap-2 py-4 bg-yellow-900/20 border-2 border-yellow-600/40 rounded-xl">
+                <span className="text-yellow-400 text-sm font-medium">ครบ 20 รูปแล้ว — ลบรูปก่อนเพื่อเพิ่มใหม่</span>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="button" onClick={() => setTimeout(() => cameraInputRef.current?.click(), 0)}
+                    className="flex flex-col items-center justify-center gap-1.5 py-4 bg-blue-600/20 border-2 border-blue-500/50 rounded-xl hover:bg-blue-600/30 transition-all">
+                    <Camera className="w-6 h-6 text-blue-400" />
+                    <span className="text-xs font-medium text-blue-300">ถ่ายรูป</span>
+                    <span className="text-[10px] text-blue-400/70">{cameraFacing === 'environment' ? 'กล้องหลัง' : 'กล้องหน้า'}</span>
+                  </button>
+                  <button type="button" onClick={() => fileInputRef.current?.click()}
+                    className="flex flex-col items-center justify-center gap-1.5 py-4 bg-slate-800/40 border-2 border-slate-600/50 rounded-xl hover:bg-slate-700/40 transition-all">
+                    <Upload className="w-6 h-6 text-gray-400" />
+                    <span className="text-xs font-medium text-gray-300">เลือกจากคลัง</span>
+                    <span className="text-[10px] text-gray-500">Gallery</span>
+                  </button>
+                </div>
+                <button type="button" onClick={() => setCameraFacing(f => f === 'environment' ? 'user' : 'environment')}
+                  className="w-full flex items-center justify-center gap-2 py-1.5 text-xs text-gray-400 hover:text-gray-200 hover:bg-slate-700/30 rounded-lg transition-colors">
+                  <FlipHorizontal2 className="w-3.5 h-3.5" />
+                  สลับเป็น{cameraFacing === 'environment' ? 'กล้องหน้า' : 'กล้องหลัง'}
                 </button>
               </div>
-              <button type="button" onClick={() => setCameraFacing(f => f === 'environment' ? 'user' : 'environment')}
-                className="w-full flex items-center justify-center gap-2 py-1.5 text-xs text-gray-400 hover:text-gray-200 hover:bg-slate-700/30 rounded-lg transition-colors">
-                <FlipHorizontal2 className="w-3.5 h-3.5" />
-                สลับเป็น{cameraFacing === 'environment' ? 'กล้องหน้า' : 'กล้องหลัง'}
-              </button>
-            </div>
+            )}
 
             {/* Photo Previews */}
             {previewUrls.length > 0 && (
@@ -665,7 +679,7 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 sm:gap-3 px-4 py-3 sm:p-6 border-t border-slate-700/50 bg-slate-800/30">
+        <div className="shrink-0 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 sm:gap-3 px-4 py-3 sm:p-6 border-t border-slate-700/50 bg-slate-800/30">
           <button
             onClick={handleClose}
             disabled={isSubmitting}
@@ -689,7 +703,8 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

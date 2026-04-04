@@ -271,10 +271,40 @@ export class IncidentsService {
       } : null,
       resolutionNote: incident.resolutionNote,
       usedSpareParts: incident.usedSpareParts,
-      spareParts: incident.spareParts.map(sp => ({
-        deviceName: sp.deviceName, oldSerialNo: sp.oldSerialNo,
-        newSerialNo: sp.newSerialNo, repairType: sp.repairType,
-      })),
+      spareParts: await (async () => {
+        const rawParts = incident.spareParts;
+        if (!rawParts.length) return [];
+        const equipIds = rawParts
+          .flatMap((sp: any) => [sp.oldEquipmentId, sp.newEquipmentId, sp.parentEquipmentId])
+          .filter(Boolean) as number[];
+        const equipMap = new Map<number, any>();
+        if (equipIds.length > 0) {
+          const equipments = await this.prisma.equipment.findMany({
+            where: { id: { in: equipIds } },
+            select: { id: true, name: true, brand: true, model: true },
+          });
+          equipments.forEach(e => equipMap.set(e.id, e));
+        }
+        return rawParts.map((sp: any) => {
+          const oldEquip = sp.oldEquipmentId ? (equipMap.get(sp.oldEquipmentId) ?? null) : null;
+          const newEquip = sp.newEquipmentId ? (equipMap.get(sp.newEquipmentId) ?? null) : null;
+          const parentEquip = sp.parentEquipmentId ? (equipMap.get(sp.parentEquipmentId) ?? null) : null;
+          return {
+            repairType: sp.repairType,
+            deviceName: sp.deviceName,
+            oldSerialNo: sp.oldSerialNo,
+            newSerialNo: sp.newSerialNo,
+            equipmentName: oldEquip?.name || sp.deviceName || '',
+            oldBrandModel: [oldEquip?.brand, oldEquip?.model].filter(Boolean).join(' ') || '',
+            newBrandModel: [sp.newBrand, sp.newModel].filter(Boolean).join(' ') ||
+              [newEquip?.brand, newEquip?.model].filter(Boolean).join(' ') || '',
+            componentName: sp.componentName || '',
+            oldComponentSerial: sp.oldComponentSerial || '',
+            newComponentSerial: sp.newComponentSerial || '',
+            parentEquipmentName: parentEquip?.name || sp.deviceName || '',
+          };
+        });
+      })(),
       createdAt: incident.createdAt,
       checkInAt: incident.checkInAt,
       resolvedAt: incident.resolvedAt,
@@ -3071,6 +3101,7 @@ export class IncidentsService {
           confirmedAt: updated.confirmedAt || new Date(),
           beforePhotos: incident.beforePhotos,
           afterPhotos: incident.afterPhotos,
+          signedReportPhotos: incident.signedReportPhotos,
           publicIncidentLink,
           serviceReportLink,
         };
