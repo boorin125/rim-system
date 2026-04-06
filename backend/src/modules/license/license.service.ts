@@ -17,6 +17,13 @@ import {
 import * as crypto from 'crypto';
 import * as os from 'os';
 import { execSync } from 'child_process';
+import * as https from 'https';
+import * as http from 'http';
+
+// Central License Server URL (our Railway server)
+const CENTRAL_LICENSE_URL = process.env.CENTRAL_LICENSE_URL || 'https://rim-license-server-production.up.railway.app';
+// Grace period in ms: allow 3 days offline before blocking
+const GRACE_PERIOD_MS = 3 * 24 * 60 * 60 * 1000;
 
 // Feature limits by license type
 const LICENSE_FEATURES = {
@@ -452,11 +459,50 @@ export class LicenseService {
   }
 
   /**
+   * Call Central License Server to validate a license key.
+   * Returns the parsed response body or null if unreachable.
+   */
+  private async callCentralValidate(licenseKey: string, machineId: string): Promise<any | null> {
+    return new Promise((resolve) => {
+      const body = JSON.stringify({ licenseKey, machineId });
+      const url = new URL(`${CENTRAL_LICENSE_URL}/api/validate`);
+      const isHttps = url.protocol === 'https:';
+      const lib = isHttps ? https : http;
+
+      const req = lib.request(
+        {
+          hostname: url.hostname,
+          port: url.port || (isHttps ? 443 : 80),
+          path: url.pathname,
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+          timeout: 8000,
+        },
+        (res) => {
+          let data = '';
+          res.on('data', (chunk) => (data += chunk));
+          res.on('end', () => {
+            try { resolve(JSON.parse(data)); } catch { resolve(null); }
+          });
+        },
+      );
+      req.on('error', () => resolve(null));
+      req.on('timeout', () => { req.destroy(); resolve(null); });
+      req.write(body);
+      req.end();
+    });
+  }
+
+  /**
    * Validate current license
-   * For TRIAL licenses:
-   *   Day 1–7   → valid: true,  trialPhase: 'FULL'   (full access)
-   *   Day 8–30  → valid: false, trialPhase: 'GRACE'  (Level 1 features blocked)
-   *   Day 31+   → valid: false, trialPhase: 'EXPIRED'
+   *
+   * Flow:
+   * 1. Find local license record (to get licenseKey + cache)
+   * 2. If TRIAL → use local logic (no central check needed)
+   * 3. If paid → call Central License Server
+   *    a. Success → cache result in local DB, return valid
+   *    b. Central unreachable → use cached result with 3-day grace period
+   *    c. Central says invalid (EXPIRED/REVOKED) → block immediately
    */
   async validateLicense(machineId?: string) {
     const currentMachineId = machineId || this.getMachineId();
@@ -464,15 +510,15 @@ export class LicenseService {
     let license = await this.prisma.license.findFirst({
       where: {
         OR: [
-          { machineId: currentMachineId },          // backward compat: single machineId
-          { machineIds: { has: currentMachineId } }, // Volume License: machineIds array
-          { status: 'ACTIVE', machineId: null, machineIds: { isEmpty: true } }, // no binding
+          { machineId: currentMachineId },
+          { machineIds: { has: currentMachineId } },
+          { status: 'ACTIVE', machineId: null, machineIds: { isEmpty: true } },
         ],
       },
       orderBy: { activatedAt: 'desc' },
     });
 
-    // Auto-create trial only if this machine has NEVER had ANY license (including inactive/expired)
+    // Auto-create trial if no license exists for this machine
     if (!license) {
       const hadLicenseBefore = await this.prisma.license.findFirst({
         where: {
@@ -483,27 +529,18 @@ export class LicenseService {
         },
       });
       if (!hadLicenseBefore) {
-        // Also check if a TRIAL already exists globally (not yet bound to any machine)
         const existingTrial = await this.prisma.license.findFirst({
           where: { licenseType: 'TRIAL', machineId: null, status: 'INACTIVE' },
         });
-        if (existingTrial) {
-          license = existingTrial;
-        } else {
-          license = await this.autoCreateTrial(currentMachineId);
-        }
+        license = existingTrial ?? await this.autoCreateTrial(currentMachineId);
       }
     }
 
     if (!license) {
-      return {
-        valid: false,
-        reason: 'NO_LICENSE',
-        message: 'No license found for this machine',
-      };
+      return { valid: false, reason: 'NO_LICENSE', message: 'No license found for this machine' };
     }
 
-    // ── TRIAL phase logic ──────────────────────────────────────────────
+    // ── TRIAL: local logic only (no central check) ──────────────────────
     if (license.licenseType === 'TRIAL') {
       const TOTAL_TRIAL_DAYS = 30;
       const trialStart = license.activatedAt || license.createdAt;
@@ -511,7 +548,6 @@ export class LicenseService {
       const trialDaysRemaining = Math.max(0, TOTAL_TRIAL_DAYS - daysSinceStart);
 
       if (daysSinceStart < TOTAL_TRIAL_DAYS) {
-        // Full access for all 30 days
         await this.prisma.license.update({ where: { id: license.id }, data: { lastCheckAt: new Date() } });
         return {
           valid: true,
@@ -521,8 +557,6 @@ export class LicenseService {
           license: this.sanitizeLicense(license),
         };
       }
-
-      // Trial fully expired (Day 31+)
       await this.prisma.license.update({ where: { id: license.id }, data: { status: 'EXPIRED' } });
       return {
         valid: false,
@@ -534,31 +568,78 @@ export class LicenseService {
       };
     }
 
-    // ── Paid license logic ─────────────────────────────────────────────
-    if (new Date() > license.expiresAt) {
-      await this.prisma.license.update({ where: { id: license.id }, data: { status: 'EXPIRED' } });
+    // ── Paid license: validate with Central License Server ──────────────
+    const centralResult = await this.callCentralValidate(license.licenseKey, currentMachineId);
+
+    if (centralResult !== null) {
+      // Central responded — trust its answer
+      if (!centralResult.valid) {
+        // Central says invalid: update local cache and block
+        await this.prisma.license.update({
+          where: { id: license.id },
+          data: { status: centralResult.reason === 'EXPIRED' ? 'EXPIRED' : 'SUSPENDED', lastCheckAt: new Date() },
+        }).catch(() => {});
+        return {
+          valid: false,
+          reason: centralResult.reason,
+          message: centralResult.reason === 'EXPIRED'
+            ? 'License has expired'
+            : centralResult.reason === 'REVOKED'
+            ? 'License has been revoked'
+            : 'License is not valid',
+        };
+      }
+
+      // Central says valid — sync local record with central data
+      await this.prisma.license.update({
+        where: { id: license.id },
+        data: {
+          status: 'ACTIVE',
+          expiresAt: centralResult.expiresAt ? new Date(centralResult.expiresAt) : license.expiresAt,
+          maxUsers: centralResult.maxUsers ?? license.maxUsers,
+          maxStores: centralResult.maxStores ?? license.maxStores,
+          lastCheckAt: new Date(),
+        },
+      }).catch(() => {});
+
+      const expiresAt = centralResult.expiresAt ? new Date(centralResult.expiresAt) : license.expiresAt;
       return {
-        valid: false,
-        reason: 'EXPIRED',
-        message: 'License has expired',
-        expiresAt: license.expiresAt,
+        valid: true,
+        trialPhase: null,
+        license: this.sanitizeLicense(license),
+        daysRemaining: Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)),
       };
     }
 
-    if (license.status !== 'ACTIVE') {
+    // ── Central unreachable: use local cache with grace period ──────────
+    const lastCheck = license.lastCheckAt;
+    const gracePeriodOk = lastCheck && (Date.now() - lastCheck.getTime()) < GRACE_PERIOD_MS;
+
+    if (!gracePeriodOk) {
       return {
         valid: false,
-        reason: license.status,
-        message: `License is ${license.status.toLowerCase()}`,
+        reason: 'CENTRAL_UNREACHABLE',
+        message: 'ไม่สามารถเชื่อมต่อ License Server ได้ และหมดระยะ Grace Period 3 วันแล้ว กรุณาตรวจสอบการเชื่อมต่ออินเตอร์เน็ต',
       };
     }
 
-    await this.prisma.license.update({ where: { id: license.id }, data: { lastCheckAt: new Date() } });
+    // Within grace period — allow using cached local status
+    if (license.status === 'ACTIVE' && license.expiresAt > new Date()) {
+      const graceHoursLeft = Math.ceil((GRACE_PERIOD_MS - (Date.now() - lastCheck.getTime())) / 3600000);
+      return {
+        valid: true,
+        trialPhase: null,
+        offlineGrace: true,
+        graceHoursLeft,
+        license: this.sanitizeLicense(license),
+        daysRemaining: Math.ceil((license.expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)),
+      };
+    }
+
     return {
-      valid: true,
-      trialPhase: null,
-      license: this.sanitizeLicense(license),
-      daysRemaining: Math.ceil((license.expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)),
+      valid: false,
+      reason: license.status === 'EXPIRED' ? 'EXPIRED' : 'INVALID',
+      message: 'License is not active',
     };
   }
 
