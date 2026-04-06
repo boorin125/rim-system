@@ -29,6 +29,10 @@ export interface BackupConfig {
 }
 
 // Tables by scope
+// NOTE: licenses + license_activation_logs are intentionally EXCLUDED from all scopes.
+//       They are server-specific and must be activated via key on each server.
+//       Session/token tables (push_subscriptions, refresh_tokens, password_reset_tokens)
+//       and system metadata (backup_jobs, app_versions, patches) are also excluded.
 const SCOPE_TABLES = {
   ALL: [
     // Core config (no FK deps)
@@ -37,8 +41,11 @@ const SCOPE_TABLES = {
     'users', 'user_role_assignments',
     // Stores & equipment
     'stores', 'equipment',
+    // Store/equipment lifecycle requests
+    'store_delete_requests', 'equipment_retirement_requests',
     // Knowledge base (categories before articles; self-ref handled specially)
     'knowledge_categories', 'knowledge_articles',
+    'knowledge_article_feedbacks', 'knowledge_article_usages',
     // Incidents & related
     'incidents', 'incident_assignees', 'incident_reassignments', 'incident_ratings',
     'sla_defenses', 'comments', 'spare_parts', 'incident_history', 'notifications',
@@ -48,6 +55,10 @@ const SCOPE_TABLES = {
     'pm_records', 'pm_equipment_records',
     // Equipment logs
     'equipment_logs',
+    // Performance scores
+    'technician_performance_scores',
+    // Audit trail
+    'audit_logs',
   ],
   CORE: ['users', 'user_role_assignments', 'stores', 'incidents', 'equipment'],
   TRANSACTIONS: ['incidents', 'comments', 'incident_history', 'notifications', 'spare_parts'],
@@ -358,9 +369,13 @@ export class BackupService {
       stores: () => this.prisma.store.findMany(),
       equipment: () => this.prisma.equipment.findMany(),
       equipment_logs: () => this.prisma.equipmentLog.findMany(),
+      store_delete_requests: () => this.prisma.storeDeleteRequest.findMany(),
+      equipment_retirement_requests: () => this.prisma.equipmentRetirementRequest.findMany(),
       // Knowledge base
       knowledge_categories: () => this.prisma.knowledgeCategory.findMany(),
       knowledge_articles: () => this.prisma.knowledgeArticle.findMany(),
+      knowledge_article_feedbacks: () => this.prisma.knowledgeArticleFeedback.findMany(),
+      knowledge_article_usages: () => this.prisma.knowledgeArticleUsage.findMany(),
       // Incidents & related
       incidents: () => this.prisma.incident.findMany(),
       incident_assignees: () => this.prisma.incidentAssignee.findMany(),
@@ -377,6 +392,10 @@ export class BackupService {
       // PM
       pm_records: () => this.prisma.pmRecord.findMany(),
       pm_equipment_records: () => this.prisma.pmEquipmentRecord.findMany(),
+      // Performance scores
+      technician_performance_scores: () => this.prisma.technicianPerformanceScore.findMany(),
+      // Audit trail
+      audit_logs: () => this.prisma.auditLog.findMany(),
     };
 
     const getData = tableModelMap[table];
@@ -690,8 +709,11 @@ export class BackupService {
       'users', 'user_role_assignments',
       // Stores & equipment
       'stores', 'equipment',
+      // Store/equipment lifecycle (depends on stores/equipment)
+      'store_delete_requests', 'equipment_retirement_requests',
       // Knowledge base (self-ref categories: root nodes first, then children)
       'knowledge_categories', 'knowledge_articles',
+      'knowledge_article_feedbacks', 'knowledge_article_usages',
       // Incidents & relations
       'incidents', 'incident_assignees', 'incident_reassignments', 'incident_ratings',
       'sla_defenses', 'comments', 'spare_parts', 'incident_history', 'notifications',
@@ -699,8 +721,12 @@ export class BackupService {
       'outsource_jobs', 'outsource_bids',
       // PM
       'pm_records', 'pm_equipment_records',
-      // Equipment logs (last — depends on equipment + users)
+      // Equipment logs (depends on equipment + users)
       'equipment_logs',
+      // Performance scores (depends on users)
+      'technician_performance_scores',
+      // Audit trail (depends on users)
+      'audit_logs',
     ];
 
     for (const table of restoreOrder) {
@@ -847,6 +873,8 @@ export class BackupService {
       stores: (d) => this.prisma.store.createMany({ data: d, skipDuplicates: true }),
       equipment: (d) => this.prisma.equipment.createMany({ data: d, skipDuplicates: true }),
       equipment_logs: (d) => this.prisma.equipmentLog.createMany({ data: d, skipDuplicates: true }),
+      store_delete_requests: (d) => this.prisma.storeDeleteRequest.createMany({ data: d, skipDuplicates: true }),
+      equipment_retirement_requests: (d) => this.prisma.equipmentRetirementRequest.createMany({ data: d, skipDuplicates: true }),
 
       // Knowledge base (self-referential categories: restore root nodes first, then children)
       knowledge_categories: async (d) => {
@@ -857,6 +885,8 @@ export class BackupService {
         return { count: r1.count + r2.count };
       },
       knowledge_articles: (d) => this.prisma.knowledgeArticle.createMany({ data: d, skipDuplicates: true }),
+      knowledge_article_feedbacks: (d) => this.prisma.knowledgeArticleFeedback.createMany({ data: d, skipDuplicates: true }),
+      knowledge_article_usages: (d) => this.prisma.knowledgeArticleUsage.createMany({ data: d, skipDuplicates: true }),
 
       // Incidents & related
       incidents: (d) => this.prisma.incident.createMany({ data: d, skipDuplicates: true }),
@@ -876,6 +906,10 @@ export class BackupService {
       // PM
       pm_records: (d) => this.prisma.pmRecord.createMany({ data: d, skipDuplicates: true }),
       pm_equipment_records: (d) => this.prisma.pmEquipmentRecord.createMany({ data: d, skipDuplicates: true }),
+      // Performance scores
+      technician_performance_scores: (d) => this.prisma.technicianPerformanceScore.createMany({ data: d, skipDuplicates: true }),
+      // Audit trail
+      audit_logs: (d) => this.prisma.auditLog.createMany({ data: d, skipDuplicates: true }),
     };
 
     const fn = tableMap[table];
