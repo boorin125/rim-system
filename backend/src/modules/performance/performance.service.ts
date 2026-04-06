@@ -584,6 +584,13 @@ export class PerformanceService {
       ? Math.round((slaPass / slaRelevantCompleted.length) * 10000) / 100
       : 0;
 
+    // Count by job type
+    const byJobType: Record<string, number> = {};
+    for (const inc of incidents) {
+      const jt = inc.jobType || 'Other';
+      byJobType[jt] = (byJobType[jt] || 0) + 1;
+    }
+
     return {
       period: targetPeriod,
       total,
@@ -594,6 +601,7 @@ export class PerformanceService {
       slaPass,
       slaFail,
       slaPercent,
+      byJobType,
     };
   }
 

@@ -144,6 +144,7 @@ interface IncidentStats {
   slaPass: number
   slaFail: number
   slaPercent: number
+  byJobType?: Record<string, number>
 }
 
 interface SlaTrendEntry {
@@ -642,12 +643,14 @@ export default function PerformancePage() {
 
           {/* Incident Stats Cards */}
           {incidentStats && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-              <StatCard icon={ClipboardList} label="Total Incident" value={incidentStats.total} color="blue" />
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+              <StatCard icon={ClipboardList} label="Total" value={incidentStats.total} color="blue" />
               <StatCard icon={CheckCircle2} label="Closed" value={incidentStats.closed} color="green" />
               <StatCard icon={Clock} label="Pending" value={incidentStats.pending} color="yellow" />
               <StatCard icon={XCircle} label="Cancelled" value={incidentStats.cancelled} color="red" />
-              <StatCard icon={ShieldCheck} label="Achieve SLA" value={incidentStats.slaPass} color="emerald" />
+              <StatCard icon={Zap} label="MA" value={incidentStats.byJobType?.['MA'] ?? 0} color="blue" />
+              <StatCard icon={Activity} label="Adhoc" value={incidentStats.byJobType?.['Adhoc'] ?? 0} color="indigo" />
+              <StatCard icon={BarChart3} label="Project" value={incidentStats.byJobType?.['Project'] ?? 0} color="purple" />
             </div>
           )}
 
@@ -995,52 +998,59 @@ function HorizontalBarChart({ data, color }: { data: { label: string; value: num
 
   if (data.length === 0) return null
 
-  const max = Math.max(...data.map(d => d.value), 1)
+  // ── Square-block bar chart (like mockup) ────────────────────
+  const FONT_SZ = 13
+  const CHAR_W = FONT_SZ * 0.62
+  const maxLabelLen = Math.max(...data.map(d => d.label.length))
+  const PAD_L = Math.min(Math.ceil(maxLabelLen * CHAR_W) + 16, 220)
+  const PAD_R = 44   // value label
+  const PAD_T = 6
+  const ROW_H = 36
+  const SQ = 20      // square size
+  const GAP = 3      // gap between squares
+  const maxVal = Math.max(...data.map(d => d.value), 1)
+  const W = PAD_L + maxVal * (SQ + GAP) + PAD_R
+  const H = data.length * ROW_H + PAD_T * 2
+
   const labelColor = isDark ? '#94a3b8' : '#475569'
   const valueColor = isDark ? '#ffffff' : '#1e293b'
-  const trackColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.08)'
-  const axisColor = isDark ? '#334155' : '#cbd5e1'
-
-  // Compute label column width from longest label
-  const FONT_SZ = 12
-  const CHAR_W = FONT_SZ * 0.58
-  const maxLabelLen = Math.max(...data.map(d => d.label.length))
-  const PAD_L = Math.min(Math.ceil(maxLabelLen * CHAR_W) + 12, 200)
-  const PAD_R = 40   // space for value text
-  const PAD_T = 8
-  const PAD_B = 8
-  const ROW_H = 30
-  const BAR_H = 16
-  const W = 520
-  const chartW = W - PAD_L - PAD_R
-  const H = data.length * ROW_H + PAD_T + PAD_B
+  const borderColor = isDark ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.6)'
 
   return (
     <div className="w-full overflow-x-auto">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ minWidth: 320, height: `${H + 4}px` }}>
-        {/* Axis line */}
-        <line x1={PAD_L} x2={PAD_L} y1={PAD_T} y2={H - PAD_B} stroke={axisColor} strokeWidth="1" />
-
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full"
+        style={{ minWidth: Math.min(W, 320), height: `${H + 4}px` }}>
         {data.map((d, i) => {
           const cy = PAD_T + i * ROW_H + ROW_H / 2
-          const barW = Math.max((d.value / max) * chartW, 3)
 
           return (
             <g key={i}>
-              {/* Label */}
-              <text x={PAD_L - 8} y={cy + 4} textAnchor="end"
+              {/* Row label — right-aligned */}
+              <text x={PAD_L - 10} y={cy + 5} textAnchor="end"
                 fill={labelColor} fontSize={FONT_SZ} fontWeight="500">
                 {d.label}
               </text>
-              {/* Track */}
-              <rect x={PAD_L} y={cy - BAR_H / 2} width={chartW} height={BAR_H}
-                rx={BAR_H / 2} fill={trackColor} />
-              {/* Bar */}
-              <rect x={PAD_L} y={cy - BAR_H / 2} width={barW} height={BAR_H}
-                rx={BAR_H / 2} fill={color} opacity="0.85" />
-              {/* Value */}
-              <text x={PAD_L + barW + 6} y={cy + 4}
-                fill={valueColor} fontSize="12" fontWeight="700">
+
+              {/* Squares */}
+              {Array.from({ length: d.value }).map((_, j) => (
+                <rect
+                  key={j}
+                  x={PAD_L + j * (SQ + GAP)}
+                  y={cy - SQ / 2}
+                  width={SQ} height={SQ}
+                  rx="3"
+                  fill={color}
+                  opacity="0.88"
+                  stroke={borderColor}
+                  strokeWidth="1"
+                />
+              ))}
+
+              {/* Value number after squares */}
+              <text
+                x={PAD_L + d.value * (SQ + GAP) + 6}
+                y={cy + 5}
+                fill={valueColor} fontSize="13" fontWeight="800">
                 {d.value}
               </text>
             </g>
@@ -1851,6 +1861,7 @@ function StatCard({ icon: Icon, label, value, color, className }: {
     green: 'text-green-400 bg-green-500/20',
     blue: 'text-blue-400 bg-blue-500/20',
     indigo: 'text-indigo-400 bg-indigo-500/20',
+    purple: 'text-purple-400 bg-purple-500/20',
     orange: 'text-orange-400 bg-orange-500/20',
     yellow: 'text-yellow-400 bg-yellow-500/20',
     red: 'text-red-400 bg-red-500/20',
