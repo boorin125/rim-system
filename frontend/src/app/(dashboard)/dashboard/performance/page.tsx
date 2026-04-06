@@ -945,14 +945,19 @@ function TopBarChart({ data, color }: { data: { label: string; value: number }[]
   const n = data.length
   const max = Math.max(...data.map(d => d.value), 1)
 
-  const PAD_L = 36   // left axis
-  const PAD_R = 12
-  const PAD_T = 16   // top (value labels)
-  const PAD_B = 110  // bottom (45° labels)
-  const COL_W = 44   // column slot width
-  const BAR_W = 28   // bar face width
+  const FONT_SZ = 12        // label font size
+  const CHAR_W = FONT_SZ * 0.62  // approx char width
+  const maxLabelLen = Math.max(...data.map(d => d.label.length))
+  // Height consumed by 45° label = labelWidth * sin(45°)
+  const PAD_B = Math.ceil(maxLabelLen * CHAR_W * 0.72) + 16
+
+  const PAD_L = 42
+  const PAD_R = 16
+  const PAD_T = 24
+  const COL_W = 58   // wider columns
+  const BAR_W = 36
   const CHART_H = 180
-  const D3 = 7       // 3D depth offset (px)
+  const D3 = 8
 
   const W = PAD_L + n * COL_W + PAD_R + D3
   const H = PAD_T + CHART_H + PAD_B
@@ -962,33 +967,32 @@ function TopBarChart({ data, color }: { data: { label: string; value: number }[]
   const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.08)'
   const axisColor = isDark ? '#334155' : '#cbd5e1'
 
-  // Derive lighter shade for 3D faces
-  const hexToRgb = (h: string) => {
-    const r = parseInt(h.slice(1, 3), 16)
-    const g = parseInt(h.slice(3, 5), 16)
-    const b = parseInt(h.slice(5, 7), 16)
-    return { r, g, b }
-  }
+  const hexToRgb = (h: string) => ({
+    r: parseInt(h.slice(1, 3), 16),
+    g: parseInt(h.slice(3, 5), 16),
+    b: parseInt(h.slice(5, 7), 16),
+  })
   const c = hexToRgb(color)
   const topFace = `rgba(${Math.min(c.r + 60, 255)},${Math.min(c.g + 60, 255)},${Math.min(c.b + 60, 255)},0.9)`
   const sideFace = `rgba(${Math.max(c.r - 40, 0)},${Math.max(c.g - 40, 0)},${Math.max(c.b - 40, 0)},0.9)`
 
-  // Y grid ticks
   const yTicks = [0, Math.round(max / 4), Math.round(max / 2), Math.round(max * 3 / 4), max]
   const getBarY = (v: number) => PAD_T + CHART_H - (v / max) * CHART_H
   const getBarH = (v: number) => (v / max) * CHART_H
 
   return (
     <div className="w-full overflow-x-auto">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ minWidth: Math.max(W, 280), maxHeight: 380 }}>
-        {/* Y grid lines */}
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full"
+        style={{ minWidth: Math.max(W, 300), height: `${H}px`, maxHeight: 520 }}>
+        {/* Y grid */}
         {yTicks.map(t => {
           const y = getBarY(t)
           return (
             <g key={t}>
               <line x1={PAD_L} x2={PAD_L + n * COL_W} y1={y} y2={y}
-                stroke={t === 0 ? axisColor : gridColor} strokeWidth={t === 0 ? 1.5 : 1} strokeDasharray={t === 0 ? '0' : '3,3'} />
-              <text x={PAD_L - 5} y={y + 4} textAnchor="end" fill={labelColor} fontSize="10">{t}</text>
+                stroke={t === 0 ? axisColor : gridColor}
+                strokeWidth={t === 0 ? 1.5 : 1} strokeDasharray={t === 0 ? '0' : '3,3'} />
+              <text x={PAD_L - 6} y={y + 4} textAnchor="end" fill={labelColor} fontSize="11" fontWeight="500">{t}</text>
             </g>
           )
         })}
@@ -998,52 +1002,47 @@ function TopBarChart({ data, color }: { data: { label: string; value: number }[]
           const bx = PAD_L + i * COL_W + (COL_W - BAR_W) / 2
           const by = getBarY(d.value)
           const bh = getBarH(d.value)
-
-          // Truncate label
-          const maxChars = 14
-          const lbl = d.label.length > maxChars ? d.label.slice(0, maxChars - 1) + '…' : d.label
-
           const labelX = bx + BAR_W / 2
-          const labelY = PAD_T + CHART_H + 8
+          const labelY = PAD_T + CHART_H + 10
 
           return (
             <g key={i}>
-              {/* 3D top face */}
               {bh > 0 && (
-                <polygon
-                  points={`${bx},${by} ${bx + D3},${by - D3} ${bx + BAR_W + D3},${by - D3} ${bx + BAR_W},${by}`}
-                  fill={topFace}
-                />
-              )}
-              {/* 3D side face (right) */}
-              {bh > 0 && (
-                <polygon
-                  points={`${bx + BAR_W},${by} ${bx + BAR_W + D3},${by - D3} ${bx + BAR_W + D3},${by + bh - D3} ${bx + BAR_W},${by + bh}`}
-                  fill={sideFace}
-                />
+                <>
+                  {/* 3D top face */}
+                  <polygon
+                    points={`${bx},${by} ${bx + D3},${by - D3} ${bx + BAR_W + D3},${by - D3} ${bx + BAR_W},${by}`}
+                    fill={topFace}
+                  />
+                  {/* 3D right face */}
+                  <polygon
+                    points={`${bx + BAR_W},${by} ${bx + BAR_W + D3},${by - D3} ${bx + BAR_W + D3},${by + bh - D3} ${bx + BAR_W},${by + bh}`}
+                    fill={sideFace}
+                  />
+                </>
               )}
               {/* Front face */}
-              <rect x={bx} y={by} width={BAR_W} height={Math.max(bh, 0)} fill={color} opacity="0.88" />
+              <rect x={bx} y={by} width={BAR_W} height={Math.max(bh, 0)} fill={color} opacity="0.88" rx="2" />
 
-              {/* Value label on top */}
+              {/* Value on top */}
               {d.value > 0 && (
-                <text x={bx + BAR_W / 2} y={by - D3 - 4} textAnchor="middle"
-                  fill={valueColor} fontSize="11" fontWeight="700">{d.value}</text>
+                <text x={bx + BAR_W / 2} y={by - D3 - 5} textAnchor="middle"
+                  fill={valueColor} fontSize="13" fontWeight="800">{d.value}</text>
               )}
 
-              {/* 45° angled label */}
+              {/* 45° label — full text, no truncation */}
               <text
                 x={0} y={0}
-                transform={`translate(${labelX}, ${labelY}) rotate(45)`}
+                transform={`translate(${labelX + 4}, ${labelY}) rotate(45)`}
                 textAnchor="start"
-                fill={labelColor} fontSize="11" fontWeight="500">
-                {lbl}
+                fill={labelColor} fontSize={FONT_SZ} fontWeight="500">
+                {d.label}
               </text>
             </g>
           )
         })}
 
-        {/* Y axis line */}
+        {/* Y axis */}
         <line x1={PAD_L} x2={PAD_L} y1={PAD_T} y2={PAD_T + CHART_H} stroke={axisColor} strokeWidth="1.5" />
       </svg>
     </div>

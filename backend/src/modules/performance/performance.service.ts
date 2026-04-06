@@ -992,9 +992,10 @@ export class PerformanceService {
     const countMap = new Map<string, { count: number; label: string }>();
     for (const inc of incidents) {
       if (!inc.equipmentId || !inc.equipment) continue;
-      const key = `eq_${inc.equipmentId}`;
       const brandModel = [inc.equipment.brand, inc.equipment.model].filter(Boolean).join(' ');
       const label = inc.equipment.name || brandModel || `Equipment ${inc.equipmentId}`;
+      // Group by normalised label name so duplicate equipment names merge into one bar
+      const key = label.trim().toLowerCase();
       const entry = countMap.get(key);
       if (entry) entry.count++;
       else countMap.set(key, { count: 1, label });
