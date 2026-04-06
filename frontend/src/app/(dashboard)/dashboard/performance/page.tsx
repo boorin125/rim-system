@@ -115,6 +115,14 @@ interface ResolutionTimeStats {
   prevAvgHours: number | null
   change: number | null
   improved: boolean | null
+  slaBreakdown?: {
+    slaName: string
+    priority: string
+    color: string | null
+    targetMinutes: number
+    current: { avgHours: number | null; count: number }
+    prev: { avgHours: number | null; count: number }
+  }[]
 }
 
 interface TeamStats {
@@ -886,41 +894,87 @@ function ResolutionTimeCard({ data }: { data: ResolutionTimeStats | null }) {
   }
 
   const cur = data?.avgHours ?? null
-  const prev = data?.prevAvgHours ?? null
-  const improved = data?.improved ?? null  // true = faster (lower)
+  const improved = data?.improved ?? null
   const change = data?.change ?? null
+  const prevPeriodLabel = data?.prevPeriod ? formatPeriod(data.prevPeriod) : 'Prev'
 
   return (
     <div className="glass-card p-5 rounded-xl">
-      <div className="flex items-center gap-2 mb-1">
-        <Timer className="w-5 h-5 text-orange-400" />
-        <span className="text-sm font-medium text-gray-300">Avg. Resolution Time</span>
-      </div>
-      <p className="text-xs text-gray-500 mb-3">เวลาแก้ไขงานเฉลี่ย</p>
-
-      {/* Current big number */}
-      <div className="flex items-end gap-3 mb-3">
-        <div>
-          <p className={`text-4xl font-bold ${cur !== null ? (cur <= 4 ? 'text-emerald-400' : cur <= 8 ? 'text-yellow-400' : 'text-red-400') : 'text-gray-600'}`}>
-            {fmtH(cur)}
-          </p>
-          <p className="text-xs text-gray-500 mt-1">Current Month</p>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center gap-2">
+          <Timer className="w-5 h-5 text-orange-400" />
+          <span className="text-sm font-medium text-gray-300">Avg. Resolution Time</span>
         </div>
         {improved !== null && change !== null && (
-          <span className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full mb-5 ${improved ? 'text-green-400 bg-green-500/15' : 'text-red-400 bg-red-500/15'}`}>
+          <span className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${improved ? 'text-green-400 bg-green-500/15' : 'text-red-400 bg-red-500/15'}`}>
             {improved ? <ArrowDownRight className="w-3 h-3" /> : <ArrowUpRight className="w-3 h-3" />}
             {fmtH(Math.abs(change))}
           </span>
         )}
       </div>
+      <p className="text-xs text-gray-500 mb-3">เวลาแก้ไขงานเฉลี่ย (ยิ่งน้อยยิ่งดี)</p>
 
-      {/* Previous month */}
-      <div className="pt-3 border-t border-slate-700/50 flex items-center justify-between">
-        <span className="text-xs text-gray-500">
-          {data?.prevPeriod ? formatPeriod(data.prevPeriod) : 'Prev Month'}
-        </span>
-        <span className="text-sm font-semibold text-gray-300">{fmtH(prev)}</span>
+      {/* Overall current */}
+      <div className="flex items-baseline gap-2 mb-3">
+        <p className={`text-3xl font-bold ${cur !== null ? (cur <= 4 ? 'text-emerald-400' : cur <= 8 ? 'text-yellow-400' : 'text-red-400') : 'text-gray-600'}`}>
+          {fmtH(cur)}
+        </p>
+        <span className="text-xs text-gray-500">overall</span>
       </div>
+
+      {/* SLA breakdown table */}
+      {data?.slaBreakdown && data.slaBreakdown.length > 0 && (
+        <div className="space-y-2">
+          {/* Column headers */}
+          <div className="grid grid-cols-[auto_1fr_1fr] gap-x-2 text-[10px] font-medium text-gray-500 uppercase tracking-wide pb-1 border-b border-slate-700/50">
+            <span className="w-10">SLA</span>
+            <span className="text-center">Current</span>
+            <span className="text-center">{prevPeriodLabel}</span>
+          </div>
+          {data.slaBreakdown.map(s => {
+            const curH = s.current.avgHours
+            const prevH = s.prev.avgHours
+            const targetH = s.targetMinutes / 60
+            const ok = curH !== null && curH <= targetH
+            const rowChange = curH !== null && prevH !== null ? curH - prevH : null
+            const rowImproved = rowChange !== null ? rowChange < 0 : null
+
+            return (
+              <div key={s.priority} className="grid grid-cols-[auto_1fr_1fr] gap-x-2 items-center">
+                {/* SLA badge */}
+                <span className="w-10 inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold text-white"
+                  style={{ backgroundColor: s.color || '#64748b' }}>
+                  {s.slaName}
+                </span>
+                {/* Current */}
+                <div className="text-center">
+                  {curH !== null ? (
+                    <span className={`text-sm font-semibold ${ok ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {fmtH(curH)}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-gray-600">-</span>
+                  )}
+                  {s.current.count > 0 && (
+                    <span className="text-[10px] text-gray-600 ml-1">({s.current.count})</span>
+                  )}
+                </div>
+                {/* Prev + arrow */}
+                <div className="text-center flex items-center justify-center gap-1">
+                  <span className="text-xs text-gray-400">{fmtH(prevH)}</span>
+                  {rowImproved !== null && (
+                    rowImproved
+                      ? <ArrowDownRight className="w-3 h-3 text-green-400 shrink-0" />
+                      : <ArrowUpRight className="w-3 h-3 text-red-400 shrink-0" />
+                  )}
+                </div>
+              </div>
+            )
+          })}
+          <p className="text-[10px] text-gray-600 pt-1">Target: SLA1={data.slaBreakdown[0]?.targetMinutes/60}h · SLA2={data.slaBreakdown[1]?.targetMinutes/60}h · SLA3={(data.slaBreakdown[2]?.targetMinutes||0)/60}h · SLA4={(data.slaBreakdown[3]?.targetMinutes||0)/60}h</p>
+        </div>
+      )}
     </div>
   )
 }

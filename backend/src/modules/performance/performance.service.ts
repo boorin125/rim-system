@@ -870,12 +870,19 @@ export class PerformanceService {
   }
 
   /**
-   * Get Avg Resolution Time for current and previous period
+   * Get Avg Resolution Time broken down by SLA (priority) for current and previous period
    */
   async getResolutionTimeStats(period?: string, jobTypes?: string[]) {
     const targetPeriod = period || this.getCurrentPeriod();
 
-    const calcAvgHours = async (p: string) => {
+    // Load SLA configs once
+    const slaConfigs = await this.prisma.slaConfig.findMany({
+      where: { isActive: true },
+      orderBy: { id: 'asc' },
+      select: { name: true, priority: true, color: true, resolutionTimeMinutes: true },
+    });
+
+    const calcByPriority = async (p: string) => {
       const [y, m] = p.split('-').map(Number);
       const start = new Date(y, m - 1, 1);
       const end = new Date(y, m, 0, 23, 59, 59);
@@ -886,16 +893,41 @@ export class PerformanceService {
           resolvedAt: { not: null },
           ...(jobTypes && jobTypes.length > 0 ? { jobType: { in: jobTypes } } : {}),
         },
-        select: { createdAt: true, resolvedAt: true },
+        select: { createdAt: true, resolvedAt: true, priority: true },
       });
-      if (incidents.length === 0) return null;
-      const sumHours = incidents.reduce(
-        (s, i) => s + (i.resolvedAt!.getTime() - i.createdAt.getTime()) / 3600000, 0
+
+      // Group by priority
+      const grouped: Record<string, number[]> = {};
+      for (const inc of incidents) {
+        const hours = (inc.resolvedAt!.getTime() - inc.createdAt.getTime()) / 3600000;
+        if (!grouped[inc.priority]) grouped[inc.priority] = [];
+        grouped[inc.priority].push(hours);
+      }
+
+      // Overall
+      const allHours = incidents.map(i =>
+        (i.resolvedAt!.getTime() - i.createdAt.getTime()) / 3600000
       );
-      return Math.round((sumHours / incidents.length) * 100) / 100;
+      const overallAvg = allHours.length > 0
+        ? Math.round((allHours.reduce((a, b) => a + b, 0) / allHours.length) * 100) / 100
+        : null;
+
+      // Per priority
+      const byPriority: Record<string, { avgHours: number | null; count: number }> = {};
+      for (const cfg of slaConfigs) {
+        const arr = grouped[cfg.priority] || [];
+        byPriority[cfg.priority] = {
+          avgHours: arr.length > 0
+            ? Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 100) / 100
+            : null,
+          count: arr.length,
+        };
+      }
+
+      return { overallAvg, byPriority };
     };
 
-    // Find previous period with actual data
+    // Find previous period
     const prevRecord = await this.prisma.incident.findFirst({
       where: {
         createdAt: { lt: new Date(parseInt(targetPeriod.split('-')[0]), parseInt(targetPeriod.split('-')[1]) - 1, 1) },
@@ -908,22 +940,29 @@ export class PerformanceService {
       ? `${prevRecord.createdAt.getFullYear()}-${String(prevRecord.createdAt.getMonth() + 1).padStart(2, '0')}`
       : null;
 
-    const [currentAvg, prevAvg] = await Promise.all([
-      calcAvgHours(targetPeriod),
-      prevPeriod ? calcAvgHours(prevPeriod) : Promise.resolve(null),
+    const [current, prev] = await Promise.all([
+      calcByPriority(targetPeriod),
+      prevPeriod ? calcByPriority(prevPeriod) : Promise.resolve(null),
     ]);
 
-    const change = currentAvg !== null && prevAvg !== null ? currentAvg - prevAvg : null;
-    // Lower is better → improved = change < 0
-    const improved = change !== null ? change < 0 : null;
+    const overallChange = current.overallAvg !== null && prev?.overallAvg != null
+      ? current.overallAvg - prev.overallAvg : null;
 
     return {
       period: targetPeriod,
-      avgHours: currentAvg,
       prevPeriod,
-      prevAvgHours: prevAvg,
-      change,
-      improved,
+      avgHours: current.overallAvg,
+      prevAvgHours: prev?.overallAvg ?? null,
+      change: overallChange,
+      improved: overallChange !== null ? overallChange < 0 : null,
+      slaBreakdown: slaConfigs.map(cfg => ({
+        slaName: cfg.name,
+        priority: cfg.priority,
+        color: cfg.color,
+        targetMinutes: cfg.resolutionTimeMinutes,
+        current: current.byPriority[cfg.priority] ?? { avgHours: null, count: 0 },
+        prev: prev?.byPriority[cfg.priority] ?? { avgHours: null, count: 0 },
+      })),
     };
   }
 
