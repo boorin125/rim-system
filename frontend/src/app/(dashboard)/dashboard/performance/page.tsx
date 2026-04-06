@@ -108,6 +108,16 @@ interface LeaderboardEntry {
   avgResolutionTimeHours: number | null
 }
 
+interface SlaByPriorityItem {
+  slaName: string
+  priority: string
+  color: string | null
+  pass: number
+  fail: number
+  total: number
+  slaPercent: number | null
+}
+
 interface ResolutionTimeStats {
   period: string
   avgHours: number | null
@@ -123,6 +133,8 @@ interface ResolutionTimeStats {
     current: { avgHours: number | null; count: number }
     prev: { avgHours: number | null; count: number }
   }[]
+  slaByPriority?: SlaByPriorityItem[]
+  prevSlaByPriority?: SlaByPriorityItem[] | null
 }
 
 interface TeamStats {
@@ -602,7 +614,20 @@ export default function PerformancePage() {
       {/* ==================== MANAGER VIEW ==================== */}
       {isManager && (
         <div className="space-y-6">
-          {/* SLA Summary Cards — Previous Month / Current / YTD + Resolution Time */}
+          {/* Incident Stats Cards (row 1) */}
+          {incidentStats && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+              <StatCard icon={ClipboardList} label="Total" value={incidentStats.total} color="blue" />
+              <StatCard icon={CheckCircle2} label="Closed" value={incidentStats.closed} color="green" />
+              <StatCard icon={Clock} label="Pending" value={incidentStats.pending} color="yellow" />
+              <StatCard icon={XCircle} label="Cancelled" value={incidentStats.cancelled} color="red" />
+              <StatCard icon={Zap} label="MA" value={incidentStats.byJobType?.['MA'] ?? 0} color="blue" />
+              <StatCard icon={Activity} label="Adhoc" value={incidentStats.byJobType?.['Adhoc'] ?? 0} color="indigo" />
+              <StatCard icon={BarChart3} label="Project" value={incidentStats.byJobType?.['Project'] ?? 0} color="purple" />
+            </div>
+          )}
+
+          {/* SLA Summary Cards — Previous Month / Current / YTD + Resolution Time (row 2) */}
           {slaTrend.length > 0 && (() => {
             const currentYear = new Date().getFullYear().toString()
             const ytdEntries = slaTrend.filter(e => e.period.startsWith(currentYear))
@@ -620,6 +645,7 @@ export default function PerformancePage() {
                   slaPercent={prev ? prev.slaPercent : null}
                   total={prev ? prev.slaPass + prev.slaFail : 0}
                   variant="previous"
+                  slaByPriority={resolutionTimeStats?.prevSlaByPriority ?? undefined}
                 />
                 <SlaMetricCard
                   icon={Activity} title="Current Month"
@@ -628,6 +654,7 @@ export default function PerformancePage() {
                   total={curTotal}
                   variant="current"
                   prevSla={prev ? prev.slaPercent : null}
+                  slaByPriority={resolutionTimeStats?.slaByPriority}
                 />
                 <SlaMetricCard
                   icon={BarChart3} title="YTD"
@@ -640,19 +667,6 @@ export default function PerformancePage() {
               </div>
             )
           })()}
-
-          {/* Incident Stats Cards */}
-          {incidentStats && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
-              <StatCard icon={ClipboardList} label="Total" value={incidentStats.total} color="blue" />
-              <StatCard icon={CheckCircle2} label="Closed" value={incidentStats.closed} color="green" />
-              <StatCard icon={Clock} label="Pending" value={incidentStats.pending} color="yellow" />
-              <StatCard icon={XCircle} label="Cancelled" value={incidentStats.cancelled} color="red" />
-              <StatCard icon={Zap} label="MA" value={incidentStats.byJobType?.['MA'] ?? 0} color="blue" />
-              <StatCard icon={Activity} label="Adhoc" value={incidentStats.byJobType?.['Adhoc'] ?? 0} color="indigo" />
-              <StatCard icon={BarChart3} label="Project" value={incidentStats.byJobType?.['Project'] ?? 0} color="purple" />
-            </div>
-          )}
 
           {/* SLA Achievement + SLA Trend side by side */}
           {(incidentStats || slaTrend.length > 0) && (
@@ -916,15 +930,7 @@ function ResolutionTimeCard({ data }: { data: ResolutionTimeStats | null }) {
           </span>
         )}
       </div>
-      <p className="text-xs text-gray-500 mb-3">เวลาแก้ไขงานเฉลี่ย (ยิ่งน้อยยิ่งดี)</p>
-
-      {/* Overall current */}
-      <div className="flex items-baseline gap-2 mb-3">
-        <p className={`text-3xl font-bold ${cur !== null ? (cur <= 4 ? 'text-emerald-400' : cur <= 8 ? 'text-yellow-400' : 'text-red-400') : 'text-gray-600'}`}>
-          {fmtH(cur)}
-        </p>
-        <span className="text-xs text-gray-500">overall</span>
-      </div>
+      <p className="text-xs text-gray-500 mb-2">เวลาแก้ไขงานเฉลี่ย (ยิ่งน้อยยิ่งดี)</p>
 
       {/* SLA breakdown table */}
       {data?.slaBreakdown && data.slaBreakdown.length > 0 && (
@@ -1195,6 +1201,7 @@ function SlaMetricCard({
   total,
   variant,
   prevSla,
+  slaByPriority,
 }: {
   icon: React.ElementType
   title: string
@@ -1203,6 +1210,7 @@ function SlaMetricCard({
   total: number
   variant: 'previous' | 'current' | 'yearly'
   prevSla?: number | null
+  slaByPriority?: SlaByPriorityItem[] | null
 }) {
   const pct = slaPercent ?? 0
   const slaColor = pct >= 95 ? 'text-emerald-400' : pct >= 80 ? 'text-yellow-400' : 'text-red-400'
@@ -1226,19 +1234,46 @@ function SlaMetricCard({
           </span>
         )}
       </div>
-      <p className="text-xs text-gray-500 mb-3">{label}</p>
+      <p className="text-xs text-gray-500 mb-2">{label}</p>
       <p className={`text-4xl font-bold ${slaPercent !== null ? slaColor : 'text-gray-600'}`}>
         {slaPercent !== null ? `${pct.toFixed(2)}%` : '-'}
       </p>
-      <p className="text-xs text-gray-500 mt-1">SLA Compliance</p>
-      {total > 0 && (
-        <div className="mt-3 pt-3 border-t border-slate-700/50 flex items-center gap-1.5">
+      <p className="text-xs text-gray-500 mt-0.5 mb-1">SLA Compliance</p>
+
+      {/* Per-SLA breakdown rows */}
+      {slaByPriority && slaByPriority.length > 0 ? (
+        <div className="mt-2 pt-2 border-t border-slate-700/50 space-y-1.5">
+          {slaByPriority.map(s => {
+            const spct = s.slaPercent
+            const color = spct === null ? 'text-gray-500' : spct >= 95 ? 'text-emerald-400' : spct >= 80 ? 'text-yellow-400' : 'text-red-400'
+            return (
+              <div key={s.priority} className="flex items-center gap-2">
+                <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold text-white w-9 flex-shrink-0"
+                  style={{ backgroundColor: s.color || '#64748b' }}>
+                  {s.slaName}
+                </span>
+                {s.total > 0 ? (
+                  <>
+                    <span className={`text-sm font-semibold ${color}`}>
+                      {spct !== null ? `${spct.toFixed(1)}%` : '-'}
+                    </span>
+                    <span className="text-[10px] text-gray-600 ml-auto">{s.pass}/{s.total}</span>
+                  </>
+                ) : (
+                  <span className="text-xs text-gray-600">-</span>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      ) : total > 0 ? (
+        <div className="mt-2 pt-2 border-t border-slate-700/50 flex items-center gap-1.5">
           <ShieldCheck className="w-3.5 h-3.5 text-gray-500" />
           <span className="text-xs text-gray-400">
             <span className="font-semibold text-white">{total.toLocaleString()}</span> incidents (SLA tracked)
           </span>
         </div>
-      )}
+      ) : null}
     </div>
   )
 }

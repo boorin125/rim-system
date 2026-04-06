@@ -901,10 +901,17 @@ export class PerformanceService {
           resolvedAt: { not: null },
           ...(jobTypes && jobTypes.length > 0 ? { jobType: { in: jobTypes } } : {}),
         },
-        select: { createdAt: true, resolvedAt: true, priority: true },
+        select: {
+          createdAt: true,
+          resolvedAt: true,
+          priority: true,
+          jobType: true,
+          slaDeadline: true,
+          slaDefenses: { select: { status: true } },
+        },
       });
 
-      // Group by priority
+      // Group resolution hours by priority
       const grouped: Record<string, number[]> = {};
       for (const inc of incidents) {
         const hours = (inc.resolvedAt!.getTime() - inc.createdAt.getTime()) / 3600000;
@@ -912,7 +919,7 @@ export class PerformanceService {
         grouped[inc.priority].push(hours);
       }
 
-      // Overall
+      // Overall avg
       const allHours = incidents.map(i =>
         (i.resolvedAt!.getTime() - i.createdAt.getTime()) / 3600000
       );
@@ -920,7 +927,7 @@ export class PerformanceService {
         ? Math.round((allHours.reduce((a, b) => a + b, 0) / allHours.length) * 100) / 100
         : null;
 
-      // Per priority
+      // Per priority: avg resolution time
       const byPriority: Record<string, { avgHours: number | null; count: number }> = {};
       for (const cfg of slaConfigs) {
         const arr = grouped[cfg.priority] || [];
@@ -932,7 +939,21 @@ export class PerformanceService {
         };
       }
 
-      return { overallAvg, byPriority };
+      // Per priority: SLA pass/fail
+      const slaRelevant = incidents.filter(i => i.jobType !== 'Project');
+      const slaPassFail: Record<string, { pass: number; fail: number }> = {};
+      for (const cfg of slaConfigs) {
+        const group = slaRelevant.filter(i => i.priority === cfg.priority);
+        const pass = group.filter(i => {
+          if (i.jobType === 'Adhoc') return true;
+          if (!i.slaDeadline || !i.resolvedAt) return true;
+          if (i.resolvedAt <= i.slaDeadline) return true;
+          return (i as any).slaDefenses?.some((d: any) => d.status === SlaDefenseStatus.APPROVED);
+        }).length;
+        slaPassFail[cfg.priority] = { pass, fail: group.length - pass };
+      }
+
+      return { overallAvg, byPriority, slaPassFail };
     };
 
     // Find previous period
@@ -971,6 +992,32 @@ export class PerformanceService {
         current: current.byPriority[cfg.priority] ?? { avgHours: null, count: 0 },
         prev: prev?.byPriority[cfg.priority] ?? { avgHours: null, count: 0 },
       })),
+      slaByPriority: slaConfigs.map(cfg => {
+        const pf = current.slaPassFail[cfg.priority] ?? { pass: 0, fail: 0 };
+        const total = pf.pass + pf.fail;
+        return {
+          slaName: cfg.name,
+          priority: cfg.priority,
+          color: cfg.color,
+          pass: pf.pass,
+          fail: pf.fail,
+          total,
+          slaPercent: total > 0 ? Math.round((pf.pass / total) * 10000) / 100 : null,
+        };
+      }),
+      prevSlaByPriority: prev ? slaConfigs.map(cfg => {
+        const pf = prev.slaPassFail[cfg.priority] ?? { pass: 0, fail: 0 };
+        const total = pf.pass + pf.fail;
+        return {
+          slaName: cfg.name,
+          priority: cfg.priority,
+          color: cfg.color,
+          pass: pf.pass,
+          fail: pf.fail,
+          total,
+          slaPercent: total > 0 ? Math.round((pf.pass / total) * 10000) / 100 : null,
+        };
+      }) : null,
     };
   }
 
