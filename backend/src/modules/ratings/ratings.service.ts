@@ -211,9 +211,13 @@ export class RatingsService {
           userAgent,
         },
       });
-    } catch (err) {
-      this.logger.error('Failed to create incidentRating:', err);
-      throw err;
+    } catch (err: any) {
+      this.logger.error('Failed to create incidentRating:', err?.message || err);
+      // P2002 = unique constraint violation (already rated)
+      if (err?.code === 'P2002') {
+        throw new BadRequestException('Incident นี้ได้รับการประเมินแล้ว');
+      }
+      throw new BadRequestException(`ไม่สามารถบันทึกการประเมินได้: ${err?.message || 'DB error'}`);
     }
 
     // Update technician's cumulative rating: new = (current + newRating) / 2
