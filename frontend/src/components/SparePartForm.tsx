@@ -155,13 +155,16 @@ export default function SparePartForm({
   }, [filteredStoreEquipment, spareParts.length]);
 
   // Auto-fill parentEquipment for COMPONENT_REPLACEMENT when incident has exactly 1 device
+  // Track how many component parts are missing parentEquipmentId so the effect re-runs
+  // whenever a part's repairType is switched to COMPONENT_REPLACEMENT (not just on length change)
+  const componentPartsWithoutParent = spareParts.filter(
+    p => p.repairType === 'COMPONENT_REPLACEMENT' && !p.parentEquipmentId
+  ).length;
+
   useEffect(() => {
     if (filteredStoreEquipment.length !== 1) return;
+    if (componentPartsWithoutParent === 0) return;
     const d = filteredStoreEquipment[0];
-    const needsUpdate = spareParts.some(
-      p => p.repairType === 'COMPONENT_REPLACEMENT' && !p.parentEquipmentId
-    );
-    if (!needsUpdate) return;
     const displayName = [d.position, d.brand, d.model].filter(Boolean).join(' ') || d.name;
     onChange(
       spareParts.map(p =>
@@ -171,7 +174,7 @@ export default function SparePartForm({
       )
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredStoreEquipment, spareParts.length]);
+  }, [filteredStoreEquipment, componentPartsWithoutParent]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
