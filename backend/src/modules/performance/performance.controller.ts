@@ -146,6 +146,20 @@ export class PerformanceController {
   }
 
   /**
+   * Get Avg Resolution Time Stats (current vs previous period)
+   * Access: IT_MANAGER, SUPERVISOR, HELP_DESK
+   */
+  @Get('resolution-time')
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK)
+  async getResolutionTimeStats(
+    @Query('period') period?: string,
+    @Query('jobTypes') jobTypes?: string,
+  ) {
+    const parsed = jobTypes ? jobTypes.split(',').map(s => s.trim()).filter(Boolean) : undefined;
+    return this.performanceService.getResolutionTimeStats(period, parsed);
+  }
+
+  /**
    * Get Top Stores by Incident Count
    * Access: IT_MANAGER, SUPERVISOR, HELP_DESK
    */

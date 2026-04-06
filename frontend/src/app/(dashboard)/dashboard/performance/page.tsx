@@ -105,6 +105,16 @@ interface LeaderboardEntry {
   gradeDescription: string
   workVolume: number
   slaPercent: number
+  avgResolutionTimeHours: number | null
+}
+
+interface ResolutionTimeStats {
+  period: string
+  avgHours: number | null
+  prevPeriod: string | null
+  prevAvgHours: number | null
+  change: number | null
+  improved: boolean | null
 }
 
 interface TeamStats {
@@ -247,6 +257,9 @@ export default function PerformancePage() {
   const [topStores, setTopStores] = useState<TopStoreEntry[]>([])
   const [topEquipment, setTopEquipment] = useState<TopEquipmentEntry[]>([])
 
+  // Resolution time stats
+  const [resolutionTimeStats, setResolutionTimeStats] = useState<ResolutionTimeStats | null>(null)
+
   // Detail modal
   const [selectedPerformance, setSelectedPerformance] = useState<PerformanceData | null>(null)
 
@@ -337,8 +350,9 @@ export default function PerformancePage() {
           axios.get(`${api}/performance/yty`, cfg).catch(() => null),
           axios.get(`${api}/performance/top-stores?period=${period}&limit=10${jtParam}`, cfg).catch(() => null),
           axios.get(`${api}/performance/top-equipment?period=${period}&limit=10${jtParam}`, cfg).catch(() => null),
+          axios.get(`${api}/performance/resolution-time?period=${period}${jtParam}`, cfg).catch(() => null),
         ]
-        const [lbRes, statsRes, trendRes, ytdRes, ytmRes, ytyRes, topStoresRes, topEquipRes] = await Promise.all(calls)
+        const [lbRes, statsRes, trendRes, ytdRes, ytmRes, ytyRes, topStoresRes, topEquipRes, resTimeRes] = await Promise.all(calls)
         setLeaderboard(lbRes?.data || [])
         setIncidentStats(statsRes?.data || null)
         setSlaTrend(trendRes?.data || [])
@@ -347,6 +361,7 @@ export default function PerformancePage() {
         setYty(ytyRes?.data || null)
         setTopStores(topStoresRes?.data || [])
         setTopEquipment(topEquipRes?.data || [])
+        setResolutionTimeStats(resTimeRes?.data || null)
       }
     } catch (err) {
       console.error('Error loading performance:', err)
@@ -398,6 +413,7 @@ export default function PerformancePage() {
     return v.toFixed(1)
   }
   const fmtPct = (v: number | null) => v !== null && v !== undefined ? `${v.toFixed(1)}%` : '-'
+  const fmtHours = (h: number) => h < 1 ? `${Math.round(h * 60)} min` : h < 24 ? `${h.toFixed(1)} hrs` : `${(h / 24).toFixed(1)} days`
   const scoreColor = (s: number) => s >= 90 ? 'text-emerald-400' : s >= 80 ? 'text-green-400' : s >= 70 ? 'text-yellow-400' : s >= 60 ? 'text-orange-400' : 'text-red-400'
   const barColor = (s: number) => s >= 90 ? 'bg-emerald-500' : s >= 80 ? 'bg-green-500' : s >= 70 ? 'bg-yellow-500' : s >= 60 ? 'bg-orange-500' : 'bg-red-500'
 
@@ -577,16 +593,18 @@ export default function PerformancePage() {
       {/* ==================== MANAGER VIEW ==================== */}
       {isManager && (
         <div className="space-y-6">
-          {/* SLA Summary Cards — Previous Month / Current / 12-Month Avg */}
+          {/* SLA Summary Cards — Previous Month / Current / YTD + Resolution Time */}
           {slaTrend.length > 0 && (() => {
+            const currentYear = new Date().getFullYear().toString()
+            const ytdEntries = slaTrend.filter(e => e.period.startsWith(currentYear))
             const cur = slaTrend[slaTrend.length - 1]
             const prev = slaTrend.length >= 2 ? slaTrend[slaTrend.length - 2] : null
-            const avgSla = slaTrend.reduce((s, d) => s + d.slaPercent, 0) / slaTrend.length
-            const totalSla12m = slaTrend.reduce((s, d) => s + d.slaPass + d.slaFail, 0)
+            const ytdSla = ytdEntries.length > 0 ? ytdEntries.reduce((s, d) => s + d.slaPercent, 0) / ytdEntries.length : null
+            const ytdTotal = ytdEntries.reduce((s, d) => s + d.slaPass + d.slaFail, 0)
             const curSla = incidentStats?.slaPercent ?? cur.slaPercent
             const curTotal = incidentStats ? (incidentStats.slaPass + incidentStats.slaFail) : (cur.slaPass + cur.slaFail)
             return (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                 <SlaMetricCard
                   icon={Calendar} title="Previous Month"
                   label={prev ? formatPeriod(prev.period) : '-'}
@@ -603,12 +621,13 @@ export default function PerformancePage() {
                   prevSla={prev ? prev.slaPercent : null}
                 />
                 <SlaMetricCard
-                  icon={BarChart3} title="12-Month Avg"
-                  label={`${slaTrend.length} months`}
-                  slaPercent={avgSla}
-                  total={totalSla12m}
+                  icon={BarChart3} title="YTD"
+                  label={`${currentYear} (${ytdEntries.length} months)`}
+                  slaPercent={ytdSla}
+                  total={ytdTotal}
                   variant="yearly"
                 />
+                <ResolutionTimeCard data={resolutionTimeStats} />
               </div>
             )
           })()}
@@ -767,6 +786,7 @@ export default function PerformancePage() {
                               คะแนน <ArrowUpDown className="w-3 h-3" />
                             </button>
                           </th>
+                          <th className="text-center py-4 px-4 text-sm font-medium text-gray-400 whitespace-nowrap">Avg. Resolution</th>
                           <th className="text-center py-4 px-4 text-sm font-medium text-gray-400">เกรด</th>
                         </tr>
                       </thead>
@@ -798,6 +818,15 @@ export default function PerformancePage() {
                             </td>
                             <td className="py-4 px-4 text-center">
                               <span className={`text-lg font-semibold ${scoreColor(e.score)}`}>{e.score.toFixed(1)}</span>
+                            </td>
+                            <td className="py-4 px-4 text-center">
+                              {e.avgResolutionTimeHours !== null && e.avgResolutionTimeHours !== undefined ? (
+                                <span className={`text-sm font-medium ${e.avgResolutionTimeHours <= 4 ? 'text-emerald-400' : e.avgResolutionTimeHours <= 8 ? 'text-yellow-400' : 'text-red-400'}`}>
+                                  {fmtHours(e.avgResolutionTimeHours)}
+                                </span>
+                              ) : (
+                                <span className="text-gray-600 text-xs">-</span>
+                              )}
                             </td>
                             <td className="py-4 px-4 text-center">
                               <span className={`inline-flex px-3 py-1 text-sm font-bold rounded-full border ${GRADE_COLORS[e.grade] || 'bg-gray-500/20 text-gray-400'}`}>
@@ -844,6 +873,59 @@ function formatPeriod(p: string): string {
   const [y, m] = p.split('-')
   const months = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
   return `${months[parseInt(m)] || m} ${y}`
+}
+
+// ==================== RESOLUTION TIME CARD ====================
+
+function ResolutionTimeCard({ data }: { data: ResolutionTimeStats | null }) {
+  const fmtH = (h: number | null) => {
+    if (h === null || h === undefined) return '-'
+    if (h < 1) return `${Math.round(h * 60)} min`
+    if (h < 24) return `${h.toFixed(1)} hrs`
+    return `${(h / 24).toFixed(1)} days`
+  }
+
+  const cur = data?.avgHours ?? null
+  const prev = data?.prevAvgHours ?? null
+  const improved = data?.improved ?? null  // true = faster (lower)
+  const change = data?.change ?? null
+
+  return (
+    <div className="glass-card p-5 rounded-xl">
+      <div className="flex items-center gap-2 mb-1">
+        <Timer className="w-5 h-5 text-orange-400" />
+        <span className="text-sm font-medium text-gray-300">Avg. Resolution Time</span>
+      </div>
+      <p className="text-xs text-gray-500 mb-3">เวลาแก้ไขงานเฉลี่ย</p>
+
+      {/* Current big number */}
+      <div className="flex items-end gap-3 mb-3">
+        <div>
+          <p className={`text-4xl font-bold ${cur !== null ? (cur <= 4 ? 'text-emerald-400' : cur <= 8 ? 'text-yellow-400' : 'text-red-400') : 'text-gray-600'}`}>
+            {fmtH(cur)}
+          </p>
+          <p className="text-xs text-gray-500 mt-1">Current Month</p>
+        </div>
+        {improved !== null && change !== null && (
+          <span className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full mb-5 ${improved ? 'text-green-400 bg-green-500/15' : 'text-red-400 bg-red-500/15'}`}>
+            {improved ? <ArrowDownRight className="w-3 h-3" /> : <ArrowUpRight className="w-3 h-3" />}
+            {fmtH(Math.abs(change))}
+          </span>
+        )}
+      </div>
+
+      {/* Previous month comparison */}
+      {prev !== null && (
+        <div className="pt-3 border-t border-slate-700/50 flex items-center justify-between">
+          <span className="text-xs text-gray-500">
+            {data?.prevPeriod ? formatPeriod(data.prevPeriod) : 'Prev Month'}
+          </span>
+          <span className="text-sm font-medium text-gray-400">{fmtH(prev)}</span>
+        </div>
+      )}
+      <p className="text-xs text-gray-600 mt-1">↓ ยิ่งน้อยยิ่งดี</p>
+    </div>
+  )
 }
 
 // ==================== TOP BAR CHART (stores / equipment) ====================

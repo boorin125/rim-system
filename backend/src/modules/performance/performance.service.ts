@@ -668,7 +668,7 @@ export class PerformanceService {
             createdAt: { gte: startDate, lte: endDate },
             ...(jobTypes && jobTypes.length > 0 ? { jobType: { in: jobTypes } } : {}),
           },
-          select: { status: true, jobType: true, slaDeadline: true, resolvedAt: true, slaDefenses: { select: { status: true } } },
+          select: { status: true, jobType: true, slaDeadline: true, resolvedAt: true, createdAt: true, slaDefenses: { select: { status: true } } },
         });
 
         const totalJobs = incidents.length;
@@ -686,6 +686,16 @@ export class PerformanceService {
           ? Math.round((slaPass / slaRelevant.length) * 10000) / 100
           : 0;
 
+        // Avg resolution time (hours) — only for completed incidents with both timestamps
+        const completedWithTimes = completed.filter(i => i.resolvedAt);
+        const avgResolutionTimeHours = completedWithTimes.length > 0
+          ? Math.round(
+              (completedWithTimes.reduce((sum, i) =>
+                sum + (i.resolvedAt!.getTime() - i.createdAt.getTime()) / 3600000, 0
+              ) / completedWithTimes.length) * 100
+            ) / 100
+          : null;
+
         return {
           technicianId: s.technicianId,
           technicianName: `${s.technician.firstName} ${s.technician.lastName}`,
@@ -695,6 +705,7 @@ export class PerformanceService {
           gradeDescription: s.gradeDescription,
           workVolume: totalJobs,
           slaPercent,
+          avgResolutionTimeHours,
         };
       })
     );
@@ -855,6 +866,64 @@ export class PerformanceService {
       lastYear: { year: year - 1, avgScore: lastYearAvg, count: lastYearScores.length },
       change: currentAvg - lastYearAvg,
       changePercent: lastYearAvg > 0 ? ((currentAvg - lastYearAvg) / lastYearAvg) * 100 : 0,
+    };
+  }
+
+  /**
+   * Get Avg Resolution Time for current and previous period
+   */
+  async getResolutionTimeStats(period?: string, jobTypes?: string[]) {
+    const targetPeriod = period || this.getCurrentPeriod();
+
+    const calcAvgHours = async (p: string) => {
+      const [y, m] = p.split('-').map(Number);
+      const start = new Date(y, m - 1, 1);
+      const end = new Date(y, m, 0, 23, 59, 59);
+      const incidents = await this.prisma.incident.findMany({
+        where: {
+          createdAt: { gte: start, lte: end },
+          status: { in: [IncidentStatus.CLOSED, IncidentStatus.RESOLVED] },
+          resolvedAt: { not: null },
+          ...(jobTypes && jobTypes.length > 0 ? { jobType: { in: jobTypes } } : {}),
+        },
+        select: { createdAt: true, resolvedAt: true },
+      });
+      if (incidents.length === 0) return null;
+      const sumHours = incidents.reduce(
+        (s, i) => s + (i.resolvedAt!.getTime() - i.createdAt.getTime()) / 3600000, 0
+      );
+      return Math.round((sumHours / incidents.length) * 100) / 100;
+    };
+
+    // Find previous period with actual data
+    const prevRecord = await this.prisma.incident.findFirst({
+      where: {
+        createdAt: { lt: new Date(parseInt(targetPeriod.split('-')[0]), parseInt(targetPeriod.split('-')[1]) - 1, 1) },
+        status: { in: [IncidentStatus.CLOSED, IncidentStatus.RESOLVED] },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
+    });
+    const prevPeriod = prevRecord
+      ? `${prevRecord.createdAt.getFullYear()}-${String(prevRecord.createdAt.getMonth() + 1).padStart(2, '0')}`
+      : null;
+
+    const [currentAvg, prevAvg] = await Promise.all([
+      calcAvgHours(targetPeriod),
+      prevPeriod ? calcAvgHours(prevPeriod) : Promise.resolve(null),
+    ]);
+
+    const change = currentAvg !== null && prevAvg !== null ? currentAvg - prevAvg : null;
+    // Lower is better → improved = change < 0
+    const improved = change !== null ? change < 0 : null;
+
+    return {
+      period: targetPeriod,
+      avgHours: currentAvg,
+      prevPeriod,
+      prevAvgHours: prevAvg,
+      change,
+      improved,
     };
   }
 
