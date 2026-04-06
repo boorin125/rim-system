@@ -678,7 +678,7 @@ export default function PerformancePage() {
                     <ClipboardList className="w-4 h-4 text-blue-400" />
                     Top 10 Stores (Most Incidents)
                   </h3>
-                  <TopBarChart data={topStores.map(s => ({ label: `${s.storeCode} ${s.storeName}`, value: s.count }))} color="#3b82f6" />
+                  <HorizontalBarChart data={topStores.map(s => ({ label: `${s.storeCode} ${s.storeName}`, value: s.count }))} color="#3b82f6" />
                 </div>
               )}
               {topEquipment.length > 0 && (
@@ -921,6 +921,78 @@ function ResolutionTimeCard({ data }: { data: ResolutionTimeStats | null }) {
         </span>
         <span className="text-sm font-semibold text-gray-300">{fmtH(prev)}</span>
       </div>
+    </div>
+  )
+}
+
+// ==================== HORIZONTAL BAR CHART (stores) ====================
+
+function HorizontalBarChart({ data, color }: { data: { label: string; value: number }[]; color: string }) {
+  const [isDark, setIsDark] = useState(() =>
+    typeof window === 'undefined' || !document.documentElement.classList.contains('light')
+  )
+  useEffect(() => {
+    const obs = new MutationObserver(() =>
+      setIsDark(!document.documentElement.classList.contains('light'))
+    )
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => obs.disconnect()
+  }, [])
+
+  if (data.length === 0) return null
+
+  const max = Math.max(...data.map(d => d.value), 1)
+  const labelColor = isDark ? '#94a3b8' : '#475569'
+  const valueColor = isDark ? '#ffffff' : '#1e293b'
+  const trackColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.08)'
+  const axisColor = isDark ? '#334155' : '#cbd5e1'
+
+  // Compute label column width from longest label
+  const FONT_SZ = 12
+  const CHAR_W = FONT_SZ * 0.58
+  const maxLabelLen = Math.max(...data.map(d => d.label.length))
+  const PAD_L = Math.min(Math.ceil(maxLabelLen * CHAR_W) + 12, 200)
+  const PAD_R = 40   // space for value text
+  const PAD_T = 8
+  const PAD_B = 8
+  const ROW_H = 30
+  const BAR_H = 16
+  const W = 520
+  const chartW = W - PAD_L - PAD_R
+  const H = data.length * ROW_H + PAD_T + PAD_B
+
+  return (
+    <div className="w-full overflow-x-auto">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ minWidth: 320, height: `${H + 4}px` }}>
+        {/* Axis line */}
+        <line x1={PAD_L} x2={PAD_L} y1={PAD_T} y2={H - PAD_B} stroke={axisColor} strokeWidth="1" />
+
+        {data.map((d, i) => {
+          const cy = PAD_T + i * ROW_H + ROW_H / 2
+          const barW = Math.max((d.value / max) * chartW, 3)
+
+          return (
+            <g key={i}>
+              {/* Label */}
+              <text x={PAD_L - 8} y={cy + 4} textAnchor="end"
+                fill={labelColor} fontSize={FONT_SZ} fontWeight="500">
+                {d.label}
+              </text>
+              {/* Track */}
+              <rect x={PAD_L} y={cy - BAR_H / 2} width={chartW} height={BAR_H}
+                rx={BAR_H / 2} fill={trackColor} />
+              {/* Bar */}
+              <rect x={PAD_L} y={cy - BAR_H / 2} width={barW} height={BAR_H}
+                rx={BAR_H / 2} fill={color} opacity="0.85" />
+              {/* Value */}
+              <text x={PAD_L + barW + 6} y={cy + 4}
+                fill={valueColor} fontSize="12" fontWeight="700">
+                {d.value}
+              </text>
+            </g>
+          )
+        })}
+      </svg>
     </div>
   )
 }
