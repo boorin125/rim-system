@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Upload, Trash2, Camera, Mic, MicOff, FileText, CheckCircle, FlipHorizontal2 } from 'lucide-react';
+import { X, Upload, Trash2, Camera, Mic, MicOff, FileText, CheckCircle, FlipHorizontal2, Crop } from 'lucide-react';
 import SparePartForm from './SparePartForm';
 import { compressImages } from '@/utils/imageUtils';
+import CropModal from './CropModal';
 
 interface ResolveIncidentModalProps {
   isOpen: boolean;
@@ -79,6 +80,11 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
   // Signed SR photos
   const [signedSrPhotos, setSignedSrPhotos] = useState<File[]>([]);
   const [signedSrPreviewUrls, setSignedSrPreviewUrls] = useState<string[]>([]);
+
+  // Crop modal state
+  const [cropQueue, setCropQueue] = useState<string[]>([]); // data URLs pending crop
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [currentCropSrc, setCurrentCropSrc] = useState<string>('');
   // Voice to Text states
   const [isListening, setIsListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
@@ -224,22 +230,75 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
     setError('');
   };
 
-  // Handle signed SR photo upload — compress + convert to JPEG + fix EXIF orientation
+  // Open crop modal for a queue of data URLs one by one
+  const openNextCrop = useCallback((queue: string[]) => {
+    if (queue.length === 0) return;
+    setCurrentCropSrc(queue[0]);
+    setCropQueue(queue.slice(1));
+    setCropModalOpen(true);
+  }, []);
+
+  // Handle signed SR photo upload — open crop modal for each file
   const handleSignedSrUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    if (signedSrPhotos.length + files.length > 5) {
-      setError('อัปโหลดรูป SR ที่เซ็นแล้วได้สูงสุด 5 รูป');
-      return;
-    }
     if (srGalleryInputRef.current) srGalleryInputRef.current.value = '';
     if (srCameraInputRef.current) srCameraInputRef.current.value = '';
 
-    const compressed = await compressImages(files, { maxWidth: 1920, maxHeight: 1920, quality: 0.85 });
-    const newUrls = compressed.map(file => URL.createObjectURL(file));
-    setSignedSrPhotos(prev => [...prev, ...compressed]);
-    setSignedSrPreviewUrls(prev => [...prev, ...newUrls]);
+    const remaining = 5 - signedSrPhotos.length;
+    if (remaining <= 0) {
+      setError('อัปโหลดรูป SR ที่เซ็นแล้วได้สูงสุด 5 รูป');
+      return;
+    }
+    const toProcess = files.slice(0, remaining);
+
+    // Convert files to data URLs then open crop modal
+    const dataUrls = await Promise.all(
+      toProcess.map(
+        (file) =>
+          new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.readAsDataURL(file);
+          }),
+      ),
+    );
+
+    openNextCrop(dataUrls);
     setError('');
   };
+
+  // Called when user confirms a crop
+  const handleCropConfirm = useCallback(
+    async (blob: Blob) => {
+      setCropModalOpen(false);
+      setCurrentCropSrc('');
+
+      const file = new File([blob], `sr-photo-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      const [compressed] = await compressImages([file], { maxWidth: 1920, maxHeight: 1920, quality: 0.85 });
+      const url = URL.createObjectURL(compressed);
+      setSignedSrPhotos((prev) => [...prev, compressed]);
+      setSignedSrPreviewUrls((prev) => [...prev, url]);
+
+      // Process next in queue
+      if (cropQueue.length > 0 && signedSrPhotos.length + 1 < 5) {
+        setTimeout(() => openNextCrop(cropQueue), 50);
+      } else {
+        setCropQueue([]);
+      }
+    },
+    [cropQueue, signedSrPhotos.length, openNextCrop],
+  );
+
+  // Called when user cancels crop — skip this image, continue queue
+  const handleCropCancel = useCallback(() => {
+    setCropModalOpen(false);
+    setCurrentCropSrc('');
+    if (cropQueue.length > 0) {
+      setTimeout(() => openNextCrop(cropQueue), 50);
+    } else {
+      setCropQueue([]);
+    }
+  }, [cropQueue, openNextCrop]);
 
   const handleRemoveSignedSrPhoto = (index: number) => {
     URL.revokeObjectURL(signedSrPreviewUrls[index]);
@@ -375,7 +434,9 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
 
   if (!isOpen || typeof document === 'undefined') return null;
 
-  return createPortal(
+  return (
+    <>
+    {createPortal(
     <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center sm:p-4 bg-black/60">
       <div className="glass-card border border-slate-700/50 rounded-t-2xl sm:rounded-xl w-full max-w-4xl h-[92vh] sm:h-auto sm:max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
@@ -627,13 +688,13 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
                   className="flex flex-col items-center justify-center gap-1.5 py-3 bg-amber-600/10 border-2 border-amber-600/30 rounded-xl hover:bg-amber-600/20 transition-all">
                   <Camera className="w-5 h-5 text-amber-400" />
                   <span className="text-xs font-medium text-amber-300">ถ่ายรูป</span>
-                  <span className="text-[10px] text-amber-400/70">{srCameraFacing === 'environment' ? 'กล้องหลัง' : 'กล้องหน้า'}</span>
+                  <span className="text-[10px] text-amber-400/70 flex items-center gap-1"><Crop className="w-2.5 h-2.5" />ครอปได้</span>
                 </button>
                 <button type="button" onClick={() => srGalleryInputRef.current?.click()}
                   className="flex flex-col items-center justify-center gap-1.5 py-3 bg-slate-800/40 border-2 border-slate-600/50 rounded-xl hover:bg-slate-700/40 transition-all">
                   <Upload className="w-5 h-5 text-gray-400" />
                   <span className="text-xs font-medium text-gray-300">เลือกจากคลัง</span>
-                  <span className="text-[10px] text-gray-500">Gallery</span>
+                  <span className="text-[10px] text-gray-500 flex items-center gap-1"><Crop className="w-2.5 h-2.5" />ครอปได้</span>
                 </button>
               </div>
               <button type="button" onClick={() => setSrCameraFacing(f => f === 'environment' ? 'user' : 'environment')}
@@ -706,6 +767,17 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
       </div>
     </div>,
     document.body
+  )}
+  {cropModalOpen && currentCropSrc &&
+    createPortal(
+      <CropModal
+        imageSrc={currentCropSrc}
+        onConfirm={handleCropConfirm}
+        onCancel={handleCropCancel}
+      />,
+      document.body,
+    )}
+  </>
   );
 };
 
