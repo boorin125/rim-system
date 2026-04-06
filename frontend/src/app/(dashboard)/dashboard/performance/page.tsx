@@ -194,7 +194,7 @@ const GRADE_BG: Record<string, string> = {
 // ==================== MAIN COMPONENT ====================
 
 export default function PerformancePage() {
-  const { isExpired, hasLicense, isTrialGrace, isTrialExpired, trialDaysRemaining } = useLicense()
+  const { loading: licenseLoading, isExpired, hasLicense, isTrialGrace, isTrialExpired, trialDaysRemaining } = useLicense()
   const themeHighlight = useThemeHighlight()
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -228,7 +228,7 @@ export default function PerformancePage() {
   const [yty, setYty] = useState<ComparisonData | null>(null)
 
   // Leaderboard sort
-  const [sortBy, setSortBy] = useState<'score' | 'workVolume' | 'sla'>('score')
+  const [sortBy, setSortBy] = useState<'score' | 'workVolume' | 'sla'>('workVolume')
 
   // Detail modal
   const [selectedPerformance, setSelectedPerformance] = useState<PerformanceData | null>(null)
@@ -392,6 +392,7 @@ export default function PerformancePage() {
   }
 
   // ==================== RENDER ====================
+  if (licenseLoading) return null
   if (isExpired || !hasLicense) return (
     <LicenseLock
       featureName="Performance"
@@ -612,7 +613,7 @@ export default function PerformancePage() {
                 </select>
               </div>
             </div>
-            {leaderboard.length === 0 ? (
+            {leaderboard.filter(e => e.workVolume > 0).length === 0 ? (
               <EmptyState msg="ยังไม่มีข้อมูล Performance" sub="คลิก 'คำนวณ Performance' เพื่อคำนวณผลการปฏิบัติงาน" />
             ) : (
               <div className="overflow-x-auto">
@@ -643,7 +644,7 @@ export default function PerformancePage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {leaderboard.map((e) => (
+                    {leaderboard.filter(e => e.workVolume > 0).map((e) => (
                       <tr key={e.technicianId} onClick={() => viewDetail(e.technicianId)} className="border-b border-slate-700/50 hover:bg-slate-800/30 transition-colors cursor-pointer">
                         <td className="py-4 px-4">
                           {e.rank <= 3 ? (
