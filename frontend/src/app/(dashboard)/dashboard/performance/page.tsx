@@ -661,7 +661,7 @@ export default function PerformancePage() {
                 <div className="lg:w-[70%] glass-card p-6 rounded-2xl">
                   <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                     <TrendingUp className="w-5 h-5 text-blue-400" />
-                    Monthly SLA Compliance — 12 Months
+                    Monthly SLA Compliance (12 Months)
                   </h3>
                   <SlaLineChart data={slaTrend} />
                 </div>
@@ -676,7 +676,7 @@ export default function PerformancePage() {
                 <div className="glass-card p-5 rounded-2xl">
                   <h3 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
                     <ClipboardList className="w-4 h-4 text-blue-400" />
-                    Top 10 Stores — Most Incidents
+                    Top 10 Stores (Most Incidents)
                   </h3>
                   <TopBarChart data={topStores.map(s => ({ label: `${s.storeCode} ${s.storeName}`, value: s.count }))} color="#3b82f6" />
                 </div>
@@ -685,7 +685,7 @@ export default function PerformancePage() {
                 <div className="glass-card p-5 rounded-2xl">
                   <h3 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
                     <Zap className="w-4 h-4 text-amber-400" />
-                    Top 10 Equipment — Most Incidents
+                    Top 10 Equipment (Most Incidents)
                   </h3>
                   <TopBarChart data={topEquipment.map(e => ({ label: e.name, value: e.count }))} color="#f59e0b" />
                 </div>
@@ -914,16 +914,13 @@ function ResolutionTimeCard({ data }: { data: ResolutionTimeStats | null }) {
         )}
       </div>
 
-      {/* Previous month comparison */}
-      {prev !== null && (
-        <div className="pt-3 border-t border-slate-700/50 flex items-center justify-between">
-          <span className="text-xs text-gray-500">
-            {data?.prevPeriod ? formatPeriod(data.prevPeriod) : 'Prev Month'}
-          </span>
-          <span className="text-sm font-medium text-gray-400">{fmtH(prev)}</span>
-        </div>
-      )}
-      <p className="text-xs text-gray-600 mt-1">↓ ยิ่งน้อยยิ่งดี</p>
+      {/* Previous month */}
+      <div className="pt-3 border-t border-slate-700/50 flex items-center justify-between">
+        <span className="text-xs text-gray-500">
+          {data?.prevPeriod ? formatPeriod(data.prevPeriod) : 'Prev Month'}
+        </span>
+        <span className="text-sm font-semibold text-gray-300">{fmtH(prev)}</span>
+      </div>
     </div>
   )
 }
@@ -943,49 +940,111 @@ function TopBarChart({ data, color }: { data: { label: string; value: number }[]
   }, [])
 
   if (data.length === 0) return null
-  const max = Math.max(...data.map(d => d.value), 1)
-  const labelColor = isDark ? '#94a3b8' : '#374151'
-  const valueColor = isDark ? '#ffffff' : '#1e293b'
-  const trackColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.08)'
 
-  const ROW_H = 32
-  const PAD_L = 170
-  const PAD_R = 48
-  const PAD_T = 8
-  const W = 500
-  const chartW = W - PAD_L - PAD_R
-  const H = data.length * ROW_H + PAD_T * 2
+  // ── Vertical 3D bar chart ──────────────────────────────────
+  const n = data.length
+  const max = Math.max(...data.map(d => d.value), 1)
+
+  const PAD_L = 36   // left axis
+  const PAD_R = 12
+  const PAD_T = 16   // top (value labels)
+  const PAD_B = 110  // bottom (45° labels)
+  const COL_W = 44   // column slot width
+  const BAR_W = 28   // bar face width
+  const CHART_H = 180
+  const D3 = 7       // 3D depth offset (px)
+
+  const W = PAD_L + n * COL_W + PAD_R + D3
+  const H = PAD_T + CHART_H + PAD_B
+
+  const labelColor = isDark ? '#94a3b8' : '#475569'
+  const valueColor = isDark ? '#ffffff' : '#1e293b'
+  const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.08)'
+  const axisColor = isDark ? '#334155' : '#cbd5e1'
+
+  // Derive lighter shade for 3D faces
+  const hexToRgb = (h: string) => {
+    const r = parseInt(h.slice(1, 3), 16)
+    const g = parseInt(h.slice(3, 5), 16)
+    const b = parseInt(h.slice(5, 7), 16)
+    return { r, g, b }
+  }
+  const c = hexToRgb(color)
+  const topFace = `rgba(${Math.min(c.r + 60, 255)},${Math.min(c.g + 60, 255)},${Math.min(c.b + 60, 255)},0.9)`
+  const sideFace = `rgba(${Math.max(c.r - 40, 0)},${Math.max(c.g - 40, 0)},${Math.max(c.b - 40, 0)},0.9)`
+
+  // Y grid ticks
+  const yTicks = [0, Math.round(max / 4), Math.round(max / 2), Math.round(max * 3 / 4), max]
+  const getBarY = (v: number) => PAD_T + CHART_H - (v / max) * CHART_H
+  const getBarH = (v: number) => (v / max) * CHART_H
 
   return (
     <div className="w-full overflow-x-auto">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ minWidth: 320, maxHeight: 360 }}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ minWidth: Math.max(W, 280), maxHeight: 380 }}>
+        {/* Y grid lines */}
+        {yTicks.map(t => {
+          const y = getBarY(t)
+          return (
+            <g key={t}>
+              <line x1={PAD_L} x2={PAD_L + n * COL_W} y1={y} y2={y}
+                stroke={t === 0 ? axisColor : gridColor} strokeWidth={t === 0 ? 1.5 : 1} strokeDasharray={t === 0 ? '0' : '3,3'} />
+              <text x={PAD_L - 5} y={y + 4} textAnchor="end" fill={labelColor} fontSize="10">{t}</text>
+            </g>
+          )
+        })}
+
+        {/* Bars */}
         {data.map((d, i) => {
-          const y = PAD_T + i * ROW_H
-          const barW = Math.max((d.value / max) * chartW, 4)
-          const cy = y + ROW_H / 2
+          const bx = PAD_L + i * COL_W + (COL_W - BAR_W) / 2
+          const by = getBarY(d.value)
+          const bh = getBarH(d.value)
 
           // Truncate label
-          const maxChars = 22
-          const label = d.label.length > maxChars ? d.label.slice(0, maxChars - 1) + '…' : d.label
+          const maxChars = 14
+          const lbl = d.label.length > maxChars ? d.label.slice(0, maxChars - 1) + '…' : d.label
+
+          const labelX = bx + BAR_W / 2
+          const labelY = PAD_T + CHART_H + 8
 
           return (
             <g key={i}>
-              {/* Label */}
-              <text x={PAD_L - 8} y={cy + 4} textAnchor="end" fill={labelColor} fontSize="11.5" fontWeight="500">
-                {label}
-              </text>
-              {/* Track */}
-              <rect x={PAD_L} y={cy - 7} width={chartW} height={14} rx="7" fill={trackColor} />
-              {/* Bar */}
-              <rect x={PAD_L} y={cy - 7} width={barW} height={14} rx="7"
-                fill={color} opacity="0.85" />
-              {/* Value */}
-              <text x={PAD_L + barW + 6} y={cy + 4} fill={valueColor} fontSize="12" fontWeight="700">
-                {d.value}
+              {/* 3D top face */}
+              {bh > 0 && (
+                <polygon
+                  points={`${bx},${by} ${bx + D3},${by - D3} ${bx + BAR_W + D3},${by - D3} ${bx + BAR_W},${by}`}
+                  fill={topFace}
+                />
+              )}
+              {/* 3D side face (right) */}
+              {bh > 0 && (
+                <polygon
+                  points={`${bx + BAR_W},${by} ${bx + BAR_W + D3},${by - D3} ${bx + BAR_W + D3},${by + bh - D3} ${bx + BAR_W},${by + bh}`}
+                  fill={sideFace}
+                />
+              )}
+              {/* Front face */}
+              <rect x={bx} y={by} width={BAR_W} height={Math.max(bh, 0)} fill={color} opacity="0.88" />
+
+              {/* Value label on top */}
+              {d.value > 0 && (
+                <text x={bx + BAR_W / 2} y={by - D3 - 4} textAnchor="middle"
+                  fill={valueColor} fontSize="11" fontWeight="700">{d.value}</text>
+              )}
+
+              {/* 45° angled label */}
+              <text
+                x={0} y={0}
+                transform={`translate(${labelX}, ${labelY}) rotate(45)`}
+                textAnchor="start"
+                fill={labelColor} fontSize="11" fontWeight="500">
+                {lbl}
               </text>
             </g>
           )
         })}
+
+        {/* Y axis line */}
+        <line x1={PAD_L} x2={PAD_L} y1={PAD_T} y2={PAD_T + CHART_H} stroke={axisColor} strokeWidth="1.5" />
       </svg>
     </div>
   )
@@ -1028,13 +1087,13 @@ function SlaMetricCard({
         {diff != null && (
           <span className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${isUp ? 'text-green-400 bg-green-500/15' : 'text-red-400 bg-red-500/15'}`}>
             {isUp ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-            {Math.abs(diff).toFixed(1)}%
+            {Math.abs(diff).toFixed(2)}%
           </span>
         )}
       </div>
       <p className="text-xs text-gray-500 mb-3">{label}</p>
       <p className={`text-4xl font-bold ${slaPercent !== null ? slaColor : 'text-gray-600'}`}>
-        {slaPercent !== null ? `${pct.toFixed(1)}%` : '-'}
+        {slaPercent !== null ? `${pct.toFixed(2)}%` : '-'}
       </p>
       <p className="text-xs text-gray-500 mt-1">SLA Compliance</p>
       {total > 0 && (
@@ -1264,7 +1323,6 @@ function SlaLineChart({ data }: { data: SlaTrendEntry[] }) {
   const dotFill = isDark ? '#ffffff' : '#374151'
   const dotStroke = isDark ? '#1e293b' : '#e2e8ef'
   const labelTextColor = isDark ? '#ffffff' : '#1e293b'
-  const labelBg = isDark ? 'rgba(15,23,42,0.85)' : 'rgba(255,255,255,0.92)'
 
   return (
     <div className="w-full overflow-x-auto">
@@ -1296,12 +1354,9 @@ function SlaLineChart({ data }: { data: SlaTrendEntry[] }) {
             const cx = getX(i)
             const cy = getY(d.slaPercent)
             const label = `${d.slaPercent}%`
-            const labelW = label.length * 8.5 + 14
             return (
               <g key={d.period}>
-                {/* Label bg + text */}
-                <rect x={cx - labelW / 2} y={cy - 33} width={labelW} height={20} rx="5"
-                  fill={labelBg} />
+                {/* % label — no background */}
                 <text x={cx} y={cy - 18} textAnchor="middle" fill={labelTextColor}
                   fontSize="13" fontWeight="700">
                   {label}
