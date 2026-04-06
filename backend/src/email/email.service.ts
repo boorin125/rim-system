@@ -209,7 +209,8 @@ export class EmailService {
       let compHtml = '';
       if (hasComp) {
         const compRows = (compParts as any[]).map((part, index) => {
-          const deviceName = part.parentEquipmentName || part.parentEquipment?.name || part.deviceName || '-';
+          // For COMPONENT_REPLACEMENT: Equipment = parent equipment name (NOT the component/deviceName which stores componentName)
+          const deviceName = part.parentEquipment?.name || part.parentEquipmentName || '-';
           const componentLabel = part.componentName || '-';
           const oldSerial = part.oldComponentSerial || '-';
           const newSerial = part.newComponentSerial || '-';

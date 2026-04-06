@@ -188,6 +188,7 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
       for (let i = 0; i < spareParts.length; i++) {
         const part = spareParts[i];
         if (part.repairType === 'COMPONENT_REPLACEMENT') {
+          if (!part.parentEquipmentId && !part.parentEquipmentName?.trim()) return `อะไหล่ #${i + 1}: กรุณาเลือกอุปกรณ์หลัก (Parent Equipment)`;
           if (!part.componentName?.trim()) return `อะไหล่ #${i + 1}: กรุณาระบุชื่อชิ้นส่วน`;
           if (!part.oldComponentSerial?.trim()) return `อะไหล่ #${i + 1}: กรุณาระบุ Serial เดิม`;
           if (!part.newComponentSerial?.trim()) return `อะไหล่ #${i + 1}: กรุณาระบุ Serial ใหม่`;
