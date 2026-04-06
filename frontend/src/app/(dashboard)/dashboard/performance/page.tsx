@@ -493,8 +493,8 @@ export default function PerformancePage() {
         </div>
       </div>
 
-      {/* Previous Month / Current / 12-Month Avg Cards */}
-      {(ytd || ytm || yty) && (
+      {/* Previous Month / Current / 12-Month Avg Cards — Score (Technician view) */}
+      {(isTechnician || isSelfOnly) && (ytd || ytm || yty) && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {ytd && <ComparisonCard data={ytd} icon={Calendar} title="Previous Month" variant="previous" />}
           {ytm && <ComparisonCard data={ytm} icon={Activity} title="Current" variant="current" />}
@@ -556,6 +556,42 @@ export default function PerformancePage() {
       {/* ==================== MANAGER VIEW ==================== */}
       {isManager && (
         <div className="space-y-6">
+          {/* SLA Summary Cards — Previous Month / Current / 12-Month Avg */}
+          {slaTrend.length > 0 && (() => {
+            const cur = slaTrend[slaTrend.length - 1]
+            const prev = slaTrend.length >= 2 ? slaTrend[slaTrend.length - 2] : null
+            const avgSla = slaTrend.reduce((s, d) => s + d.slaPercent, 0) / slaTrend.length
+            const totalSla12m = slaTrend.reduce((s, d) => s + d.slaPass + d.slaFail, 0)
+            const curSla = incidentStats?.slaPercent ?? cur.slaPercent
+            const curTotal = incidentStats ? (incidentStats.slaPass + incidentStats.slaFail) : (cur.slaPass + cur.slaFail)
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <SlaMetricCard
+                  icon={Calendar} title="Previous Month"
+                  label={prev ? formatPeriod(prev.period) : '-'}
+                  slaPercent={prev ? prev.slaPercent : null}
+                  total={prev ? prev.slaPass + prev.slaFail : 0}
+                  variant="previous"
+                />
+                <SlaMetricCard
+                  icon={Activity} title="Current Month"
+                  label={formatPeriod(cur.period)}
+                  slaPercent={curSla}
+                  total={curTotal}
+                  variant="current"
+                  prevSla={prev ? prev.slaPercent : null}
+                />
+                <SlaMetricCard
+                  icon={BarChart3} title="12-Month Avg"
+                  label={`${slaTrend.length} months`}
+                  slaPercent={avgSla}
+                  total={totalSla12m}
+                  variant="yearly"
+                />
+              </div>
+            )
+          })()}
+
           {/* Incident Stats Cards */}
           {incidentStats && (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
@@ -585,7 +621,7 @@ export default function PerformancePage() {
                 <div className="lg:w-[70%] glass-card p-6 rounded-2xl">
                   <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                     <TrendingUp className="w-5 h-5 text-blue-400" />
-                    SLA % Trend (12 เดือน)
+                    Monthly SLA Compliance — 12 Months
                   </h3>
                   <SlaLineChart data={slaTrend} />
                 </div>
@@ -594,96 +630,114 @@ export default function PerformancePage() {
           )}
 
           {/* Leaderboard */}
-          <div className="glass-card rounded-2xl overflow-hidden">
-            <div className="p-6 border-b border-slate-700/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <Trophy className="w-5 h-5 text-yellow-400" />
-                Leaderboard - {period}
-              </h3>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-400">เรียงตาม:</span>
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as any)}
-                  className="px-3 py-1.5 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="score">คะแนน</option>
-                  <option value="workVolume">ปริมาณงาน</option>
-                  <option value="sla">SLA Achieve %</option>
-                </select>
+          {(() => {
+            // Multi-level rank: workVolume → score → slaPercent → original rank (tiebreaker = first in)
+            const ranked = [...leaderboard.filter(e => e.workVolume > 0)]
+              .sort((a, b) => {
+                if (b.workVolume !== a.workVolume) return b.workVolume - a.workVolume
+                if (b.score !== a.score) return b.score - a.score
+                if (b.slaPercent !== a.slaPercent) return b.slaPercent - a.slaPercent
+                return a.rank - b.rank
+              })
+              .map((e, i) => ({ ...e, rank: i + 1 }))
+
+            // Display order (user can re-sort the view but ranks stay fixed)
+            const displayed = [...ranked].sort((a, b) => {
+              if (sortBy === 'sla') return b.slaPercent - a.slaPercent
+              if (sortBy === 'score') return b.score - a.score
+              return a.rank - b.rank // default: by rank (= workVolume-first)
+            })
+
+            return (
+              <div className="glass-card rounded-2xl overflow-hidden">
+                <div className="p-6 border-b border-slate-700/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                    <Trophy className="w-5 h-5 text-yellow-400" />
+                    Leaderboard - {period}
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-400">เรียงตาม:</span>
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value as any)}
+                      className="px-3 py-1.5 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="workVolume">ปริมาณงาน</option>
+                      <option value="sla">SLA Achieve %</option>
+                      <option value="score">คะแนน</option>
+                    </select>
+                  </div>
+                </div>
+                {ranked.length === 0 ? (
+                  <EmptyState msg="ยังไม่มีข้อมูล Performance" sub="คลิก 'คำนวณ Performance' เพื่อคำนวณผลการปฏิบัติงาน" />
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-slate-800/50">
+                        <tr className="border-b border-slate-700/50">
+                          <th className="text-left py-4 px-4 text-sm font-medium text-gray-400 w-16">อันดับ</th>
+                          <th className="text-left py-4 px-4 text-sm font-medium text-gray-400">ชื่อช่าง</th>
+                          <th className="text-center py-4 px-4 text-sm font-medium text-gray-400">
+                            <button onClick={() => setSortBy('workVolume')} className={`flex items-center gap-1 mx-auto hover:text-white transition-colors ${sortBy === 'workVolume' ? 'text-blue-400' : ''}`}>
+                              ปริมาณงาน <ArrowUpDown className="w-3 h-3" />
+                            </button>
+                          </th>
+                          <th className="text-center py-4 px-4 text-sm font-medium text-gray-400">
+                            <button onClick={() => setSortBy('sla')} className={`flex items-center gap-1 mx-auto hover:text-white transition-colors ${sortBy === 'sla' ? 'text-blue-400' : ''}`}>
+                              SLA Achieve % <ArrowUpDown className="w-3 h-3" />
+                            </button>
+                          </th>
+                          <th className="text-center py-4 px-4 text-sm font-medium text-gray-400">
+                            <button onClick={() => setSortBy('score')} className={`flex items-center gap-1 mx-auto hover:text-white transition-colors ${sortBy === 'score' ? 'text-blue-400' : ''}`}>
+                              คะแนน <ArrowUpDown className="w-3 h-3" />
+                            </button>
+                          </th>
+                          <th className="text-center py-4 px-4 text-sm font-medium text-gray-400">เกรด</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {displayed.map((e) => (
+                          <tr key={e.technicianId} onClick={() => viewDetail(e.technicianId)} className="border-b border-slate-700/50 hover:bg-slate-800/30 transition-colors cursor-pointer">
+                            <td className="py-4 px-4">
+                              {e.rank <= 3 ? (
+                                <div className="flex items-center gap-1">
+                                  <Trophy className={`w-5 h-5 ${e.rank === 1 ? 'text-yellow-400' : e.rank === 2 ? 'text-gray-400' : 'text-amber-600'}`} />
+                                  <span className="text-xs text-gray-500">{e.rank}</span>
+                                </div>
+                              ) : (
+                                <span className="text-gray-400 font-medium pl-1">{e.rank}</span>
+                              )}
+                            </td>
+                            <td className="py-4 px-4">
+                              <p className="text-white font-medium">{e.technicianName}</p>
+                              {e.technicianType && <p className="text-xs text-gray-500">{e.technicianType}</p>}
+                            </td>
+                            <td className="py-4 px-4 text-center">
+                              <span className="text-white font-semibold">{e.workVolume}</span>
+                              <span className="text-gray-500 text-xs ml-1">งาน</span>
+                            </td>
+                            <td className="py-4 px-4 text-center">
+                              <span className={`font-semibold ${e.slaPercent >= 95 ? 'text-emerald-400' : e.slaPercent >= 80 ? 'text-yellow-400' : 'text-red-400'}`}>
+                                {e.slaPercent}%
+                              </span>
+                            </td>
+                            <td className="py-4 px-4 text-center">
+                              <span className={`text-lg font-semibold ${scoreColor(e.score)}`}>{e.score.toFixed(1)}</span>
+                            </td>
+                            <td className="py-4 px-4 text-center">
+                              <span className={`inline-flex px-3 py-1 text-sm font-bold rounded-full border ${GRADE_COLORS[e.grade] || 'bg-gray-500/20 text-gray-400'}`}>
+                                {e.grade}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
-            </div>
-            {leaderboard.filter(e => e.workVolume > 0).length === 0 ? (
-              <EmptyState msg="ยังไม่มีข้อมูล Performance" sub="คลิก 'คำนวณ Performance' เพื่อคำนวณผลการปฏิบัติงาน" />
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-slate-800/50">
-                    <tr className="border-b border-slate-700/50">
-                      <th className="text-left py-4 px-4 text-sm font-medium text-gray-400 w-16">อันดับ</th>
-                      <th className="text-left py-4 px-4 text-sm font-medium text-gray-400">ชื่อช่าง</th>
-                      <th className="text-center py-4 px-4 text-sm font-medium text-gray-400">
-                        <button onClick={() => setSortBy('workVolume')} className={`flex items-center gap-1 mx-auto hover:text-white transition-colors ${sortBy === 'workVolume' ? 'text-blue-400' : ''}`}>
-                          ปริมาณงาน
-                          <ArrowUpDown className="w-3 h-3" />
-                        </button>
-                      </th>
-                      <th className="text-center py-4 px-4 text-sm font-medium text-gray-400">
-                        <button onClick={() => setSortBy('sla')} className={`flex items-center gap-1 mx-auto hover:text-white transition-colors ${sortBy === 'sla' ? 'text-blue-400' : ''}`}>
-                          SLA Achieve %
-                          <ArrowUpDown className="w-3 h-3" />
-                        </button>
-                      </th>
-                      <th className="text-center py-4 px-4 text-sm font-medium text-gray-400">
-                        <button onClick={() => setSortBy('score')} className={`flex items-center gap-1 mx-auto hover:text-white transition-colors ${sortBy === 'score' ? 'text-blue-400' : ''}`}>
-                          คะแนน
-                          <ArrowUpDown className="w-3 h-3" />
-                        </button>
-                      </th>
-                      <th className="text-center py-4 px-4 text-sm font-medium text-gray-400">เกรด</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {leaderboard.filter(e => e.workVolume > 0).map((e) => (
-                      <tr key={e.technicianId} onClick={() => viewDetail(e.technicianId)} className="border-b border-slate-700/50 hover:bg-slate-800/30 transition-colors cursor-pointer">
-                        <td className="py-4 px-4">
-                          {e.rank <= 3 ? (
-                            <div className="flex items-center gap-1">
-                              <Trophy className={`w-5 h-5 ${e.rank === 1 ? 'text-yellow-400' : e.rank === 2 ? 'text-gray-400' : 'text-amber-600'}`} />
-                              <span className="text-xs text-gray-500">{e.rank}</span>
-                            </div>
-                          ) : (
-                            <span className="text-gray-400 font-medium pl-1">{e.rank}</span>
-                          )}
-                        </td>
-                        <td className="py-4 px-4">
-                          <p className="text-white font-medium">{e.technicianName}</p>
-                          {e.technicianType && <p className="text-xs text-gray-500">{e.technicianType}</p>}
-                        </td>
-                        <td className="py-4 px-4 text-center">
-                          <span className="text-white font-semibold">{e.workVolume}</span>
-                          <span className="text-gray-500 text-xs ml-1">งาน</span>
-                        </td>
-                        <td className="py-4 px-4 text-center">
-                          <span className={`font-semibold ${e.slaPercent >= 95 ? 'text-emerald-400' : e.slaPercent >= 80 ? 'text-yellow-400' : 'text-red-400'}`}>
-                            {e.slaPercent}%
-                          </span>
-                        </td>
-                        <td className="py-4 px-4 text-center">
-                          <span className={`text-lg font-semibold ${scoreColor(e.score)}`}>{e.score.toFixed(1)}</span>
-                        </td>
-                        <td className="py-4 px-4 text-center">
-                          <span className={`inline-flex px-3 py-1 text-sm font-bold rounded-full border ${GRADE_COLORS[e.grade] || 'bg-gray-500/20 text-gray-400'}`}>
-                            {e.grade}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+            )
+          })()}
         </div>
       )}
 
@@ -703,6 +757,72 @@ export default function PerformancePage() {
               <PerformanceDetail data={selectedPerformance} fmtTime={fmtTime} fmtPct={fmtPct} barColor={barColor} />
             </div>
           </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ==================== HELPERS ====================
+
+function formatPeriod(p: string): string {
+  const [y, m] = p.split('-')
+  const months = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  return `${months[parseInt(m)] || m} ${y}`
+}
+
+// ==================== SLA METRIC CARD (manager summary) ====================
+
+function SlaMetricCard({
+  icon: Icon,
+  title,
+  label,
+  slaPercent,
+  total,
+  variant,
+  prevSla,
+}: {
+  icon: React.ElementType
+  title: string
+  label: string
+  slaPercent: number | null
+  total: number
+  variant: 'previous' | 'current' | 'yearly'
+  prevSla?: number | null
+}) {
+  const pct = slaPercent ?? 0
+  const slaColor = pct >= 95 ? 'text-emerald-400' : pct >= 80 ? 'text-yellow-400' : 'text-red-400'
+  const iconColor = variant === 'current' ? 'text-blue-400' : variant === 'yearly' ? 'text-purple-400' : 'text-gray-400'
+  const borderCls = variant === 'current' ? 'border border-blue-500/20' : ''
+
+  const diff = variant === 'current' && prevSla != null ? pct - prevSla : null
+  const isUp = diff != null && diff >= 0
+
+  return (
+    <div className={`glass-card p-5 rounded-xl ${borderCls}`}>
+      <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center gap-2">
+          <Icon className={`w-5 h-5 ${iconColor}`} />
+          <span className="text-sm font-medium text-gray-300">{title}</span>
+        </div>
+        {diff != null && (
+          <span className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${isUp ? 'text-green-400 bg-green-500/15' : 'text-red-400 bg-red-500/15'}`}>
+            {isUp ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+            {Math.abs(diff).toFixed(1)}%
+          </span>
+        )}
+      </div>
+      <p className="text-xs text-gray-500 mb-3">{label}</p>
+      <p className={`text-4xl font-bold ${slaPercent !== null ? slaColor : 'text-gray-600'}`}>
+        {slaPercent !== null ? `${pct.toFixed(1)}%` : '-'}
+      </p>
+      <p className="text-xs text-gray-500 mt-1">SLA Compliance</p>
+      {total > 0 && (
+        <div className="mt-3 pt-3 border-t border-slate-700/50 flex items-center gap-1.5">
+          <ShieldCheck className="w-3.5 h-3.5 text-gray-500" />
+          <span className="text-xs text-gray-400">
+            <span className="font-semibold text-white">{total.toLocaleString()}</span> incidents (SLA tracked)
+          </span>
         </div>
       )}
     </div>
@@ -891,9 +1011,9 @@ function SlaLineChart({ data }: { data: SlaTrendEntry[] }) {
   }, [])
 
   const colW = 76
-  const padL = 44, padR = 20, padT = 36, padB = 40
+  const padL = 56, padR = 20, padT = 44, padB = 50
   const svgW = Math.max(colW * data.length + padL + padR, 600)
-  const height = 300
+  const height = 320
   const chartW = svgW - padL - padR
   const chartH = height - padT - padB
 
@@ -920,14 +1040,16 @@ function SlaLineChart({ data }: { data: SlaTrendEntry[] }) {
   }
 
   const gridColor = isDark ? '#334155' : '#cbd5e1'
-  const axisTextColor = isDark ? '#64748b' : '#475569'
-  const dotStroke = isDark ? '#1e293b' : '#ffffff'
-  const labelBg = isDark ? 'rgba(15,23,42,0.8)' : 'rgba(255,255,255,0.9)'
+  const axisTextColor = isDark ? '#94a3b8' : '#374151'
+  const dotFill = isDark ? '#ffffff' : '#374151'
+  const dotStroke = isDark ? '#1e293b' : '#e2e8ef'
+  const labelTextColor = isDark ? '#ffffff' : '#1e293b'
+  const labelBg = isDark ? 'rgba(15,23,42,0.85)' : 'rgba(255,255,255,0.92)'
 
   return (
     <div className="w-full overflow-x-auto">
       <div style={{ minWidth: `${svgW}px` }}>
-        <svg viewBox={`0 0 ${svgW} ${height}`} className="w-full" style={{ height: `${height}px` }}>
+        <svg viewBox={`0 0 ${svgW} ${height}`} className="w-full" style={{ height: `${height + 20}px` }}>
           <defs>
             <linearGradient id="slaGradient" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.35" />
@@ -940,7 +1062,7 @@ function SlaLineChart({ data }: { data: SlaTrendEntry[] }) {
             <g key={v}>
               <line x1={padL} x2={svgW - padR} y1={getY(v)} y2={getY(v)}
                 stroke={gridColor} strokeWidth="1" strokeDasharray="4,4" />
-              <text x={padL - 8} y={getY(v) + 4} textAnchor="end" fill={axisTextColor} fontSize="11">{v}%</text>
+              <text x={padL - 10} y={getY(v) + 5} textAnchor="end" fill={axisTextColor} fontSize="13" fontWeight="500">{v}%</text>
             </g>
           ))}
 
@@ -954,20 +1076,22 @@ function SlaLineChart({ data }: { data: SlaTrendEntry[] }) {
             const cx = getX(i)
             const cy = getY(d.slaPercent)
             const label = `${d.slaPercent}%`
-            const labelW = label.length * 8 + 12
+            const labelW = label.length * 8.5 + 14
             return (
               <g key={d.period}>
                 {/* Label bg + text */}
-                <rect x={cx - labelW / 2} y={cy - 30} width={labelW} height={18} rx="5"
+                <rect x={cx - labelW / 2} y={cy - 33} width={labelW} height={20} rx="5"
                   fill={labelBg} />
-                <text x={cx} y={cy - 17} textAnchor="middle" fill="#3b82f6"
+                <text x={cx} y={cy - 18} textAnchor="middle" fill={labelTextColor}
                   fontSize="13" fontWeight="700">
                   {label}
                 </text>
+                {/* Dot glow */}
+                <circle cx={cx} cy={cy} r="9" fill={dotFill} opacity="0.15" />
                 {/* Dot */}
-                <circle cx={cx} cy={cy} r="5.5" fill="#3b82f6" stroke={dotStroke} strokeWidth="2.5" />
+                <circle cx={cx} cy={cy} r="5.5" fill={dotFill} stroke={dotStroke} strokeWidth="2.5" />
                 {/* X axis label */}
-                <text x={cx} y={height - 6} textAnchor="middle" fill={axisTextColor} fontSize="11">
+                <text x={cx} y={height - 8} textAnchor="middle" fill={axisTextColor} fontSize="13" fontWeight="500">
                   {fmtPeriod(d.period)}
                 </text>
               </g>
