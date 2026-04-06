@@ -136,6 +136,18 @@ interface SlaTrendEntry {
   slaFail: number
 }
 
+interface TopStoreEntry {
+  storeId: number
+  storeCode: string
+  storeName: string
+  count: number
+}
+
+interface TopEquipmentEntry {
+  name: string
+  count: number
+}
+
 interface HistoryEntry {
   period: string
   score: number
@@ -227,8 +239,13 @@ export default function PerformancePage() {
   const [ytm, setYtm] = useState<ComparisonData | null>(null)
   const [yty, setYty] = useState<ComparisonData | null>(null)
 
-  // Leaderboard sort
+  // Leaderboard sort + type filter
   const [sortBy, setSortBy] = useState<'score' | 'workVolume' | 'sla'>('workVolume')
+  const [techTypeFilter, setTechTypeFilter] = useState<'all' | 'INSOURCE' | 'OUTSOURCE'>('all')
+
+  // Top stores / equipment
+  const [topStores, setTopStores] = useState<TopStoreEntry[]>([])
+  const [topEquipment, setTopEquipment] = useState<TopEquipmentEntry[]>([])
 
   // Detail modal
   const [selectedPerformance, setSelectedPerformance] = useState<PerformanceData | null>(null)
@@ -318,14 +335,18 @@ export default function PerformancePage() {
           axios.get(`${api}/performance/ytd`, cfg).catch(() => null),
           axios.get(`${api}/performance/ytm`, cfg).catch(() => null),
           axios.get(`${api}/performance/yty`, cfg).catch(() => null),
+          axios.get(`${api}/performance/top-stores?period=${period}&limit=10${jtParam}`, cfg).catch(() => null),
+          axios.get(`${api}/performance/top-equipment?period=${period}&limit=10${jtParam}`, cfg).catch(() => null),
         ]
-        const [lbRes, statsRes, trendRes, ytdRes, ytmRes, ytyRes] = await Promise.all(calls)
+        const [lbRes, statsRes, trendRes, ytdRes, ytmRes, ytyRes, topStoresRes, topEquipRes] = await Promise.all(calls)
         setLeaderboard(lbRes?.data || [])
         setIncidentStats(statsRes?.data || null)
         setSlaTrend(trendRes?.data || [])
         setYtd(ytdRes?.data || null)
         setYtm(ytmRes?.data || null)
         setYty(ytyRes?.data || null)
+        setTopStores(topStoresRes?.data || [])
+        setTopEquipment(topEquipRes?.data || [])
       }
     } catch (err) {
       console.error('Error loading performance:', err)
@@ -629,6 +650,30 @@ export default function PerformancePage() {
             </div>
           )}
 
+          {/* Top 10 Store + Top 10 Equipment charts */}
+          {(topStores.length > 0 || topEquipment.length > 0) && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {topStores.length > 0 && (
+                <div className="glass-card p-5 rounded-2xl">
+                  <h3 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
+                    <ClipboardList className="w-4 h-4 text-blue-400" />
+                    Top 10 Stores — Most Incidents
+                  </h3>
+                  <TopBarChart data={topStores.map(s => ({ label: `${s.storeCode} ${s.storeName}`, value: s.count }))} color="#3b82f6" />
+                </div>
+              )}
+              {topEquipment.length > 0 && (
+                <div className="glass-card p-5 rounded-2xl">
+                  <h3 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-amber-400" />
+                    Top 10 Equipment — Most Incidents
+                  </h3>
+                  <TopBarChart data={topEquipment.map(e => ({ label: e.name, value: e.count }))} color="#f59e0b" />
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Leaderboard */}
           {(() => {
             // Multi-level rank: workVolume → score → slaPercent → original rank (tiebreaker = first in)
@@ -641,8 +686,13 @@ export default function PerformancePage() {
               })
               .map((e, i) => ({ ...e, rank: i + 1 }))
 
+            // Apply type filter
+            const typeFiltered = techTypeFilter === 'all'
+              ? ranked
+              : ranked.filter(e => (e.technicianType ?? 'INSOURCE') === techTypeFilter)
+
             // Display order (user can re-sort the view but ranks stay fixed)
-            const displayed = [...ranked].sort((a, b) => {
+            const displayed = [...typeFiltered].sort((a, b) => {
               if (sortBy === 'sla') return b.slaPercent - a.slaPercent
               if (sortBy === 'score') return b.score - a.score
               return a.rank - b.rank // default: by rank (= workVolume-first)
@@ -650,13 +700,14 @@ export default function PerformancePage() {
 
             return (
               <div className="glass-card rounded-2xl overflow-hidden">
-                <div className="p-6 border-b border-slate-700/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                    <Trophy className="w-5 h-5 text-yellow-400" />
-                    Leaderboard - {period}
-                  </h3>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-400">เรียงตาม:</span>
+                <div className="p-4 sm:p-6 border-b border-slate-700/50 flex flex-col gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                      <Trophy className="w-5 h-5 text-yellow-400" />
+                      Leaderboard - {period}
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-400">เรียงตาม:</span>
                     <select
                       value={sortBy}
                       onChange={(e) => setSortBy(e.target.value as any)}
@@ -666,6 +717,30 @@ export default function PerformancePage() {
                       <option value="sla">SLA Achieve %</option>
                       <option value="score">คะแนน</option>
                     </select>
+                  </div>
+                  </div>
+                  {/* Type filter checkboxes */}
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <span className="text-xs text-gray-400 font-medium">แสดง:</span>
+                    {(['all', 'INSOURCE', 'OUTSOURCE'] as const).map(type => {
+                      const label = type === 'all' ? 'ทั้งหมด' : type === 'INSOURCE' ? 'Inhouse' : 'Outsource'
+                      const dotColor = type === 'INSOURCE' ? 'bg-blue-500' : type === 'OUTSOURCE' ? 'bg-purple-500' : 'bg-gray-500'
+                      return (
+                        <label key={type} className="flex items-center gap-2 cursor-pointer group">
+                          <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${techTypeFilter === type ? 'border-blue-500 bg-blue-500' : 'border-slate-500 bg-transparent'}`}
+                            onClick={() => setTechTypeFilter(type)}>
+                            {techTypeFilter === type && <CheckCircle2 className="w-3 h-3 text-white" />}
+                          </div>
+                          {type !== 'all' && <span className={`w-2 h-2 rounded-full ${dotColor}`} />}
+                          <span className={`text-sm transition-colors ${techTypeFilter === type ? 'text-white font-medium' : 'text-gray-400 group-hover:text-gray-200'}`}>{label}</span>
+                        </label>
+                      )
+                    })}
+                    {techTypeFilter !== 'all' && (
+                      <span className="text-xs text-gray-500 ml-1">
+                        ({typeFiltered.length} คน)
+                      </span>
+                    )}
                   </div>
                 </div>
                 {ranked.length === 0 ? (
@@ -769,6 +844,69 @@ function formatPeriod(p: string): string {
   const [y, m] = p.split('-')
   const months = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
   return `${months[parseInt(m)] || m} ${y}`
+}
+
+// ==================== TOP BAR CHART (stores / equipment) ====================
+
+function TopBarChart({ data, color }: { data: { label: string; value: number }[]; color: string }) {
+  const [isDark, setIsDark] = useState(() =>
+    typeof window === 'undefined' || !document.documentElement.classList.contains('light')
+  )
+  useEffect(() => {
+    const obs = new MutationObserver(() =>
+      setIsDark(!document.documentElement.classList.contains('light'))
+    )
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => obs.disconnect()
+  }, [])
+
+  if (data.length === 0) return null
+  const max = Math.max(...data.map(d => d.value), 1)
+  const labelColor = isDark ? '#94a3b8' : '#374151'
+  const valueColor = isDark ? '#ffffff' : '#1e293b'
+  const trackColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.08)'
+
+  const ROW_H = 32
+  const PAD_L = 170
+  const PAD_R = 48
+  const PAD_T = 8
+  const W = 500
+  const chartW = W - PAD_L - PAD_R
+  const H = data.length * ROW_H + PAD_T * 2
+
+  return (
+    <div className="w-full overflow-x-auto">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ minWidth: 320, maxHeight: 360 }}>
+        {data.map((d, i) => {
+          const y = PAD_T + i * ROW_H
+          const barW = Math.max((d.value / max) * chartW, 4)
+          const cy = y + ROW_H / 2
+
+          // Truncate label
+          const maxChars = 22
+          const label = d.label.length > maxChars ? d.label.slice(0, maxChars - 1) + '…' : d.label
+
+          return (
+            <g key={i}>
+              {/* Label */}
+              <text x={PAD_L - 8} y={cy + 4} textAnchor="end" fill={labelColor} fontSize="11.5" fontWeight="500">
+                {label}
+              </text>
+              {/* Track */}
+              <rect x={PAD_L} y={cy - 7} width={chartW} height={14} rx="7" fill={trackColor} />
+              {/* Bar */}
+              <rect x={PAD_L} y={cy - 7} width={barW} height={14} rx="7"
+                fill={color} opacity="0.85" />
+              {/* Value */}
+              <text x={PAD_L + barW + 6} y={cy + 4} fill={valueColor} fontSize="12" fontWeight="700">
+                {d.value}
+              </text>
+            </g>
+          )
+        })}
+      </svg>
+    </div>
+  )
 }
 
 // ==================== SLA METRIC CARD (manager summary) ====================

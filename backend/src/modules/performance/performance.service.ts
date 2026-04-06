@@ -858,6 +858,85 @@ export class PerformanceService {
     };
   }
 
+  /**
+   * Get Top N Stores by Incident Count for a period
+   */
+  async getTopStores(period?: string, limit = 10, jobTypes?: string[]) {
+    const targetPeriod = period || this.getCurrentPeriod();
+    const [year, month] = targetPeriod.split('-').map(Number);
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59);
+
+    const incidents = await this.prisma.incident.findMany({
+      where: {
+        createdAt: { gte: startDate, lte: endDate },
+        ...(jobTypes && jobTypes.length > 0 ? { jobType: { in: jobTypes } } : {}),
+      },
+      select: {
+        storeId: true,
+        storeName: true,
+        storeCode: true,
+      },
+    });
+
+    const countMap = new Map<number, { count: number; name: string; code: string }>();
+    for (const inc of incidents) {
+      if (!inc.storeId) continue;
+      const entry = countMap.get(inc.storeId);
+      if (entry) {
+        entry.count++;
+      } else {
+        countMap.set(inc.storeId, {
+          count: 1,
+          name: inc.storeName || `Store ${inc.storeId}`,
+          code: inc.storeCode || String(inc.storeId),
+        });
+      }
+    }
+
+    return Array.from(countMap.entries())
+      .map(([id, v]) => ({ storeId: id, storeCode: v.code, storeName: v.name, count: v.count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, limit);
+  }
+
+  /**
+   * Get Top N Equipment by Incident Count for a period
+   */
+  async getTopEquipment(period?: string, limit = 10, jobTypes?: string[]) {
+    const targetPeriod = period || this.getCurrentPeriod();
+    const [year, month] = targetPeriod.split('-').map(Number);
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59);
+
+    const incidents = await this.prisma.incident.findMany({
+      where: {
+        createdAt: { gte: startDate, lte: endDate },
+        ...(jobTypes && jobTypes.length > 0 ? { jobType: { in: jobTypes } } : {}),
+      },
+      select: {
+        equipmentId: true,
+        equipment: { select: { id: true, name: true, brand: true, model: true } },
+      },
+    });
+
+    const countMap = new Map<string, { count: number; label: string }>();
+    for (const inc of incidents) {
+      if (!inc.equipmentId || !inc.equipment) continue;
+      const key = `eq_${inc.equipmentId}`;
+      const brandModel = [inc.equipment.brand, inc.equipment.model].filter(Boolean).join(' ');
+      const label = inc.equipment.name || brandModel || `Equipment ${inc.equipmentId}`;
+      const entry = countMap.get(key);
+      if (entry) entry.count++;
+      else countMap.set(key, { count: 1, label });
+    }
+
+    return Array.from(countMap.entries())
+      .map(([, v]) => ({ name: v.label, count: v.count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, limit);
+  }
+
   // Helper: average score from an array of performance records
   private avgScore(scores: any[]): number {
     if (scores.length === 0) return 0;

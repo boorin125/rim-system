@@ -146,6 +146,36 @@ export class PerformanceController {
   }
 
   /**
+   * Get Top Stores by Incident Count
+   * Access: IT_MANAGER, SUPERVISOR, HELP_DESK
+   */
+  @Get('top-stores')
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK)
+  async getTopStores(
+    @Query('period') period?: string,
+    @Query('limit') limit?: string,
+    @Query('jobTypes') jobTypes?: string,
+  ) {
+    const parsed = jobTypes ? jobTypes.split(',').map(s => s.trim()).filter(Boolean) : undefined;
+    return this.performanceService.getTopStores(period, limit ? parseInt(limit) : 10, parsed);
+  }
+
+  /**
+   * Get Top Equipment by Incident Count
+   * Access: IT_MANAGER, SUPERVISOR, HELP_DESK
+   */
+  @Get('top-equipment')
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK)
+  async getTopEquipment(
+    @Query('period') period?: string,
+    @Query('limit') limit?: string,
+    @Query('jobTypes') jobTypes?: string,
+  ) {
+    const parsed = jobTypes ? jobTypes.split(',').map(s => s.trim()).filter(Boolean) : undefined;
+    return this.performanceService.getTopEquipment(period, limit ? parseInt(limit) : 10, parsed);
+  }
+
+  /**
    * Get Team Statistics
    * Access: IT_MANAGER, SUPERVISOR, HELP_DESK
    */
