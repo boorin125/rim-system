@@ -1,7 +1,7 @@
 // src/incidents/incidents-public.controller.ts
 // Public read-only Incident View (No Authentication)
 
-import { Controller, Get, Param, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Param, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Controller('public/incidents')
@@ -53,6 +53,13 @@ export class IncidentsPublicController {
             oldSerialNo: true,
             newSerialNo: true,
             repairType: true,
+            componentName: true,
+            oldComponentSerial: true,
+            newComponentSerial: true,
+            newBrand: true,
+            newModel: true,
+            oldEquipmentId: true,
+            parentEquipmentId: true,
           },
         },
         rating: {
@@ -72,15 +79,50 @@ export class IncidentsPublicController {
       throw new NotFoundException('ไม่พบข้อมูล Incident หรือลิงก์ไม่ถูกต้อง');
     }
 
-    // Fetch organization name from settings
-    const orgConfig = await this.prisma.systemConfig.findUnique({
-      where: { key: 'organization_name' },
+    // Fetch organization name + logo from settings
+    const orgConfigs = await this.prisma.systemConfig.findMany({
+      where: { key: { in: ['organization_name', 'organization_logo'] } },
     });
-    const organizationName = orgConfig?.value || 'Incident Management';
+    const orgCfgMap: Record<string, string> = {};
+    orgConfigs.forEach(c => { orgCfgMap[c.key] = c.value; });
+    const organizationName = orgCfgMap['organization_name'] || 'Incident Management';
+    const organizationLogo = orgCfgMap['organization_logo'] || '';
+
+    // Enrich spare parts with Equipment DB data
+    const rawParts = incident.spareParts;
+    const equipIds = rawParts
+      .flatMap((sp: any) => [sp.oldEquipmentId, sp.parentEquipmentId])
+      .filter(Boolean) as number[];
+    const equipMap = new Map<number, any>();
+    if (equipIds.length > 0) {
+      const equipments = await this.prisma.equipment.findMany({
+        where: { id: { in: equipIds } },
+        select: { id: true, name: true, brand: true, model: true },
+      });
+      equipments.forEach(e => equipMap.set(e.id, e));
+    }
+    const enrichedSpareParts = rawParts.map((sp: any) => {
+      const oldEquip = sp.oldEquipmentId ? (equipMap.get(sp.oldEquipmentId) ?? null) : null;
+      const parentEquip = sp.parentEquipmentId ? (equipMap.get(sp.parentEquipmentId) ?? null) : null;
+      return {
+        repairType: sp.repairType,
+        deviceName: sp.deviceName,
+        oldSerialNo: sp.oldSerialNo,
+        newSerialNo: sp.newSerialNo,
+        equipmentName: oldEquip?.name || sp.deviceName || '',
+        oldBrandModel: [oldEquip?.brand, oldEquip?.model].filter(Boolean).join(' ') || '',
+        newBrandModel: [sp.newBrand, sp.newModel].filter(Boolean).join(' ') || '',
+        componentName: sp.componentName || '',
+        oldComponentSerial: sp.oldComponentSerial || '',
+        newComponentSerial: sp.newComponentSerial || '',
+        parentEquipmentName: parentEquip?.name || sp.deviceName || '',
+      };
+    });
 
     // Return sanitized public data (no internal IDs, no sensitive info)
     return {
       organizationName,
+      organizationLogo,
       ticketNumber: incident.ticketNumber,
       title: incident.title,
       description: incident.description,
@@ -104,12 +146,7 @@ export class IncidentsPublicController {
       } : null,
       resolutionNote: incident.resolutionNote,
       usedSpareParts: incident.usedSpareParts,
-      spareParts: incident.spareParts.map(sp => ({
-        deviceName: sp.deviceName,
-        oldSerialNo: sp.oldSerialNo,
-        newSerialNo: sp.newSerialNo,
-        repairType: sp.repairType,
-      })),
+      spareParts: enrichedSpareParts,
       beforePhotos: incident.beforePhotos,
       afterPhotos: incident.afterPhotos,
       createdAt: incident.createdAt,

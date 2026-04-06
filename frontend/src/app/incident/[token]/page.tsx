@@ -24,6 +24,7 @@ import { getPhotoUrl } from '@/utils/photoUtils'
 
 interface PublicIncident {
   organizationName?: string
+  organizationLogo?: string
   ticketNumber: string
   title: string
   description?: string
@@ -43,10 +44,17 @@ interface PublicIncident {
   resolutionNote?: string
   usedSpareParts: boolean
   spareParts: {
+    repairType: string
     deviceName: string
     oldSerialNo: string
     newSerialNo: string
-    repairType: string
+    equipmentName?: string
+    oldBrandModel?: string
+    newBrandModel?: string
+    componentName?: string
+    oldComponentSerial?: string
+    newComponentSerial?: string
+    parentEquipmentName?: string | null
   }[]
   beforePhotos?: string[]
   afterPhotos?: string[]
@@ -148,9 +156,24 @@ export default function PublicIncidentPage() {
 
       <div className="relative z-10 max-w-3xl mx-auto p-6 py-10">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white">Incident Details</h1>
-          <p className="text-gray-400 mt-2">{incident.organizationName ? `${incident.organizationName} Incident Management` : 'Incident Management'}</p>
+        <div className="glass-card rounded-2xl p-5 mb-6 flex items-center gap-4">
+          {incident.organizationLogo ? (
+            <img
+              src={`${(process.env.NEXT_PUBLIC_API_URL || '').replace('/api', '')}${incident.organizationLogo}`}
+              alt="Logo"
+              className="h-14 w-auto object-contain shrink-0"
+            />
+          ) : (
+            <div className="w-14 h-14 bg-slate-700/60 rounded-xl flex items-center justify-center shrink-0">
+              <FileText className="w-7 h-7 text-emerald-400" />
+            </div>
+          )}
+          <div>
+            <h1 className="text-xl font-bold text-white">Incident Details</h1>
+            <p className="text-gray-400 text-sm mt-0.5">
+              {incident.organizationName ? `${incident.organizationName} Incident Management` : 'Incident Management'}
+            </p>
+          </div>
         </div>
 
         {/* Main Card */}
@@ -220,42 +243,88 @@ export default function PublicIncidentPage() {
             )}
 
             {/* ── Section 4: Spare Parts ── */}
-            {incident.usedSpareParts && incident.spareParts.length > 0 && (
-              <>
-                <SectionHeader icon={Wrench} title="ชิ้นส่วนที่เปลี่ยน / Spare Parts" />
-                <div className="p-4 mb-2 overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-emerald-900/30 border border-emerald-800/50">
-                        <th className="text-center py-2 px-3 text-emerald-400 font-semibold">#</th>
-                        <th className="text-left py-2 px-3 text-emerald-400 font-semibold">Old Equipment</th>
-                        <th className="text-left py-2 px-3 text-emerald-400 font-semibold">Old Serial No.</th>
-                        <th className="text-center py-2 px-3 text-emerald-400 w-8"></th>
-                        <th className="text-left py-2 px-3 text-emerald-400 font-semibold">New Equipment</th>
-                        <th className="text-left py-2 px-3 text-emerald-400 font-semibold">New Serial No.</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {incident.spareParts.map((sp, idx) => {
-                        const names = sp.deviceName?.includes(' → ')
-                          ? sp.deviceName.split(' → ')
-                          : [sp.deviceName, sp.deviceName]
-                        return (
-                          <tr key={idx} className="border-b border-slate-700/30 hover:bg-slate-800/30">
-                            <td className="py-2 px-3 text-center text-gray-500">{idx + 1}</td>
-                            <td className="py-2 px-3 text-gray-300">{(names[0] || '').trim()}</td>
-                            <td className="py-2 px-3 text-gray-400 font-mono text-xs">{sp.oldSerialNo}</td>
-                            <td className="py-2 px-3 text-center text-emerald-400 font-bold">→</td>
-                            <td className="py-2 px-3 text-white font-medium">{(names[1] || names[0] || '').trim()}</td>
-                            <td className="py-2 px-3 text-emerald-400 font-mono text-xs">{sp.newSerialNo}</td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            )}
+            {incident.usedSpareParts && incident.spareParts.length > 0 && (() => {
+              const equipParts = incident.spareParts.filter(sp => sp.repairType !== 'COMPONENT_REPLACEMENT')
+              const compParts = incident.spareParts.filter(sp => sp.repairType === 'COMPONENT_REPLACEMENT')
+              return (
+                <>
+                  <SectionHeader icon={Wrench} title="ชิ้นส่วนที่เปลี่ยน / Spare Parts" />
+                  <div className="p-4 mb-2 space-y-4">
+
+                    {/* Table 1: Device Used (EQUIPMENT_REPLACEMENT) */}
+                    {(equipParts.length > 0 || compParts.length === 0) && (
+                      <div>
+                        {compParts.length > 0 && (
+                          <p className="text-xs text-gray-500 mb-2 font-medium">Device Used (เปลี่ยนอุปกรณ์ใหม่)</p>
+                        )}
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="bg-emerald-900/30">
+                                <th className="text-center py-2 px-3 text-emerald-400 font-semibold border border-emerald-800/50 w-8">#</th>
+                                <th className="text-left py-2 px-3 text-emerald-400 font-semibold border border-emerald-800/50">Equipment</th>
+                                <th className="text-left py-2 px-3 text-emerald-400 font-semibold border border-emerald-800/50">Old Brand/Model</th>
+                                <th className="text-left py-2 px-3 text-emerald-400 font-semibold border border-emerald-800/50">Old Serial No.</th>
+                                <th className="text-left py-2 px-3 text-emerald-400 font-semibold border border-emerald-800/50">New Brand/Model</th>
+                                <th className="text-left py-2 px-3 text-emerald-400 font-semibold border border-emerald-800/50">New Serial No.</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {equipParts.map((sp, idx) => (
+                                <tr key={idx} className="border-b border-slate-700/30 hover:bg-slate-800/30">
+                                  <td className="py-2 px-3 text-center text-gray-500 border border-slate-700/30">{idx + 1}</td>
+                                  <td className="py-2 px-3 text-white font-medium border border-slate-700/30">{sp.equipmentName || sp.deviceName || '-'}</td>
+                                  <td className="py-2 px-3 text-gray-400 border border-slate-700/30">{sp.oldBrandModel || '-'}</td>
+                                  <td className="py-2 px-3 text-gray-400 font-mono text-xs border border-slate-700/30">{sp.oldSerialNo || '-'}</td>
+                                  <td className="py-2 px-3 text-gray-300 border border-slate-700/30">{sp.newBrandModel || '-'}</td>
+                                  <td className="py-2 px-3 text-emerald-400 font-mono text-xs border border-slate-700/30">{sp.newSerialNo || '-'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Table 2: Spare Part Used (COMPONENT_REPLACEMENT) */}
+                    {compParts.length > 0 && (
+                      <div>
+                        {equipParts.length > 0 && (
+                          <p className="text-xs text-gray-500 mb-2 font-medium">Spare Part Used (เปลี่ยนชิ้นส่วน)</p>
+                        )}
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="bg-emerald-900/30">
+                                <th className="text-center py-2 px-3 text-emerald-400 font-semibold border border-emerald-800/50 w-8">#</th>
+                                <th className="text-left py-2 px-3 text-emerald-400 font-semibold border border-emerald-800/50">Equipment</th>
+                                <th className="text-left py-2 px-3 text-emerald-400 font-semibold border border-emerald-800/50">Old Part</th>
+                                <th className="text-left py-2 px-3 text-emerald-400 font-semibold border border-emerald-800/50">Old Serial No.</th>
+                                <th className="text-left py-2 px-3 text-emerald-400 font-semibold border border-emerald-800/50">New Part</th>
+                                <th className="text-left py-2 px-3 text-emerald-400 font-semibold border border-emerald-800/50">New Serial No.</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {compParts.map((sp, idx) => (
+                                <tr key={idx} className="border-b border-slate-700/30 hover:bg-slate-800/30">
+                                  <td className="py-2 px-3 text-center text-gray-500 border border-slate-700/30">{idx + 1}</td>
+                                  <td className="py-2 px-3 text-white font-medium border border-slate-700/30">{sp.parentEquipmentName || sp.deviceName || '-'}</td>
+                                  <td className="py-2 px-3 text-gray-400 border border-slate-700/30">{sp.componentName || '-'}</td>
+                                  <td className="py-2 px-3 text-gray-400 font-mono text-xs border border-slate-700/30">{sp.oldComponentSerial || '-'}</td>
+                                  <td className="py-2 px-3 text-gray-300 border border-slate-700/30">{sp.componentName || '-'}</td>
+                                  <td className="py-2 px-3 text-emerald-400 font-mono text-xs border border-slate-700/30">{sp.newComponentSerial || '-'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                  </div>
+                </>
+              )
+            })()}
 
             {/* ── Section 5: Photos ── */}
             {(incident.beforePhotos?.length || incident.afterPhotos?.length) && (
@@ -318,20 +387,6 @@ export default function PublicIncidentPage() {
               </div>
             )}
 
-            {/* Rate button if not rated */}
-            {!incident.isRated && (
-              <div className="text-center pt-4">
-                <a
-                  href={`/rate/${token}`}
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-yellow-500 hover:bg-yellow-600 text-black font-semibold rounded-lg transition-colors"
-                >
-                  <Star className="w-5 h-5" />
-                  Rate This Service
-                  <ExternalLink className="w-4 h-4" />
-                </a>
-              </div>
-            )}
-
             {/* Service Report Link */}
             {incident.serviceReportToken && (
               <div className="text-center">
@@ -341,6 +396,20 @@ export default function PublicIncidentPage() {
                 >
                   <FileText className="w-5 h-5" />
                   Service Report / เอกสารปิดงาน
+                  <ExternalLink className="w-4 h-4" />
+                </a>
+              </div>
+            )}
+
+            {/* Rate button if not rated */}
+            {!incident.isRated && (
+              <div className="text-center">
+                <a
+                  href={`/rate/${token}`}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-yellow-500 hover:bg-yellow-600 text-black font-semibold rounded-lg transition-colors"
+                >
+                  <Star className="w-5 h-5" />
+                  Rate This Service
                   <ExternalLink className="w-4 h-4" />
                 </a>
               </div>
