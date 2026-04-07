@@ -91,6 +91,19 @@ while true; do
 done
 
 echo ""
+
+# License Key
+echo -e "${BOLD}License Key:${NC}"
+echo "  (รูปแบบ XXXX-XXXX-XXXX-XXXX — รับจาก Rubjobb Development Team)"
+while true; do
+  read -rp "  License Key: " LICENSE_KEY
+  if [[ "$LICENSE_KEY" =~ ^[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}$ ]]; then
+    break
+  fi
+  echo -e "${RED}  รูปแบบ License Key ไม่ถูกต้อง (ต้องเป็น XXXX-XXXX-XXXX-XXXX)${NC}"
+done
+
+echo ""
 echo -e "${GREEN}✅ รับค่าการตั้งค่าครบแล้ว${NC}"
 echo ""
 
@@ -99,12 +112,48 @@ echo -e "${YELLOW}[3/5] สร้างไฟล์ตั้งค่า...${NC}
 
 JWT_SECRET=$(LC_ALL=C tr -dc 'A-Za-z0-9!@#$%^&*' </dev/urandom | head -c 48 2>/dev/null || cat /proc/sys/kernel/random/uuid | tr -d '-')
 
+# Machine ID — use system's unique ID
+MACHINE_ID=""
+if [ -f /etc/machine-id ]; then
+  MACHINE_ID=$(cat /etc/machine-id)
+elif command -v uuidgen &>/dev/null; then
+  MACHINE_ID=$(uuidgen)
+else
+  MACHINE_ID=$(LC_ALL=C tr -dc 'a-f0-9' </dev/urandom | head -c 32)
+fi
+
+# Generate VAPID keys for Web Push notifications
+VAPID_PUBLIC_KEY=""
+VAPID_PRIVATE_KEY=""
+if command -v node &>/dev/null; then
+  VAPID_KEYS=$(node -e "
+    const crypto = require('crypto');
+    const { publicKey, privateKey } = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+    const pub = publicKey.export({ type: 'spki', format: 'der' }).slice(-65).toString('base64url');
+    const priv = privateKey.export({ type: 'pkcs8', format: 'der' }).slice(-32).toString('base64url');
+    console.log(pub + ' ' + priv);
+  " 2>/dev/null || echo "")
+  if [ -n "$VAPID_KEYS" ]; then
+    VAPID_PUBLIC_KEY=$(echo "$VAPID_KEYS" | cut -d' ' -f1)
+    VAPID_PRIVATE_KEY=$(echo "$VAPID_KEYS" | cut -d' ' -f2)
+  fi
+fi
+# Fallback placeholder if node unavailable
+VAPID_PUBLIC_KEY="${VAPID_PUBLIC_KEY:-REPLACE_WITH_VAPID_PUBLIC_KEY}"
+VAPID_PRIVATE_KEY="${VAPID_PRIVATE_KEY:-REPLACE_WITH_VAPID_PRIVATE_KEY}"
+
 cat > .env << EOF
 APP_URL=${APP_URL}
 DB_NAME=rimdb
 DB_USER=rimuser
 DB_PASSWORD=${DB_PASSWORD}
 JWT_SECRET=${JWT_SECRET}
+MACHINE_ID=${MACHINE_ID}
+LICENSE_KEY=${LICENSE_KEY}
+CENTRAL_LICENSE_URL=https://rim-license-server-production.up.railway.app
+VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
+VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
+VAPID_EMAIL=mailto:admin@rim-system.com
 SMTP_HOST=
 SMTP_PORT=587
 SMTP_USER=
@@ -136,8 +185,8 @@ sleep 8
 # ── Run Migrations & Seed ─────────────────────
 echo -e "${YELLOW}[5/5] ตั้งค่าฐานข้อมูล...${NC}"
 
-$COMPOSE_CMD exec -T backend npx prisma migrate deploy
-echo -e "${GREEN}✅ Database migrations เรียบร้อย${NC}"
+$COMPOSE_CMD exec -T backend npx prisma db push --skip-generate
+echo -e "${GREEN}✅ Database schema เรียบร้อย${NC}"
 
 # Create admin user
 $COMPOSE_CMD exec -T backend node -e "

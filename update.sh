@@ -53,8 +53,8 @@ echo -e "${YELLOW}→ อัปเดต Backend...${NC}"
 $COMPOSE_CMD up -d --no-deps backend
 sleep 5
 
-echo -e "${YELLOW}→ รัน Database Migrations...${NC}"
-$COMPOSE_CMD exec -T backend npx prisma migrate deploy
+echo -e "${YELLOW}→ อัปเดต Database Schema...${NC}"
+$COMPOSE_CMD exec -T backend npx prisma db push --skip-generate
 
 echo -e "${YELLOW}→ อัปเดต Frontend...${NC}"
 $COMPOSE_CMD up -d --no-deps frontend

@@ -42,6 +42,7 @@ services:
       FRONTEND_URL: ${APP_URL:-http://localhost}
       LICENSE_VENDOR_SECRET: ${LICENSE_VENDOR_SECRET:-rim-vendor-2026}
       MACHINE_ID: ${MACHINE_ID:-rim-server-production}
+      CENTRAL_LICENSE_URL: ${CENTRAL_LICENSE_URL:-https://rim-license-server-production.up.railway.app}
       TZ: Asia/Bangkok
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
