@@ -329,7 +329,10 @@ export class AuthService {
 
     const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
 
-    await this.prisma.refreshToken.delete({ where: { id: storedToken.id } });
+    await Promise.all([
+      this.prisma.refreshToken.delete({ where: { id: storedToken.id } }),
+      this.prisma.user.update({ where: { id: user.id }, data: { isOnline: true } }),
+    ]);
 
     const { token: newRefreshToken, expiresAt: sessionExpiresAt } =
       await this.generateRefreshToken(user.id);

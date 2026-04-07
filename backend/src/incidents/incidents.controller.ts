@@ -377,7 +377,7 @@ export class IncidentsController {
    * Note: After confirmation, technician can no longer edit
    */
   @Post(':id/confirm-close')
-  @Roles(UserRole.HELP_DESK)
+  @Roles(UserRole.HELP_DESK, UserRole.IT_MANAGER)
   confirmClose(@Param('id') id: string, @Request() req) {
     return this.incidentsService.confirmClose(id, req.user.id);
   }

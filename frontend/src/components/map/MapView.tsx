@@ -216,6 +216,24 @@ function formatDateTime(d: string) {
   })
 }
 
+/**
+ * Calculate popup offset based on technician's province coordinates.
+ * Moves the popup toward the center of the screen so it doesn't overflow.
+ *
+ * Leaflet popup: tip anchors at (iconAnchor + popupAnchor + offset),
+ * popup BODY opens ABOVE the tip.
+ *
+ *   lat > 18  → ภาคเหนือสุด  → popup ลงมาด้านล่างหมุด
+ *   lat > 12 && lng > 101.5 → ภาคอีสาน/ตะวันออก → popup ด้านซ้ายหมุด
+ *   otherwise → default (popup ด้านบนหมุด)
+ */
+function getPopupOffset(lat: number, lng: number, isMobile: boolean): [number, number] {
+  if (!isMobile) return [0, 0]
+  if (lat > 18) return [0, 280]                        // เหนือ → ลงล่าง
+  if (lat > 12 && lng > 101.5) return [-185, 55]       // อีสาน/ตะวันออก → ซ้าย
+  return [0, 0]                                         // กลาง/ใต้ → บน (default)
+}
+
 // GeoJSON URL for Thailand province boundaries
 const THAILAND_GEOJSON_URL =
   'https://raw.githubusercontent.com/apisit/thailand.json/master/thailand.json'
@@ -424,6 +442,8 @@ export default function MapView({ checkins, technicianLocations = [] }: MapViewP
           // Slight jitter to avoid exact overlap when multiple techs in same province
           const jitter = (tech.id % 20) * 0.015 - 0.15
           const pos: [number, number] = [coords[0] + jitter, coords[1] + jitter]
+          // Use coords (pre-jitter) for offset calculation — represents true province position
+          const popupOffset = getPopupOffset(coords[0], coords[1], isMobile)
           return (
             <Marker
               key={`tech-${tech.id}`}
@@ -439,7 +459,14 @@ export default function MapView({ checkins, technicianLocations = [] }: MapViewP
                   {usingFallback && <span style={{ color: '#9ca3af' }}> (พื้นที่รับผิดชอบ)</span>}
                 </div>
               </Tooltip>
-              <Popup maxWidth={isMobile ? 210 : 260} minWidth={isMobile ? 170 : 200} keepInView={true} autoPan={true}>
+              <Popup
+                maxWidth={isMobile ? 210 : 260}
+                minWidth={isMobile ? 170 : 200}
+                keepInView={true}
+                autoPan={true}
+                autoPanPadding={isMobile ? [20, 80] : [10, 40]}
+                offset={popupOffset}
+              >
                 <div style={{
                   fontSize: isMobile ? '11px' : '13px',
                   lineHeight: '1.5',

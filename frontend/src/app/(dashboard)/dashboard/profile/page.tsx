@@ -30,6 +30,7 @@ import { useRef } from 'react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import { useThemeHighlight } from '@/hooks/useThemeHighlight'
+import { compressImage } from '@/utils/imageUtils'
 
 const THAI_PROVINCES = [
   'กระบี่', 'กรุงเทพมหานคร', 'กาญจนบุรี', 'กาฬสินธุ์', 'กำแพงเพชร',
@@ -423,16 +424,18 @@ export default function ProfilePage() {
     const file = e.target.files?.[0]
     if (!file) return
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('ขนาดไฟล์ต้องไม่เกิน 5MB')
-      return
-    }
-
     try {
       setIsUploadingDoc(docType)
+      const compressed = await compressImage(file, { maxWidth: 1600, maxHeight: 1600, quality: 0.85, maxSizeMB: 1 })
+
+      if (compressed.size > 5 * 1024 * 1024) {
+        toast.error('ขนาดไฟล์ต้องไม่เกิน 5MB')
+        return
+      }
+
       const token = localStorage.getItem('token')
       const formData = new FormData()
-      formData.append(docType === 'bank-book' ? 'bankBook' : 'idCard', file)
+      formData.append(docType === 'bank-book' ? 'bankBook' : 'idCard', compressed)
 
       const res = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/auth/profile/${docType}`,
@@ -494,8 +497,10 @@ export default function ProfilePage() {
     if (signatureInputRef.current) signatureInputRef.current.value = ''
 
     try {
-      setSigOriginalFile(file)
-      const { blob, url } = await processSignatureImage(file, sigThreshold)
+      // Decode HEIC and fix EXIF orientation first, then process for transparent bg
+      const normalized = await compressImage(file, { maxWidth: 1200, maxHeight: 1200, quality: 0.85, maxSizeMB: 1 })
+      setSigOriginalFile(normalized)
+      const { blob, url } = await processSignatureImage(normalized, sigThreshold)
       setSigProcessedBlob(blob)
       if (sigPreviewUrl) URL.revokeObjectURL(sigPreviewUrl)
       setSigPreviewUrl(url)
@@ -1115,7 +1120,7 @@ export default function ProfilePage() {
                   <input
                     ref={bankBookInputRef}
                     type="file"
-                    accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
+                    accept="image/png,image/jpeg,image/jpg,image/gif,image/webp,image/heic,image/heif"
                     onChange={(e) => handleDocumentUpload(e, 'bank-book')}
                     className="hidden"
                   />
@@ -1165,7 +1170,7 @@ export default function ProfilePage() {
                   <input
                     ref={idCardInputRef}
                     type="file"
-                    accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
+                    accept="image/png,image/jpeg,image/jpg,image/gif,image/webp,image/heic,image/heif"
                     onChange={(e) => handleDocumentUpload(e, 'id-card')}
                     className="hidden"
                   />
@@ -1221,7 +1226,7 @@ export default function ProfilePage() {
                 <input
                   ref={signatureInputRef}
                   type="file"
-                  accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
+                  accept="image/png,image/jpeg,image/jpg,image/gif,image/webp,image/heic,image/heif"
                   onChange={handleSignatureUpload}
                   className="hidden"
                 />

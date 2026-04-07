@@ -102,6 +102,7 @@ export default function DashboardLayout({
   const [user, setUser] = useState<any>(null)
   const [orgSettings, setOrgSettings] = useState<OrgSettings | null>(null)
   const [showPendingAlert, setShowPendingAlert] = useState(false)
+  const [profileIncompleteFields, setProfileIncompleteFields] = useState<string[]>([])
   const [themeStyle, setThemeStyle] = useState<{ bgStart: string; bgEnd: string } | null>(() => {
     if (typeof window !== 'undefined') {
       const cached = localStorage.getItem('themeStyle')
@@ -251,6 +252,20 @@ export default function DashboardLayout({
           // Update localStorage with fresh user data (including updated roles)
           localStorage.setItem('user', JSON.stringify(res.data))
           setUser(res.data)
+
+          // Show profile incomplete warning once per day (first login of day)
+          const today = new Date().toISOString().slice(0, 10)
+          if (localStorage.getItem('profileCheckDate') !== today) {
+            localStorage.setItem('profileCheckDate', today)
+            const roles = (res.data.roles || []).map((r: any) => r.role || r)
+            const isTech = roles.includes('TECHNICIAN')
+            if (isTech) {
+              const missing: string[] = []
+              if (!res.data.province) missing.push('จังหวัด (จำเป็นสำหรับ Tracking Map)')
+              if (!res.data.phone) missing.push('เบอร์โทรศัพท์')
+              if (missing.length > 0) setProfileIncompleteFields(missing)
+            }
+          }
         }
       } catch (error: any) {
         // If token is invalid, redirect to login
@@ -619,6 +634,30 @@ export default function DashboardLayout({
         {/* Top Navbar - FIXED (ไม่เคลื่อนไหว) */}
         <header className="fixed top-0 right-0 left-0 lg:left-64 z-30 glass-card border-b border-slate-700/50" style={chromeStyle}>
           <LicenseExpiredBanner />
+          {profileIncompleteFields.length > 0 && (
+            <div className="w-full px-4 py-1.5 text-xs font-medium flex items-center justify-between gap-2 bg-amber-500/95 text-white">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="truncate">
+                  ⚠️ โปรไฟล์ยังไม่ครบถ้วน: <strong>{profileIncompleteFields.join(', ')}</strong>
+                </span>
+                <Link
+                  href="/dashboard/profile"
+                  className="underline underline-offset-2 whitespace-nowrap hover:text-amber-100 transition-colors ml-1"
+                  onClick={() => setProfileIncompleteFields([])}
+                >
+                  อัพเดทโปรไฟล์ →
+                </Link>
+              </div>
+              <button
+                onClick={() => setProfileIncompleteFields([])}
+                className="flex-shrink-0 p-0.5 hover:bg-amber-600/50 rounded transition-colors"
+                title="ปิด"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
           <div className="flex items-center justify-between px-4 lg:px-6 py-3 lg:py-4">
             {/* Mobile Menu Toggle */}
             <button

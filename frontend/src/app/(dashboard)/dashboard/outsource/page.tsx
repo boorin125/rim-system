@@ -123,7 +123,7 @@ const urgencyColors: Record<string, string> = {
 }
 
 export default function OutsourceMarketplacePage() {
-  const { isExpired, hasLicense, isTrialGrace, isTrialExpired, trialDaysRemaining } = useLicense()
+  const { loading: licenseLoading, isExpired, hasLicense, isTrialGrace, isTrialExpired, trialDaysRemaining } = useLicense()
   const themeHighlight = useThemeHighlight()
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
@@ -260,6 +260,7 @@ export default function OutsourceMarketplacePage() {
     )
   }
 
+  if (licenseLoading) return null
   if (isExpired || !hasLicense) return (
     <LicenseLock
       featureName="Outsource Marketplace"

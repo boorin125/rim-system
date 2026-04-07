@@ -95,7 +95,7 @@ function formatTime(isoStr: string | null) {
 }
 
 export default function MapPage() {
-  const { isExpired, hasLicense, isTrialGrace, isTrialExpired, trialDaysRemaining } = useLicense()
+  const { loading: licenseLoading, isExpired, hasLicense, isTrialGrace, isTrialExpired, trialDaysRemaining } = useLicense()
   const [checkins, setCheckins] = useState<MapCheckin[]>([])
   const [loading, setLoading] = useState(true)
   const [filterStatus, setFilterStatus] = useState('')
@@ -152,6 +152,13 @@ export default function MapPage() {
     fetchCheckins()
   }, [filterStatus, selectedDate])
 
+  // Auto-refresh technician locations every 60 seconds when the overlay is on
+  useEffect(() => {
+    if (!showTechnicianLocations) return
+    const interval = setInterval(fetchTechnicianLocations, 60_000)
+    return () => clearInterval(interval)
+  }, [showTechnicianLocations])
+
   const changeDate = (offset: number) => {
     const d = new Date(selectedDate + 'T00:00:00')
     d.setDate(d.getDate() + offset)
@@ -194,6 +201,7 @@ export default function MapPage() {
     t => t.province || (t.responsibleProvinces && t.responsibleProvinces.length > 0)
   ).length
 
+  if (licenseLoading) return null
   if (isExpired || !hasLicense) return (
     <LicenseLock
       featureName="Realtime Tracking"
@@ -282,11 +290,11 @@ export default function MapPage() {
 
           {/* Refresh */}
           <button
-            onClick={fetchCheckins}
-            disabled={loading}
+            onClick={() => { fetchCheckins(); if (showTechnicianLocations) fetchTechnicianLocations() }}
+            disabled={loading || loadingTechs}
             className="p-3 sm:p-2 rounded-xl bg-slate-800/70 border border-slate-700/50 hover:bg-slate-700/70 text-gray-300 transition disabled:opacity-50 active:scale-95"
           >
-            <RefreshCw className={`h-4 w-4 sm:h-5 sm:w-5 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 sm:h-5 sm:w-5 ${loading || loadingTechs ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
