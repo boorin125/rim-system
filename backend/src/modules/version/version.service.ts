@@ -17,6 +17,12 @@ const PATCHES_DIR = process.env.PATCHES_DIR || './patches';
 const SNAPSHOTS_DIR = process.env.SNAPSHOTS_DIR || './snapshots';
 const APP_ROOT = process.env.APP_ROOT || path.join(__dirname, '../../../../..');
 
+// Detect Docker environment — source files don't exist in production containers
+const IS_DOCKER =
+  fs.existsSync('/.dockerenv') ||
+  process.env.DOCKER_ENV === 'true' ||
+  !fs.existsSync(path.join(APP_ROOT, 'frontend', 'src'));
+
 // ─── Job Progress ────────────────────────────────────────────────────────────
 
 export interface InstallProgress {
@@ -72,10 +78,13 @@ export class VersionService {
       throw new BadRequestException('Invalid manifest: missing version or fromVersion');
     }
 
-    const fileBuffer = fs.readFileSync(filePath);
-    const hash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
-    if (manifest.checksum && manifest.checksum !== `sha256:${hash}`) {
-      throw new BadRequestException('Patch checksum mismatch — file may be corrupted');
+    // Checksum validation (optional — skip if not present)
+    if (manifest.checksum) {
+      const fileBuffer = fs.readFileSync(filePath);
+      const hash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+      if (manifest.checksum !== `sha256:${hash}`) {
+        throw new BadRequestException('Patch checksum mismatch — file may be corrupted');
+      }
     }
 
     const current = await this.getCurrentVersion();
@@ -85,7 +94,17 @@ export class VersionService {
       );
     }
 
-    return { valid: true, manifest };
+    // Check if patch has file changes that can't apply in Docker
+    const hasFileChanges = zip.getEntries().some(
+      (e: any) =>
+        !e.isDirectory &&
+        e.entryName !== 'manifest.json' &&
+        e.entryName !== 'release-notes.md' &&
+        !e.entryName.startsWith('migrations/') &&
+        !e.entryName.startsWith('rollback/'),
+    );
+
+    return { valid: true, manifest, hasFileChanges, isDocker: IS_DOCKER };
   }
 
   // ─── Start async install — returns jobId immediately ─────────────────────
@@ -95,7 +114,7 @@ export class VersionService {
     const job: InstallProgress = {
       jobId,
       step: 0,
-      total: 5,
+      total: 4,
       pct: 0,
       message: 'Starting…',
       status: 'running',
@@ -124,13 +143,14 @@ export class VersionService {
       throw new BadRequestException('Cannot rollback to the current version');
     }
 
-    if (target.snapshotPath && fs.existsSync(target.snapshotPath)) {
+    // Restore source files only if not Docker and snapshot exists
+    if (!IS_DOCKER && target.snapshotPath && fs.existsSync(target.snapshotPath)) {
       const zip = new AdmZip(target.snapshotPath);
       zip.extractAllTo(APP_ROOT, true);
     }
 
-    const currentVer = await this.getCurrentVersion();
-    const patchFile = path.join(PATCHES_DIR, `patch-${currentVer.version}.rim-patch`);
+    // Run rollback SQL if available
+    const patchFile = path.join(PATCHES_DIR, `patch-${(await this.getCurrentVersion()).version}.rim-patch`);
     if (fs.existsSync(patchFile)) {
       const zip = new AdmZip(patchFile);
       const entries = zip.getEntries().filter(
@@ -169,56 +189,64 @@ export class VersionService {
 
   // ─── Private: run actual installation with progress reporting ─────────────
   private async runInstall(filePath: string, userId: number, jobId: string) {
-    const update = (step: number, total: number, message: string) => {
+    const TOTAL = 4;
+
+    const update = (step: number, message: string) => {
       const job = this.jobs.get(jobId);
       if (!job) return;
       job.step = step;
-      job.total = total;
-      job.pct = Math.round((step / total) * 100);
+      job.total = TOTAL;
+      job.pct = Math.round((step / TOTAL) * 100);
       job.message = message;
     };
 
-    const TOTAL = 5;
-    let snapshotPath: string | null = null; // track snapshot for auto-rollback
-
     try {
       // Step 1: Validate
-      update(1, TOTAL, 'Validating patch file…');
-      const { manifest } = await this.validatePatch(filePath);
+      update(1, 'Validating patch file…');
+      const { manifest, hasFileChanges } = await this.validatePatch(filePath);
 
-      // Step 2: Create snapshot (MUST complete before any file changes)
-      update(2, TOTAL, 'Creating snapshot of current version…');
-      snapshotPath = await this.createSnapshot(manifest.fromVersion);
+      // Step 2: Create snapshot (source files if available, else skip)
+      let snapshotPath: string | null = null;
+      if (!IS_DOCKER) {
+        update(2, 'Creating snapshot of current version…');
+        snapshotPath = await this.createSnapshot(manifest.fromVersion);
+      } else {
+        update(2, IS_DOCKER && hasFileChanges
+          ? 'Docker mode: file changes will be applied via image update (skipping snapshot)…'
+          : 'Preparing to apply migrations…');
+        await new Promise((r) => setTimeout(r, 300));
+      }
 
-      // Step 3: Apply file changes
-      update(3, TOTAL, 'Applying file changes…');
+      // Step 3: Apply file changes (source-based deploy only — skip in Docker)
+      if (!IS_DOCKER && hasFileChanges) {
+        update(3, 'Applying file changes…');
+        const zip = new AdmZip(filePath);
+        for (const entry of zip.getEntries()) {
+          if (entry.isDirectory) continue;
+          const name = entry.entryName;
+          if (name === 'manifest.json' || name === 'release-notes.md') continue;
+          if (name.startsWith('rollback/') || name.startsWith('migrations/')) continue;
+          if (name.startsWith('frontend/') || name.startsWith('backend/')) {
+            const destPath = path.join(APP_ROOT, name);
+            fs.mkdirSync(path.dirname(destPath), { recursive: true });
+            fs.writeFileSync(destPath, entry.getData());
+          }
+        }
+      } else {
+        update(3, 'Running database migrations…');
+      }
+
+      // Step 4: Run SQL migrations + update version record
+      update(4, 'Applying migrations and updating version…');
       const zip = new AdmZip(filePath);
-      const entries = zip.getEntries();
-      for (const entry of entries) {
-        if (entry.isDirectory) continue;
-        const name = entry.entryName;
-        if (name === 'manifest.json' || name === 'release-notes.md') continue;
-        if (name.startsWith('rollback/')) continue;
-        if (name.startsWith('frontend/') || name.startsWith('backend/')) {
-          const destPath = path.join(APP_ROOT, name);
-          const destDir = path.dirname(destPath);
-          if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
-          fs.writeFileSync(destPath, entry.getData());
-        }
+      const migrations = zip.getEntries().filter(
+        (e: any) => !e.isDirectory && e.entryName.startsWith('migrations/') && e.entryName.endsWith('.sql'),
+      );
+      for (const entry of migrations) {
+        const sql = entry.getData().toString('utf8');
+        if (sql.trim()) await this.prisma.$executeRawUnsafe(sql);
       }
 
-      // Step 4: Run migrations
-      update(4, TOTAL, 'Running database migrations…');
-      for (const entry of entries) {
-        if (entry.isDirectory) continue;
-        if (entry.entryName.startsWith('migrations/') && entry.entryName.endsWith('.sql')) {
-          const sql = entry.getData().toString('utf8');
-          if (sql.trim()) await this.prisma.$executeRawUnsafe(sql);
-        }
-      }
-
-      // Step 5: Update version record
-      update(5, TOTAL, 'Updating version record…');
       await this.prisma.appVersion.updateMany({
         where: { status: VersionStatus.CURRENT },
         data: { status: VersionStatus.PREVIOUS },
@@ -245,36 +273,20 @@ export class VersionService {
 
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 
-      // Done
       const job = this.jobs.get(jobId);
       if (job) {
         job.step = TOTAL;
         job.pct = 100;
-        job.message = `Version ${manifest.version} installed successfully`;
+        job.message = IS_DOCKER && hasFileChanges
+          ? `Version ${manifest.version} recorded. Deploy new image to apply code changes.`
+          : `Version ${manifest.version} installed successfully`;
         job.status = 'done';
-        job.result = newVersion;
+        job.result = { ...newVersion, isDocker: IS_DOCKER, hasFileChanges };
         job.finishedAt = new Date();
       }
 
-      // Auto-cleanup job after 10 minutes
       setTimeout(() => this.jobs.delete(jobId), 10 * 60 * 1000);
     } catch (err: any) {
-      // ── Auto-rollback: restore snapshot if file changes may have been applied ──
-      const currentJob = this.jobs.get(jobId);
-      const stepReached = currentJob?.step ?? 0;
-      let rollbackNote = '';
-
-      if (snapshotPath && stepReached >= 3 && fs.existsSync(snapshotPath)) {
-        try {
-          update(stepReached, TOTAL, 'Rolling back — restoring previous version…');
-          const snapZip = new AdmZip(snapshotPath);
-          snapZip.extractAllTo(APP_ROOT, /*overwrite=*/ true);
-          rollbackNote = ' Previous version restored automatically.';
-        } catch (rbErr: any) {
-          rollbackNote = ` Auto-rollback failed: ${rbErr?.message}. Manual restore needed from snapshot: ${snapshotPath}`;
-        }
-      }
-
       if (fs.existsSync(filePath)) {
         try { fs.unlinkSync(filePath); } catch {}
       }
@@ -282,16 +294,14 @@ export class VersionService {
       const job = this.jobs.get(jobId);
       if (job) {
         job.status = 'error';
-        job.error = (err?.message || 'Unknown error') + rollbackNote;
-        job.message = 'Installation failed' + (rollbackNote ? ' — rolled back' : '');
+        job.error = err?.message || 'Unknown error';
+        job.message = 'Installation failed';
         job.finishedAt = new Date();
-        // Keep snapshot path in result for manual recovery
-        if (snapshotPath) job.result = { snapshotPath };
       }
     }
   }
 
-  // ─── Private: create snapshot zip ─────────────────────────────────────────
+  // ─── Private: create snapshot zip (source-based only) ─────────────────────
   private async createSnapshot(version: string): Promise<string> {
     const snapshotPath = path.join(SNAPSHOTS_DIR, `snapshot-${version}-${Date.now()}.zip`);
     const zip = new AdmZip();
