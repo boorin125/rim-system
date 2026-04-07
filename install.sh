@@ -164,8 +164,8 @@ EOF
 echo -e "${GREEN}✅ สร้างไฟล์ .env เรียบร้อย${NC}"
 echo ""
 
-# ── Build & Start ──────────────────────────────
-echo -e "${YELLOW}[4/5] Build และเริ่มต้นระบบ (อาจใช้เวลา 3-5 นาที ครั้งแรก)...${NC}"
+# ── Pull & Start ──────────────────────────────
+echo -e "${YELLOW}[4/5] ดาวน์โหลด Docker images และเริ่มต้นระบบ...${NC}"
 echo ""
 
 # Use 'docker compose' (v2) or 'docker-compose' (v1)
@@ -174,19 +174,17 @@ if ! docker compose version &>/dev/null 2>&1; then
   COMPOSE_CMD="docker-compose"
 fi
 
-$COMPOSE_CMD pull postgres nginx 2>/dev/null || true
-$COMPOSE_CMD build --parallel
+$COMPOSE_CMD pull
 $COMPOSE_CMD up -d
 
 echo ""
 echo -e "${YELLOW}รอ Database พร้อม...${NC}"
 sleep 8
 
-# ── Run Migrations & Seed ─────────────────────
+# ── Setup Database & Admin ────────────────────
 echo -e "${YELLOW}[5/5] ตั้งค่าฐานข้อมูล...${NC}"
-
-$COMPOSE_CMD exec -T backend npx prisma db push --skip-generate
-echo -e "${GREEN}✅ Database schema เรียบร้อย${NC}"
+echo -e "  (รอ backend เตรียม schema อัตโนมัติ...)"
+sleep 10
 
 # Create admin user
 $COMPOSE_CMD exec -T backend node -e "
