@@ -347,13 +347,46 @@ export class LicenseService {
    * Activate license
    */
   async activateLicense(dto: ActivateLicenseDto, ipAddress?: string, userAgent?: string) {
-    const license = await this.prisma.license.findUnique({
+    let license = await this.prisma.license.findUnique({
       where: { licenseKey: dto.licenseKey },
     });
 
+    // ── Key not in local DB → ask Central License Server ──────────────────
     if (!license) {
-      // Log failed attempt
-      throw new BadRequestException('Invalid license key');
+      const machineIdForCheck = dto.machineId || this.getMachineId();
+      const central = await this.callCentralValidate(dto.licenseKey, machineIdForCheck);
+
+      if (!central || !central.valid) {
+        throw new BadRequestException('Invalid license key');
+      }
+
+      // Central confirmed valid — import license details into local DB
+      license = await this.prisma.license.upsert({
+        where: { licenseKey: dto.licenseKey },
+        create: {
+          licenseKey: dto.licenseKey,
+          licenseType: central.licenseType || 'STANDARD',
+          organizationName: central.organizationName || '',
+          contactEmail: central.contactEmail || '',
+          maxUsers: central.maxUsers ?? 50,
+          maxStores: central.maxStores ?? 250,
+          maxIncidentsMonth: null,
+          featuresEnabled: central.featuresEnabled?.length ? central.featuresEnabled : ['all'],
+          expiresAt: new Date(central.expiresAt),
+          maxActivations: 1,
+          status: 'INACTIVE',
+          notes: 'Imported from Central License Server',
+        },
+        update: {
+          licenseType: central.licenseType || 'STANDARD',
+          organizationName: central.organizationName || '',
+          contactEmail: central.contactEmail || '',
+          maxUsers: central.maxUsers ?? 50,
+          maxStores: central.maxStores ?? 250,
+          featuresEnabled: central.featuresEnabled?.length ? central.featuresEnabled : ['all'],
+          expiresAt: new Date(central.expiresAt),
+        },
+      });
     }
 
     const machineId = dto.machineId || this.getMachineId();
