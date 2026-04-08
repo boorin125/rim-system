@@ -991,7 +991,7 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
             ) : (
               <Link2 className="w-4 h-4" />
             )}
-            {signLink ? 'สร้างลิงก์ใหม่' : 'ลิงก์เซ็น Online'}
+            {signLink ? 'สร้างลิงก์ใหม่' : 'Digital Sign'}
           </button>
 
           {/* Upload Signed Paper */}

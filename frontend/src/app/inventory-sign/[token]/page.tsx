@@ -10,6 +10,9 @@ import {
   ClipboardCheck,
   Send,
   X,
+  Trash2,
+  Maximize2,
+  PenLine,
 } from 'lucide-react'
 import axios from 'axios'
 import SignaturePad from 'signature_pad'
@@ -66,8 +69,16 @@ export default function InventorySignPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSigned, setIsSigned] = useState(false)
 
+  // Inline signature pad
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const signaturePadRef = useRef<SignaturePad | null>(null)
+
+  // Fullscreen signature
+  const fsCanvasRef = useRef<HTMLCanvasElement>(null)
+  const fsSignaturePadRef = useRef<SignaturePad | null>(null)
+  const [isFullscreenSign, setIsFullscreenSign] = useState(false)
+  const [fsSignatureDataUrl, setFsSignatureDataUrl] = useState<string | null>(null)
+  const [isMobilePortrait, setIsMobilePortrait] = useState(false)
 
   // Fetch data
   useEffect(() => {
@@ -87,14 +98,27 @@ export default function InventorySignPage() {
     if (token) fetchData()
   }, [token])
 
-  // Init signature pad
+  // Portrait detection for hint
+  useEffect(() => {
+    const check = () => setIsMobilePortrait(window.innerHeight > window.innerWidth)
+    check()
+    window.addEventListener('resize', check)
+    window.addEventListener('orientationchange', check)
+    return () => {
+      window.removeEventListener('resize', check)
+      window.removeEventListener('orientationchange', check)
+    }
+  }, [])
+
+  // Init inline signature pad
   const initSignaturePad = useCallback(() => {
     if (canvasRef.current && !isSigned) {
       const canvas = canvasRef.current
-      canvas.width = canvas.offsetWidth * window.devicePixelRatio
-      canvas.height = canvas.offsetHeight * window.devicePixelRatio
+      const ratio = window.devicePixelRatio || 1
+      canvas.width = canvas.offsetWidth * ratio
+      canvas.height = canvas.offsetHeight * ratio
       const ctx = canvas.getContext('2d')
-      if (ctx) ctx.scale(window.devicePixelRatio, window.devicePixelRatio)
+      if (ctx) ctx.scale(ratio, ratio)
       signaturePadRef.current = new SignaturePad(canvas, {
         minWidth: 1,
         maxWidth: 3,
@@ -111,9 +135,70 @@ export default function InventorySignPage() {
     }
   }, [data, isSigned, initSignaturePad])
 
+  // Inline clear
   const handleClearSignature = () => {
     signaturePadRef.current?.clear()
+    setFsSignatureDataUrl(null)
   }
+
+  // ─── Fullscreen signature ─────────────────────────────────────────────────
+
+  const initFsCanvas = () => {
+    if (fsCanvasRef.current) {
+      const canvas = fsCanvasRef.current
+      const ratio = Math.max(window.devicePixelRatio || 1, 1)
+      const w = window.innerWidth
+      const h = window.innerHeight - 140
+      canvas.width = w * ratio
+      canvas.height = h * ratio
+      const ctx = canvas.getContext('2d')
+      if (ctx) ctx.scale(ratio, ratio)
+      fsSignaturePadRef.current = new SignaturePad(canvas, {
+        backgroundColor: 'rgb(255, 255, 255)',
+        penColor: 'rgb(0, 0, 200)',
+        minWidth: 1.5,
+        maxWidth: 3,
+      })
+    }
+  }
+
+  const openFullscreenSign = async () => {
+    setIsFullscreenSign(true)
+    try {
+      if (document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen()
+      }
+      if (screen.orientation && (screen.orientation as any).lock) {
+        await (screen.orientation as any).lock('landscape')
+      }
+    } catch (_) {
+      // Not supported — fallback to portrait fullscreen
+    }
+    setTimeout(initFsCanvas, 100)
+  }
+
+  const closeFullscreenSign = async () => {
+    fsSignaturePadRef.current?.off()
+    fsSignaturePadRef.current = null
+    setIsFullscreenSign(false)
+    try {
+      if ((screen.orientation as any).unlock) (screen.orientation as any).unlock()
+      if (document.fullscreenElement) await document.exitFullscreen()
+    } catch (_) {}
+  }
+
+  const confirmFullscreenSign = () => {
+    if (fsSignaturePadRef.current && !fsSignaturePadRef.current.isEmpty()) {
+      setFsSignatureDataUrl(fsSignaturePadRef.current.toDataURL('image/png'))
+    }
+    closeFullscreenSign()
+  }
+
+  const clearFullscreenSign = () => {
+    fsSignaturePadRef.current?.clear()
+  }
+
+  // ─── Submit ───────────────────────────────────────────────────────────────
 
   const handleSubmit = async () => {
     if (!signerName.trim()) {
@@ -121,9 +206,10 @@ export default function InventorySignPage() {
       return
     }
     const signatureData =
-      signaturePadRef.current && !signaturePadRef.current.isEmpty()
+      fsSignatureDataUrl ||
+      (signaturePadRef.current && !signaturePadRef.current.isEmpty()
         ? signaturePadRef.current.toDataURL('image/png')
-        : null
+        : null)
     if (!signatureData) {
       alert('กรุณาเซ็นลายมือชื่อก่อนยืนยัน')
       return
@@ -203,9 +289,54 @@ export default function InventorySignPage() {
     )
   }
 
+  // ─── Fullscreen Signature Overlay ─────────────────────────────────────────
+  const fullscreenSignatureOverlay = isFullscreenSign && (
+    <div className="fixed inset-0 z-[9999] bg-white flex flex-col">
+      {isMobilePortrait && (
+        <div className="bg-blue-50 text-blue-600 text-xs text-center py-2 border-b border-blue-100">
+          💡 หมุนมือถือเป็นแนวนอนเพื่อพื้นที่เซ็นที่กว้างขึ้น
+        </div>
+      )}
+      <div className="flex items-center justify-between px-4 py-3 bg-gray-100 border-b border-gray-300">
+        <button
+          onClick={closeFullscreenSign}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-gray-600 hover:text-gray-800 transition text-sm"
+        >
+          <X className="w-5 h-5" />
+          <span>ยกเลิก</span>
+        </button>
+        <h3 className="text-sm font-bold text-gray-700">ลายเซ็นผู้รับเอกสาร</h3>
+        <button
+          onClick={clearFullscreenSign}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-red-500 hover:text-red-700 transition text-sm"
+        >
+          <Trash2 className="w-4 h-4" />
+          <span>ล้าง</span>
+        </button>
+      </div>
+      <div className="flex-1 relative">
+        <canvas
+          ref={fsCanvasRef}
+          className="absolute inset-0 w-full h-full touch-none"
+        />
+      </div>
+      <div className="px-4 py-3 bg-gray-100 border-t border-gray-300">
+        <button
+          onClick={confirmFullscreenSign}
+          className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl transition flex items-center justify-center gap-2"
+        >
+          <Send className="w-5 h-5" />
+          <span>ยืนยันลายเซ็น</span>
+        </button>
+      </div>
+    </div>
+  )
+
   // ─── Main Page ─────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gray-950 pb-20">
+      {fullscreenSignatureOverlay}
+
       {/* Header */}
       <div className="bg-purple-900 px-4 py-5">
         <div className="max-w-lg mx-auto">
@@ -298,7 +429,7 @@ export default function InventorySignPage() {
               />
             </div>
 
-            {/* Signature Pad */}
+            {/* Signature Area */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-sm text-gray-300">ลายเซ็น</label>
@@ -310,14 +441,51 @@ export default function InventorySignPage() {
                   ล้าง
                 </button>
               </div>
-              <div className="bg-white rounded-xl overflow-hidden border-2 border-gray-600">
-                <canvas
-                  ref={canvasRef}
-                  style={{ width: '100%', height: '160px', touchAction: 'none' }}
-                  className="block"
-                />
-              </div>
-              <p className="text-gray-500 text-xs mt-1 text-center">เซ็นลายมือชื่อในกรอบด้านบน</p>
+
+              {/* Show fullscreen signature preview OR inline pad */}
+              {fsSignatureDataUrl ? (
+                <div className="relative">
+                  <img
+                    src={fsSignatureDataUrl}
+                    alt="ลายเซ็น"
+                    className="w-full rounded-xl border-2 border-purple-500 bg-white object-contain"
+                    style={{ height: '120px' }}
+                  />
+                  <button
+                    onClick={openFullscreenSign}
+                    className="absolute bottom-2 right-2 flex items-center gap-1 px-2 py-1 bg-black/40 rounded-lg text-white text-xs"
+                  >
+                    <PenLine className="w-3 h-3" />
+                    เซ็นใหม่
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {/* Fullscreen sign button */}
+                  <button
+                    onClick={openFullscreenSign}
+                    className="w-full flex items-center justify-center gap-2 py-3 bg-purple-600/20 hover:bg-purple-600/30 border-2 border-dashed border-purple-500/50 rounded-xl text-purple-300 text-sm font-medium transition-colors"
+                  >
+                    <Maximize2 className="w-4 h-4" />
+                    เปิดหน้าจอเซ็นเต็มจอ (แนะนำ)
+                  </button>
+                  {/* Divider */}
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-px bg-gray-700" />
+                    <span className="text-xs text-gray-500">หรือเซ็นที่นี่</span>
+                    <div className="flex-1 h-px bg-gray-700" />
+                  </div>
+                  {/* Inline pad */}
+                  <div className="bg-white rounded-xl overflow-hidden border-2 border-gray-600">
+                    <canvas
+                      ref={canvasRef}
+                      style={{ width: '100%', height: '160px', touchAction: 'none' }}
+                      className="block"
+                    />
+                  </div>
+                  <p className="text-gray-500 text-xs text-center">เซ็นลายมือชื่อในกรอบด้านบน</p>
+                </div>
+              )}
             </div>
 
             {/* Submit */}
