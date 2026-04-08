@@ -600,7 +600,7 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
     try {
       setSubmitting(true)
       const token = localStorage.getItem('token')
-      await axios.post(
+      const res = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/pm/incident/${incidentId}/submit`,
         {},
         { headers: { Authorization: `Bearer ${token}` } },
