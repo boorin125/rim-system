@@ -72,7 +72,7 @@ if [ $ELAPSED -ge $MAX_WAIT ]; then
 fi
 
 echo -e "${YELLOW}→ อัปเดต Database Schema...${NC}"
-$COMPOSE_CMD exec -T backend npx prisma db push --skip-generate
+$COMPOSE_CMD exec -T backend npx prisma db push --skip-generate --accept-data-loss
 
 echo -e "${YELLOW}→ อัปเดต Frontend...${NC}"
 $COMPOSE_CMD up -d --no-deps frontend
