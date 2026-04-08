@@ -361,7 +361,9 @@ function PhotoUploadBlock({
 }) {
   const cameraRef = useRef<HTMLInputElement>(null)
   const galleryRef = useRef<HTMLInputElement>(null)
+  const [showChoice, setShowChoice] = useState(false)
   const accent = accentColor === 'blue' ? 'border-blue-500/40 text-blue-400' : 'border-green-500/40 text-green-400'
+  const accentBg = accentColor === 'blue' ? 'bg-blue-500/10 hover:bg-blue-500/20' : 'bg-green-500/10 hover:bg-green-500/20'
 
   return (
     <div>
@@ -386,45 +388,65 @@ function PhotoUploadBlock({
       )}
       {canEdit && (
         <>
-          {/* Camera input — opens device camera directly */}
+          {/* Hidden inputs */}
           <input
             ref={cameraRef}
             type="file"
             accept="image/*"
             capture="environment"
             className="hidden"
-            onChange={(e) => e.target.files && onUpload(e.target.files)}
+            onChange={(e) => { e.target.files && onUpload(e.target.files); setShowChoice(false) }}
           />
-          {/* Gallery input — opens file picker / photo library */}
           <input
             ref={galleryRef}
             type="file"
             accept="image/*"
             multiple
             className="hidden"
-            onChange={(e) => e.target.files && onUpload(e.target.files)}
+            onChange={(e) => { e.target.files && onUpload(e.target.files); setShowChoice(false) }}
           />
+
           {uploading ? (
             <div className={`w-full flex items-center justify-center gap-1.5 py-2.5 rounded-lg border border-dashed text-xs ${accent}`}>
               <span className="w-3 h-3 border-2 border-current/30 border-t-current rounded-full animate-spin" />
               กำลังอัพโหลด...
             </div>
+          ) : !showChoice ? (
+            /* Single trigger button */
+            <button
+              onClick={() => setShowChoice(true)}
+              className={`w-full flex items-center justify-center gap-1.5 py-2.5 rounded-lg border border-dashed text-xs transition-colors ${accent}`}
+            >
+              <Upload className="w-3.5 h-3.5" />
+              <span>เพิ่มรูป</span>
+            </button>
           ) : (
-            <div className="flex gap-2">
-              <button
-                onClick={() => cameraRef.current?.click()}
-                className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 rounded-lg border border-dashed text-xs transition-colors ${accent}`}
-              >
-                <Camera className="w-4 h-4" />
-                <span>ถ่ายรูป</span>
-              </button>
-              <button
-                onClick={() => galleryRef.current?.click()}
-                className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 rounded-lg border border-dashed text-xs transition-colors ${accent}`}
-              >
-                <ImageIcon className="w-4 h-4" />
-                <span>คลังรูป</span>
-              </button>
+            /* Choice panel */
+            <div className={`rounded-lg border border-dashed overflow-hidden ${accent}`}>
+              <div className="flex">
+                <button
+                  onClick={() => { cameraRef.current?.click() }}
+                  className={`flex-1 flex flex-col items-center justify-center gap-1 py-3 text-xs transition-colors ${accentBg}`}
+                >
+                  <Camera className="w-4 h-4" />
+                  <span>ถ่ายรูป</span>
+                </button>
+                <div className={`w-px ${accentColor === 'blue' ? 'bg-blue-500/30' : 'bg-green-500/30'}`} />
+                <button
+                  onClick={() => { galleryRef.current?.click() }}
+                  className={`flex-1 flex flex-col items-center justify-center gap-1 py-3 text-xs transition-colors ${accentBg}`}
+                >
+                  <ImageIcon className="w-4 h-4" />
+                  <span>คลังรูป</span>
+                </button>
+                <div className={`w-px ${accentColor === 'blue' ? 'bg-blue-500/30' : 'bg-green-500/30'}`} />
+                <button
+                  onClick={() => setShowChoice(false)}
+                  className="px-3 flex items-center justify-center text-gray-500 hover:text-gray-300 transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
           )}
         </>
