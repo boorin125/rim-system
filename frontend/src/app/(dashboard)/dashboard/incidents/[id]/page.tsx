@@ -946,8 +946,10 @@ SLA Breach Time: ${slaBreachText}`
 
   // Helper: Check if current user is the assigned technician (support multi-technician)
   const currentUserId = currentUser?.id ? Number(currentUser.id) : null
-  const isAssignedToMe = incident?.assignees?.some((a: any) => Number(a.user?.id || a.userId) === currentUserId)
+  const isAssignedToMe = currentUserId !== null && (
+    incident?.assignees?.some((a: any) => Number(a.user?.id ?? a.userId) === currentUserId)
     || (assignedTechId != null && Number(assignedTechId) === currentUserId)
+  )
 
   // Role flags — highest role wins: TECHNICIAN/HELP_DESK flags suppressed when higher role exists
   const isTechnician = hasRole('TECHNICIAN') && !userRoles.some((r: string) => _higherThanTech.includes(r))
@@ -1846,7 +1848,7 @@ SLA Breach Time: ${slaBreachText}`
         <PmChecklistSection
           incidentId={incident.id}
           ticketNumber={incident.ticketNumber || `INC-${incident.id}`}
-          canEdit={isAssignedToMe || hasRole('IT_MANAGER') || hasRole('SUPERVISOR')}
+          canEdit={isAssignedToMe}
           onPmSubmitted={() => fetchIncident()}
         />
       )}

@@ -11,6 +11,18 @@ export class UpdatePmEquipmentRecordDto {
   @IsString({ each: true })
   afterPhotos?: string[];
 
+  /** Replace the entire beforePhotos array (used for deletion) */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  setBeforePhotos?: string[];
+
+  /** Replace the entire afterPhotos array (used for deletion) */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  setAfterPhotos?: string[];
+
   @IsOptional()
   @IsString()
   comment?: string;

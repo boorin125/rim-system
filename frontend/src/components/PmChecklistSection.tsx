@@ -210,12 +210,17 @@ function EquipmentCard({
     try {
       const token = localStorage.getItem('token')
       const currentPhotos = type === 'before' ? record.beforePhotos : record.afterPhotos
-      // We send the updated list (minus the removed photo) — backend replaces for this special case
-      // For simplicity: send an empty array with a note field to signal replacement
-      // Actually since our API appends, we need a different approach here.
-      // We'll skip remove functionality — photos are additive.
-      toast('ไม่สามารถลบรูปที่ upload แล้ว')
-    } catch {}
+      const filtered = currentPhotos.filter((_, i) => i !== index)
+      const body = type === 'before' ? { setBeforePhotos: filtered } : { setAfterPhotos: filtered }
+      const res = await axios.patch(
+        `${process.env.NEXT_PUBLIC_API_URL}/pm/equipment-record/${record.id}`,
+        body,
+        { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } },
+      )
+      onUpdated(res.data)
+    } catch {
+      toast.error('ลบรูปไม่สำเร็จ')
+    }
   }
 
   return (
@@ -271,6 +276,7 @@ function EquipmentCard({
               uploading={uploadingBefore}
               canEdit={canEdit}
               onUpload={(files) => uploadPhotos(files, 'before')}
+              onRemove={(i) => removePhoto('before', i)}
               accentColor="blue"
             />
             {/* After Photos */}
@@ -280,6 +286,7 @@ function EquipmentCard({
               uploading={uploadingAfter}
               canEdit={canEdit}
               onUpload={(files) => uploadPhotos(files, 'after')}
+              onRemove={(i) => removePhoto('after', i)}
               accentColor="green"
             />
           </div>
@@ -400,6 +407,7 @@ function PhotoUploadBlock({
   uploading,
   canEdit,
   onUpload,
+  onRemove,
   accentColor,
 }: {
   label: string
@@ -407,6 +415,7 @@ function PhotoUploadBlock({
   uploading: boolean
   canEdit: boolean
   onUpload: (files: FileList) => void
+  onRemove?: (index: number) => void
   accentColor: 'blue' | 'green'
 }) {
   const cameraRef = useRef<HTMLInputElement>(null)
@@ -445,16 +454,21 @@ function PhotoUploadBlock({
       {/* Thumbnails */}
       {photos.length > 0 && (
         <div className="flex gap-1 flex-wrap mb-2">
-          {photos.slice(-4).map((src, i) => (
-            <button key={i} onClick={() => setLightbox(src)} className="focus:outline-none">
-              <img src={src} alt="" className="w-12 h-12 object-cover rounded-lg border border-slate-600 hover:opacity-80 transition-opacity cursor-zoom-in" />
-            </button>
+          {photos.map((src, i) => (
+            <div key={i} className="relative group">
+              <button onClick={() => setLightbox(src)} className="focus:outline-none">
+                <img src={src} alt="" className="w-12 h-12 object-cover rounded-lg border border-slate-600 hover:opacity-80 transition-opacity cursor-zoom-in" />
+              </button>
+              {canEdit && onRemove && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onRemove(i) }}
+                  className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <X className="w-2.5 h-2.5 text-white" />
+                </button>
+              )}
+            </div>
           ))}
-          {photos.length > 4 && (
-            <button onClick={() => setLightbox(photos[0])} className="w-12 h-12 flex items-center justify-center bg-slate-700 rounded-lg text-xs text-gray-400 hover:bg-slate-600 transition-colors">
-              +{photos.length - 4}
-            </button>
-          )}
         </div>
       )}
       {canEdit && (

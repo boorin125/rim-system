@@ -161,10 +161,14 @@ export class PmService {
 
     const data: any = {};
 
-    if (dto.beforePhotos?.length) {
+    if (dto.setBeforePhotos !== undefined) {
+      data.beforePhotos = dto.setBeforePhotos;
+    } else if (dto.beforePhotos?.length) {
       data.beforePhotos = [...(existing.beforePhotos ?? []), ...dto.beforePhotos];
     }
-    if (dto.afterPhotos?.length) {
+    if (dto.setAfterPhotos !== undefined) {
+      data.afterPhotos = dto.setAfterPhotos;
+    } else if (dto.afterPhotos?.length) {
       data.afterPhotos = [...(existing.afterPhotos ?? []), ...dto.afterPhotos];
     }
     if (dto.comment !== undefined) data.comment = dto.comment;
