@@ -430,19 +430,58 @@ export default function SettingsPage() {
     { name: 'Gold Bright', bgStart: '#78350f', bgEnd: '#d97706' },
   ]
 
-  // Adjust hex color brightness: factor 0=darkest, 50=original, 100=lightest
+  // Adjust hex color brightness via HSL — preserves hue and saturation
   const adjustHex = (hex: string, factor: number): string => {
-    const r = parseInt(hex.slice(1, 3), 16)
-    const g = parseInt(hex.slice(3, 5), 16)
-    const b = parseInt(hex.slice(5, 7), 16)
     if (factor === 50) return hex
-    const clamp = (v: number) => Math.min(255, Math.max(0, Math.round(v)))
-    if (factor < 50) {
-      const t = factor / 50
-      return `#${clamp(r * t).toString(16).padStart(2, '0')}${clamp(g * t).toString(16).padStart(2, '0')}${clamp(b * t).toString(16).padStart(2, '0')}`
+
+    // Hex → RGB (0–1)
+    const r = parseInt(hex.slice(1, 3), 16) / 255
+    const g = parseInt(hex.slice(3, 5), 16) / 255
+    const b = parseInt(hex.slice(5, 7), 16) / 255
+
+    // RGB → HSL
+    const max = Math.max(r, g, b), min = Math.min(r, g, b)
+    const l = (max + min) / 2
+    let h = 0, s = 0
+    if (max !== min) {
+      const d = max - min
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+      switch (max) {
+        case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break
+        case g: h = ((b - r) / d + 2) / 6; break
+        case b: h = ((r - g) / d + 4) / 6; break
+      }
     }
-    const t = (factor - 50) / 50
-    return `#${clamp(r + (255 - r) * t).toString(16).padStart(2, '0')}${clamp(g + (255 - g) * t).toString(16).padStart(2, '0')}${clamp(b + (255 - b) * t).toString(16).padStart(2, '0')}`
+
+    // Adjust lightness only (preserves hue + saturation)
+    let newL: number
+    if (factor < 50) {
+      newL = l * (factor / 50)                      // darken toward black
+    } else {
+      newL = l + (0.88 - l) * ((factor - 50) / 50)  // lighten, cap at 0.88
+    }
+    newL = Math.min(0.95, Math.max(0, newL))
+
+    // HSL → RGB → hex
+    const hue2rgb = (p: number, q: number, t: number) => {
+      if (t < 0) t += 1; if (t > 1) t -= 1
+      if (t < 1 / 6) return p + (q - p) * 6 * t
+      if (t < 1 / 2) return q
+      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6
+      return p
+    }
+    let nr: number, ng: number, nb: number
+    if (s === 0) {
+      nr = ng = nb = newL
+    } else {
+      const q = newL < 0.5 ? newL * (1 + s) : newL + s - newL * s
+      const p = 2 * newL - q
+      nr = hue2rgb(p, q, h + 1 / 3)
+      ng = hue2rgb(p, q, h)
+      nb = hue2rgb(p, q, h - 1 / 3)
+    }
+    const toHex = (v: number) => Math.round(v * 255).toString(16).padStart(2, '0')
+    return `#${toHex(nr)}${toHex(ng)}${toHex(nb)}`
   }
 
   const [selectedTheme, setSelectedTheme] = useState({ bgStart: '#0f172a', bgEnd: '#1e293b' })
