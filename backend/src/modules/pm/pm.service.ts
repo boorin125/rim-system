@@ -107,7 +107,40 @@ export class PmService {
     });
 
     if (!record) throw new NotFoundException('ไม่พบ PM Record สำหรับ Incident นี้');
-    return record;
+
+    // Find conflicting EquipmentLog entries (source=INCIDENT, newer than PM equipment record)
+    const recMap = new Map(record.equipmentRecords.map((r) => [r.equipmentId, r.updatedAt]));
+    const equipmentIds = record.equipmentRecords.map((r) => r.equipmentId);
+
+    const conflictLogs = await this.prisma.equipmentLog.findMany({
+      where: {
+        equipmentId: { in: equipmentIds },
+        source: 'INCIDENT',
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { equipmentId: true, sourceId: true, createdAt: true },
+    });
+
+    // For each equipment, find the latest INCIDENT log newer than PM record's updatedAt
+    const conflictMap = new Map<number, string>();
+    for (const log of conflictLogs) {
+      if (conflictMap.has(log.equipmentId)) continue; // already have latest
+      const pmUpdatedAt = recMap.get(log.equipmentId);
+      if (pmUpdatedAt && log.createdAt > pmUpdatedAt && log.sourceId) {
+        conflictMap.set(log.equipmentId, log.sourceId);
+      }
+    }
+
+    // Attach conflictIncidentId to each equipment record
+    const enriched = {
+      ...record,
+      equipmentRecords: record.equipmentRecords.map((r) => ({
+        ...r,
+        conflictIncidentId: conflictMap.get(r.equipmentId) ?? null,
+      })),
+    };
+
+    return enriched;
   }
 
   /**
@@ -139,7 +172,7 @@ export class PmService {
       data,
       include: {
         equipment: {
-          select: { id: true, name: true, category: true, brand: true, model: true, serialNumber: true },
+          select: { id: true, name: true, category: true, brand: true, model: true, serialNumber: true, updatedAt: true },
         },
       },
     });

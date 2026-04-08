@@ -47,6 +47,7 @@ interface PmEquipmentRecord {
   updatedModel?: string
   updatedSerial?: string
   updatedAt: string
+  conflictIncidentId?: string | null
   equipment: Equipment
 }
 
@@ -124,15 +125,14 @@ function EquipmentCard({
   const [uploadingAfter, setUploadingAfter] = useState(false)
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
 
+  // Conflict: equipment was updated via Resolve Incident after PM record was last saved
+  const hasConflict = new Date(record.equipment.updatedAt) > new Date(record.updatedAt)
+
   const isComplete =
+    !hasConflict &&
     record.beforePhotos.length > 0 &&
     record.afterPhotos.length > 0 &&
     !!local.condition
-
-  // Conflict: equipment was updated (e.g. via Resolve Incident) after PM record was last saved
-  const hasInfoUpdate = local.updatedBrand || local.updatedModel || local.updatedSerial
-  const equipmentNewerThanPm = new Date(record.equipment.updatedAt) > new Date(record.updatedAt)
-  const hasConflict = hasInfoUpdate && equipmentNewerThanPm
 
   // Auto-save text fields with debounce
   const saveTextFields = useCallback(
@@ -317,10 +317,14 @@ function EquipmentCard({
             <div className="flex items-start gap-2 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
               <AlertTriangle className="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-xs text-yellow-300 font-medium">ข้อมูลอุปกรณ์ถูกอัพเดตหลังจากกรอก PM นี้</p>
+                <p className="text-xs text-yellow-300 font-medium">
+                  มีการเปลี่ยนแปลงอุปกรณ์ใหม่
+                  {record.conflictIncidentId && (
+                    <span> จาก Incident <span className="font-bold">{record.conflictIncidentId}</span></span>
+                  )}
+                </p>
                 <p className="text-xs text-yellow-400/80 mt-0.5">
-                  ข้อมูล Brand/Model/S/N ที่กรอกไว้จะ <span className="font-semibold">ไม่ถูก Commit</span> เพราะมีการแก้ไขใหม่กว่าจาก Resolve Incident
-                  กรุณากรอกข้อมูลใหม่อีกครั้งถ้าต้องการอัพเดต
+                  กรุณาตรวจสอบและแก้ไขข้อมูล Brand / Model / S/N อีกครั้ง แล้วอัพโหลดรูปใหม่เพื่อยืนยัน
                 </p>
               </div>
             </div>
@@ -586,7 +590,10 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
     (r) => r.beforePhotos.length > 0 && r.afterPhotos.length > 0,
   ).length ?? 0
   const totalCount = pmRecord?.equipmentRecords.length ?? 0
-  const allComplete = completedCount === totalCount && totalCount > 0
+  const conflictCount = pmRecord?.equipmentRecords.filter(
+    (r) => new Date(r.equipment.updatedAt) > new Date(r.updatedAt),
+  ).length ?? 0
+  const allComplete = completedCount === totalCount && totalCount > 0 && conflictCount === 0
 
   const handleSubmitPm = async () => {
     if (!pmRecord) return
@@ -791,7 +798,13 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
           ) : (
             <CheckCircle2 className="w-5 h-5" />
           )}
-          {submitting ? 'กำลัง Submit PM...' : !allComplete ? `Submit PM (ต้องมีรูปครบ ${totalCount} อุปกรณ์)` : 'Submit PM'}
+          {submitting
+            ? 'กำลัง Submit PM...'
+            : conflictCount > 0
+            ? `แก้ไขข้อมูลให้ครบก่อน (${conflictCount} อุปกรณ์มีความขัดแย้ง)`
+            : !allComplete
+            ? `Submit PM (ต้องมีรูปครบ ${totalCount} อุปกรณ์)`
+            : 'Submit PM'}
         </button>
       )}
 
