@@ -1846,13 +1846,7 @@ SLA Breach Time: ${slaBreachText}`
         <PmChecklistSection
           incidentId={incident.id}
           ticketNumber={incident.ticketNumber || `INC-${incident.id}`}
-          canEdit={
-            hasRole('TECHNICIAN') ||
-            hasRole('SUPERVISOR') ||
-            hasRole('HELP_DESK') ||
-            hasRole('IT_MANAGER') ||
-            hasRole('SUPER_ADMIN')
-          }
+          canEdit={isAssignedToMe || hasRole('IT_MANAGER') || hasRole('SUPERVISOR')}
           onPmSubmitted={() => fetchIncident()}
         />
       )}

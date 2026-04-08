@@ -411,10 +411,29 @@ function PhotoUploadBlock({
   const cameraRef = useRef<HTMLInputElement>(null)
   const galleryRef = useRef<HTMLInputElement>(null)
   const [showChoice, setShowChoice] = useState(false)
+  const [lightbox, setLightbox] = useState<string | null>(null)
   const accent = accentColor === 'blue' ? 'border-blue-500/40 text-blue-400' : 'border-green-500/40 text-green-400'
   const accentBg = accentColor === 'blue' ? 'bg-blue-500/10 hover:bg-blue-500/20' : 'bg-green-500/10 hover:bg-green-500/20'
 
   return (
+    <>
+    {/* Lightbox */}
+    {lightbox && (
+      <div
+        className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+        onClick={() => setLightbox(null)}
+      >
+        <button className="absolute top-4 right-4 text-white/70 hover:text-white" onClick={() => setLightbox(null)}>
+          <X className="w-8 h-8" />
+        </button>
+        <img
+          src={lightbox}
+          alt=""
+          className="max-w-full max-h-full object-contain rounded-lg"
+          onClick={(e) => e.stopPropagation()}
+        />
+      </div>
+    )}
     <div>
       <div className="flex items-center justify-between mb-2">
         <label className="text-xs font-medium text-gray-400">{label}</label>
@@ -426,12 +445,14 @@ function PhotoUploadBlock({
       {photos.length > 0 && (
         <div className="flex gap-1 flex-wrap mb-2">
           {photos.slice(-4).map((src, i) => (
-            <img key={i} src={src} alt="" className="w-12 h-12 object-cover rounded-lg border border-slate-600" />
+            <button key={i} onClick={() => setLightbox(src)} className="focus:outline-none">
+              <img src={src} alt="" className="w-12 h-12 object-cover rounded-lg border border-slate-600 hover:opacity-80 transition-opacity cursor-zoom-in" />
+            </button>
           ))}
           {photos.length > 4 && (
-            <div className="w-12 h-12 flex items-center justify-center bg-slate-700 rounded-lg text-xs text-gray-400">
+            <button onClick={() => setLightbox(photos[0])} className="w-12 h-12 flex items-center justify-center bg-slate-700 rounded-lg text-xs text-gray-400 hover:bg-slate-600 transition-colors">
               +{photos.length - 4}
-            </div>
+            </button>
           )}
         </div>
       )}
@@ -500,6 +521,7 @@ function PhotoUploadBlock({
         </>
       )}
     </div>
+    </>
   )
 }
 
@@ -748,8 +770,7 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
             PM Checklist
           </h2>
           <p className="text-sm text-gray-400 mt-0.5">
-            {pmRecord.store.storeCode} — {pmRecord.store.name}
-            {pmRecord.store.province && ` (${pmRecord.store.province})`}
+            {pmRecord.store.storeCode} {pmRecord.store.name}
           </p>
         </div>
         <div className="text-right">
