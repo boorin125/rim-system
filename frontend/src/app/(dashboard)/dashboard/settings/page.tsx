@@ -3767,12 +3767,35 @@ export default function SettingsPage() {
             {/* Preview */}
             <div className="p-4 bg-slate-700/30 rounded-xl">
               <p className="text-sm text-gray-400 mb-3">Preview</p>
-              <div
-                className="h-24 rounded-xl border border-slate-600/50 flex items-center justify-center"
-                style={{ background: `linear-gradient(135deg, ${selectedTheme.bgStart} 0%, ${selectedTheme.bgEnd} 100%)` }}
-              >
-                <div className="px-6 py-3 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl">
-                  <span className="text-white/90 text-sm font-medium">RIM System Preview</span>
+              <div className="rounded-xl border border-slate-600/50 overflow-hidden flex h-28">
+                {/* Sidebar */}
+                <div
+                  className="w-28 flex-shrink-0 flex flex-col gap-1.5 p-2.5"
+                  style={{ background: `linear-gradient(180deg, ${selectedTheme.bgStart} 0%, ${selectedTheme.bgEnd} 100%)` }}
+                >
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <div className="w-4 h-4 rounded bg-white/20" />
+                    <div className="h-2 w-12 rounded bg-white/30" />
+                  </div>
+                  {['', '', ''].map((_, i) => (
+                    <div key={i} className={`flex items-center gap-1.5 px-1.5 py-1 rounded-md ${i === 0 ? 'bg-white/15' : ''}`}>
+                      <div className="w-2.5 h-2.5 rounded bg-white/40" />
+                      <div className="h-1.5 w-10 rounded bg-white/25" />
+                    </div>
+                  ))}
+                </div>
+                {/* Content area */}
+                <div className="flex-1 bg-slate-900 p-2.5 flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <div className="h-2 w-16 rounded bg-slate-600" />
+                    <div className="w-5 h-5 rounded-full bg-slate-600" />
+                  </div>
+                  <div className="flex gap-1.5">
+                    {[14, 20, 10].map((w, i) => (
+                      <div key={i} className="flex-1 h-8 rounded-lg bg-slate-800 border border-slate-700" />
+                    ))}
+                  </div>
+                  <div className="h-6 rounded-lg bg-slate-800 border border-slate-700" />
                 </div>
               </div>
 
