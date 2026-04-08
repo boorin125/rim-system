@@ -31,15 +31,18 @@ function ModalWrapper({
 }) {
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/70 flex items-start justify-center p-4 overflow-y-auto"
+      className="fixed inset-0 z-50 bg-black/70 flex flex-col overflow-hidden"
       onClick={onClose}
     >
       {/* Toolbar */}
-      <div className="fixed top-0 left-0 right-0 z-10 flex items-center justify-between px-4 py-2.5 bg-slate-900/95 border-b border-slate-700 backdrop-blur">
+      <div
+        className="flex-shrink-0 flex items-center justify-between px-4 py-2.5 bg-slate-900/95 border-b border-slate-700"
+        onClick={(e) => e.stopPropagation()}
+      >
         <span className="text-white font-semibold text-sm">{title}</span>
         <div className="flex items-center gap-2">
           <button
-            onClick={(e) => { e.stopPropagation(); onSavePdf() }}
+            onClick={onSavePdf}
             disabled={saving}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-xs font-medium rounded-lg transition-colors"
           >
@@ -51,16 +54,21 @@ function ModalWrapper({
             Save PDF
           </button>
           <button
-            onClick={(e) => { e.stopPropagation(); onClose() }}
+            onClick={onClose}
             className="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-700 hover:bg-slate-600 text-gray-300 hover:text-white transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
       </div>
-      {/* Document */}
-      <div className="mt-14 w-full max-w-3xl pb-8" onClick={(e) => e.stopPropagation()}>
-        {children}
+      {/* Document — scrollable area */}
+      <div
+        className="flex-1 overflow-y-auto overflow-x-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="w-full max-w-3xl mx-auto p-3 sm:p-4 pb-8">
+          {children}
+        </div>
       </div>
     </div>
   )

@@ -593,6 +593,8 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
   const [generatingToken, setGeneratingToken] = useState(false)
   const [signLink, setSignLink] = useState<string | null>(null)
   const [uploadingSignedPaper, setUploadingSignedPaper] = useState(false)
+  const [deletingSignedPaper, setDeletingSignedPaper] = useState(false)
+  const [confirmDeleteSigned, setConfirmDeleteSigned] = useState(false)
   const [downloadingPmReport, setDownloadingPmReport] = useState(false)
   const [downloadingInventory, setDownloadingInventory] = useState(false)
   const [showPmReportModal, setShowPmReportModal] = useState(false)
@@ -744,12 +746,29 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
         { photo: base64 },
         { headers: { Authorization: `Bearer ${token}` } },
       )
-      toast.success('อัพโหลดเอกสารที่เซ็นแล้วสำเร็จ')
+      toast.success('อัพโหลดเอกสารสำเร็จ')
       fetchPmRecord()
     } catch {
       toast.error('อัพโหลดไม่สำเร็จ')
     } finally {
       setUploadingSignedPaper(false)
+    }
+  }
+
+  const handleDeleteSignedPaper = async () => {
+    try {
+      setDeletingSignedPaper(true)
+      const token = localStorage.getItem('token')
+      await axios.delete(
+        `${process.env.NEXT_PUBLIC_API_URL}/pm/incident/${incidentId}/upload-signed`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      )
+      setConfirmDeleteSigned(false)
+      fetchPmRecord()
+    } catch {
+      toast.error('ลบเอกสารไม่สำเร็จ')
+    } finally {
+      setDeletingSignedPaper(false)
     }
   }
 
@@ -986,7 +1005,7 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
             ) : (
               <Upload className="w-4 h-4" />
             )}
-            อัพโหลดเซ็นกระดาษ
+            อัพโหลดเอกสาร
           </button>
           <input
             ref={signedPaperRef}
@@ -1025,12 +1044,40 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
         {/* Uploaded signed paper preview */}
         {pmRecord.signedInventoryPhoto && (
           <div>
-            <p className="text-xs text-gray-400 mb-2">เอกสารที่เซ็นแล้ว (กระดาษ)</p>
-            <img
-              src={pmRecord.signedInventoryPhoto}
-              alt="Signed inventory"
-              className="max-h-40 rounded-lg border border-slate-600 object-contain"
-            />
+            <p className="text-xs text-gray-400 mb-2">เอกสารที่อัพโหลด</p>
+            <div className="relative inline-block">
+              <img
+                src={pmRecord.signedInventoryPhoto}
+                alt="Signed inventory"
+                className={`max-h-40 rounded-lg border object-contain transition-opacity ${confirmDeleteSigned ? 'border-red-500 opacity-40' : 'border-slate-600'}`}
+              />
+              {canEdit && (
+                <button
+                  onClick={() => setConfirmDeleteSigned(!confirmDeleteSigned)}
+                  className={`absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center transition-colors ${confirmDeleteSigned ? 'bg-slate-500' : 'bg-red-500 hover:bg-red-600'}`}
+                >
+                  <X className="w-3 h-3 text-white" />
+                </button>
+              )}
+            </div>
+            {confirmDeleteSigned && (
+              <div className="mt-2 flex items-center gap-2 px-3 py-2 bg-red-500/10 border border-red-500/40 rounded-lg">
+                <p className="text-xs text-red-300 flex-1">ยืนยันลบเอกสาร?</p>
+                <button
+                  onClick={handleDeleteSignedPaper}
+                  disabled={deletingSignedPaper}
+                  className="px-3 py-1 bg-red-500 hover:bg-red-600 disabled:opacity-50 rounded-lg text-xs text-white font-medium transition-colors"
+                >
+                  {deletingSignedPaper ? '...' : 'ลบ'}
+                </button>
+                <button
+                  onClick={() => setConfirmDeleteSigned(false)}
+                  className="px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs text-gray-300 transition-colors"
+                >
+                  ยกเลิก
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

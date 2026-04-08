@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Param,
   Body,
   Request,
@@ -109,6 +110,17 @@ export class PmController {
     @Body() dto: UploadSignedInventoryDto,
   ) {
     return this.pmService.uploadSignedInventory(incidentId, dto.photo);
+  }
+
+  /**
+   * DELETE /pm/incident/:incidentId/upload-signed
+   * Remove the signed paper inventory photo.
+   */
+  @Delete('incident/:incidentId/upload-signed')
+  @Roles(UserRole.TECHNICIAN, UserRole.SUPERVISOR, UserRole.HELP_DESK, UserRole.IT_MANAGER, UserRole.SUPER_ADMIN)
+  @HttpCode(HttpStatus.OK)
+  deleteSignedInventory(@Param('incidentId') incidentId: string) {
+    return this.pmService.deleteSignedInventory(incidentId);
   }
 }
 

@@ -489,4 +489,13 @@ export class PmService {
       data: { signedInventoryPhoto: photo },
     });
   }
+
+  async deleteSignedInventory(incidentId: string) {
+    const pmRecord = await this.prisma.pmRecord.findUnique({ where: { incidentId } });
+    if (!pmRecord) throw new NotFoundException('ไม่พบ PM Record');
+    return this.prisma.pmRecord.update({
+      where: { id: pmRecord.id },
+      data: { signedInventoryPhoto: null },
+    });
+  }
 }
