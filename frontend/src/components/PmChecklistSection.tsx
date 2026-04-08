@@ -303,22 +303,30 @@ function EquipmentCard({
           </div>
 
           {/* Update Brand / Model / Serial */}
-          <div className="space-y-2">
-            <label className="block text-xs font-medium text-gray-400">อัพเดตข้อมูลอุปกรณ์ (ถ้ามีการเปลี่ยนแปลง)</label>
-            {/* Current info row */}
-            <div className="flex items-center gap-2 px-3 py-2 bg-slate-700/40 rounded-lg">
-              <span className="text-xs text-gray-500 flex-shrink-0">ข้อมูลเดิม</span>
-              <span className="text-xs text-gray-200">
-                {[record.equipment.brand, record.equipment.model].filter(Boolean).join(' ')}
-                {record.equipment.serialNumber ? ` S/N ${record.equipment.serialNumber}` : ''}
-              </span>
-            </div>
-            {/* New info inputs */}
-            <div className="flex items-start gap-2">
-              <span className="text-xs text-gray-500 flex-shrink-0 pt-2">ข้อมูลใหม่</span>
-              <div className="grid grid-cols-3 gap-2 flex-1">
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Brand.</p>
+          <div className="space-y-1">
+            <label className="block text-xs font-medium text-gray-400 mb-2">อัพเดตข้อมูลอุปกรณ์ (ถ้ามีการเปลี่ยนแปลง)</label>
+            <div className="bg-slate-700/30 rounded-xl p-3 space-y-2">
+              {/* Column headers */}
+              <div className="grid grid-cols-3 gap-2 pl-[4.5rem]">
+                <p className="text-xs text-gray-500">Brand.</p>
+                <p className="text-xs text-gray-500">Model.</p>
+                <p className="text-xs text-gray-500">Serial No.</p>
+              </div>
+              {/* Current data row */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500 w-16 flex-shrink-0">ข้อมูลเดิม</span>
+                <div className="grid grid-cols-3 gap-2 flex-1">
+                  <p className="text-xs text-white truncate">{record.equipment.brand || '-'}</p>
+                  <p className="text-xs text-white truncate">{record.equipment.model || '-'}</p>
+                  <p className="text-xs text-white truncate">{record.equipment.serialNumber || '-'}</p>
+                </div>
+              </div>
+              {/* Divider */}
+              <div className="border-t border-slate-600/50" />
+              {/* New data inputs */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500 w-16 flex-shrink-0">ข้อมูลใหม่</span>
+                <div className="grid grid-cols-3 gap-2 flex-1">
                   <input
                     value={local.updatedBrand}
                     onChange={(e) => handleFieldChange('updatedBrand', e.target.value)}
@@ -326,9 +334,6 @@ function EquipmentCard({
                     placeholder="Brand ใหม่"
                     className="w-full px-2 py-1.5 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-xs placeholder-gray-500 focus:outline-none focus:border-blue-500 disabled:opacity-60"
                   />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Model.</p>
                   <input
                     value={local.updatedModel}
                     onChange={(e) => handleFieldChange('updatedModel', e.target.value)}
@@ -336,9 +341,6 @@ function EquipmentCard({
                     placeholder="Model ใหม่"
                     className="w-full px-2 py-1.5 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-xs placeholder-gray-500 focus:outline-none focus:border-blue-500 disabled:opacity-60"
                   />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Serial No.</p>
                   <input
                     value={local.updatedSerial}
                     onChange={(e) => handleFieldChange('updatedSerial', e.target.value)}
