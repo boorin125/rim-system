@@ -252,7 +252,8 @@ function EquipmentCard({
           </div>
           <div>
             <p className="text-white font-medium text-sm">{record.equipment.name}</p>
-            <p className="text-xs text-gray-400">{record.equipment.category} — S/N: {record.equipment.serialNumber}</p>
+            <p className="text-xs text-gray-400">{record.equipment.category}</p>
+            <p className="text-xs text-gray-500">S/N: {record.equipment.serialNumber}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -897,7 +898,11 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
 
       {/* Equipment Records */}
       <div className="space-y-2">
-        {pmRecord.equipmentRecords.map((record) => (
+        {[...pmRecord.equipmentRecords]
+          .sort((a, b) =>
+            a.equipment.name.localeCompare(b.equipment.name, 'th', { numeric: true, sensitivity: 'base' })
+          )
+          .map((record) => (
           <EquipmentCard
             key={record.id}
             record={record}
