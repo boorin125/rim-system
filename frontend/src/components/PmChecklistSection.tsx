@@ -404,28 +404,29 @@ function PhotoUploadBlock({
             className="hidden"
             onChange={(e) => e.target.files && onUpload(e.target.files)}
           />
-          <div className="flex gap-1.5">
-            <button
-              onClick={() => cameraRef.current?.click()}
-              disabled={uploading}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border border-dashed text-xs transition-colors disabled:opacity-50 ${accent}`}
-            >
-              {uploading ? (
-                <span className="w-3 h-3 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-              ) : (
-                <Camera className="w-3 h-3" />
-              )}
-              {uploading ? 'กำลังอัพโหลด...' : 'ถ่ายรูป'}
-            </button>
-            <button
-              onClick={() => galleryRef.current?.click()}
-              disabled={uploading}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border border-dashed text-xs transition-colors disabled:opacity-50 ${accent}`}
-            >
-              <ImageIcon className="w-3 h-3" />
-              คลัง
-            </button>
-          </div>
+          {uploading ? (
+            <div className={`w-full flex items-center justify-center gap-1.5 py-2.5 rounded-lg border border-dashed text-xs ${accent}`}>
+              <span className="w-3 h-3 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+              กำลังอัพโหลด...
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <button
+                onClick={() => cameraRef.current?.click()}
+                className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 rounded-lg border border-dashed text-xs transition-colors ${accent}`}
+              >
+                <Camera className="w-4 h-4" />
+                <span>ถ่ายรูป</span>
+              </button>
+              <button
+                onClick={() => galleryRef.current?.click()}
+                className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 rounded-lg border border-dashed text-xs transition-colors ${accent}`}
+              >
+                <ImageIcon className="w-4 h-4" />
+                <span>คลังรูป</span>
+              </button>
+            </div>
+          )}
         </>
       )}
     </div>
