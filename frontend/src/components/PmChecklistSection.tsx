@@ -633,6 +633,7 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
   const [deletingSignedPaper, setDeletingSignedPaper] = useState(false)
   const [confirmDeleteSigned, setConfirmDeleteSigned] = useState(false)
   const [showSignedDocChoice, setShowSignedDocChoice] = useState(false)
+  const [lightboxSignedDoc, setLightboxSignedDoc] = useState(false)
   const [cropSrc, setCropSrc] = useState<string | null>(null)
   const signedCameraRef = useRef<HTMLInputElement>(null)
   const signedGalleryRef = useRef<HTMLInputElement>(null)
@@ -1152,7 +1153,8 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
               <img
                 src={pmRecord.signedInventoryPhoto}
                 alt="Signed inventory"
-                className={`max-h-40 rounded-lg border object-contain transition-opacity ${confirmDeleteSigned ? 'border-red-500 opacity-40' : 'border-slate-600'}`}
+                onClick={() => { if (!confirmDeleteSigned) setLightboxSignedDoc(true) }}
+                className={`max-h-40 rounded-lg border object-contain transition-opacity cursor-pointer ${confirmDeleteSigned ? 'border-red-500 opacity-40' : 'border-slate-600'}`}
               />
               {canEdit && (
                 <button
@@ -1185,6 +1187,21 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
         )}
       </div>
     </div>
+
+    {/* Lightbox for signed document */}
+    {lightboxSignedDoc && pmRecord?.signedInventoryPhoto && (
+      <div
+        className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90"
+        onClick={() => setLightboxSignedDoc(false)}
+      >
+        <img
+          src={pmRecord.signedInventoryPhoto}
+          alt="Signed inventory"
+          className="max-w-full max-h-full object-contain"
+          onClick={(e) => e.stopPropagation()}
+        />
+      </div>
+    )}
 
     {/* Crop Modal — shown after file is selected */}
     {cropSrc && (
