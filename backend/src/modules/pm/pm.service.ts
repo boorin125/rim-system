@@ -6,10 +6,16 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { EquipmentLogAction, EquipmentLogSource, EquipmentStatus } from '@prisma/client';
 import { UpdatePmEquipmentRecordDto, SignInventoryListDto } from './dto/index';
+import { EmailService } from '../../email/email.service';
+import { SettingsService } from '../../settings/settings.service';
 
 @Injectable()
 export class PmService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private emailService: EmailService,
+    private settingsService: SettingsService,
+  ) {}
 
   /**
    * Create PmRecord and PmEquipmentRecord rows for all ACTIVE/MAINTENANCE equipment in the store.
@@ -296,7 +302,93 @@ export class PmService {
       }
     });
 
+    // Send PM completion email (non-blocking)
+    this.sendPmCompletionEmail(incidentId, now, userId, pmRecord.equipmentRecords).catch((e) =>
+      console.error('Failed to send PM completion email:', e),
+    );
+
     return { success: true, performedAt: now, skippedEquipmentIds: skippedEquipment };
+  }
+
+  /**
+   * Send PM completion email to configured recipients.
+   */
+  private async sendPmCompletionEmail(
+    incidentId: string,
+    performedAt: Date,
+    technicianId: number,
+    equipmentRecords: any[],
+  ) {
+    // Fetch incident + store + technician
+    const incident = await this.prisma.incident.findUnique({
+      where: { id: incidentId },
+      select: {
+        ticketNumber: true,
+        ratingToken: true,
+        store: { select: { storeCode: true, name: true } },
+      },
+    });
+    if (!incident) return;
+
+    const technician = await this.prisma.user.findUnique({
+      where: { id: technicianId },
+      select: { firstName: true, lastName: true },
+    });
+
+    // Fetch equipment details for each record
+    const equipIds = equipmentRecords.map((r) => r.equipmentId);
+    const equipments = await this.prisma.equipment.findMany({
+      where: { id: { in: equipIds } },
+      select: { id: true, name: true, category: true, brand: true, model: true, serialNumber: true },
+    });
+    const equipMap = new Map(equipments.map((e) => [e.id, e]));
+
+    const emailEquipmentRecords = equipmentRecords.map((r) => {
+      const eq = equipMap.get(r.equipmentId);
+      return {
+        equipmentName: eq?.name || '-',
+        category: eq?.category || '-',
+        brand: eq?.brand,
+        model: eq?.model,
+        serialNumber: eq?.serialNumber || '-',
+        condition: r.condition,
+        comment: r.comment,
+        updatedBrand: r.updatedBrand,
+        updatedModel: r.updatedModel,
+        updatedSerial: r.updatedSerial,
+        afterPhotos: r.afterPhotos || [],
+      };
+    });
+
+    // Get email settings
+    const emailSettings = await this.settingsService.getEmailSettings();
+    const toEmail = emailSettings.closeNotificationTo;
+    if (!toEmail) return;
+
+    const ccEmails = emailSettings.closeNotificationCc
+      ? emailSettings.closeNotificationCc.split(',').map((e: string) => e.trim()).filter(Boolean)
+      : [];
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const publicIncidentLink = incident.ratingToken
+      ? `${frontendUrl}/incident/${incident.ratingToken}`
+      : null;
+
+    await this.emailService.sendPmCompletedEmail({
+      to: toEmail,
+      cc: ccEmails,
+      incidentId,
+      ticketNumber: incident.ticketNumber,
+      storeName: incident.store?.name || '-',
+      storeCode: incident.store?.storeCode,
+      technicianName: technician
+        ? `${technician.firstName} ${technician.lastName}`
+        : '-',
+      performedAt,
+      totalEquipment: equipmentRecords.length,
+      equipmentRecords: emailEquipmentRecords,
+      publicIncidentLink,
+    });
   }
 
   /**

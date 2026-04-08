@@ -956,6 +956,264 @@ export class EmailService {
   }
 
   /**
+   * Send PM Completed email notification
+   */
+  async sendPmCompletedEmail(data: {
+    to: string;
+    cc?: string[];
+    incidentId: string;
+    ticketNumber: string;
+    storeName: string;
+    storeCode?: string;
+    technicianName: string;
+    performedAt: Date;
+    totalEquipment: number;
+    equipmentRecords: Array<{
+      equipmentName: string;
+      category: string;
+      brand?: string | null;
+      model?: string | null;
+      serialNumber: string;
+      condition?: string | null;
+      comment?: string | null;
+      updatedBrand?: string | null;
+      updatedModel?: string | null;
+      updatedSerial?: string | null;
+      afterPhotos: string[];
+    }>;
+    publicIncidentLink?: string | null;
+  }): Promise<void> {
+    try {
+      const config = await this.getSmtpConfig();
+      await this.createTransporter();
+
+      const orgConfigs = await this.prisma.systemConfig.findMany({
+        where: { key: { in: ['organization_name'] } },
+      });
+      const cfgMap: Record<string, string> = {};
+      for (const c of orgConfigs) cfgMap[c.key] = c.value;
+      const orgName = cfgMap['organization_name'] || 'Incident Management';
+      const headerName = orgName ? `${orgName} Incident Management` : 'Incident Management';
+
+      const { to, cc, ticketNumber, storeName, storeCode, technicianName, performedAt,
+              totalEquipment, equipmentRecords, publicIncidentLink } = data;
+
+      const storeDisplay = storeCode ? `${storeCode} ${storeName}` : storeName;
+
+      // Format PM Date: d/m/yyyy hh:mm:ss
+      const d = performedAt;
+      const pmDateStr = `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()} ` +
+        `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+
+      // Condition labels
+      const conditionLabel: Record<string, string> = {
+        GOOD: 'ปกติ', NEEDS_REPAIR: 'ต้องซ่อม', REPLACED: 'เปลี่ยนใหม่',
+      };
+      const conditionStyle: Record<string, string> = {
+        GOOD: 'background-color:#dcfce7;color:#15803d;border:1px solid #bbf7d0;',
+        NEEDS_REPAIR: 'background-color:#fef9c3;color:#a16207;border:1px solid #fde68a;',
+        REPLACED: 'background-color:#fee2e2;color:#b91c1c;border:1px solid #fecaca;',
+      };
+
+      // Equipment Summary — only NEEDS_REPAIR and REPLACED
+      const abnormalRecords = equipmentRecords.filter(
+        (r) => r.condition === 'NEEDS_REPAIR' || r.condition === 'REPLACED',
+      );
+
+      let equipmentTableHtml = '';
+      if (abnormalRecords.length > 0) {
+        const rows = abnormalRecords.map((r, idx) => {
+          const brand = r.updatedBrand || r.brand || '-';
+          const model = r.updatedModel || r.model || '-';
+          const serial = r.updatedSerial || r.serialNumber || '-';
+          const condLabel = conditionLabel[r.condition || ''] || r.condition || '-';
+          const condStyle = conditionStyle[r.condition || ''] || '';
+          return `
+            <tr style="background-color:${idx % 2 === 0 ? '#ffffff' : '#fafafa'};">
+              <td style="padding:7px 8px;border:1px solid #e2e8f0;text-align:center;color:#64748b;font-size:12px;">${idx + 1}</td>
+              <td style="padding:7px 8px;border:1px solid #e2e8f0;font-size:12px;">
+                <div style="font-weight:600;color:#1e293b;">${r.equipmentName}</div>
+                <div style="color:#94a3b8;font-size:11px;">${r.category}</div>
+              </td>
+              <td style="padding:7px 8px;border:1px solid #e2e8f0;font-size:12px;color:#475569;">${brand}${model !== '-' ? ' ' + model : ''}</td>
+              <td style="padding:7px 8px;border:1px solid #e2e8f0;font-size:12px;color:#475569;">${serial}</td>
+              <td style="padding:7px 8px;border:1px solid #e2e8f0;text-align:center;">
+                <span style="padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600;${condStyle}">${condLabel}</span>
+              </td>
+              <td style="padding:7px 8px;border:1px solid #e2e8f0;font-size:12px;color:#64748b;">${r.comment || '-'}</td>
+            </tr>`;
+        }).join('');
+
+        equipmentTableHtml = `
+          <div style="margin-top:24px;">
+            <h3 style="color:#7c3aed;margin:0 0 12px 0;font-size:15px;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">📋 Equipment Summary</h3>
+            <table style="width:100%;border-collapse:collapse;font-size:12px;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">
+              <thead>
+                <tr style="background-color:#ede9fe;">
+                  <th style="padding:7px 8px;border:1px solid #c4b5fd;color:#6d28d9;text-align:center;width:28px;">#</th>
+                  <th style="padding:7px 8px;border:1px solid #c4b5fd;color:#6d28d9;text-align:left;">Equipment</th>
+                  <th style="padding:7px 8px;border:1px solid #c4b5fd;color:#6d28d9;text-align:left;">Brand / Model</th>
+                  <th style="padding:7px 8px;border:1px solid #c4b5fd;color:#6d28d9;text-align:left;">Serial No.</th>
+                  <th style="padding:7px 8px;border:1px solid #c4b5fd;color:#6d28d9;text-align:center;">Condition</th>
+                  <th style="padding:7px 8px;border:1px solid #c4b5fd;color:#6d28d9;text-align:left;">Note</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>`;
+      }
+
+      // Summary badges
+      const goodCount = equipmentRecords.filter((r) => r.condition === 'GOOD').length;
+      const repairCount = equipmentRecords.filter((r) => r.condition === 'NEEDS_REPAIR').length;
+      const replacedCount = equipmentRecords.filter((r) => r.condition === 'REPLACED').length;
+      const summaryBadges = `
+        <div style="margin-top:10px;padding:10px 12px;background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">
+          <span style="font-size:12px;color:#64748b;font-weight:600;">สรุปทั้งหมด ${totalEquipment} รายการ:&nbsp;&nbsp;</span>
+          ${goodCount > 0 ? `<span style="background-color:#dcfce7;color:#15803d;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:600;border:1px solid #bbf7d0;">✅ ปกติ ${goodCount} รายการ</span>&nbsp;` : ''}
+          ${repairCount > 0 ? `<span style="background-color:#fef9c3;color:#a16207;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:600;border:1px solid #fde68a;">⚠️ ต้องซ่อม ${repairCount} รายการ</span>&nbsp;` : ''}
+          ${replacedCount > 0 ? `<span style="background-color:#fee2e2;color:#b91c1c;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:600;border:1px solid #fecaca;">🔄 เปลี่ยนใหม่ ${replacedCount} รายการ</span>` : ''}
+        </div>`;
+
+      // Photos — after[0] of each equipment, grid 5/row
+      const resizePhotoForEmail = async (photo: string): Promise<string> => {
+        if (!photo.startsWith('data:')) return photo;
+        try {
+          const base64Data = photo.split(',')[1];
+          if (!base64Data) return photo;
+          const resized = await sharp(Buffer.from(base64Data, 'base64'))
+            .resize(160, 160, { fit: 'cover', position: 'centre' })
+            .jpeg({ quality: 65 })
+            .toBuffer();
+          return `data:image/jpeg;base64,${resized.toString('base64')}`;
+        } catch { return photo; }
+      };
+
+      const afterFirstPhotos = equipmentRecords
+        .map((r) => r.afterPhotos?.[0])
+        .filter(Boolean) as string[];
+
+      let photosHtml = '';
+      if (afterFirstPhotos.length > 0) {
+        const thumbs = await Promise.all(afterFirstPhotos.map(resizePhotoForEmail));
+        const cols = 5;
+        const tableWidth = 540;
+        const gap = 4;
+        const imgSize = Math.floor(tableWidth / cols) - gap;
+        const cellSize = imgSize + gap;
+
+        const makeCell = (src: string) =>
+          `<td width="${cellSize}" style="padding:2px;width:${cellSize}px;height:${cellSize}px;">` +
+            `<a href="${src}" target="_blank" style="display:block;text-decoration:none;">` +
+              `<img src="${src}" alt="photo" width="${imgSize}" height="${imgSize}" ` +
+                `style="display:block;width:${imgSize}px;height:${imgSize}px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;" />` +
+            `</a>` +
+          `</td>`;
+        const emptyCell = `<td width="${cellSize}" style="width:${cellSize}px;height:${cellSize}px;"></td>`;
+
+        const cells = thumbs.map(makeCell);
+        const rows: string[] = [];
+        for (let i = 0; i < cells.length; i += cols) {
+          const slice = cells.slice(i, i + cols);
+          while (slice.length < cols) slice.push(emptyCell);
+          rows.push(`<tr>${slice.join('')}</tr>`);
+        }
+        const grid = `<table width="${tableWidth}" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:${tableWidth}px;max-width:100%;">${rows.join('')}</table>`;
+
+        photosHtml = `
+          <div style="margin-top:24px;">
+            <h3 style="color:#7c3aed;margin:0 0 14px 0;font-size:15px;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">📷 Photos</h3>
+            ${grid}
+          </div>`;
+      }
+
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"><title>Preventive Maintenance Closed - ${ticketNumber}</title></head>
+        <body style="font-family:Tahoma,'Segoe UI',Arial,sans-serif;line-height:1.8;color:#1e293b;background-color:#ffffff;padding:20px;">
+          <div style="max-width:600px;margin:0 auto;background-color:#ffffff;border-radius:10px;padding:30px;border:1px solid #e2e8f0;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+
+            <!-- Header -->
+            <div style="text-align:center;padding-bottom:20px;border-bottom:2px solid #7c3aed;">
+              <h1 style="color:#7c3aed;margin:0;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">🔧 Preventive Maintenance Closed</h1>
+              <p style="color:#64748b;margin:5px 0 0 0;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">${headerName}</p>
+            </div>
+
+            <!-- PM Details -->
+            <div style="margin-top:25px;">
+              <h2 style="color:#7c3aed;margin-bottom:10px;font-size:16px;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">PM Details</h2>
+              <table style="width:100%;border-collapse:collapse;">
+                <thead>
+                  <tr style="background-color:#ede9fe;">
+                    <th style="padding:8px 10px;border:1px solid #c4b5fd;text-align:left;font-size:13px;color:#6d28d9;font-weight:bold;width:35%;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">Field</th>
+                    <th style="padding:8px 10px;border:1px solid #c4b5fd;text-align:left;font-size:13px;color:#6d28d9;font-weight:bold;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">Detail</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style="padding:8px 10px;border:1px solid #e2e8f0;font-weight:bold;font-size:14px;color:#475569;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">Ticket No.:</td>
+                    <td style="padding:8px 10px;border:1px solid #e2e8f0;font-size:14px;color:#1e293b;font-weight:600;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">${ticketNumber}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:8px 10px;border:1px solid #e2e8f0;font-weight:bold;font-size:14px;color:#475569;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">Store:</td>
+                    <td style="padding:8px 10px;border:1px solid #e2e8f0;font-size:14px;color:#1e293b;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">${storeDisplay}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:8px 10px;border:1px solid #e2e8f0;font-weight:bold;font-size:14px;color:#475569;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">Technician:</td>
+                    <td style="padding:8px 10px;border:1px solid #e2e8f0;font-size:14px;color:#1e293b;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">${technicianName}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:8px 10px;border:1px solid #e2e8f0;font-weight:bold;font-size:14px;color:#475569;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">PM Date:</td>
+                    <td style="padding:8px 10px;border:1px solid #e2e8f0;font-size:14px;color:#1e293b;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">${pmDateStr}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:8px 10px;border:1px solid #e2e8f0;font-weight:bold;font-size:14px;color:#475569;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">Equipment Checked:</td>
+                    <td style="padding:8px 10px;border:1px solid #e2e8f0;font-size:14px;color:#1e293b;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">
+                      <span style="background-color:#ede9fe;color:#6d28d9;padding:2px 10px;border-radius:99px;font-weight:600;">${totalEquipment} รายการ</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Equipment Summary (abnormal only) -->
+            ${equipmentTableHtml}
+            ${summaryBadges}
+
+            <!-- Photos -->
+            ${photosHtml}
+
+            <!-- View Incident Link -->
+            ${publicIncidentLink ? `
+            <div style="margin-top:25px;text-align:center;">
+              <a href="${publicIncidentLink}" style="color:#7c3aed;text-decoration:underline;font-size:14px;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">
+                📋 View Incident Details
+              </a>
+            </div>` : ''}
+
+            <!-- Footer -->
+            <div style="margin-top:30px;padding-top:20px;border-top:1px solid #e2e8f0;text-align:center;color:#94a3b8;font-size:12px;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">
+              <p style="margin:0;">This is an automated notification from ${config.fromName}.</p>
+            </div>
+          </div>
+        </body>
+        </html>`;
+
+      const transporter = await this.createTransporter();
+      await transporter.sendMail({
+        from: `"${config.fromName}" <${config.fromEmail}>`,
+        to,
+        cc: cc && cc.length > 0 ? cc.join(', ') : undefined,
+        subject: `[PM Closed] ${storeDisplay} - ${ticketNumber}`,
+        html: htmlContent,
+      });
+    } catch (error) {
+      console.error('Error sending PM completed email:', error);
+    }
+  }
+
+  /**
    * Send Service Report PDF as email attachment to store
    */
   async sendServiceReportPdfEmail(data: {
