@@ -1014,8 +1014,6 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
             ? 'กำลัง Submit PM...'
             : conflictCount > 0
             ? `แก้ไขข้อมูลให้ครบก่อน (${conflictCount} อุปกรณ์มีความขัดแย้ง)`
-            : !allComplete
-            ? `Submit PM (ต้องมีรูปครบ ${totalCount} อุปกรณ์)`
             : 'Submit PM'}
         </button>
       )}
@@ -1031,14 +1029,14 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
         <div className="grid grid-cols-2 gap-2">
           <button
             onClick={handleOpenPmReport}
-            className="flex items-center justify-center gap-2 py-2.5 bg-purple-700/80 hover:bg-purple-700 text-white text-sm rounded-lg transition-colors"
+            className="flex items-center justify-center gap-2 py-2.5 bg-blue-600/80 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors"
           >
             <FileText className="w-4 h-4" />
             PM Report
           </button>
           <button
             onClick={handleOpenInventoryList}
-            className="flex items-center justify-center gap-2 py-2.5 bg-purple-600/80 hover:bg-purple-600 text-white text-sm rounded-lg transition-colors"
+            className="flex items-center justify-center gap-2 py-2.5 bg-teal-600/80 hover:bg-teal-600 text-white text-sm rounded-lg transition-colors"
           >
             <FileText className="w-4 h-4" />
             Inventory List
