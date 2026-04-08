@@ -125,8 +125,13 @@ function EquipmentCard({
   const [uploadingAfter, setUploadingAfter] = useState(false)
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Conflict: equipment was updated via Resolve Incident after PM record was last saved
-  const hasConflict = new Date(record.equipment.updatedAt) > new Date(record.updatedAt)
+  // Conflict: equipment was updated via Resolve Incident (backend confirms source=INCIDENT)
+  // AND equipment is still newer than PM record (clears immediately after user re-saves)
+  // Only relevant when canEdit (PM not yet submitted)
+  const hasConflict =
+    canEdit &&
+    !!record.conflictIncidentId &&
+    new Date(record.equipment.updatedAt) > new Date(record.updatedAt)
 
   const isComplete =
     !hasConflict &&
@@ -579,9 +584,12 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
       if (!prev) return prev
       return {
         ...prev,
-        equipmentRecords: prev.equipmentRecords.map((r) =>
-          r.id === updated.id ? updated : r,
-        ),
+        equipmentRecords: prev.equipmentRecords.map((r) => {
+          if (r.id !== updated.id) return r
+          // Preserve conflictIncidentId from previous state until full re-fetch
+          // It will clear naturally when pmRecord.updatedAt > equipment.updatedAt after save
+          return { ...updated, conflictIncidentId: updated.conflictIncidentId ?? r.conflictIncidentId }
+        }),
       }
     })
   }
@@ -591,7 +599,7 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
   ).length ?? 0
   const totalCount = pmRecord?.equipmentRecords.length ?? 0
   const conflictCount = pmRecord?.equipmentRecords.filter(
-    (r) => new Date(r.equipment.updatedAt) > new Date(r.updatedAt),
+    (r) => !!r.conflictIncidentId,
   ).length ?? 0
   const allComplete = completedCount === totalCount && totalCount > 0 && conflictCount === 0
 

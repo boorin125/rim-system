@@ -115,7 +115,7 @@ export class PmService {
     const conflictLogs = await this.prisma.equipmentLog.findMany({
       where: {
         equipmentId: { in: equipmentIds },
-        source: 'INCIDENT',
+        source: EquipmentLogSource.INCIDENT,
       },
       orderBy: { createdAt: 'desc' },
       select: { equipmentId: true, sourceId: true, createdAt: true },
