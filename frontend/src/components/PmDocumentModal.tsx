@@ -1,0 +1,289 @@
+'use client'
+
+import { useRef } from 'react'
+import { X, Download } from 'lucide-react'
+import { PmReportData, generatePmReportPDF } from '@/utils/pmReportPdf'
+import { InventoryListData, generateInventoryListPDF } from '@/utils/inventoryListPdf'
+
+// ─── Shared helpers ──────────────────────────────────────────────────────────
+
+const conditionLabel: Record<string, string> = {
+  GOOD: 'ปกติ', NEEDS_REPAIR: 'ต้องซ่อม', REPLACED: 'เปลี่ยนใหม่',
+}
+const conditionStyle: Record<string, React.CSSProperties> = {
+  GOOD:         { background: '#dcfce7', color: '#15803d', border: '1px solid #bbf7d0' },
+  NEEDS_REPAIR: { background: '#fef9c3', color: '#a16207', border: '1px solid #fde68a' },
+  REPLACED:     { background: '#fee2e2', color: '#b91c1c', border: '1px solid #fecaca' },
+}
+
+function ModalWrapper({
+  title,
+  onClose,
+  onSavePdf,
+  saving,
+  children,
+}: {
+  title: string
+  onClose: () => void
+  onSavePdf: () => void
+  saving: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <div className="fixed inset-0 z-50 bg-black/70 flex items-start justify-center p-4 overflow-y-auto">
+      {/* Toolbar */}
+      <div className="fixed top-0 left-0 right-0 z-10 flex items-center justify-between px-4 py-2 bg-slate-900/95 border-b border-slate-700 backdrop-blur">
+        <span className="text-white font-semibold text-sm">{title}</span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onSavePdf}
+            disabled={saving}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-xs font-medium rounded-lg transition-colors"
+          >
+            {saving ? (
+              <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <Download className="w-3.5 h-3.5" />
+            )}
+            Save PDF
+          </button>
+          <button
+            onClick={onClose}
+            className="p-1.5 text-gray-400 hover:text-white transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+      {/* Document */}
+      <div className="mt-12 w-full max-w-3xl">
+        {children}
+      </div>
+    </div>
+  )
+}
+
+// ─── PM Report Modal ─────────────────────────────────────────────────────────
+
+export function PmReportModal({
+  data,
+  saving,
+  onClose,
+  onSavePdf,
+}: {
+  data: PmReportData
+  saving: boolean
+  onClose: () => void
+  onSavePdf: () => void
+}) {
+  const dateStr = data.performedAt
+    ? new Date(data.performedAt).toLocaleDateString('th-TH', {
+        year: 'numeric', month: 'long', day: 'numeric',
+        hour: '2-digit', minute: '2-digit',
+      })
+    : '-'
+
+  return (
+    <ModalWrapper title="PM Report" onClose={onClose} onSavePdf={onSavePdf} saving={saving}>
+      <div className="bg-white rounded-xl shadow-2xl p-8 text-gray-800 font-sans">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b-2 border-purple-600 pb-4 mb-6">
+          <div className="flex items-center gap-3">
+            {data.organizationLogo && (
+              <img src={data.organizationLogo} alt="logo" className="h-12 object-contain" />
+            )}
+            <div>
+              <p className="font-bold text-lg text-gray-900">{data.organizationName || 'PM Report'}</p>
+              <p className="text-xs text-gray-500">Preventive Maintenance Report</p>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="text-sm font-semibold text-purple-700">{data.ticketNumber}</p>
+          </div>
+        </div>
+
+        {/* Info */}
+        <div className="grid grid-cols-2 gap-x-8 gap-y-1 mb-6 text-sm">
+          <div><span className="text-gray-500">สาขา:</span> <span className="font-medium">{data.store.storeCode} {data.store.name}</span></div>
+          <div><span className="text-gray-500">วันที่ PM:</span> <span className="font-medium">{dateStr}</span></div>
+          {data.store.address && <div className="col-span-2"><span className="text-gray-500">ที่อยู่:</span> <span className="font-medium">{data.store.address}</span></div>}
+        </div>
+
+        {/* Equipment Records */}
+        <div className="space-y-6">
+          {data.equipmentRecords.map((rec, idx) => (
+            <div key={idx} className="border border-gray-200 rounded-lg overflow-hidden">
+              {/* Equipment header */}
+              <div className="flex items-center justify-between bg-purple-50 px-4 py-2">
+                <div>
+                  <span className="font-semibold text-gray-900 text-sm">{idx + 1}. {rec.name}</span>
+                  <span className="text-xs text-gray-500 ml-2">{rec.category}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {rec.condition && (
+                    <span style={{ ...conditionStyle[rec.condition], padding: '2px 10px', borderRadius: 99, fontSize: 11, fontWeight: 600 }}>
+                      {conditionLabel[rec.condition]}
+                    </span>
+                  )}
+                </div>
+              </div>
+              {/* Equipment body */}
+              <div className="px-4 py-3 space-y-2 text-sm">
+                <div className="grid grid-cols-3 gap-2 text-xs text-gray-600">
+                  <div><span className="text-gray-400">Brand:</span> {rec.updatedBrand || rec.brand || '-'}</div>
+                  <div><span className="text-gray-400">Model:</span> {rec.updatedModel || rec.model || '-'}</div>
+                  <div><span className="text-gray-400">S/N:</span> {rec.updatedSerial || rec.serialNumber}</div>
+                </div>
+                {rec.comment && (
+                  <p className="text-xs text-gray-600 bg-gray-50 px-3 py-2 rounded">
+                    <span className="font-medium">หมายเหตุ:</span> {rec.comment}
+                  </p>
+                )}
+                {/* Photos */}
+                {(rec.beforePhotos.length > 0 || rec.afterPhotos.length > 0) && (
+                  <div className="grid grid-cols-2 gap-4 pt-1">
+                    {rec.beforePhotos.length > 0 && (
+                      <div>
+                        <p className="text-xs text-gray-400 mb-1">ก่อน PM ({rec.beforePhotos.length} รูป)</p>
+                        <div className="flex gap-1 flex-wrap">
+                          {rec.beforePhotos.slice(0, 4).map((p, i) => (
+                            <img key={i} src={p} alt="" className="w-16 h-16 object-cover rounded border border-gray-200" />
+                          ))}
+                          {rec.beforePhotos.length > 4 && <span className="text-xs text-gray-400 self-center">+{rec.beforePhotos.length - 4}</span>}
+                        </div>
+                      </div>
+                    )}
+                    {rec.afterPhotos.length > 0 && (
+                      <div>
+                        <p className="text-xs text-gray-400 mb-1">หลัง PM ({rec.afterPhotos.length} รูป)</p>
+                        <div className="flex gap-1 flex-wrap">
+                          {rec.afterPhotos.slice(0, 4).map((p, i) => (
+                            <img key={i} src={p} alt="" className="w-16 h-16 object-cover rounded border border-gray-200" />
+                          ))}
+                          {rec.afterPhotos.length > 4 && <span className="text-xs text-gray-400 self-center">+{rec.afterPhotos.length - 4}</span>}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div className="mt-8 pt-4 border-t border-gray-200 text-xs text-gray-400 text-center">
+          สร้างโดยระบบ RIM — {new Date().toLocaleDateString('th-TH')}
+        </div>
+      </div>
+    </ModalWrapper>
+  )
+}
+
+// ─── Inventory List Modal ─────────────────────────────────────────────────────
+
+export function InventoryListModal({
+  data,
+  saving,
+  onClose,
+  onSavePdf,
+}: {
+  data: InventoryListData
+  saving: boolean
+  onClose: () => void
+  onSavePdf: () => void
+}) {
+  const dateStr = data.performedAt
+    ? new Date(data.performedAt).toLocaleDateString('th-TH', {
+        year: 'numeric', month: 'long', day: 'numeric',
+      })
+    : '-'
+
+  const headerBg = data.themeColor || '#581c87'
+
+  return (
+    <ModalWrapper title="Inventory List" onClose={onClose} onSavePdf={onSavePdf} saving={saving}>
+      <div className="bg-white rounded-xl shadow-2xl overflow-hidden text-gray-800 font-sans">
+        {/* Colored header */}
+        <div style={{ background: headerBg }} className="px-8 py-5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {data.organizationLogo && (
+              <img src={data.organizationLogo} alt="logo" className="h-10 object-contain" />
+            )}
+            <div>
+              <p className="font-bold text-white text-base">{data.organizationName || 'Inventory List'}</p>
+              <p className="text-white/70 text-xs">Preventive Maintenance — Inventory List</p>
+            </div>
+          </div>
+          <p className="text-white font-semibold text-sm">{data.ticketNumber}</p>
+        </div>
+
+        <div className="p-8">
+          {/* Info */}
+          <div className="grid grid-cols-2 gap-x-8 gap-y-1 mb-5 text-sm">
+            <div><span className="text-gray-500">สาขา:</span> <span className="font-medium">{data.store.storeCode} {data.store.name}</span></div>
+            <div><span className="text-gray-500">วันที่ PM:</span> <span className="font-medium">{dateStr}</span></div>
+          </div>
+
+          {/* Table */}
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr style={{ background: headerBg }}>
+                <th className="px-3 py-2 text-white text-left font-semibold text-xs border border-white/20 w-8">#</th>
+                <th className="px-3 py-2 text-white text-left font-semibold text-xs border border-white/20">ชื่ออุปกรณ์</th>
+                <th className="px-3 py-2 text-white text-left font-semibold text-xs border border-white/20">ประเภท</th>
+                <th className="px-3 py-2 text-white text-left font-semibold text-xs border border-white/20">Brand/Model</th>
+                <th className="px-3 py-2 text-white text-left font-semibold text-xs border border-white/20">Serial No.</th>
+                <th className="px-3 py-2 text-white text-center font-semibold text-xs border border-white/20">สภาพ</th>
+                <th className="px-3 py-2 text-white text-left font-semibold text-xs border border-white/20">หมายเหตุ</th>
+                <th className="px-3 py-2 text-white text-center font-semibold text-xs border border-white/20">รูป</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.equipment.map((eq, idx) => (
+                <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                  <td className="px-3 py-2 border border-gray-200 text-center text-xs text-gray-500">{eq.no}</td>
+                  <td className="px-3 py-2 border border-gray-200 font-medium text-xs">{eq.name}</td>
+                  <td className="px-3 py-2 border border-gray-200 text-xs text-gray-600">{eq.category}</td>
+                  <td className="px-3 py-2 border border-gray-200 text-xs text-gray-600">
+                    {[eq.brand, eq.model].filter(Boolean).join(' ') || '-'}
+                  </td>
+                  <td className="px-3 py-2 border border-gray-200 text-xs text-gray-600">{eq.serialNumber}</td>
+                  <td className="px-3 py-2 border border-gray-200 text-center">
+                    {eq.condition ? (
+                      <span style={{ ...conditionStyle[eq.condition], padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 600 }}>
+                        {conditionLabel[eq.condition]}
+                      </span>
+                    ) : '-'}
+                  </td>
+                  <td className="px-3 py-2 border border-gray-200 text-xs text-gray-500">{eq.comment || '-'}</td>
+                  <td className="px-3 py-2 border border-gray-200 text-center">
+                    {eq.beforePhoto ? (
+                      <img src={eq.beforePhoto} alt="" className="w-10 h-10 object-cover rounded border border-gray-200 mx-auto" />
+                    ) : <span className="text-xs text-gray-300">-</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* Signature area */}
+          <div className="mt-10 grid grid-cols-2 gap-16">
+            <div className="text-center">
+              <div className="border-b border-gray-300 mb-1 h-10" />
+              <p className="text-xs text-gray-500">ลายเซ็นช่างเทคนิค</p>
+            </div>
+            <div className="text-center">
+              <div className="border-b border-gray-300 mb-1 h-10" />
+              <p className="text-xs text-gray-500">ลายเซ็นผู้รับเอกสาร</p>
+            </div>
+          </div>
+
+          <div className="mt-6 pt-4 border-t border-gray-200 text-xs text-gray-400 text-center">
+            สร้างโดยระบบ RIM — {new Date().toLocaleDateString('th-TH')}
+          </div>
+        </div>
+      </div>
+    </ModalWrapper>
+  )
+}

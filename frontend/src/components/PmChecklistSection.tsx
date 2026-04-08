@@ -19,9 +19,10 @@ import {
   CheckSquare,
   Download,
 } from 'lucide-react'
-import { generatePmReportPDF } from '@/utils/pmReportPdf'
-import { generateInventoryListPDF } from '@/utils/inventoryListPdf'
+import { generatePmReportPDF, PmReportData } from '@/utils/pmReportPdf'
+import { generateInventoryListPDF, InventoryListData } from '@/utils/inventoryListPdf'
 import { compressImages } from '@/utils/imageUtils'
+import { PmReportModal, InventoryListModal } from '@/components/PmDocumentModal'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -536,6 +537,10 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
   const [uploadingSignedPaper, setUploadingSignedPaper] = useState(false)
   const [downloadingPmReport, setDownloadingPmReport] = useState(false)
   const [downloadingInventory, setDownloadingInventory] = useState(false)
+  const [showPmReportModal, setShowPmReportModal] = useState(false)
+  const [showInventoryModal, setShowInventoryModal] = useState(false)
+  const [pmReportData, setPmReportData] = useState<PmReportData | null>(null)
+  const [inventoryData, setInventoryData] = useState<InventoryListData | null>(null)
   const [orgLogo, setOrgLogo] = useState<string | undefined>(undefined)
   const [themeColor, setThemeColor] = useState<string | undefined>(undefined)
   const signedPaperRef = useRef<HTMLInputElement>(null)
@@ -690,29 +695,36 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
     }
   }
 
-  const handleDownloadPmReport = async () => {
+  const handleOpenPmReport = () => {
     if (!pmRecord) return
+    setPmReportData({
+      ticketNumber,
+      store: pmRecord.store,
+      performedAt: pmRecord.performedAt,
+      organizationLogo: orgLogo,
+      equipmentRecords: pmRecord.equipmentRecords.map((r) => ({
+        name: r.equipment.name,
+        category: r.equipment.category,
+        serialNumber: r.equipment.serialNumber,
+        brand: r.equipment.brand,
+        model: r.equipment.model,
+        condition: r.condition ?? undefined,
+        comment: r.comment ?? undefined,
+        beforePhotos: r.beforePhotos,
+        afterPhotos: r.afterPhotos,
+        updatedBrand: r.updatedBrand ?? undefined,
+        updatedModel: r.updatedModel ?? undefined,
+        updatedSerial: r.updatedSerial ?? undefined,
+      })),
+    })
+    setShowPmReportModal(true)
+  }
+
+  const handleDownloadPmReport = async () => {
+    if (!pmReportData) return
     try {
       setDownloadingPmReport(true)
-      await generatePmReportPDF({
-        ticketNumber: ticketNumber,
-        store: pmRecord.store,
-        performedAt: pmRecord.performedAt,
-        equipmentRecords: pmRecord.equipmentRecords.map((r) => ({
-          name: r.equipment.name,
-          category: r.equipment.category,
-          serialNumber: r.equipment.serialNumber,
-          brand: r.equipment.brand,
-          model: r.equipment.model,
-          condition: r.condition ?? undefined,
-          comment: r.comment ?? undefined,
-          beforePhotos: r.beforePhotos,
-          afterPhotos: r.afterPhotos,
-          updatedBrand: r.updatedBrand ?? undefined,
-          updatedModel: r.updatedModel ?? undefined,
-          updatedSerial: r.updatedSerial ?? undefined,
-        })),
-      })
+      await generatePmReportPDF(pmReportData)
     } catch {
       toast.error('ดาวน์โหลด PDF ไม่สำเร็จ')
     } finally {
@@ -720,28 +732,34 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
     }
   }
 
-  const handleDownloadInventoryList = async () => {
+  const handleOpenInventoryList = () => {
     if (!pmRecord) return
+    setInventoryData({
+      ticketNumber,
+      store: pmRecord.store,
+      performedAt: pmRecord.performedAt,
+      organizationLogo: orgLogo,
+      themeColor: themeColor,
+      equipment: pmRecord.equipmentRecords.map((r, idx) => ({
+        no: idx + 1,
+        name: r.equipment.name,
+        category: r.equipment.category,
+        serialNumber: r.updatedSerial || r.equipment.serialNumber,
+        brand: r.updatedBrand || r.equipment.brand,
+        model: r.updatedModel || r.equipment.model,
+        condition: r.condition ?? undefined,
+        comment: r.comment ?? undefined,
+        beforePhoto: r.beforePhotos[0],
+      })),
+    })
+    setShowInventoryModal(true)
+  }
+
+  const handleDownloadInventoryList = async () => {
+    if (!inventoryData) return
     try {
       setDownloadingInventory(true)
-      await generateInventoryListPDF({
-        ticketNumber: ticketNumber,
-        store: pmRecord.store,
-        performedAt: pmRecord.performedAt,
-        organizationLogo: orgLogo,
-        themeColor: themeColor,
-        equipment: pmRecord.equipmentRecords.map((r, idx) => ({
-          no: idx + 1,
-          name: r.equipment.name,
-          category: r.equipment.category,
-          serialNumber: r.updatedSerial || r.equipment.serialNumber,
-          brand: r.updatedBrand || r.equipment.brand,
-          model: r.updatedModel || r.equipment.model,
-          condition: r.condition ?? undefined,
-          comment: r.comment ?? undefined,
-          beforePhoto: r.beforePhotos[0],
-        })),
-      })
+      await generateInventoryListPDF(inventoryData)
     } catch {
       toast.error('ดาวน์โหลด PDF ไม่สำเร็จ')
     } finally {
@@ -761,6 +779,23 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
   if (!pmRecord) return null
 
   return (
+    <>
+    {showPmReportModal && pmReportData && (
+      <PmReportModal
+        data={pmReportData}
+        saving={downloadingPmReport}
+        onClose={() => setShowPmReportModal(false)}
+        onSavePdf={handleDownloadPmReport}
+      />
+    )}
+    {showInventoryModal && inventoryData && (
+      <InventoryListModal
+        data={inventoryData}
+        saving={downloadingInventory}
+        onClose={() => setShowInventoryModal(false)}
+        onSavePdf={handleDownloadInventoryList}
+      />
+    )}
     <div className="glass-card p-6 rounded-2xl space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -841,34 +876,24 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
       <div className="border-t border-slate-700/50 pt-5 space-y-3">
         <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
           <FileText className="w-4 h-4" />
-          เอกสาร PM
+          PM Document
         </h3>
 
-        {/* PDF Download buttons */}
+        {/* Document buttons */}
         <div className="grid grid-cols-2 gap-2">
           <button
-            onClick={handleDownloadPmReport}
-            disabled={downloadingPmReport}
-            className="flex items-center justify-center gap-2 py-2.5 bg-purple-700/80 hover:bg-purple-700 disabled:opacity-40 text-white text-sm rounded-lg transition-colors"
+            onClick={handleOpenPmReport}
+            className="flex items-center justify-center gap-2 py-2.5 bg-purple-700/80 hover:bg-purple-700 text-white text-sm rounded-lg transition-colors"
           >
-            {downloadingPmReport ? (
-              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <Download className="w-4 h-4" />
-            )}
-            PM Report PDF
+            <FileText className="w-4 h-4" />
+            PM Report
           </button>
           <button
-            onClick={handleDownloadInventoryList}
-            disabled={downloadingInventory}
-            className="flex items-center justify-center gap-2 py-2.5 bg-purple-600/80 hover:bg-purple-600 disabled:opacity-40 text-white text-sm rounded-lg transition-colors"
+            onClick={handleOpenInventoryList}
+            className="flex items-center justify-center gap-2 py-2.5 bg-purple-600/80 hover:bg-purple-600 text-white text-sm rounded-lg transition-colors"
           >
-            {downloadingInventory ? (
-              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <Download className="w-4 h-4" />
-            )}
-            Inventory List PDF
+            <FileText className="w-4 h-4" />
+            Inventory List
           </button>
         </div>
 
@@ -948,5 +973,6 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
         )}
       </div>
     </div>
+    </>
   )
 }
