@@ -125,25 +125,42 @@ export default function DashboardLayout({
     document.documentElement.className = next
   }
 
-  // Mix hex color with white at given intensity (0-1) → light tint
-  const hexToLightTint = (hex: string, intensity: number): string => {
-    const c = hex.replace('#', '')
-    const r = parseInt(c.slice(0, 2), 16)
-    const g = parseInt(c.slice(2, 4), 16)
-    const b = parseInt(c.slice(4, 6), 16)
-    return `rgb(${Math.round(255-(255-r)*intensity)},${Math.round(255-(255-g)*intensity)},${Math.round(255-(255-b)*intensity)})`
+  // Convert hex to HSL components
+  const hexToHSL = (hex: string): [number, number, number] => {
+    const r = parseInt(hex.slice(1, 3), 16) / 255
+    const g = parseInt(hex.slice(3, 5), 16) / 255
+    const b = parseInt(hex.slice(5, 7), 16) / 255
+    const max = Math.max(r, g, b), min = Math.min(r, g, b)
+    const l = (max + min) / 2
+    let h = 0, s = 0
+    if (max !== min) {
+      const d = max - min
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+      if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6
+      else if (max === g) h = ((b - r) / d + 2) / 6
+      else h = ((r - g) / d + 4) / 6
+    }
+    return [Math.round(h * 360), Math.round(s * 100), Math.round(l * 100)]
+  }
+
+  // Generate light tint using HSL — preserves hue and saturation
+  // targetL: target lightness (0–100), sSat: saturation scale (0–1)
+  const hexToLightTint = (hex: string, targetL: number, sSat = 0.55): string => {
+    const [h, s] = hexToHSL(hex)
+    const newS = Math.max(20, Math.round(s * sSat))
+    return `hsl(${h}, ${newS}%, ${targetL}%)`
   }
 
   // Compute main background: dark uses hardcoded slate, light uses tint of theme color
   const themeBase = themeStyle?.bgEnd || '#3b82f6'
   const mainBg = isDark
     ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)'
-    : `linear-gradient(135deg, ${hexToLightTint(themeBase, 0.28)} 0%, ${hexToLightTint(themeBase, 0.38)} 100%)`
+    : `linear-gradient(135deg, ${hexToLightTint(themeBase, 92, 0.35)} 0%, ${hexToLightTint(themeBase, 88, 0.45)} 100%)`
 
-  // Chrome (sidebar + header): 1 shade darker than background
+  // Chrome (sidebar + header): clearly shows theme color in light mode
   const chromeStyle = !isDark ? {
-    background: hexToLightTint(themeBase, 0.50),
-    borderColor: hexToLightTint(themeBase, 0.62),
+    background: hexToLightTint(themeBase, 78, 0.60),
+    borderColor: hexToLightTint(themeBase, 72, 0.65),
   } : undefined
 
   // Ensure html class stays in sync with isDark (e.g. after login redirect)
@@ -154,13 +171,10 @@ export default function DashboardLayout({
   // Sync body CSS vars when light theme + themeStyle changes
   useEffect(() => {
     if (!isDark && themeStyle) {
-      const toRgbStr = (hex: string, a: number) => {
-        const c = hex.replace('#', '')
-        const r = parseInt(c.slice(0,2),16), g = parseInt(c.slice(2,4),16), b = parseInt(c.slice(4,6),16)
-        return `${Math.round(255-(255-r)*a)}, ${Math.round(255-(255-g)*a)}, ${Math.round(255-(255-b)*a)}`
-      }
-      document.documentElement.style.setProperty('--background-start-rgb', toRgbStr(themeStyle.bgStart, 0.28))
-      document.documentElement.style.setProperty('--background-end-rgb', toRgbStr(themeStyle.bgEnd, 0.38))
+      const [h, s] = hexToHSL(themeStyle.bgStart)
+      const [h2, s2] = hexToHSL(themeStyle.bgEnd)
+      document.documentElement.style.setProperty('--background-start-rgb', `hsl(${h}, ${Math.max(15, Math.round(s*0.35))}%, 92%)`)
+      document.documentElement.style.setProperty('--background-end-rgb', `hsl(${h2}, ${Math.max(15, Math.round(s2*0.45))}%, 88%)`)
     } else if (!isDark) {
       document.documentElement.style.setProperty('--background-start-rgb', '220, 230, 242')
       document.documentElement.style.setProperty('--background-end-rgb', '238, 242, 248')
