@@ -575,18 +575,15 @@ export default function DashboardLayout({
                     alt={orgSettings.organizationName || 'Logo'}
                     className="w-full max-h-24 object-contain"
                     onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none'
-                      const parent = (e.target as HTMLImageElement).parentElement
-                      if (parent) {
-                        parent.innerHTML = '<h1 class="logo-rim-small">RIM</h1><p class="logo-system-small">System</p>'
-                      }
+                      ;(e.target as HTMLImageElement).src = '/logo.jpg'
                     }}
                   />
                 ) : (
-                  <div>
-                    <h1 className="logo-rim-small">RIM</h1>
-                    <p className="logo-system-small">System</p>
-                  </div>
+                  <img
+                    src="/logo.jpg"
+                    alt="RIM"
+                    className="w-full max-h-24 object-contain"
+                  />
                 )}
                 <p className="text-[11px] text-gray-400 mt-2 leading-tight truncate text-center">
                   {orgSettings?.organizationName
