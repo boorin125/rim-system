@@ -51,7 +51,25 @@ echo ""
 # Restart with zero downtime (backend first, then frontend)
 echo -e "${YELLOW}→ อัปเดต Backend...${NC}"
 $COMPOSE_CMD up -d --no-deps backend
-sleep 5
+
+echo -e "${YELLOW}→ รอ Backend พร้อม...${NC}"
+MAX_WAIT=60
+ELAPSED=0
+while [ $ELAPSED -lt $MAX_WAIT ]; do
+  STATUS=$($COMPOSE_CMD ps --format json backend 2>/dev/null | grep -o '"State":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "unknown")
+  if [ "$STATUS" = "running" ]; then
+    # Container is running — wait a moment for the process to initialize
+    sleep 3
+    break
+  fi
+  sleep 2
+  ELAPSED=$((ELAPSED + 2))
+  echo -e "   รอ... ($ELAPSED/${MAX_WAIT}s)"
+done
+
+if [ $ELAPSED -ge $MAX_WAIT ]; then
+  echo -e "${YELLOW}⚠️  Backend ใช้เวลานานผิดปกติ — ลองต่อไปเลย${NC}"
+fi
 
 echo -e "${YELLOW}→ อัปเดต Database Schema...${NC}"
 $COMPOSE_CMD exec -T backend npx prisma db push --skip-generate
