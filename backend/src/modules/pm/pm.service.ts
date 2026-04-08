@@ -137,16 +137,39 @@ export class PmService {
       }
     }
 
-    // Attach conflictIncidentId to each equipment record
+    // Attach conflictIncidentId + photo counts; strip photo data (lazy-loaded per card)
     const enriched = {
       ...record,
       equipmentRecords: record.equipmentRecords.map((r) => ({
         ...r,
+        beforePhotoCount: r.beforePhotos.length,
+        afterPhotoCount: r.afterPhotos.length,
+        beforePhotos: [],   // stripped — fetched lazily when card expands
+        afterPhotos: [],
         conflictIncidentId: conflictMap.get(r.equipmentId) ?? null,
       })),
     };
 
     return enriched;
+  }
+
+  /**
+   * Get a single PmEquipmentRecord with full photo data (used for lazy loading).
+   */
+  async getEquipmentRecord(recordId: number) {
+    const record = await this.prisma.pmEquipmentRecord.findUnique({
+      where: { id: recordId },
+      include: {
+        equipment: {
+          select: {
+            id: true, name: true, category: true, brand: true,
+            model: true, serialNumber: true, updatedAt: true,
+          },
+        },
+      },
+    });
+    if (!record) throw new NotFoundException(`ไม่พบ PM Equipment Record ID ${recordId}`);
+    return record;
   }
 
   /**
@@ -479,23 +502,30 @@ export class PmService {
    * Upload a photo of the signed paper inventory list (alternative to online sign).
    */
   async uploadSignedInventory(incidentId: string, photo: string) {
-    const pmRecord = await this.prisma.pmRecord.findUnique({
+    const row = await this.prisma.pmRecord.findUnique({
       where: { incidentId },
+      select: { id: true },  // only fetch ID — avoid reading large base64 field
     });
-    if (!pmRecord) throw new NotFoundException('ไม่พบ PM Record');
+    if (!row) throw new NotFoundException('ไม่พบ PM Record');
 
-    return this.prisma.pmRecord.update({
-      where: { id: pmRecord.id },
+    await this.prisma.pmRecord.update({
+      where: { id: row.id },
       data: { signedInventoryPhoto: photo },
     });
+    return { success: true };
   }
 
   async deleteSignedInventory(incidentId: string) {
-    const pmRecord = await this.prisma.pmRecord.findUnique({ where: { incidentId } });
-    if (!pmRecord) throw new NotFoundException('ไม่พบ PM Record');
-    return this.prisma.pmRecord.update({
-      where: { id: pmRecord.id },
+    const row = await this.prisma.pmRecord.findUnique({
+      where: { incidentId },
+      select: { id: true },  // only fetch ID — avoid reading large base64 field
+    });
+    if (!row) throw new NotFoundException('ไม่พบ PM Record');
+
+    await this.prisma.pmRecord.update({
+      where: { id: row.id },
       data: { signedInventoryPhoto: null },
     });
+    return { success: true };
   }
 }

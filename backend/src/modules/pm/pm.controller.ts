@@ -58,6 +58,16 @@ export class PmController {
   }
 
   /**
+   * GET /pm/equipment-record/:id
+   * Get a single equipment record with full photo data (lazy-loaded when card expands).
+   */
+  @Get('equipment-record/:id')
+  @Roles(UserRole.TECHNICIAN, UserRole.SUPERVISOR, UserRole.HELP_DESK, UserRole.IT_MANAGER, UserRole.SUPER_ADMIN)
+  getEquipmentRecord(@Param('id', ParseIntPipe) id: number) {
+    return this.pmService.getEquipmentRecord(id);
+  }
+
+  /**
    * PATCH /pm/equipment-record/:id
    * Update a single equipment record (photos, comment, condition, brand/model/serial).
    */

@@ -43,6 +43,9 @@ interface PmEquipmentRecord {
   equipmentId: number
   beforePhotos: string[]
   afterPhotos: string[]
+  beforePhotoCount?: number   // From initial load (photos stripped)
+  afterPhotoCount?: number
+  photosLoaded?: boolean      // True after lazy-fetch
   comment?: string
   condition?: string
   updatedBrand?: string
@@ -115,6 +118,7 @@ function EquipmentCard({
   onUpdated: (updated: PmEquipmentRecord) => void
 }) {
   const [expanded, setExpanded] = useState(false)
+  const [loadingPhotos, setLoadingPhotos] = useState(false)
   const [local, setLocal] = useState({
     comment: record.comment ?? '',
     condition: record.condition ?? '',
@@ -127,6 +131,31 @@ function EquipmentCard({
   const [uploadingAfter, setUploadingAfter] = useState(false)
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
 
+  // Lazy-load photos when card is expanded for the first time
+  useEffect(() => {
+    if (!expanded || record.photosLoaded || loadingPhotos) return
+    const fetchPhotos = async () => {
+      setLoadingPhotos(true)
+      try {
+        const token = localStorage.getItem('token')
+        const res = await axios.get(
+          `${process.env.NEXT_PUBLIC_API_URL}/pm/equipment-record/${record.id}`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        )
+        onUpdated({ ...record, ...res.data, photosLoaded: true })
+      } catch {
+        // silent — photos just won't show, user can retry by collapsing + expanding
+      } finally {
+        setLoadingPhotos(false)
+      }
+    }
+    fetchPhotos()
+  }, [expanded]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Use photo counts from initial load when photos not yet fetched
+  const beforeCount = record.photosLoaded ? record.beforePhotos.length : (record.beforePhotoCount ?? record.beforePhotos.length)
+  const afterCount  = record.photosLoaded ? record.afterPhotos.length  : (record.afterPhotoCount  ?? record.afterPhotos.length)
+
   // Conflict: equipment was updated via Resolve Incident (backend confirms source=INCIDENT)
   // AND equipment is still newer than PM record (clears immediately after user re-saves)
   // Only relevant when canEdit (PM not yet submitted)
@@ -137,8 +166,8 @@ function EquipmentCard({
 
   const isComplete =
     !hasConflict &&
-    record.beforePhotos.length > 0 &&
-    record.afterPhotos.length > 0 &&
+    beforeCount > 0 &&
+    afterCount > 0 &&
     !!local.condition
 
   // Auto-save text fields with debounce
@@ -264,7 +293,7 @@ function EquipmentCard({
             </span>
           )}
           <span className="text-xs text-gray-500">
-            ก่อน {record.beforePhotos.length}รูป / หลัง {record.afterPhotos.length}รูป
+            ก่อน {beforeCount}รูป / หลัง {afterCount}รูป
           </span>
           {saving && <Save className="w-3 h-3 text-blue-400 animate-pulse" />}
           {hasConflict && <AlertTriangle className="w-4 h-4 text-yellow-400" />}
@@ -275,6 +304,13 @@ function EquipmentCard({
       {/* Card Body */}
       {expanded && (
         <div className="px-4 pb-4 space-y-4 border-t border-slate-700/50 pt-4">
+          {/* Photos loading indicator */}
+          {loadingPhotos && (
+            <div className="flex items-center justify-center gap-2 py-3 text-gray-500 text-xs">
+              <span className="w-3.5 h-3.5 border-2 border-gray-500/30 border-t-gray-400 rounded-full animate-spin" />
+              กำลังโหลดรูปภาพ...
+            </div>
+          )}
           {/* Photos Row */}
           <div className="grid grid-cols-2 gap-4">
             {/* Before Photos */}
@@ -680,15 +716,23 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
           if (r.id !== updated.id) return r
           // Preserve conflictIncidentId from previous state until full re-fetch
           // It will clear naturally when pmRecord.updatedAt > equipment.updatedAt after save
-          return { ...updated, conflictIncidentId: updated.conflictIncidentId ?? r.conflictIncidentId }
+          return {
+            ...updated,
+            photosLoaded: updated.photosLoaded ?? true,
+            conflictIncidentId: updated.conflictIncidentId ?? r.conflictIncidentId,
+            beforePhotoCount: updated.beforePhotos.length || r.beforePhotoCount,
+            afterPhotoCount: updated.afterPhotos.length || r.afterPhotoCount,
+          }
         }),
       }
     })
   }
 
-  const completedCount = pmRecord?.equipmentRecords.filter(
-    (r) => r.beforePhotos.length > 0 && r.afterPhotos.length > 0,
-  ).length ?? 0
+  const completedCount = pmRecord?.equipmentRecords.filter((r) => {
+    const bc = r.photosLoaded ? r.beforePhotos.length : (r.beforePhotoCount ?? r.beforePhotos.length)
+    const ac = r.photosLoaded ? r.afterPhotos.length  : (r.afterPhotoCount  ?? r.afterPhotos.length)
+    return bc > 0 && ac > 0
+  }).length ?? 0
   const totalCount = pmRecord?.equipmentRecords.length ?? 0
   const conflictCount = pmRecord?.equipmentRecords.filter(
     (r) => !!r.conflictIncidentId,
