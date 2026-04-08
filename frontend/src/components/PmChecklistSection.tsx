@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import { generatePmReportPDF } from '@/utils/pmReportPdf'
 import { generateInventoryListPDF } from '@/utils/inventoryListPdf'
+import { compressImages } from '@/utils/imageUtils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -175,7 +176,8 @@ function EquipmentCard({
     try {
       setter(true)
       const token = localStorage.getItem('token')
-      const base64s = await Promise.all(Array.from(files).map(fileToBase64))
+      const compressed = await compressImages(Array.from(files), { maxWidth: 1920, maxHeight: 1920, quality: 0.85 })
+      const base64s = await Promise.all(compressed.map(fileToBase64))
       const res = await axios.patch(
         `${process.env.NEXT_PUBLIC_API_URL}/pm/equipment-record/${record.id}`,
         type === 'before' ? { beforePhotos: base64s } : { afterPhotos: base64s },
