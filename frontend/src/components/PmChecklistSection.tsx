@@ -23,6 +23,7 @@ import { generatePmReportPDF, PmReportData } from '@/utils/pmReportPdf'
 import { generateInventoryListPDF, InventoryListData } from '@/utils/inventoryListPdf'
 import { compressImages } from '@/utils/imageUtils'
 import { PmReportModal, InventoryListModal } from '@/components/PmDocumentModal'
+import CropModal from '@/components/CropModal'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -595,6 +596,10 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
   const [uploadingSignedPaper, setUploadingSignedPaper] = useState(false)
   const [deletingSignedPaper, setDeletingSignedPaper] = useState(false)
   const [confirmDeleteSigned, setConfirmDeleteSigned] = useState(false)
+  const [showSignedDocChoice, setShowSignedDocChoice] = useState(false)
+  const [cropSrc, setCropSrc] = useState<string | null>(null)
+  const signedCameraRef = useRef<HTMLInputElement>(null)
+  const signedGalleryRef = useRef<HTMLInputElement>(null)
   const [downloadingPmReport, setDownloadingPmReport] = useState(false)
   const [downloadingInventory, setDownloadingInventory] = useState(false)
   const [showPmReportModal, setShowPmReportModal] = useState(false)
@@ -603,7 +608,7 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
   const [inventoryData, setInventoryData] = useState<InventoryListData | null>(null)
   const [orgLogo, setOrgLogo] = useState<string | undefined>(undefined)
   const [themeColor, setThemeColor] = useState<string | undefined>(undefined)
-  const signedPaperRef = useRef<HTMLInputElement>(null)
+  // signedPaperRef removed — replaced by signedCameraRef / signedGalleryRef
 
   const fetchPmRecord = async () => {
     try {
@@ -735,27 +740,45 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
     }
   }
 
-  const handleUploadSignedPaper = async (files: FileList) => {
-    if (!files.length) return
+  // Called after crop is confirmed — compress → upload → update state directly
+  const handleUploadSignedPaper = async (file: File) => {
     try {
       setUploadingSignedPaper(true)
       const token = localStorage.getItem('token')
-      const base64 = await fileToBase64(files[0])
+      const [compressed] = await compressImages([file], { maxWidth: 1920, maxHeight: 1920, quality: 0.85 })
+      const base64 = await fileToBase64(compressed)
+      // Optimistic update (no flicker)
+      setPmRecord((prev) => prev ? { ...prev, signedInventoryPhoto: base64 } : prev)
       await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/pm/incident/${incidentId}/upload-signed`,
         { photo: base64 },
         { headers: { Authorization: `Bearer ${token}` } },
       )
       toast.success('อัพโหลดเอกสารสำเร็จ')
-      fetchPmRecord()
     } catch {
       toast.error('อัพโหลดไม่สำเร็จ')
+      fetchPmRecord() // revert on error
     } finally {
       setUploadingSignedPaper(false)
+      setCropSrc(null)
     }
   }
 
+  // When file is picked — show crop before upload
+  const handleSignedFileSelected = (files: FileList | null) => {
+    if (!files?.length) return
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      setCropSrc(e.target?.result as string)
+      setShowSignedDocChoice(false)
+    }
+    reader.readAsDataURL(files[0])
+  }
+
   const handleDeleteSignedPaper = async () => {
+    // Optimistic update
+    setPmRecord((prev) => prev ? { ...prev, signedInventoryPhoto: undefined } : prev)
+    setConfirmDeleteSigned(false)
     try {
       setDeletingSignedPaper(true)
       const token = localStorage.getItem('token')
@@ -763,10 +786,9 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
         `${process.env.NEXT_PUBLIC_API_URL}/pm/incident/${incidentId}/upload-signed`,
         { headers: { Authorization: `Bearer ${token}` } },
       )
-      setConfirmDeleteSigned(false)
-      fetchPmRecord()
     } catch {
       toast.error('ลบเอกสารไม่สำเร็จ')
+      fetchPmRecord() // revert on error
     } finally {
       setDeletingSignedPaper(false)
     }
@@ -995,24 +1017,61 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
           </button>
 
           {/* Upload Signed Paper */}
-          <button
-            onClick={() => signedPaperRef.current?.click()}
-            disabled={uploadingSignedPaper}
-            className="flex items-center justify-center gap-2 py-2.5 bg-slate-600 hover:bg-slate-500 disabled:opacity-40 text-white text-sm rounded-lg transition-colors"
-          >
-            {uploadingSignedPaper ? (
-              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <Upload className="w-4 h-4" />
-            )}
-            อัพโหลดเอกสาร
-          </button>
+          {!showSignedDocChoice ? (
+            <button
+              onClick={() => setShowSignedDocChoice(true)}
+              disabled={uploadingSignedPaper}
+              className="flex items-center justify-center gap-2 py-2.5 bg-slate-600 hover:bg-slate-500 disabled:opacity-40 text-white text-sm rounded-lg transition-colors"
+            >
+              {uploadingSignedPaper ? (
+                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <Upload className="w-4 h-4" />
+              )}
+              อัพโหลดเอกสาร
+            </button>
+          ) : (
+            <div className="rounded-xl border border-dashed border-slate-500/60 overflow-hidden">
+              <button
+                onClick={() => signedCameraRef.current?.click()}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-200 bg-slate-700/40 hover:bg-slate-700/70 transition-colors"
+              >
+                <Camera className="w-4 h-4 flex-shrink-0" />
+                ถ่ายรูปด้วยกล้อง
+              </button>
+              <div className="h-px bg-slate-600/40" />
+              <button
+                onClick={() => signedGalleryRef.current?.click()}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-200 bg-slate-700/40 hover:bg-slate-700/70 transition-colors"
+              >
+                <ImageIcon className="w-4 h-4 flex-shrink-0" />
+                เลือกจากคลังรูป
+              </button>
+              <div className="h-px bg-slate-600/40" />
+              <button
+                onClick={() => setShowSignedDocChoice(false)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+                ยกเลิก
+              </button>
+            </div>
+          )}
+          {/* Hidden file inputs */}
           <input
-            ref={signedPaperRef}
+            ref={signedCameraRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => handleSignedFileSelected(e.target.files)}
+          />
+          <input
+            ref={signedGalleryRef}
             type="file"
             accept="image/*"
             className="hidden"
-            onChange={(e) => e.target.files && handleUploadSignedPaper(e.target.files)}
+            onChange={(e) => handleSignedFileSelected(e.target.files)}
           />
         </div>
 
@@ -1082,6 +1141,19 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
         )}
       </div>
     </div>
+
+    {/* Crop Modal — shown after file is selected */}
+    {cropSrc && (
+      <CropModal
+        imageSrc={cropSrc}
+        onConfirm={(blob) => {
+          const file = new File([blob], 'document.jpg', { type: 'image/jpeg' })
+          handleUploadSignedPaper(file)
+        }}
+        onCancel={() => { setCropSrc(null); setShowSignedDocChoice(false) }}
+      />
+    )}
+
     </>
   )
 }
