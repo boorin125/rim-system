@@ -207,18 +207,24 @@ function EquipmentCard({
 
   const removePhoto = async (type: 'before' | 'after', index: number) => {
     if (!canEdit) return
+    const currentPhotos = type === 'before' ? record.beforePhotos : record.afterPhotos
+    const filtered = currentPhotos.filter((_, i) => i !== index)
+    // Optimistic update — remove immediately from UI
+    onUpdated(type === 'before'
+      ? { ...record, beforePhotos: filtered }
+      : { ...record, afterPhotos: filtered }
+    )
     try {
       const token = localStorage.getItem('token')
-      const currentPhotos = type === 'before' ? record.beforePhotos : record.afterPhotos
-      const filtered = currentPhotos.filter((_, i) => i !== index)
       const body = type === 'before' ? { setBeforePhotos: filtered } : { setAfterPhotos: filtered }
       const res = await axios.patch(
         `${process.env.NEXT_PUBLIC_API_URL}/pm/equipment-record/${record.id}`,
         body,
-        { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } },
+        { headers: { Authorization: `Bearer ${token}` } },
       )
       onUpdated(res.data)
     } catch {
+      onUpdated(record) // revert on error
       toast.error('ลบรูปไม่สำเร็จ')
     }
   }
@@ -422,6 +428,7 @@ function PhotoUploadBlock({
   const galleryRef = useRef<HTMLInputElement>(null)
   const [showChoice, setShowChoice] = useState(false)
   const [lightbox, setLightbox] = useState<string | null>(null)
+  const [confirmDeleteIndex, setConfirmDeleteIndex] = useState<number | null>(null)
   const accent = accentColor === 'blue' ? 'border-blue-500/40 text-blue-400' : 'border-green-500/40 text-green-400'
   const accentBg = accentColor === 'blue' ? 'bg-blue-500/10 hover:bg-blue-500/20' : 'bg-green-500/10 hover:bg-green-500/20'
 
@@ -456,22 +463,55 @@ function PhotoUploadBlock({
       </div>
       {/* Thumbnails */}
       {photos.length > 0 && (
-        <div className="flex gap-1 flex-wrap mb-2">
-          {photos.map((src, i) => (
-            <div key={i} className="relative group">
-              <button onClick={() => setLightbox(src)} className="focus:outline-none">
-                <img src={src} alt="" className="w-12 h-12 object-cover rounded-lg border border-slate-600 hover:opacity-80 transition-opacity cursor-zoom-in" />
-              </button>
-              {canEdit && onRemove && (
+        <div className="mb-2">
+          <div className="flex gap-1 flex-wrap">
+            {photos.map((src, i) => (
+              <div key={i} className="relative">
                 <button
-                  onClick={(e) => { e.stopPropagation(); onRemove(i) }}
-                  className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center"
+                  onClick={() => { if (confirmDeleteIndex !== i) setLightbox(src) }}
+                  className="focus:outline-none"
                 >
-                  <X className="w-2.5 h-2.5 text-white" />
+                  <img
+                    src={src}
+                    alt=""
+                    className={`w-12 h-12 object-cover rounded-lg border transition-all cursor-zoom-in ${
+                      confirmDeleteIndex === i
+                        ? 'border-red-500 opacity-40'
+                        : 'border-slate-600 hover:opacity-80'
+                    }`}
+                  />
                 </button>
-              )}
+                {canEdit && onRemove && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setConfirmDeleteIndex(confirmDeleteIndex === i ? null : i) }}
+                    className={`absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center transition-colors ${
+                      confirmDeleteIndex === i ? 'bg-slate-500' : 'bg-red-500 hover:bg-red-600'
+                    }`}
+                  >
+                    <X className="w-2.5 h-2.5 text-white" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          {/* Confirm delete panel */}
+          {confirmDeleteIndex !== null && canEdit && onRemove && (
+            <div className="mt-2 flex items-center gap-2 px-3 py-2 bg-red-500/10 border border-red-500/40 rounded-lg">
+              <p className="text-xs text-red-300 flex-1">ยืนยันลบรูปนี้?</p>
+              <button
+                onClick={() => { onRemove(confirmDeleteIndex); setConfirmDeleteIndex(null) }}
+                className="px-3 py-1 bg-red-500 hover:bg-red-600 rounded-lg text-xs text-white font-medium transition-colors"
+              >
+                ลบ
+              </button>
+              <button
+                onClick={() => setConfirmDeleteIndex(null)}
+                className="px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs text-gray-300 transition-colors"
+              >
+                ยกเลิก
+              </button>
             </div>
-          ))}
+          )}
         </div>
       )}
       {canEdit && (
