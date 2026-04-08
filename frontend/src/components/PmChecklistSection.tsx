@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   Clock,
   Camera,
+  ImageIcon,
   Upload,
   FileText,
   Link2,
@@ -358,7 +359,8 @@ function PhotoUploadBlock({
   onUpload: (files: FileList) => void
   accentColor: 'blue' | 'green'
 }) {
-  const inputRef = useRef<HTMLInputElement>(null)
+  const cameraRef = useRef<HTMLInputElement>(null)
+  const galleryRef = useRef<HTMLInputElement>(null)
   const accent = accentColor === 'blue' ? 'border-blue-500/40 text-blue-400' : 'border-green-500/40 text-green-400'
 
   return (
@@ -384,26 +386,46 @@ function PhotoUploadBlock({
       )}
       {canEdit && (
         <>
+          {/* Camera input — opens device camera directly */}
           <input
-            ref={inputRef}
+            ref={cameraRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => e.target.files && onUpload(e.target.files)}
+          />
+          {/* Gallery input — opens file picker / photo library */}
+          <input
+            ref={galleryRef}
             type="file"
             accept="image/*"
             multiple
             className="hidden"
             onChange={(e) => e.target.files && onUpload(e.target.files)}
           />
-          <button
-            onClick={() => inputRef.current?.click()}
-            disabled={uploading}
-            className={`w-full flex items-center justify-center gap-1.5 py-2 rounded-lg border border-dashed text-xs transition-colors disabled:opacity-50 ${accent}`}
-          >
-            {uploading ? (
-              <span className="w-3 h-3 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-            ) : (
-              <Camera className="w-3 h-3" />
-            )}
-            {uploading ? 'กำลังอัพโหลด...' : `+ อัพโหลด${label}`}
-          </button>
+          <div className="flex gap-1.5">
+            <button
+              onClick={() => cameraRef.current?.click()}
+              disabled={uploading}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border border-dashed text-xs transition-colors disabled:opacity-50 ${accent}`}
+            >
+              {uploading ? (
+                <span className="w-3 h-3 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+              ) : (
+                <Camera className="w-3 h-3" />
+              )}
+              {uploading ? 'กำลังอัพโหลด...' : 'ถ่ายรูป'}
+            </button>
+            <button
+              onClick={() => galleryRef.current?.click()}
+              disabled={uploading}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border border-dashed text-xs transition-colors disabled:opacity-50 ${accent}`}
+            >
+              <ImageIcon className="w-3 h-3" />
+              คลัง
+            </button>
+          </div>
         </>
       )}
     </div>
