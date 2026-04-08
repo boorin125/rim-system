@@ -437,11 +437,11 @@ function PhotoUploadBlock({
     {/* Lightbox */}
     {lightbox && (
       <div
-        className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center"
+        className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-2"
         onClick={() => setLightbox(null)}
       >
         <button
-          className="absolute top-3 right-3 z-10 w-8 h-8 bg-black/50 rounded-full flex items-center justify-center text-white/80 hover:text-white"
+          className="absolute top-3 right-3 z-10 w-8 h-8 bg-black/60 rounded-full flex items-center justify-center text-white"
           onClick={() => setLightbox(null)}
         >
           <X className="w-5 h-5" />
@@ -449,7 +449,7 @@ function PhotoUploadBlock({
         <img
           src={lightbox}
           alt=""
-          className="w-full h-full object-contain"
+          className="max-w-full max-h-[100dvh] object-contain rounded-lg"
           onClick={(e) => e.stopPropagation()}
         />
       </div>
