@@ -97,6 +97,7 @@ export class PmService {
                 model: true,
                 serialNumber: true,
                 status: true,
+                updatedAt: true,
               },
             },
           },
@@ -170,13 +171,14 @@ export class PmService {
 
     const now = new Date();
 
-    // Fetch current equipment data (brand/model/serial/status) for oldValue comparison
+    // Fetch current equipment data (brand/model/serial/status/updatedAt) for oldValue comparison
     const equipmentIds = pmRecord.equipmentRecords.map((r) => r.equipmentId);
     const currentEquipments = await this.prisma.equipment.findMany({
       where: { id: { in: equipmentIds } },
-      select: { id: true, brand: true, model: true, serialNumber: true, status: true },
+      select: { id: true, brand: true, model: true, serialNumber: true, status: true, updatedAt: true },
     });
     const equipmentMap = new Map(currentEquipments.map((e) => [e.id, e]));
+    const skippedEquipment: string[] = [];
 
     await this.prisma.$transaction(async (tx) => {
       // Update PmRecord
@@ -200,9 +202,16 @@ export class PmService {
         const changes: string[] = [];
 
         // Brand / Model / Serial updates
-        if (rec.updatedBrand) { updateData.brand = rec.updatedBrand; changes.push(`Brand: ${current.brand} → ${rec.updatedBrand}`); }
-        if (rec.updatedModel) { updateData.model = rec.updatedModel; changes.push(`Model: ${current.model} → ${rec.updatedModel}`); }
-        if (rec.updatedSerial) { updateData.serialNumber = rec.updatedSerial; changes.push(`Serial: ${current.serialNumber} → ${rec.updatedSerial}`); }
+        // Skip if equipment was updated more recently than this PM record (conflict protection)
+        const hasInfoUpdate = rec.updatedBrand || rec.updatedModel || rec.updatedSerial;
+        const equipmentNewerThanPm = current.updatedAt > rec.updatedAt;
+        if (hasInfoUpdate && equipmentNewerThanPm) {
+          skippedEquipment.push(rec.equipmentId.toString());
+        } else {
+          if (rec.updatedBrand) { updateData.brand = rec.updatedBrand; changes.push(`Brand: ${current.brand} → ${rec.updatedBrand}`); }
+          if (rec.updatedModel) { updateData.model = rec.updatedModel; changes.push(`Model: ${current.model} → ${rec.updatedModel}`); }
+          if (rec.updatedSerial) { updateData.serialNumber = rec.updatedSerial; changes.push(`Serial: ${current.serialNumber} → ${rec.updatedSerial}`); }
+        }
 
         // Condition → auto-update Equipment.status
         let newStatus: EquipmentStatus | null = null;
@@ -254,7 +263,7 @@ export class PmService {
       }
     });
 
-    return { success: true, performedAt: now };
+    return { success: true, performedAt: now, skippedEquipmentIds: skippedEquipment };
   }
 
   /**
