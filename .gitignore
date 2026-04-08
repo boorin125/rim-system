@@ -18,6 +18,8 @@ backend/dist/
 # OS
 .DS_Store
 Thumbs.db
+*.key
+*.pem
 
 # Claude
 .claude/settings.local.json
