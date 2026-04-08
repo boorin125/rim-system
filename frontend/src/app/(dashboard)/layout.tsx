@@ -96,11 +96,19 @@ export default function DashboardLayout({
   const router = useRouter()
   const pathname = usePathname()
   usePushNotification()
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  // Desktop always shows sidebar via lg:translate-x-0 — start hidden so mobile doesn't flash open
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [appVersion, setAppVersion] = useState('1.0.0')
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false) // For top-right menu
   const [user, setUser] = useState<any>(null)
-  const [orgSettings, setOrgSettings] = useState<OrgSettings | null>(null)
+  // Init from cache so logo/name show instantly on refresh (no flash of default)
+  const [orgSettings, setOrgSettings] = useState<OrgSettings | null>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('orgSettings')
+      if (cached) try { return JSON.parse(cached) } catch { /* ignore */ }
+    }
+    return null
+  })
   const [showPendingAlert, setShowPendingAlert] = useState(false)
   const [profileIncompleteFields, setProfileIncompleteFields] = useState<string[]>([])
   const [themeStyle, setThemeStyle] = useState<{ bgStart: string; bgEnd: string } | null>(() => {
@@ -605,7 +613,7 @@ export default function DashboardLayout({
                 <Link
                   key={item.href}
                   href={item.href}
-                  onClick={() => setIsSidebarOpen(false)}
+                  onClick={() => { if (window.innerWidth < 1024) setIsSidebarOpen(false) }}
                   className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition duration-200 ${
                     isActive
                       ? 'text-white'
