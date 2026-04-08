@@ -348,46 +348,46 @@ function EquipmentCard({
             <label className="block text-xs font-medium text-gray-400 mb-2">อัพเดตข้อมูลอุปกรณ์ (ถ้ามีการเปลี่ยนแปลง)</label>
             <div className="bg-slate-700/30 rounded-xl p-3 space-y-2">
               {/* Column headers */}
-              <div className="grid grid-cols-3 gap-2 pl-[4.5rem]">
-                <p className="text-xs text-gray-500">Brand.</p>
-                <p className="text-xs text-gray-500">Model.</p>
-                <p className="text-xs text-gray-500">Serial No.</p>
+              <div className="grid grid-cols-[1fr_1fr_1.4fr] gap-1.5 pl-12">
+                <p className="text-[10px] text-gray-500">Brand</p>
+                <p className="text-[10px] text-gray-500">Model</p>
+                <p className="text-[10px] text-gray-500">Serial No.</p>
               </div>
               {/* Current data row */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500 w-16 flex-shrink-0">ข้อมูลเดิม</span>
-                <div className="grid grid-cols-3 gap-2 flex-1">
-                  <p className="text-xs text-white truncate">{record.equipment.brand || '-'}</p>
-                  <p className="text-xs text-white truncate">{record.equipment.model || '-'}</p>
-                  <p className="text-xs text-white truncate">{record.equipment.serialNumber || '-'}</p>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-gray-500 w-10 flex-shrink-0 font-medium">Current</span>
+                <div className="grid grid-cols-[1fr_1fr_1.4fr] gap-1.5 flex-1">
+                  <p className="text-[10px] text-white truncate">{record.equipment.brand || '-'}</p>
+                  <p className="text-[10px] text-white truncate">{record.equipment.model || '-'}</p>
+                  <p className="text-[10px] text-white break-all">{record.equipment.serialNumber || '-'}</p>
                 </div>
               </div>
               {/* Divider */}
               <div className="border-t border-slate-600/50" />
               {/* New data inputs */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500 w-16 flex-shrink-0">ข้อมูลใหม่</span>
-                <div className="grid grid-cols-3 gap-2 flex-1">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-gray-500 w-10 flex-shrink-0 font-medium">New</span>
+                <div className="grid grid-cols-[1fr_1fr_1.4fr] gap-1.5 flex-1">
                   <input
                     value={local.updatedBrand}
                     onChange={(e) => handleFieldChange('updatedBrand', e.target.value)}
                     disabled={!canEdit}
-                    placeholder="Brand ใหม่"
-                    className="w-full px-2 py-1.5 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-xs placeholder-gray-500 focus:outline-none focus:border-blue-500 disabled:opacity-60"
+                    placeholder="Brand"
+                    className="w-full px-2 py-1 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-[10px] placeholder-gray-500 focus:outline-none focus:border-blue-500 disabled:opacity-60"
                   />
                   <input
                     value={local.updatedModel}
                     onChange={(e) => handleFieldChange('updatedModel', e.target.value)}
                     disabled={!canEdit}
-                    placeholder="Model ใหม่"
-                    className="w-full px-2 py-1.5 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-xs placeholder-gray-500 focus:outline-none focus:border-blue-500 disabled:opacity-60"
+                    placeholder="Model"
+                    className="w-full px-2 py-1 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-[10px] placeholder-gray-500 focus:outline-none focus:border-blue-500 disabled:opacity-60"
                   />
                   <input
                     value={local.updatedSerial}
                     onChange={(e) => handleFieldChange('updatedSerial', e.target.value)}
                     disabled={!canEdit}
-                    placeholder="S/N ใหม่"
-                    className="w-full px-2 py-1.5 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-xs placeholder-gray-500 focus:outline-none focus:border-blue-500 disabled:opacity-60"
+                    placeholder="Serial No."
+                    className="w-full px-2 py-1 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-[10px] placeholder-gray-500 focus:outline-none focus:border-blue-500 disabled:opacity-60"
                   />
                 </div>
               </div>
@@ -430,16 +430,19 @@ function PhotoUploadBlock({
     {/* Lightbox */}
     {lightbox && (
       <div
-        className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+        className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center"
         onClick={() => setLightbox(null)}
       >
-        <button className="absolute top-4 right-4 text-white/70 hover:text-white" onClick={() => setLightbox(null)}>
-          <X className="w-8 h-8" />
+        <button
+          className="absolute top-3 right-3 z-10 w-8 h-8 bg-black/50 rounded-full flex items-center justify-center text-white/80 hover:text-white"
+          onClick={() => setLightbox(null)}
+        >
+          <X className="w-5 h-5" />
         </button>
         <img
           src={lightbox}
           alt=""
-          className="max-w-full max-h-full object-contain rounded-lg"
+          className="w-full h-full object-contain"
           onClick={(e) => e.stopPropagation()}
         />
       </div>
@@ -462,7 +465,7 @@ function PhotoUploadBlock({
               {canEdit && onRemove && (
                 <button
                   onClick={(e) => { e.stopPropagation(); onRemove(i) }}
-                  className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center"
                 >
                   <X className="w-2.5 h-2.5 text-white" />
                 </button>
