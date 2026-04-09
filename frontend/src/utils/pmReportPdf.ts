@@ -29,6 +29,9 @@ export interface PmReportData {
   technicianName?: string
   organizationName?: string
   organizationLogo?: string
+  storeSignature?: string    // Base64 — from Digital Sign
+  storeSignerName?: string
+  storeSignedAt?: string
   equipmentRecords: PmReportEquipment[]
 }
 

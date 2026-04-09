@@ -196,8 +196,53 @@ export function PmReportModal({
           })}
         </div>
 
+        {/* Signature Section */}
+        <div className="mt-8 border border-gray-200 rounded-xl overflow-hidden">
+          <div className="bg-purple-50 px-4 py-2 border-b border-gray-200">
+            <p className="text-xs font-semibold text-gray-600">ลายเซ็น / Signatures</p>
+          </div>
+          <div className="grid grid-cols-2 divide-x divide-gray-200">
+            {/* Technician */}
+            <div className="p-5 text-center">
+              <p className="text-xs text-gray-400 mb-4">ลายเซ็นช่างเทคนิค / Technician</p>
+              <div className="h-16 flex items-end justify-center mb-3">
+                <p className="text-sm text-gray-500">{data.technicianName || '-'}</p>
+              </div>
+              <div className="border-b-2 border-gray-400 w-40 mx-auto mb-1" />
+              <p className="text-gray-700 text-sm font-medium">( {data.technicianName || '-'} )</p>
+              {data.performedAt && (
+                <p className="text-gray-400 text-xs mt-1">
+                  {new Date(data.performedAt).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}
+                </p>
+              )}
+            </div>
+            {/* Store Staff */}
+            <div className="p-5 text-center">
+              <p className="text-xs text-gray-400 mb-4">ลายเซ็นเจ้าหน้าที่สาขา / Store Staff</p>
+              <div className="h-16 flex items-end justify-center mb-3">
+                {data.storeSignature ? (
+                  <img
+                    src={data.storeSignature}
+                    alt="Store signature"
+                    className="h-14 object-contain"
+                  />
+                ) : (
+                  <p className="text-xs text-gray-300 pb-1">ยังไม่ได้เซ็น</p>
+                )}
+              </div>
+              <div className="border-b-2 border-gray-400 w-40 mx-auto mb-1" />
+              <p className="text-gray-700 text-sm font-medium">( {data.storeSignerName || '-'} )</p>
+              {data.storeSignedAt && (
+                <p className="text-gray-400 text-xs mt-1">
+                  {new Date(data.storeSignedAt).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Footer */}
-        <div className="mt-8 pt-4 border-t border-gray-200 text-xs text-gray-400 text-center">
+        <div className="mt-6 pt-4 border-t border-gray-200 text-xs text-gray-400 text-center">
           Created by {data.organizationName || 'RIM System'}
         </div>
       </div>
