@@ -121,7 +121,7 @@ export function PmReportModal({
             const brand = rec.updatedBrand || rec.brand
             const model = rec.updatedModel || rec.model
             const serial = rec.updatedSerial || rec.serialNumber
-            const brandModel = [brand, model].filter(Boolean).join(' ')
+            const brandModel = `${brand || '-'} ${model || '-'}`
             return (
             <div key={idx} className="border border-gray-200 rounded-lg overflow-hidden">
               {/* Equipment header */}
@@ -129,7 +129,7 @@ export function PmReportModal({
                 <div className="min-w-0">
                   <span className="font-semibold text-gray-900 text-sm">
                     {idx + 1}. {rec.name}
-                    {brandModel && <span className="font-normal text-gray-600"> : {brandModel}</span>}
+                    <span className="font-normal text-gray-600"> : {brandModel}</span>
                   </span>
                   {serial && (
                     <span className="text-xs text-gray-500 ml-2">S/N : {serial}</span>
