@@ -61,12 +61,9 @@ function ModalWrapper({
           </button>
         </div>
       </div>
-      {/* Document — scrollable area */}
-      <div
-        className="flex-1 overflow-y-auto overflow-x-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="w-full max-w-3xl mx-auto p-3 sm:p-4 pb-8">
+      {/* Document — scrollable area; click backdrop (outside card) closes modal */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden">
+        <div className="w-full max-w-3xl mx-auto p-3 sm:p-4 pb-8" onClick={(e) => e.stopPropagation()}>
           {children}
         </div>
       </div>
