@@ -893,7 +893,7 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
         model: r.updatedModel || r.equipment.model,
         condition: r.condition ?? undefined,
         comment: r.comment ?? undefined,
-        beforePhoto: r.beforePhotos[0],
+        photo: r.afterPhotos[0],
       })),
     })
     setShowInventoryModal(true)

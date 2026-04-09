@@ -11,7 +11,7 @@ export interface InventoryListEquipment {
   model?: string
   condition?: string   // GOOD | NEEDS_REPAIR | REPLACED
   comment?: string
-  beforePhoto?: string // Base64 — first before photo
+  photo?: string       // Base64 — first after-PM photo
 }
 
 export interface InventoryListData {
@@ -131,11 +131,11 @@ export async function generateInventoryListPDF(data: InventoryListData): Promise
   const cols = [
     { label: 'ลำดับ', w: 10, align: 'center' as const },
     { label: 'ชื่ออุปกรณ์', w: 38, align: 'left' as const },
-    { label: 'Serial No.', w: 30, align: 'left' as const },
     { label: 'Brand / Model', w: 30, align: 'left' as const },
-    { label: 'สภาพ', w: 18, align: 'center' as const },
+    { label: 'Serial No.', w: 28, align: 'left' as const },
     { label: 'รูปอุปกรณ์', w: 22, align: 'center' as const },
-    { label: 'หมายเหตุ', w: contentW - 10 - 38 - 30 - 30 - 18 - 22, align: 'left' as const },
+    { label: 'Status', w: 18, align: 'center' as const },
+    { label: 'Note', w: contentW - 10 - 38 - 30 - 28 - 22 - 18, align: 'left' as const },
   ]
   let x = marginL
 
@@ -205,16 +205,30 @@ export async function generateInventoryListPDF(data: InventoryListData): Promise
     doc.setTextColor(40, 40, 40)
     cx += cols[1].w
 
-    // Serial
-    doc.text(eq.serialNumber.slice(0, 18), cx + 1, midY)
-    cx += cols[2].w
-
     // Brand / Model
     const bm = [eq.brand, eq.model].filter(Boolean).join(' / ')
     doc.text(bm.slice(0, 18), cx + 1, midY)
+    cx += cols[2].w
+
+    // Serial
+    doc.text(eq.serialNumber.slice(0, 18), cx + 1, midY)
     cx += cols[3].w
 
-    // Condition
+    // Photo (first after-PM photo)
+    if (eq.photo) {
+      try {
+        doc.addImage(eq.photo, 'JPEG', cx + 1, y + 1, cols[4].w - 2, ROW_H - 2, undefined, 'FAST')
+      } catch {}
+    } else {
+      doc.setFontSize(5.5)
+      doc.setTextColor(180, 180, 180)
+      doc.text('ไม่มีรูป', cx + cols[4].w / 2, midY, { align: 'center' })
+      doc.setTextColor(40, 40, 40)
+      doc.setFontSize(7)
+    }
+    cx += cols[4].w
+
+    // Status (Condition)
     const cond = eq.condition ? (conditionTh[eq.condition] ?? eq.condition) : '-'
     const condColor =
       eq.condition === 'GOOD'
@@ -225,25 +239,11 @@ export async function generateInventoryListPDF(data: InventoryListData): Promise
         ? [239, 68, 68]
         : [120, 120, 120]
     doc.setTextColor(condColor[0], condColor[1], condColor[2])
-    doc.text(cond, cx + cols[4].w / 2, midY, { align: 'center' })
+    doc.text(cond, cx + cols[5].w / 2, midY, { align: 'center' })
     doc.setTextColor(40, 40, 40)
-    cx += cols[4].w
-
-    // Photo (before photo thumbnail)
-    if (eq.beforePhoto) {
-      try {
-        doc.addImage(eq.beforePhoto, 'JPEG', cx + 1, y + 1, cols[5].w - 2, ROW_H - 2, undefined, 'FAST')
-      } catch {}
-    } else {
-      doc.setFontSize(5.5)
-      doc.setTextColor(180, 180, 180)
-      doc.text('ไม่มีรูป', cx + cols[5].w / 2, midY, { align: 'center' })
-      doc.setTextColor(40, 40, 40)
-      doc.setFontSize(7)
-    }
     cx += cols[5].w
 
-    // Comment
+    // Note (Comment)
     if (eq.comment) {
       const lines = doc.splitTextToSize(eq.comment, cols[6].w - 2)
       doc.setFontSize(6.5)

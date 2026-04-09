@@ -242,24 +242,30 @@ export function InventoryListModal({
               <tr style={{ background: headerBg }}>
                 <th className="px-3 py-2 text-white text-left font-semibold text-xs border border-white/20 w-8">#</th>
                 <th className="px-3 py-2 text-white text-left font-semibold text-xs border border-white/20">ชื่ออุปกรณ์</th>
-                <th className="px-3 py-2 text-white text-left font-semibold text-xs border border-white/20">ประเภท</th>
                 <th className="px-3 py-2 text-white text-left font-semibold text-xs border border-white/20">Brand/Model</th>
                 <th className="px-3 py-2 text-white text-left font-semibold text-xs border border-white/20">Serial No.</th>
-                <th className="px-3 py-2 text-white text-center font-semibold text-xs border border-white/20">สภาพ</th>
-                <th className="px-3 py-2 text-white text-left font-semibold text-xs border border-white/20">หมายเหตุ</th>
-                <th className="px-3 py-2 text-white text-center font-semibold text-xs border border-white/20">รูป</th>
+                <th className="px-3 py-2 text-white text-center font-semibold text-xs border border-white/20">รูปอุปกรณ์</th>
+                <th className="px-3 py-2 text-white text-center font-semibold text-xs border border-white/20">Status</th>
+                <th className="px-3 py-2 text-white text-left font-semibold text-xs border border-white/20">Note</th>
               </tr>
             </thead>
             <tbody>
               {data.equipment.map((eq, idx) => (
                 <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                   <td className="px-3 py-2 border border-gray-200 text-center text-xs text-gray-500">{eq.no}</td>
-                  <td className="px-3 py-2 border border-gray-200 font-medium text-xs">{eq.name}</td>
-                  <td className="px-3 py-2 border border-gray-200 text-xs text-gray-600">{eq.category}</td>
-                  <td className="px-3 py-2 border border-gray-200 text-xs text-gray-600">
-                    {[eq.brand, eq.model].filter(Boolean).join(' ') || '-'}
+                  <td className="px-3 py-2 border border-gray-200 font-medium text-xs">
+                    <div>{eq.name}</div>
+                    <div className="text-gray-400 text-[10px]">{eq.category}</div>
                   </td>
-                  <td className="px-3 py-2 border border-gray-200 text-xs text-gray-600">{eq.serialNumber}</td>
+                  <td className="px-3 py-2 border border-gray-200 text-xs text-gray-600">
+                    {[eq.brand, eq.model].filter(Boolean).join(' / ') || '-'}
+                  </td>
+                  <td className="px-3 py-2 border border-gray-200 text-xs text-gray-600">{eq.serialNumber || '-'}</td>
+                  <td className="px-3 py-2 border border-gray-200 text-center">
+                    {eq.photo ? (
+                      <img src={eq.photo} alt="" className="w-12 h-12 object-cover rounded border border-gray-200 mx-auto" />
+                    ) : <span className="text-xs text-gray-300">-</span>}
+                  </td>
                   <td className="px-3 py-2 border border-gray-200 text-center">
                     {eq.condition ? (
                       <span style={{ ...conditionStyle[eq.condition], padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 600 }}>
@@ -268,11 +274,6 @@ export function InventoryListModal({
                     ) : '-'}
                   </td>
                   <td className="px-3 py-2 border border-gray-200 text-xs text-gray-500">{eq.comment || '-'}</td>
-                  <td className="px-3 py-2 border border-gray-200 text-center">
-                    {eq.beforePhoto ? (
-                      <img src={eq.beforePhoto} alt="" className="w-10 h-10 object-cover rounded border border-gray-200 mx-auto" />
-                    ) : <span className="text-xs text-gray-300">-</span>}
-                  </td>
                 </tr>
               ))}
             </tbody>
