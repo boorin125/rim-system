@@ -96,25 +96,25 @@ export function PmReportModal({
 
   return (
     <ModalWrapper title="PM Report" onClose={onClose} onSavePdf={onSavePdf} saving={saving}>
-      <div className="bg-white rounded-xl shadow-2xl p-8 text-gray-800 font-sans">
+      <div className="bg-white rounded-xl shadow-2xl p-6 text-gray-800 font-sans">
         {/* Header */}
-        <div className="flex items-start justify-between border-b-2 border-purple-600 pb-4 mb-6">
-          <div className="flex items-center gap-3">
+        <div className="flex items-end justify-between border-b-2 border-purple-600 pb-4 mb-6">
+          <div className="flex items-end gap-3">
             {data.organizationLogo && (
-              <img src={data.organizationLogo} alt="logo" className="h-12 object-contain" />
+              <img src={data.organizationLogo} alt="logo" className="h-16 object-contain shrink-0" />
             )}
             <div>
-              <p className="font-bold text-lg text-gray-900">
+              <p className="text-xs text-gray-400">Preventive Maintenance Report</p>
+              <p className="font-bold text-xl text-gray-900 leading-tight">
                 {data.store.storeCode} {data.store.name}
               </p>
-              <p className="text-xs text-gray-500">Preventive Maintenance Report</p>
               {data.store.address && (
                 <p className="text-xs text-gray-400 mt-0.5">{data.store.address}</p>
               )}
             </div>
           </div>
-          <div className="text-right shrink-0">
-            <p className="text-sm font-semibold text-purple-700">{data.ticketNumber}</p>
+          <div className="text-right shrink-0 pb-0.5">
+            <p className="text-sm font-semibold text-gray-900">{data.ticketNumber}</p>
             <p className="text-xs text-gray-500 mt-0.5">{dateStr}</p>
           </div>
         </div>
@@ -128,15 +128,25 @@ export function PmReportModal({
 
         {/* Equipment Records */}
         <div className="space-y-6">
-          {data.equipmentRecords.map((rec, idx) => (
+          {data.equipmentRecords.map((rec, idx) => {
+            const brand = rec.updatedBrand || rec.brand
+            const model = rec.updatedModel || rec.model
+            const serial = rec.updatedSerial || rec.serialNumber
+            const brandModel = [brand, model].filter(Boolean).join(' ')
+            return (
             <div key={idx} className="border border-gray-200 rounded-lg overflow-hidden">
               {/* Equipment header */}
-              <div className="flex items-center justify-between bg-purple-50 px-4 py-2">
-                <div>
-                  <span className="font-semibold text-gray-900 text-sm">{idx + 1}. {rec.name}</span>
-                  <span className="text-xs text-gray-500 ml-2">{rec.category}</span>
+              <div className="flex items-center justify-between bg-purple-50 px-4 py-2.5 gap-3">
+                <div className="min-w-0">
+                  <span className="font-semibold text-gray-900 text-sm">
+                    {idx + 1}. {rec.name}
+                    {brandModel && <span className="font-normal text-gray-600"> : {brandModel}</span>}
+                  </span>
+                  {serial && (
+                    <span className="text-xs text-gray-500 ml-2">S/N : {serial}</span>
+                  )}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="shrink-0">
                   {rec.condition && (
                     <span style={{ ...conditionStyle[rec.condition], padding: '2px 10px', borderRadius: 99, fontSize: 11, fontWeight: 600 }}>
                       {conditionLabel[rec.condition]}
@@ -146,11 +156,6 @@ export function PmReportModal({
               </div>
               {/* Equipment body */}
               <div className="px-4 py-3 space-y-2 text-sm">
-                <div className="grid grid-cols-3 gap-2 text-xs text-gray-600">
-                  <div><span className="text-gray-400">Brand:</span> {rec.updatedBrand || rec.brand || '-'}</div>
-                  <div><span className="text-gray-400">Model:</span> {rec.updatedModel || rec.model || '-'}</div>
-                  <div><span className="text-gray-400">S/N:</span> {rec.updatedSerial || rec.serialNumber}</div>
-                </div>
                 {rec.comment && (
                   <p className="text-xs text-gray-600 bg-gray-50 px-3 py-2 rounded">
                     <span className="font-medium">หมายเหตุ:</span> {rec.comment}
@@ -162,9 +167,9 @@ export function PmReportModal({
                     {rec.beforePhotos.length > 0 && (
                       <div>
                         <p className="text-xs text-gray-400 mb-1">ก่อน PM ({rec.beforePhotos.length} รูป)</p>
-                        <div className="flex gap-1 flex-wrap">
+                        <div className="flex gap-1.5 flex-wrap">
                           {rec.beforePhotos.slice(0, 4).map((p, i) => (
-                            <img key={i} src={p} alt="" className="w-16 h-16 object-cover rounded border border-gray-200" />
+                            <img key={i} src={p} alt="" className="w-24 h-24 object-cover rounded border border-gray-200" />
                           ))}
                           {rec.beforePhotos.length > 4 && <span className="text-xs text-gray-400 self-center">+{rec.beforePhotos.length - 4}</span>}
                         </div>
@@ -173,9 +178,9 @@ export function PmReportModal({
                     {rec.afterPhotos.length > 0 && (
                       <div>
                         <p className="text-xs text-gray-400 mb-1">หลัง PM ({rec.afterPhotos.length} รูป)</p>
-                        <div className="flex gap-1 flex-wrap">
+                        <div className="flex gap-1.5 flex-wrap">
                           {rec.afterPhotos.slice(0, 4).map((p, i) => (
-                            <img key={i} src={p} alt="" className="w-16 h-16 object-cover rounded border border-gray-200" />
+                            <img key={i} src={p} alt="" className="w-24 h-24 object-cover rounded border border-gray-200" />
                           ))}
                           {rec.afterPhotos.length > 4 && <span className="text-xs text-gray-400 self-center">+{rec.afterPhotos.length - 4}</span>}
                         </div>
@@ -185,7 +190,8 @@ export function PmReportModal({
                 )}
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
 
         {/* Footer */}
