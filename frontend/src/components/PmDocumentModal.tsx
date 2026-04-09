@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { X, Download } from 'lucide-react'
 import { PmReportData, generatePmReportPDF } from '@/utils/pmReportPdf'
 import { InventoryListData, generateInventoryListPDF } from '@/utils/inventoryListPdf'
@@ -199,6 +199,9 @@ export function PmReportModal({
 
 // ─── Inventory List Modal ─────────────────────────────────────────────────────
 
+// Natural render width of the Inventory List document (px)
+const INVENTORY_NATURAL_WIDTH = 640
+
 export function InventoryListModal({
   data,
   saving,
@@ -210,6 +213,22 @@ export function InventoryListModal({
   onClose: () => void
   onSavePdf: () => void
 }) {
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const [scale, setScale] = useState(1)
+
+  useEffect(() => {
+    const el = wrapRef.current
+    if (!el) return
+    const update = () => {
+      const available = el.clientWidth
+      setScale(available < INVENTORY_NATURAL_WIDTH ? available / INVENTORY_NATURAL_WIDTH : 1)
+    }
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
   const dateStr = data.performedAt
     ? new Date(data.performedAt).toLocaleDateString('th-TH', {
         year: 'numeric', month: 'long', day: 'numeric',
@@ -220,85 +239,100 @@ export function InventoryListModal({
 
   return (
     <ModalWrapper title="Inventory List" onClose={onClose} onSavePdf={onSavePdf} saving={saving}>
-      <div className="bg-white rounded-xl shadow-2xl overflow-hidden text-gray-800 font-sans">
-        {/* Colored header */}
-        <div style={{ background: headerBg }} className="px-8 py-5 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {data.organizationLogo && (
-              <img src={data.organizationLogo} alt="logo" className="h-10 object-contain" />
-            )}
-            <div>
-              <p className="font-bold text-white text-base">{data.organizationName || 'Inventory List'}</p>
-              <p className="text-white/70 text-xs">Preventive Maintenance — Inventory List</p>
+      {/* Outer wrapper — measures available width */}
+      <div ref={wrapRef} className="w-full overflow-hidden">
+        {/* Scalable document */}
+        <div
+          style={
+            scale < 1
+              ? { transform: `scale(${scale})`, transformOrigin: 'top left', width: `${100 / scale}%` }
+              : undefined
+          }
+        >
+          <div className="bg-white rounded-xl shadow-2xl overflow-hidden text-gray-800 font-sans">
+            {/* Colored header */}
+            <div style={{ background: headerBg }} className="px-5 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {data.organizationLogo && (
+                  <img src={data.organizationLogo} alt="logo" className="h-9 object-contain" />
+                )}
+                <div>
+                  <p className="font-bold text-white text-sm">{data.organizationName || 'Inventory List'}</p>
+                  <p className="text-white/70 text-xs">Preventive Maintenance — Inventory List</p>
+                </div>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-white font-semibold text-sm">{data.ticketNumber}</p>
+                <p className="text-white/70 text-xs mt-0.5">{dateStr}</p>
+              </div>
             </div>
-          </div>
-          <p className="text-white font-semibold text-sm">{data.ticketNumber}</p>
-        </div>
 
-        <div className="p-8">
-          {/* Info */}
-          <div className="grid grid-cols-2 gap-x-8 gap-y-1 mb-5 text-sm">
-            <div><span className="text-gray-500">สาขา:</span> <span className="font-medium">{data.store.storeCode} {data.store.name}</span></div>
-            <div><span className="text-gray-500">วันที่ PM:</span> <span className="font-medium">{dateStr}</span></div>
-          </div>
+            <div className="px-4 py-4">
+              {/* Store info */}
+              <p className="text-xs text-gray-500 mb-3">
+                <span className="font-medium text-gray-700">{data.store.storeCode} {data.store.name}</span>
+                {data.store.address && <span className="ml-2 text-gray-400">{data.store.address}</span>}
+              </p>
 
-          {/* Table */}
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr style={{ background: headerBg }}>
-                <th className="px-3 py-2 text-white text-left font-semibold text-xs border border-white/20 w-8">#</th>
-                <th className="px-3 py-2 text-white text-left font-semibold text-xs border border-white/20">ชื่ออุปกรณ์</th>
-                <th className="px-3 py-2 text-white text-left font-semibold text-xs border border-white/20">Brand/Model</th>
-                <th className="px-3 py-2 text-white text-left font-semibold text-xs border border-white/20">Serial No.</th>
-                <th className="px-3 py-2 text-white text-center font-semibold text-xs border border-white/20">รูปอุปกรณ์</th>
-                <th className="px-3 py-2 text-white text-center font-semibold text-xs border border-white/20">Status</th>
-                <th className="px-3 py-2 text-white text-left font-semibold text-xs border border-white/20">Note</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.equipment.map((eq, idx) => (
-                <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                  <td className="px-3 py-2 border border-gray-200 text-center text-xs text-gray-500">{eq.no}</td>
-                  <td className="px-3 py-2 border border-gray-200 font-medium text-xs">
-                    <div>{eq.name}</div>
-                    <div className="text-gray-400 text-[10px]">{eq.category}</div>
-                  </td>
-                  <td className="px-3 py-2 border border-gray-200 text-xs text-gray-600">
-                    {[eq.brand, eq.model].filter(Boolean).join(' / ') || '-'}
-                  </td>
-                  <td className="px-3 py-2 border border-gray-200 text-xs text-gray-600">{eq.serialNumber || '-'}</td>
-                  <td className="px-3 py-2 border border-gray-200 text-center">
-                    {eq.photo ? (
-                      <img src={eq.photo} alt="" className="w-12 h-12 object-cover rounded border border-gray-200 mx-auto" />
-                    ) : <span className="text-xs text-gray-300">-</span>}
-                  </td>
-                  <td className="px-3 py-2 border border-gray-200 text-center">
-                    {eq.condition ? (
-                      <span style={{ ...conditionStyle[eq.condition], padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 600 }}>
-                        {conditionLabel[eq.condition]}
-                      </span>
-                    ) : '-'}
-                  </td>
-                  <td className="px-3 py-2 border border-gray-200 text-xs text-gray-500">{eq.comment || '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+              {/* Table */}
+              <table className="w-full border-collapse text-xs">
+                <thead>
+                  <tr style={{ background: headerBg }}>
+                    <th className="px-2 py-1.5 text-white text-center font-semibold border border-white/20 w-6">#</th>
+                    <th className="px-2 py-1.5 text-white text-left font-semibold border border-white/20">ชื่ออุปกรณ์</th>
+                    <th className="px-2 py-1.5 text-white text-left font-semibold border border-white/20">Brand/Model</th>
+                    <th className="px-2 py-1.5 text-white text-left font-semibold border border-white/20">Serial No.</th>
+                    <th className="px-2 py-1.5 text-white text-center font-semibold border border-white/20">รูป</th>
+                    <th className="px-2 py-1.5 text-white text-center font-semibold border border-white/20">Status</th>
+                    <th className="px-2 py-1.5 text-white text-left font-semibold border border-white/20">Note</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.equipment.map((eq, idx) => (
+                    <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      <td className="px-2 py-1.5 border border-gray-200 text-center text-gray-500">{eq.no}</td>
+                      <td className="px-2 py-1.5 border border-gray-200 font-medium">
+                        <div>{eq.name}</div>
+                        <div className="text-gray-400 text-[10px]">{eq.category}</div>
+                      </td>
+                      <td className="px-2 py-1.5 border border-gray-200 text-gray-600">
+                        {[eq.brand, eq.model].filter(Boolean).join(' / ') || '-'}
+                      </td>
+                      <td className="px-2 py-1.5 border border-gray-200 text-gray-600">{eq.serialNumber || '-'}</td>
+                      <td className="px-2 py-1.5 border border-gray-200 text-center">
+                        {eq.photo ? (
+                          <img src={eq.photo} alt="" className="w-10 h-10 object-cover rounded border border-gray-200 mx-auto" />
+                        ) : <span className="text-gray-300">-</span>}
+                      </td>
+                      <td className="px-2 py-1.5 border border-gray-200 text-center">
+                        {eq.condition ? (
+                          <span style={{ ...conditionStyle[eq.condition], padding: '2px 6px', borderRadius: 99, fontSize: 9, fontWeight: 600 }}>
+                            {conditionLabel[eq.condition]}
+                          </span>
+                        ) : '-'}
+                      </td>
+                      <td className="px-2 py-1.5 border border-gray-200 text-gray-500">{eq.comment || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
 
-          {/* Signature area */}
-          <div className="mt-10 grid grid-cols-2 gap-16">
-            <div className="text-center">
-              <div className="border-b border-gray-300 mb-1 h-10" />
-              <p className="text-xs text-gray-500">ลายเซ็นช่างเทคนิค</p>
+              {/* Signature area */}
+              <div className="mt-8 grid grid-cols-2 gap-10">
+                <div className="text-center">
+                  <div className="border-b border-gray-300 mb-1 h-10" />
+                  <p className="text-xs text-gray-500">ลายเซ็นช่างเทคนิค</p>
+                </div>
+                <div className="text-center">
+                  <div className="border-b border-gray-300 mb-1 h-10" />
+                  <p className="text-xs text-gray-500">ลายเซ็นผู้รับเอกสาร</p>
+                </div>
+              </div>
+
+              <div className="mt-5 pt-3 border-t border-gray-200 text-[10px] text-gray-400 text-center">
+                สร้างโดยระบบ RIM — {new Date().toLocaleDateString('th-TH')}
+              </div>
             </div>
-            <div className="text-center">
-              <div className="border-b border-gray-300 mb-1 h-10" />
-              <p className="text-xs text-gray-500">ลายเซ็นผู้รับเอกสาร</p>
-            </div>
-          </div>
-
-          <div className="mt-6 pt-4 border-t border-gray-200 text-xs text-gray-400 text-center">
-            สร้างโดยระบบ RIM — {new Date().toLocaleDateString('th-TH')}
           </div>
         </div>
       </div>
