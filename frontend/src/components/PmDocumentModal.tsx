@@ -211,8 +211,12 @@ export function PmReportModal({
                   />
                 ) : null}
               </div>
-              <div className="border-b-2 border-gray-400 w-40 mx-auto mb-1" />
-              <p className="text-gray-700 text-sm font-medium">( {data.technicianName || '-'} )</p>
+              <div className="border-b-2 border-gray-400 w-full mb-1" />
+              <div className="flex items-center w-full text-sm font-medium text-gray-700">
+                <span className="shrink-0">(</span>
+                <span className="flex-1 text-center">{data.technicianName || ''}</span>
+                <span className="shrink-0">)</span>
+              </div>
               {data.performedAt && (
                 <p className="text-gray-400 text-xs mt-1">
                   {new Date(data.performedAt).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}
@@ -223,18 +227,20 @@ export function PmReportModal({
             <div className="p-5 text-center">
               <p className="text-xs text-gray-400 mb-4">ลายเซ็นเจ้าหน้าที่สาขา / Store Staff</p>
               <div className="h-16 flex items-end justify-center mb-3">
-                {data.storeSignature ? (
+                {data.storeSignature && (
                   <img
                     src={data.storeSignature}
                     alt="Store signature"
                     className="h-14 object-contain"
                   />
-                ) : (
-                  <p className="text-xs text-gray-300 pb-1">ยังไม่ได้เซ็น</p>
                 )}
               </div>
-              <div className="border-b-2 border-gray-400 w-40 mx-auto mb-1" />
-              <p className="text-gray-700 text-sm font-medium">( {data.storeSignerName || '-'} )</p>
+              <div className="border-b-2 border-gray-400 w-full mb-1" />
+              <div className="flex items-center w-full text-sm font-medium text-gray-700">
+                <span className="shrink-0">(</span>
+                <span className="flex-1 text-center">{data.storeSignerName || ''}</span>
+                <span className="shrink-0">)</span>
+              </div>
               {data.storeSignedAt && (
                 <p className="text-gray-400 text-xs mt-1">
                   {new Date(data.storeSignedAt).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}
