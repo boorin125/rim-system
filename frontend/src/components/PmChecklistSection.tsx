@@ -839,14 +839,46 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
     }
   }
 
-  const handleOpenPmReport = () => {
+  const ensureAllPhotosLoaded = async (): Promise<PmEquipmentRecord[]> => {
+    if (!pmRecord) return []
+    const token = localStorage.getItem('token')
+    const records = await Promise.all(
+      pmRecord.equipmentRecords.map(async (r) => {
+        if (r.photosLoaded) return r
+        try {
+          const res = await axios.get(
+            `${process.env.NEXT_PUBLIC_API_URL}/pm/equipment-record/${r.id}`,
+            { headers: { Authorization: `Bearer ${token}` } },
+          )
+          const updated = { ...r, ...res.data, photosLoaded: true }
+          setPmRecord((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  equipmentRecords: prev.equipmentRecords.map((x) =>
+                    x.id === r.id ? updated : x,
+                  ),
+                }
+              : prev,
+          )
+          return updated
+        } catch {
+          return r
+        }
+      }),
+    )
+    return records
+  }
+
+  const handleOpenPmReport = async () => {
     if (!pmRecord) return
+    const records = await ensureAllPhotosLoaded()
     setPmReportData({
       ticketNumber,
       store: pmRecord.store,
       performedAt: pmRecord.performedAt,
       organizationLogo: orgLogo,
-      equipmentRecords: pmRecord.equipmentRecords.map((r) => ({
+      equipmentRecords: records.map((r) => ({
         name: r.equipment.name,
         category: r.equipment.category,
         serialNumber: r.equipment.serialNumber,
@@ -876,15 +908,16 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
     }
   }
 
-  const handleOpenInventoryList = () => {
+  const handleOpenInventoryList = async () => {
     if (!pmRecord) return
+    const records = await ensureAllPhotosLoaded()
     setInventoryData({
       ticketNumber,
       store: pmRecord.store,
       performedAt: pmRecord.performedAt,
       organizationLogo: orgLogo,
       themeColor: themeColor,
-      equipment: pmRecord.equipmentRecords.map((r, idx) => ({
+      equipment: records.map((r, idx) => ({
         no: idx + 1,
         name: r.equipment.name,
         category: r.equipment.category,

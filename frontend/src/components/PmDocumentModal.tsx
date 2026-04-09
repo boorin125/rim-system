@@ -98,27 +98,33 @@ export function PmReportModal({
     <ModalWrapper title="PM Report" onClose={onClose} onSavePdf={onSavePdf} saving={saving}>
       <div className="bg-white rounded-xl shadow-2xl p-8 text-gray-800 font-sans">
         {/* Header */}
-        <div className="flex items-center justify-between border-b-2 border-purple-600 pb-4 mb-6">
+        <div className="flex items-start justify-between border-b-2 border-purple-600 pb-4 mb-6">
           <div className="flex items-center gap-3">
             {data.organizationLogo && (
               <img src={data.organizationLogo} alt="logo" className="h-12 object-contain" />
             )}
             <div>
-              <p className="font-bold text-lg text-gray-900">{data.organizationName || 'PM Report'}</p>
+              <p className="font-bold text-lg text-gray-900">
+                {data.store.storeCode} {data.store.name}
+              </p>
               <p className="text-xs text-gray-500">Preventive Maintenance Report</p>
+              {data.store.address && (
+                <p className="text-xs text-gray-400 mt-0.5">{data.store.address}</p>
+              )}
             </div>
           </div>
-          <div className="text-right">
+          <div className="text-right shrink-0">
             <p className="text-sm font-semibold text-purple-700">{data.ticketNumber}</p>
+            <p className="text-xs text-gray-500 mt-0.5">{dateStr}</p>
           </div>
         </div>
 
-        {/* Info */}
-        <div className="grid grid-cols-2 gap-x-8 gap-y-1 mb-6 text-sm">
-          <div><span className="text-gray-500">สาขา:</span> <span className="font-medium">{data.store.storeCode} {data.store.name}</span></div>
-          <div><span className="text-gray-500">วันที่ PM:</span> <span className="font-medium">{dateStr}</span></div>
-          {data.store.address && <div className="col-span-2"><span className="text-gray-500">ที่อยู่:</span> <span className="font-medium">{data.store.address}</span></div>}
-        </div>
+        {/* Technician */}
+        {data.technicianName && (
+          <p className="text-sm text-gray-600 -mt-3 mb-5">
+            <span className="text-gray-400">ช่างเทคนิค:</span> {data.technicianName}
+          </p>
+        )}
 
         {/* Equipment Records */}
         <div className="space-y-6">
