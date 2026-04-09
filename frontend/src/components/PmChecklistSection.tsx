@@ -1190,80 +1190,83 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
           </p>
         )}
 
-        <div className="grid grid-cols-2 gap-2">
-          {/* Online Sign Link */}
-          <button
-            onClick={handleGenerateSignLink}
-            disabled={generatingToken || !pmRecord.performedAt}
-            title={!pmRecord.performedAt ? 'Submit PM ก่อนจึงจะสร้างลิงก์ได้' : ''}
-            className="flex items-center justify-center gap-2 py-2.5 bg-indigo-600/80 hover:bg-indigo-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm rounded-lg transition-colors"
-          >
-            {generatingToken ? (
-              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <Link2 className="w-4 h-4" />
-            )}
-            {signLink ? 'สร้างลิงก์ใหม่' : 'Digital Sign'}
-          </button>
-
-          {/* Upload Signed Paper */}
-          {!showSignedDocChoice ? (
+        {/* Digital Sign + Upload — only for the responsible technician (canEdit) */}
+        {canEdit && (
+          <div className="grid grid-cols-2 gap-2">
+            {/* Online Sign Link */}
             <button
-              onClick={() => setShowSignedDocChoice(true)}
-              disabled={uploadingSignedPaper}
-              className="flex items-center justify-center gap-2 py-2.5 bg-slate-600 hover:bg-slate-500 disabled:opacity-40 text-white text-sm rounded-lg transition-colors"
+              onClick={handleGenerateSignLink}
+              disabled={generatingToken || !pmRecord.performedAt}
+              title={!pmRecord.performedAt ? 'Submit PM ก่อนจึงจะสร้างลิงก์ได้' : ''}
+              className="flex items-center justify-center gap-2 py-2.5 bg-indigo-600/80 hover:bg-indigo-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm rounded-lg transition-colors"
             >
-              {uploadingSignedPaper ? (
+              {generatingToken ? (
                 <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
-                <Upload className="w-4 h-4" />
+                <Link2 className="w-4 h-4" />
               )}
-              อัพโหลดเอกสาร
+              {signLink ? 'สร้างลิงก์ใหม่' : 'Digital Sign'}
             </button>
-          ) : (
-            <div className="rounded-xl border border-dashed border-slate-500/60 overflow-hidden">
+
+            {/* Upload Signed Paper */}
+            {!showSignedDocChoice ? (
               <button
-                onClick={() => signedCameraRef.current?.click()}
-                className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-200 bg-slate-700/40 hover:bg-slate-700/70 transition-colors"
+                onClick={() => setShowSignedDocChoice(true)}
+                disabled={uploadingSignedPaper}
+                className="flex items-center justify-center gap-2 py-2.5 bg-slate-600 hover:bg-slate-500 disabled:opacity-40 text-white text-sm rounded-lg transition-colors"
               >
-                <Camera className="w-4 h-4 flex-shrink-0" />
-                ถ่ายรูปด้วยกล้อง
+                {uploadingSignedPaper ? (
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <Upload className="w-4 h-4" />
+                )}
+                อัพโหลดเอกสาร
               </button>
-              <div className="h-px bg-slate-600/40" />
-              <button
-                onClick={() => signedGalleryRef.current?.click()}
-                className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-200 bg-slate-700/40 hover:bg-slate-700/70 transition-colors"
-              >
-                <ImageIcon className="w-4 h-4 flex-shrink-0" />
-                เลือกจากคลังรูป
-              </button>
-              <div className="h-px bg-slate-600/40" />
-              <button
-                onClick={() => setShowSignedDocChoice(false)}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 text-xs text-gray-500 hover:text-gray-300 transition-colors"
-              >
-                <X className="w-3.5 h-3.5" />
-                ยกเลิก
-              </button>
-            </div>
-          )}
-          {/* Hidden file inputs */}
-          <input
-            ref={signedCameraRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={(e) => handleSignedFileSelected(e.target.files)}
-          />
-          <input
-            ref={signedGalleryRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => handleSignedFileSelected(e.target.files)}
-          />
-        </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-slate-500/60 overflow-hidden">
+                <button
+                  onClick={() => signedCameraRef.current?.click()}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-200 bg-slate-700/40 hover:bg-slate-700/70 transition-colors"
+                >
+                  <Camera className="w-4 h-4 flex-shrink-0" />
+                  ถ่ายรูปด้วยกล้อง
+                </button>
+                <div className="h-px bg-slate-600/40" />
+                <button
+                  onClick={() => signedGalleryRef.current?.click()}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-200 bg-slate-700/40 hover:bg-slate-700/70 transition-colors"
+                >
+                  <ImageIcon className="w-4 h-4 flex-shrink-0" />
+                  เลือกจากคลังรูป
+                </button>
+                <div className="h-px bg-slate-600/40" />
+                <button
+                  onClick={() => setShowSignedDocChoice(false)}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  ยกเลิก
+                </button>
+              </div>
+            )}
+            {/* Hidden file inputs */}
+            <input
+              ref={signedCameraRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(e) => handleSignedFileSelected(e.target.files)}
+            />
+            <input
+              ref={signedGalleryRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => handleSignedFileSelected(e.target.files)}
+            />
+          </div>
+        )}
 
         {/* Sign link display */}
         {signLink && (
