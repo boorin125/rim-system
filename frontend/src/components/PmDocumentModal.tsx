@@ -203,7 +203,13 @@ export function PmReportModal({
             <div className="p-5 text-center">
               <p className="text-xs text-gray-400 mb-4">ลายเซ็นช่างเทคนิค / Technician</p>
               <div className="h-16 flex items-end justify-center mb-3">
-                <p className="text-sm text-gray-500">{data.technicianName || '-'}</p>
+                {data.technicianSignature ? (
+                  <img
+                    src={data.technicianSignature}
+                    alt="Technician signature"
+                    className="h-14 object-contain"
+                  />
+                ) : null}
               </div>
               <div className="border-b-2 border-gray-400 w-40 mx-auto mb-1" />
               <p className="text-gray-700 text-sm font-medium">( {data.technicianName || '-'} )</p>

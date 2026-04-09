@@ -413,6 +413,8 @@ export class AuthService {
         email: true,
         firstName: true,
         lastName: true,
+        firstNameEn: true,
+        lastNameEn: true,
         phone: true,
         department: true,
         technicianType: true,

@@ -26,7 +26,8 @@ export interface PmReportData {
     address?: string
   }
   performedAt?: string
-  technicianName?: string
+  technicianName?: string          // display name (Thai preferred)
+  technicianSignature?: string     // base64 data URL
   organizationName?: string
   organizationLogo?: string
   storeSignature?: string    // Base64 — from Digital Sign

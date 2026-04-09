@@ -874,13 +874,47 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
 
   const handleOpenPmReport = async () => {
     if (!pmRecord) return
-    const records = await ensureAllPhotosLoaded()
+    const [records, techProfile] = await Promise.all([
+      ensureAllPhotosLoaded(),
+      axios.get(`${process.env.NEXT_PUBLIC_API_URL}/auth/profile`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      }).then((r) => r.data).catch(() => null),
+    ])
+
+    // Prefer Thai name, fall back to English
+    const techName = techProfile
+      ? ((techProfile.firstName && techProfile.lastName)
+          ? `${techProfile.firstName} ${techProfile.lastName}`
+          : (techProfile.firstNameEn && techProfile.lastNameEn)
+          ? `${techProfile.firstNameEn} ${techProfile.lastNameEn}`
+          : techProfile.firstName || techProfile.firstNameEn || '')
+      : undefined
+
+    // Convert signaturePath to base64 data URL
+    let techSignature: string | undefined
+    if (techProfile?.signaturePath) {
+      try {
+        const base = (process.env.NEXT_PUBLIC_API_URL || '').replace('/api', '')
+        const res = await fetch(`${base}${techProfile.signaturePath}`)
+        if (res.ok) {
+          const blob = await res.blob()
+          techSignature = await new Promise<string>((resolve) => {
+            const reader = new FileReader()
+            reader.onloadend = () => resolve(reader.result as string)
+            reader.readAsDataURL(blob)
+          })
+        }
+      } catch {}
+    }
+
     setPmReportData({
       ticketNumber,
       store: pmRecord.store,
       performedAt: pmRecord.performedAt,
       organizationLogo: orgLogo,
       organizationName: orgName,
+      technicianName: techName,
+      technicianSignature: techSignature,
       storeSignature: pmRecord.storeSignature,
       storeSignerName: pmRecord.storeSignerName,
       storeSignedAt: pmRecord.storeSignedAt,
