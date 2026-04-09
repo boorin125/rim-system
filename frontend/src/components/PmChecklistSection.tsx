@@ -1014,6 +1014,42 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
     }
   }
 
+  const handleDirectDownloadInventory = async () => {
+    try {
+      setDownloadingInventory(true)
+      const pmData = await buildPmReportData()
+      if (!pmData || !pmRecord) return
+      await generateInventoryListPDF({
+        ticketNumber,
+        store: pmRecord.store,
+        performedAt: pmRecord.performedAt,
+        organizationLogo: orgLogo,
+        organizationName: orgName,
+        themeColor: themeColor,
+        technicianName: pmData.technicianName,
+        technicianSignature: pmData.technicianSignature,
+        storeSignature: pmData.storeSignature,
+        storeSignerName: pmData.storeSignerName,
+        storeSignedAt: pmData.storeSignedAt,
+        equipment: pmData.equipmentRecords.map((r, idx) => ({
+          no: idx + 1,
+          name: r.name,
+          category: r.category,
+          serialNumber: r.updatedSerial || r.serialNumber,
+          brand: r.updatedBrand || r.brand,
+          model: r.updatedModel || r.model,
+          condition: r.condition,
+          comment: r.comment,
+          photo: r.afterPhotos[0],
+        })),
+      })
+    } catch {
+      toast.error('ดาวน์โหลด PDF ไม่สำเร็จ')
+    } finally {
+      setDownloadingInventory(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="glass-card p-6 rounded-2xl flex items-center justify-center gap-2 text-gray-400">
@@ -1246,20 +1282,34 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
           </div>
         )}
 
-        {/* Download PDF button — shown after PM is submitted */}
+        {/* Download PDF buttons — shown after PM is submitted */}
         {pmRecord.performedAt && (
-          <button
-            onClick={handleDirectDownloadPdf}
-            disabled={downloadingPmReport}
-            className="w-full flex items-center justify-center gap-2 py-3 bg-purple-700/80 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-xl transition-colors"
-          >
-            {downloadingPmReport ? (
-              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <Download className="w-5 h-5" />
-            )}
-            {downloadingPmReport ? 'กำลังสร้าง PDF...' : 'Download PDF'}
-          </button>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={handleDirectDownloadPdf}
+              disabled={downloadingPmReport}
+              className="flex items-center justify-center gap-2 py-3 bg-blue-700/80 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-xl transition-colors"
+            >
+              {downloadingPmReport ? (
+                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              <span className="text-sm">{downloadingPmReport ? '...' : 'PM Report'}</span>
+            </button>
+            <button
+              onClick={handleDirectDownloadInventory}
+              disabled={downloadingInventory}
+              className="flex items-center justify-center gap-2 py-3 bg-teal-700/80 hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-xl transition-colors"
+            >
+              {downloadingInventory ? (
+                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              <span className="text-sm">{downloadingInventory ? '...' : 'Inventory List'}</span>
+            </button>
+          </div>
         )}
 
         {/* Uploaded signed paper preview */}
