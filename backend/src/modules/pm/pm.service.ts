@@ -137,13 +137,20 @@ export class PmService {
       }
     }
 
-    // Fetch technician profile if assigned
-    const technician = record.technicianId
-      ? await this.prisma.user.findUnique({
-          where: { id: record.technicianId },
-          select: { firstName: true, lastName: true, firstNameEn: true, lastNameEn: true, signaturePath: true },
-        })
-      : null;
+    // Fetch assigned technician from incident (primary assignee → fallback to PM submitter)
+    const incident = await this.prisma.incident.findUnique({
+      where: { id: incidentId },
+      select: {
+        assignee: { select: { firstName: true, lastName: true, firstNameEn: true, lastNameEn: true, signaturePath: true } },
+      },
+    });
+    const technician = incident?.assignee
+      ?? (record.technicianId
+        ? await this.prisma.user.findUnique({
+            where: { id: record.technicianId },
+            select: { firstName: true, lastName: true, firstNameEn: true, lastNameEn: true, signaturePath: true },
+          })
+        : null);
 
     // Attach conflictIncidentId + photo counts; strip photo data (lazy-loaded per card)
     const enriched = {

@@ -883,12 +883,7 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
     if (!pmRecord) return
     const token = localStorage.getItem('token')
 
-    const [records, srSettings] = await Promise.all([
-      ensureAllPhotosLoaded(),
-      axios.get(`${process.env.NEXT_PUBLIC_API_URL}/settings/service-report`, {
-        headers: { Authorization: `Bearer ${token}` },
-      }).then((r) => r.data).catch(() => null),
-    ])
+    const records = await ensureAllPhotosLoaded()
 
     // Technician from PM record (assigned technician), prefer Thai name
     const tech = pmRecord.technician
@@ -922,7 +917,7 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
       store: pmRecord.store,
       performedAt: pmRecord.performedAt,
       organizationLogo: orgLogo,
-      organizationName: srSettings?.providerName || orgName,
+      organizationName: orgName,
       technicianName: techName,
       technicianSignature: techSignature,
       storeSignature: pmRecord.storeSignature,

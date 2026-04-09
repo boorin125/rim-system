@@ -162,7 +162,9 @@ export function PmReportModal({
                         {rec.beforePhotos.length > 4 && <span className="text-xs text-gray-400 self-center">+{rec.beforePhotos.length - 4}</span>}
                       </div>
                     ) : (
-                      <p className="text-xs font-medium text-red-500">No Photo</p>
+                      <div className="w-24 h-24 flex items-center justify-center rounded border border-red-200 bg-red-50">
+                        <p className="text-xs font-medium text-red-500">No Photo</p>
+                      </div>
                     )}
                   </div>
                   <div>
@@ -175,7 +177,9 @@ export function PmReportModal({
                         {rec.afterPhotos.length > 4 && <span className="text-xs text-gray-400 self-center">+{rec.afterPhotos.length - 4}</span>}
                       </div>
                     ) : (
-                      <p className="text-xs font-medium text-red-500">No Photo</p>
+                      <div className="w-24 h-24 flex items-center justify-center rounded border border-red-200 bg-red-50">
+                        <p className="text-xs font-medium text-red-500">No Photo</p>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -232,7 +236,7 @@ export function PmReportModal({
 
         {/* Footer */}
         <div className="mt-6 pt-4 border-t border-gray-200 text-xs text-gray-400 text-center">
-          Created by {data.organizationName || 'RIM System'}
+          Created automated by {data.organizationName || 'RIM System'}
         </div>
       </div>
     </ModalWrapper>
