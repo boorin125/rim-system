@@ -108,12 +108,12 @@ export function PmReportModal({
               <img src={data.organizationLogo} alt="logo" className="h-10 sm:h-16 object-contain shrink-0" />
             )}
             <div className="min-w-0">
-              <p className="font-bold text-sm sm:text-lg text-gray-700 leading-tight">Preventive Maintenance Report</p>
-              <p className="font-bold text-sm sm:text-base text-gray-900 leading-tight truncate">
+              <p className="font-bold text-[10px] sm:text-lg text-gray-700 leading-tight">Preventive Maintenance Report</p>
+              <p className="font-bold text-xs sm:text-base text-gray-900 leading-tight truncate">
                 {data.store.storeCode} {data.store.name}
               </p>
               {data.store.address && (
-                <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5 line-clamp-1">{data.store.address}</p>
+                <p className="text-[9px] sm:text-xs text-gray-400 mt-0.5 line-clamp-1">{data.store.address}</p>
               )}
             </div>
           </div>
