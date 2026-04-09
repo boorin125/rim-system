@@ -115,13 +115,6 @@ export function PmReportModal({
           </div>
         </div>
 
-        {/* Technician */}
-        {data.technicianName && (
-          <p className="text-sm text-gray-600 -mt-3 mb-5">
-            <span className="text-gray-400">ช่างเทคนิค:</span> {data.technicianName}
-          </p>
-        )}
-
         {/* Equipment Records */}
         <div className="space-y-6">
           {data.equipmentRecords.map((rec, idx) => {
