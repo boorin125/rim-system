@@ -93,9 +93,16 @@ export function PmReportModal({
 
   return (
     <ModalWrapper title="PM Report" onClose={onClose} onSavePdf={onSavePdf} saving={saving}>
-      <div className="bg-white rounded-xl shadow-2xl p-6 text-gray-800 font-sans">
+      <div className="relative bg-white rounded-xl shadow-2xl p-6 text-gray-800 font-sans">
+        {/* Close button (for mobile where tap-outside is limited) */}
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors z-10"
+        >
+          <X className="w-4 h-4" />
+        </button>
         {/* Header */}
-        <div className="flex items-end justify-between border-b-2 border-purple-600 pb-4 mb-6">
+        <div className="flex items-end justify-between border-b-4 border-purple-600 pb-4 mb-6">
           <div className="flex items-end gap-3">
             {data.organizationLogo && (
               <img src={data.organizationLogo} alt="logo" className="h-10 sm:h-16 object-contain shrink-0" />
@@ -112,6 +119,11 @@ export function PmReportModal({
           </div>
           <div className="text-right shrink-0 self-end pb-0.5 ml-2">
             <p className="text-xs sm:text-sm font-semibold text-gray-900">{data.ticketNumber}</p>
+            {data.performedAt && (
+              <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5">
+                {new Date(data.performedAt).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' })}
+              </p>
+            )}
           </div>
         </div>
 
