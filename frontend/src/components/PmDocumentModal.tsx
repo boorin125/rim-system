@@ -98,20 +98,20 @@ export function PmReportModal({
         <div className="flex items-end justify-between border-b-2 border-purple-600 pb-4 mb-6">
           <div className="flex items-end gap-3">
             {data.organizationLogo && (
-              <img src={data.organizationLogo} alt="logo" className="h-16 object-contain shrink-0" />
+              <img src={data.organizationLogo} alt="logo" className="h-10 sm:h-16 object-contain shrink-0" />
             )}
-            <div>
-              <p className="font-bold text-lg text-gray-700">Preventive Maintenance Report</p>
-              <p className="font-bold text-base text-gray-900 leading-tight">
+            <div className="min-w-0">
+              <p className="font-bold text-sm sm:text-lg text-gray-700 leading-tight">Preventive Maintenance Report</p>
+              <p className="font-bold text-sm sm:text-base text-gray-900 leading-tight truncate">
                 {data.store.storeCode} {data.store.name}
               </p>
               {data.store.address && (
-                <p className="text-xs text-gray-400 mt-0.5">{data.store.address}</p>
+                <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5 line-clamp-1">{data.store.address}</p>
               )}
             </div>
           </div>
-          <div className="text-right shrink-0 self-end pb-0.5">
-            <p className="text-sm font-semibold text-gray-900">{data.ticketNumber}</p>
+          <div className="text-right shrink-0 self-end pb-0.5 ml-2">
+            <p className="text-xs sm:text-sm font-semibold text-gray-900">{data.ticketNumber}</p>
           </div>
         </div>
 
