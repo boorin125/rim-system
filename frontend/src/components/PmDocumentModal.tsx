@@ -162,32 +162,34 @@ export function PmReportModal({
                   </p>
                 )}
                 {/* Photos */}
-                {(rec.beforePhotos.length > 0 || rec.afterPhotos.length > 0) && (
-                  <div className="grid grid-cols-2 gap-4 pt-1">
-                    {rec.beforePhotos.length > 0 && (
-                      <div>
-                        <p className="text-xs text-gray-400 mb-1">ก่อน PM ({rec.beforePhotos.length} รูป)</p>
-                        <div className="flex gap-1.5 flex-wrap">
-                          {rec.beforePhotos.slice(0, 4).map((p, i) => (
-                            <img key={i} src={p} alt="" className="w-24 h-24 object-cover rounded border border-gray-200" />
-                          ))}
-                          {rec.beforePhotos.length > 4 && <span className="text-xs text-gray-400 self-center">+{rec.beforePhotos.length - 4}</span>}
-                        </div>
+                <div className="grid grid-cols-2 gap-4 pt-1">
+                  <div>
+                    <p className="text-xs text-gray-400 mb-1">ก่อน PM</p>
+                    {rec.beforePhotos.length > 0 ? (
+                      <div className="flex gap-1.5 flex-wrap">
+                        {rec.beforePhotos.slice(0, 4).map((p, i) => (
+                          <img key={i} src={p} alt="" className="w-24 h-24 object-cover rounded border border-gray-200" />
+                        ))}
+                        {rec.beforePhotos.length > 4 && <span className="text-xs text-gray-400 self-center">+{rec.beforePhotos.length - 4}</span>}
                       </div>
-                    )}
-                    {rec.afterPhotos.length > 0 && (
-                      <div>
-                        <p className="text-xs text-gray-400 mb-1">หลัง PM ({rec.afterPhotos.length} รูป)</p>
-                        <div className="flex gap-1.5 flex-wrap">
-                          {rec.afterPhotos.slice(0, 4).map((p, i) => (
-                            <img key={i} src={p} alt="" className="w-24 h-24 object-cover rounded border border-gray-200" />
-                          ))}
-                          {rec.afterPhotos.length > 4 && <span className="text-xs text-gray-400 self-center">+{rec.afterPhotos.length - 4}</span>}
-                        </div>
-                      </div>
+                    ) : (
+                      <p className="text-xs font-medium text-red-500">No Photo</p>
                     )}
                   </div>
-                )}
+                  <div>
+                    <p className="text-xs text-gray-400 mb-1">หลัง PM</p>
+                    {rec.afterPhotos.length > 0 ? (
+                      <div className="flex gap-1.5 flex-wrap">
+                        {rec.afterPhotos.slice(0, 4).map((p, i) => (
+                          <img key={i} src={p} alt="" className="w-24 h-24 object-cover rounded border border-gray-200" />
+                        ))}
+                        {rec.afterPhotos.length > 4 && <span className="text-xs text-gray-400 self-center">+{rec.afterPhotos.length - 4}</span>}
+                      </div>
+                    ) : (
+                      <p className="text-xs font-medium text-red-500">No Photo</p>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
             )
