@@ -67,6 +67,13 @@ interface PmRecord {
   storeSignerName?: string
   storeSignedAt?: string
   signedInventoryPhoto?: string
+  technician?: {
+    firstName?: string
+    lastName?: string
+    firstNameEn?: string
+    lastNameEn?: string
+    signaturePath?: string
+  } | null
   equipmentRecords: PmEquipmentRecord[]
   store: {
     id: number
@@ -874,28 +881,31 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
 
   const handleOpenPmReport = async () => {
     if (!pmRecord) return
-    const [records, techProfile] = await Promise.all([
+    const token = localStorage.getItem('token')
+
+    const [records, srSettings] = await Promise.all([
       ensureAllPhotosLoaded(),
-      axios.get(`${process.env.NEXT_PUBLIC_API_URL}/auth/profile`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      axios.get(`${process.env.NEXT_PUBLIC_API_URL}/settings/service-report`, {
+        headers: { Authorization: `Bearer ${token}` },
       }).then((r) => r.data).catch(() => null),
     ])
 
-    // Prefer Thai name, fall back to English
-    const techName = techProfile
-      ? ((techProfile.firstName && techProfile.lastName)
-          ? `${techProfile.firstName} ${techProfile.lastName}`
-          : (techProfile.firstNameEn && techProfile.lastNameEn)
-          ? `${techProfile.firstNameEn} ${techProfile.lastNameEn}`
-          : techProfile.firstName || techProfile.firstNameEn || '')
+    // Technician from PM record (assigned technician), prefer Thai name
+    const tech = pmRecord.technician
+    const techName = tech
+      ? ((tech.firstName && tech.lastName)
+          ? `${tech.firstName} ${tech.lastName}`
+          : (tech.firstNameEn && tech.lastNameEn)
+          ? `${tech.firstNameEn} ${tech.lastNameEn}`
+          : tech.firstName || tech.firstNameEn || '')
       : undefined
 
     // Convert signaturePath to base64 data URL
     let techSignature: string | undefined
-    if (techProfile?.signaturePath) {
+    if (tech?.signaturePath) {
       try {
         const base = (process.env.NEXT_PUBLIC_API_URL || '').replace('/api', '')
-        const res = await fetch(`${base}${techProfile.signaturePath}`)
+        const res = await fetch(`${base}${tech.signaturePath}`)
         if (res.ok) {
           const blob = await res.blob()
           techSignature = await new Promise<string>((resolve) => {
@@ -912,7 +922,7 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
       store: pmRecord.store,
       performedAt: pmRecord.performedAt,
       organizationLogo: orgLogo,
-      organizationName: orgName,
+      organizationName: srSettings?.providerName || orgName,
       technicianName: techName,
       technicianSignature: techSignature,
       storeSignature: pmRecord.storeSignature,

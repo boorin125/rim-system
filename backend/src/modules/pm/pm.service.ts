@@ -137,9 +137,18 @@ export class PmService {
       }
     }
 
+    // Fetch technician profile if assigned
+    const technician = record.technicianId
+      ? await this.prisma.user.findUnique({
+          where: { id: record.technicianId },
+          select: { firstName: true, lastName: true, firstNameEn: true, lastNameEn: true, signaturePath: true },
+        })
+      : null;
+
     // Attach conflictIncidentId + photo counts; strip photo data (lazy-loaded per card)
     const enriched = {
       ...record,
+      technician,
       equipmentRecords: record.equipmentRecords.map((r) => ({
         ...r,
         beforePhotoCount: r.beforePhotos.length,

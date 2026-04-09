@@ -101,8 +101,8 @@ export function PmReportModal({
               <img src={data.organizationLogo} alt="logo" className="h-16 object-contain shrink-0" />
             )}
             <div>
-              <p className="text-xs text-gray-400">Preventive Maintenance Report</p>
-              <p className="font-bold text-xl text-gray-900 leading-tight">
+              <p className="font-bold text-lg text-gray-700">Preventive Maintenance Report</p>
+              <p className="font-bold text-base text-gray-900 leading-tight">
                 {data.store.storeCode} {data.store.name}
               </p>
               {data.store.address && (
@@ -110,9 +110,8 @@ export function PmReportModal({
               )}
             </div>
           </div>
-          <div className="text-right shrink-0 pb-0.5">
+          <div className="text-right shrink-0 self-end pb-0.5">
             <p className="text-sm font-semibold text-gray-900">{data.ticketNumber}</p>
-            <p className="text-xs text-gray-500 mt-0.5">{dateStr}</p>
           </div>
         </div>
 
@@ -203,49 +202,37 @@ export function PmReportModal({
             <div className="p-5 text-center">
               <p className="text-xs text-gray-400 mb-4">ลายเซ็นช่างเทคนิค / Technician</p>
               <div className="h-16 flex items-end justify-center mb-3">
-                {data.technicianSignature ? (
-                  <img
-                    src={data.technicianSignature}
-                    alt="Technician signature"
-                    className="h-14 object-contain"
-                  />
-                ) : null}
+                {data.technicianSignature && (
+                  <img src={data.technicianSignature} alt="Technician signature" className="h-14 object-contain" />
+                )}
               </div>
-              <div className="border-b-2 border-gray-400 w-full mb-1" />
-              <div className="flex items-center w-full text-sm font-medium text-gray-700">
-                <span className="shrink-0">(</span>
-                <span className="flex-1 text-center">{data.technicianName || ''}</span>
-                <span className="shrink-0">)</span>
-              </div>
-              {data.performedAt && (
-                <p className="text-gray-400 text-xs mt-1">
-                  {new Date(data.performedAt).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}
-                </p>
-              )}
+              <div className="border-b-2 border-gray-400 w-40 mx-auto mb-1" />
+              <p className="text-sm font-medium text-gray-700 inline-block">
+                ({data.technicianName || '\u00A0'.repeat(20)})
+              </p>
+              <p className="text-gray-400 text-xs mt-1">
+                {data.performedAt
+                  ? (() => { const d = new Date(data.performedAt); return `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}` })()
+                  : '\u00A0'}
+              </p>
             </div>
             {/* Store Staff */}
             <div className="p-5 text-center">
               <p className="text-xs text-gray-400 mb-4">ลายเซ็นเจ้าหน้าที่สาขา / Store Staff</p>
               <div className="h-16 flex items-end justify-center mb-3">
                 {data.storeSignature && (
-                  <img
-                    src={data.storeSignature}
-                    alt="Store signature"
-                    className="h-14 object-contain"
-                  />
+                  <img src={data.storeSignature} alt="Store signature" className="h-14 object-contain" />
                 )}
               </div>
-              <div className="border-b-2 border-gray-400 w-full mb-1" />
-              <div className="flex items-center w-full text-sm font-medium text-gray-700">
-                <span className="shrink-0">(</span>
-                <span className="flex-1 text-center">{data.storeSignerName || ''}</span>
-                <span className="shrink-0">)</span>
-              </div>
-              {data.storeSignedAt && (
-                <p className="text-gray-400 text-xs mt-1">
-                  {new Date(data.storeSignedAt).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}
-                </p>
-              )}
+              <div className="border-b-2 border-gray-400 w-40 mx-auto mb-1" />
+              <p className="text-sm font-medium text-gray-700 inline-block">
+                ({data.storeSignerName || '\u00A0'.repeat(20)})
+              </p>
+              <p className="text-gray-400 text-xs mt-1">
+                {data.storeSignedAt
+                  ? (() => { const d = new Date(data.storeSignedAt); return `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}` })()
+                  : '\u00A0'}
+              </p>
             </div>
           </div>
         </div>
