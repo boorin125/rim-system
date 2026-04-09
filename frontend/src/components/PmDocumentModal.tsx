@@ -119,11 +119,15 @@ export function PmReportModal({
           </div>
           <div className="text-right shrink-0 self-end pb-0.5 ml-2">
             <p className="text-xs sm:text-sm font-semibold text-gray-900">{data.ticketNumber}</p>
-            {data.performedAt && (
-              <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5">
-                {new Date(data.performedAt).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' })}
-              </p>
-            )}
+            <p className="text-[9px] sm:text-xs text-gray-400 mt-0.5">
+              {data.performedAt
+                ? (() => {
+                    const d = new Date(data.performedAt)
+                    const pad = (n: number) => String(n).padStart(2, '0')
+                    return `PM Date : ${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+                  })()
+                : 'PM Date :'}
+            </p>
           </div>
         </div>
 
@@ -206,16 +210,16 @@ export function PmReportModal({
           <div className="bg-purple-50 px-4 py-2 border-b border-gray-200">
             <p className="text-xs font-semibold text-gray-600">ลายเซ็น / Signatures</p>
           </div>
-          <div className="grid grid-cols-2 divide-x divide-gray-200">
+          <div className="grid grid-cols-1 sm:grid-cols-2 divide-y divide-gray-200 sm:divide-y-0 sm:divide-x">
             {/* Technician */}
-            <div className="p-5 text-center">
-              <p className="text-xs text-gray-400 mb-4">ลายเซ็นช่างเทคนิค / Technician</p>
-              <div className="h-16 flex items-end justify-center mb-3">
+            <div className="px-6 py-5 text-center">
+              <p className="text-xs text-gray-400 mb-3">ลายเซ็นช่างเทคนิค / Technician</p>
+              <div className="h-14 flex items-end justify-center mb-3">
                 {data.technicianSignature && (
-                  <img src={data.technicianSignature} alt="Technician signature" className="h-14 object-contain" />
+                  <img src={data.technicianSignature} alt="Technician signature" className="h-12 object-contain" />
                 )}
               </div>
-              <div className="border-b-2 border-gray-400 w-40 mx-auto mb-1" />
+              <div className="border-b-2 border-gray-400 w-44 mx-auto mb-1" />
               <p className="text-sm font-medium text-gray-700 inline-block">
                 ({data.technicianName || '\u00A0'.repeat(20)})
               </p>
@@ -226,18 +230,18 @@ export function PmReportModal({
               </p>
             </div>
             {/* Store Staff */}
-            <div className="p-5 text-center">
-              <p className="text-xs text-gray-400 mb-4">ลายเซ็นเจ้าหน้าที่สาขา / Store Staff</p>
-              <div className="h-16 flex items-end justify-center mb-3">
+            <div className="px-6 py-5 text-center">
+              <p className="text-xs text-gray-400 mb-3">ลายเซ็นเจ้าหน้าที่สาขา / Store Staff</p>
+              <div className="h-14 flex items-end justify-center mb-3">
                 {data.storeSignature && (
-                  <img src={data.storeSignature} alt="Store signature" className="h-14 object-contain" />
+                  <img src={data.storeSignature} alt="Store signature" className="h-12 object-contain" />
                 )}
               </div>
-              <div className="border-b-2 border-gray-400 w-40 mx-auto mb-1" />
+              <div className="border-b-2 border-gray-400 w-44 mx-auto mb-1" />
               {data.storeSignerName ? (
                 <p className="text-sm font-medium text-gray-700 inline-block">({data.storeSignerName})</p>
               ) : (
-                <div className="w-40 mx-auto flex items-center text-sm font-medium text-gray-700">
+                <div className="w-44 mx-auto flex items-center text-sm font-medium text-gray-700">
                   <span>(</span><span className="flex-1" /><span>)</span>
                 </div>
               )}
