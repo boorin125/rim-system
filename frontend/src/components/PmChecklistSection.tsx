@@ -1176,29 +1176,23 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
           PM Document
         </h3>
 
-        {/* Document buttons — only when all items complete or already submitted */}
-        {(allComplete || !!pmRecord.performedAt) ? (
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={handleOpenPmReport}
-              className="flex items-center justify-center gap-2 py-2.5 bg-blue-600/80 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors"
-            >
-              <FileText className="w-4 h-4" />
-              PM Report
-            </button>
-            <button
-              onClick={handleOpenInventoryList}
-              className="flex items-center justify-center gap-2 py-2.5 bg-teal-600/80 hover:bg-teal-600 text-white text-sm rounded-lg transition-colors"
-            >
-              <FileText className="w-4 h-4" />
-              Inventory List
-            </button>
-          </div>
-        ) : (
-          <p className="text-xs text-gray-500 text-center py-2">
-            ทำรายการอุปกรณ์ให้ครบก่อนจึงจะดู/ดาวน์โหลดเอกสารได้
-          </p>
-        )}
+        {/* Document view buttons — always visible */}
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={handleOpenPmReport}
+            className="flex items-center justify-center gap-2 py-2.5 bg-blue-600/80 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors"
+          >
+            <FileText className="w-4 h-4" />
+            PM Report
+          </button>
+          <button
+            onClick={handleOpenInventoryList}
+            className="flex items-center justify-center gap-2 py-2.5 bg-teal-600/80 hover:bg-teal-600 text-white text-sm rounded-lg transition-colors"
+          >
+            <FileText className="w-4 h-4" />
+            Inventory List
+          </button>
+        </div>
 
         {/* Digital Sign + Upload — only for the primary PM technician */}
         {isPmOwner && (
