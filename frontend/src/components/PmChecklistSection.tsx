@@ -24,6 +24,7 @@ import { generateInventoryListPDF, InventoryListData } from '@/utils/inventoryLi
 import { compressImages } from '@/utils/imageUtils'
 import { PmReportModal, InventoryListModal } from '@/components/PmDocumentModal'
 import CropModal from '@/components/CropModal'
+import { getPhotoUrl } from '@/utils/photoUtils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -899,8 +900,8 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
     let techSignature: string | undefined
     if (tech?.signaturePath) {
       try {
-        const base = (process.env.NEXT_PUBLIC_API_URL || '').replace('/api', '')
-        const res = await fetch(`${base}${tech.signaturePath}`)
+        const sigUrl = getPhotoUrl(tech.signaturePath)
+        const res = await fetch(sigUrl)
         if (res.ok) {
           const blob = await res.blob()
           techSignature = await new Promise<string>((resolve) => {
