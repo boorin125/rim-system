@@ -6,6 +6,7 @@ import {
   Delete,
   Param,
   Body,
+  Query,
   Request,
   UseGuards,
   ParseIntPipe,
@@ -129,8 +130,12 @@ export class PmController {
   @Delete('incident/:incidentId/upload-signed')
   @Roles(UserRole.TECHNICIAN, UserRole.SUPERVISOR, UserRole.HELP_DESK, UserRole.IT_MANAGER, UserRole.SUPER_ADMIN)
   @HttpCode(HttpStatus.OK)
-  deleteSignedInventory(@Param('incidentId') incidentId: string) {
-    return this.pmService.deleteSignedInventory(incidentId);
+  deleteSignedInventory(
+    @Param('incidentId') incidentId: string,
+    @Query('index') index?: string,
+  ) {
+    const photoIndex = index !== undefined ? parseInt(index, 10) : undefined;
+    return this.pmService.deleteSignedInventory(incidentId, photoIndex);
   }
 }
 

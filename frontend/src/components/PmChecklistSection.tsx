@@ -67,7 +67,7 @@ interface PmRecord {
   storeSignature?: string
   storeSignerName?: string
   storeSignedAt?: string
-  signedInventoryPhoto?: string
+  signedInventoryPhotos?: string[]
   technician?: {
     firstName?: string
     lastName?: string
@@ -639,9 +639,9 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
   const [signLink, setSignLink] = useState<string | null>(null)
   const [uploadingSignedPaper, setUploadingSignedPaper] = useState(false)
   const [deletingSignedPaper, setDeletingSignedPaper] = useState(false)
-  const [confirmDeleteSigned, setConfirmDeleteSigned] = useState(false)
+  const [confirmDeleteSigned, setConfirmDeleteSigned] = useState<number | null>(null)
   const [showSignedDocChoice, setShowSignedDocChoice] = useState(false)
-  const [lightboxSignedDoc, setLightboxSignedDoc] = useState(false)
+  const [lightboxSignedDoc, setLightboxSignedDoc] = useState<number | null>(null)
   const [cropSrc, setCropSrc] = useState<string | null>(null)
   const signedCameraRef = useRef<HTMLInputElement>(null)
   const signedGalleryRef = useRef<HTMLInputElement>(null)
@@ -802,8 +802,11 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
       const token = localStorage.getItem('token')
       const [compressed] = await compressImages([file], { maxWidth: 1920, maxHeight: 1920, quality: 0.85 })
       const base64 = await fileToBase64(compressed)
-      // Optimistic update (no flicker)
-      setPmRecord((prev) => prev ? { ...prev, signedInventoryPhoto: base64 } : prev)
+      // Optimistic update
+      setPmRecord((prev) => prev ? {
+        ...prev,
+        signedInventoryPhotos: [...(prev.signedInventoryPhotos ?? []), base64],
+      } : prev)
       await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/pm/incident/${incidentId}/upload-signed`,
         { photo: base64 },
@@ -830,15 +833,18 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
     reader.readAsDataURL(files[0])
   }
 
-  const handleDeleteSignedPaper = async () => {
+  const handleDeleteSignedPaper = async (photoIndex: number) => {
     // Optimistic update
-    setPmRecord((prev) => prev ? { ...prev, signedInventoryPhoto: undefined } : prev)
-    setConfirmDeleteSigned(false)
+    setPmRecord((prev) => prev ? {
+      ...prev,
+      signedInventoryPhotos: (prev.signedInventoryPhotos ?? []).filter((_, i) => i !== photoIndex),
+    } : prev)
+    setConfirmDeleteSigned(null)
     try {
       setDeletingSignedPaper(true)
       const token = localStorage.getItem('token')
       await axios.delete(
-        `${process.env.NEXT_PUBLIC_API_URL}/pm/incident/${incidentId}/upload-signed`,
+        `${process.env.NEXT_PUBLIC_API_URL}/pm/incident/${incidentId}/upload-signed?index=${photoIndex}`,
         { headers: { Authorization: `Bearer ${token}` } },
       )
     } catch {
@@ -1138,7 +1144,7 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
       </div>
 
       {/* Submit PM Button — only visible when signed doc OR digital sign is present */}
-      {canEdit && !pmRecord.performedAt && (!!pmRecord.signedInventoryPhoto || !!pmRecord.storeSignedAt) && (
+      {canEdit && !pmRecord.performedAt && (!!(pmRecord.signedInventoryPhotos?.length) || !!pmRecord.storeSignedAt) && (
         <button
           onClick={handleSubmitPm}
           disabled={submitting || !allComplete}
@@ -1208,12 +1214,13 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
               {signLink ? 'สร้างลิงก์ใหม่' : 'Digital Sign'}
             </button>
 
-            {/* Upload Signed Paper */}
+            {/* Upload Signed Paper — disabled at 5 photos */}
             {!showSignedDocChoice ? (
               <button
                 onClick={() => setShowSignedDocChoice(true)}
-                disabled={uploadingSignedPaper}
-                className="flex items-center justify-center gap-2 py-2.5 bg-slate-600 hover:bg-slate-500 disabled:opacity-40 text-white text-sm rounded-lg transition-colors"
+                disabled={uploadingSignedPaper || (pmRecord.signedInventoryPhotos?.length ?? 0) >= 5}
+                title={(pmRecord.signedInventoryPhotos?.length ?? 0) >= 5 ? 'อัพโหลดได้สูงสุด 5 รูป' : ''}
+                className="flex items-center justify-center gap-2 py-2.5 bg-slate-600 hover:bg-slate-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm rounded-lg transition-colors"
               >
                 {uploadingSignedPaper ? (
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -1323,57 +1330,62 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
           </div>
         )}
 
-        {/* Uploaded signed paper preview */}
-        {pmRecord.signedInventoryPhoto && (
+        {/* Uploaded signed papers — up to 5 */}
+        {!!pmRecord.signedInventoryPhotos?.length && (
           <div>
-            <p className="text-xs text-gray-400 mb-2">เอกสารที่อัพโหลด</p>
-            <div className="relative inline-block">
-              <img
-                src={pmRecord.signedInventoryPhoto}
-                alt="Signed inventory"
-                onClick={() => { if (!confirmDeleteSigned) setLightboxSignedDoc(true) }}
-                className={`max-h-40 rounded-lg border object-contain transition-opacity cursor-pointer ${confirmDeleteSigned ? 'border-red-500 opacity-40' : 'border-slate-600'}`}
-              />
-              {canEdit && (
-                <button
-                  onClick={() => setConfirmDeleteSigned(!confirmDeleteSigned)}
-                  className={`absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center transition-colors ${confirmDeleteSigned ? 'bg-slate-500' : 'bg-red-500 hover:bg-red-600'}`}
-                >
-                  <X className="w-3 h-3 text-white" />
-                </button>
-              )}
+            <p className="text-xs text-gray-400 mb-2">
+              All Document ({pmRecord.signedInventoryPhotos.length}/5)
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {pmRecord.signedInventoryPhotos.map((photo, idx) => (
+                <div key={idx} className="relative">
+                  <img
+                    src={photo}
+                    alt={`Document ${idx + 1}`}
+                    onClick={() => { if (confirmDeleteSigned === null) setLightboxSignedDoc(idx) }}
+                    className={`h-24 w-24 object-cover rounded-lg border cursor-pointer transition-opacity ${confirmDeleteSigned === idx ? 'border-red-500 opacity-40' : 'border-slate-600'}`}
+                  />
+                  {canEdit && (
+                    <button
+                      onClick={() => setConfirmDeleteSigned(confirmDeleteSigned === idx ? null : idx)}
+                      className={`absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center transition-colors ${confirmDeleteSigned === idx ? 'bg-slate-500' : 'bg-red-500 hover:bg-red-600'}`}
+                    >
+                      <X className="w-3 h-3 text-white" />
+                    </button>
+                  )}
+                  {confirmDeleteSigned === idx && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/60 rounded-lg">
+                      <button
+                        onClick={() => handleDeleteSignedPaper(idx)}
+                        disabled={deletingSignedPaper}
+                        className="px-2 py-1 bg-red-500 hover:bg-red-600 disabled:opacity-50 rounded text-[10px] text-white font-medium"
+                      >
+                        {deletingSignedPaper ? '...' : 'ลบ'}
+                      </button>
+                      <button
+                        onClick={() => setConfirmDeleteSigned(null)}
+                        className="px-2 py-1 bg-slate-600 hover:bg-slate-500 rounded text-[10px] text-gray-300"
+                      >
+                        ยกเลิก
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
-            {confirmDeleteSigned && (
-              <div className="mt-2 flex items-center gap-2 px-3 py-2 bg-red-500/10 border border-red-500/40 rounded-lg">
-                <p className="text-xs text-red-300 flex-1">ยืนยันลบเอกสาร?</p>
-                <button
-                  onClick={handleDeleteSignedPaper}
-                  disabled={deletingSignedPaper}
-                  className="px-3 py-1 bg-red-500 hover:bg-red-600 disabled:opacity-50 rounded-lg text-xs text-white font-medium transition-colors"
-                >
-                  {deletingSignedPaper ? '...' : 'ลบ'}
-                </button>
-                <button
-                  onClick={() => setConfirmDeleteSigned(false)}
-                  className="px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs text-gray-300 transition-colors"
-                >
-                  ยกเลิก
-                </button>
-              </div>
-            )}
           </div>
         )}
       </div>
     </div>
 
     {/* Lightbox for signed document */}
-    {lightboxSignedDoc && pmRecord?.signedInventoryPhoto && (
+    {lightboxSignedDoc !== null && pmRecord?.signedInventoryPhotos?.[lightboxSignedDoc] && (
       <div
         className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90"
-        onClick={() => setLightboxSignedDoc(false)}
+        onClick={() => setLightboxSignedDoc(null)}
       >
         <img
-          src={pmRecord.signedInventoryPhoto}
+          src={pmRecord.signedInventoryPhotos[lightboxSignedDoc]}
           alt="Signed inventory"
           className="max-w-full max-h-full object-contain"
           onClick={(e) => e.stopPropagation()}

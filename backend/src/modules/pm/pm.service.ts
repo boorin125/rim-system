@@ -152,10 +152,23 @@ export class PmService {
           })
         : null);
 
+    // Parse signedInventoryPhoto (stored as JSON string array) → string[]
+    const parseSignedPhotos = (raw: string | null): string[] => {
+      if (!raw) return [];
+      try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [raw];
+      } catch {
+        return [raw]; // legacy single base64 string
+      }
+    };
+
     // Attach conflictIncidentId + photo counts; strip photo data (lazy-loaded per card)
     const enriched = {
       ...record,
       technician,
+      signedInventoryPhotos: parseSignedPhotos(record.signedInventoryPhoto),
+      signedInventoryPhoto: undefined, // replaced by signedInventoryPhotos array
       equipmentRecords: record.equipmentRecords.map((r) => ({
         ...r,
         beforePhotoCount: r.beforePhotos.length,
@@ -520,28 +533,56 @@ export class PmService {
   async uploadSignedInventory(incidentId: string, photo: string) {
     const row = await this.prisma.pmRecord.findUnique({
       where: { incidentId },
-      select: { id: true },  // only fetch ID — avoid reading large base64 field
+      select: { id: true, signedInventoryPhoto: true },
     });
     if (!row) throw new NotFoundException('ไม่พบ PM Record');
 
+    // Parse existing photos (JSON array or legacy single string)
+    let photos: string[] = [];
+    if (row.signedInventoryPhoto) {
+      try {
+        const parsed = JSON.parse(row.signedInventoryPhoto);
+        photos = Array.isArray(parsed) ? parsed : [row.signedInventoryPhoto];
+      } catch {
+        photos = [row.signedInventoryPhoto];
+      }
+    }
+    if (photos.length >= 5) throw new BadRequestException('อัพโหลดได้สูงสุด 5 รูป');
+
+    photos.push(photo);
     await this.prisma.pmRecord.update({
       where: { id: row.id },
-      data: { signedInventoryPhoto: photo },
+      data: { signedInventoryPhoto: JSON.stringify(photos) },
     });
     return { success: true };
   }
 
-  async deleteSignedInventory(incidentId: string) {
+  async deleteSignedInventory(incidentId: string, photoIndex?: number) {
     const row = await this.prisma.pmRecord.findUnique({
       where: { incidentId },
-      select: { id: true },  // only fetch ID — avoid reading large base64 field
+      select: { id: true, signedInventoryPhoto: true },
     });
     if (!row) throw new NotFoundException('ไม่พบ PM Record');
 
-    await this.prisma.pmRecord.update({
-      where: { id: row.id },
-      data: { signedInventoryPhoto: null },
-    });
+    if (photoIndex !== undefined && row.signedInventoryPhoto) {
+      let photos: string[] = [];
+      try {
+        const parsed = JSON.parse(row.signedInventoryPhoto);
+        photos = Array.isArray(parsed) ? parsed : [row.signedInventoryPhoto];
+      } catch {
+        photos = [row.signedInventoryPhoto];
+      }
+      photos.splice(photoIndex, 1);
+      await this.prisma.pmRecord.update({
+        where: { id: row.id },
+        data: { signedInventoryPhoto: photos.length > 0 ? JSON.stringify(photos) : null },
+      });
+    } else {
+      await this.prisma.pmRecord.update({
+        where: { id: row.id },
+        data: { signedInventoryPhoto: null },
+      });
+    }
     return { success: true };
   }
 }
