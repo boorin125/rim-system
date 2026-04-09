@@ -69,6 +69,7 @@ interface PmRecord {
   storeSignedAt?: string
   signedInventoryPhotos?: string[]
   technician?: {
+    id?: number
     firstName?: string
     lastName?: string
     firstNameEn?: string
@@ -88,7 +89,8 @@ interface PmRecord {
 interface Props {
   incidentId: string
   ticketNumber: string    // Actual ticket number e.g. INC-2025-001
-  canEdit: boolean        // TECHNICIAN / SUPERVISOR / etc.
+  canEdit: boolean        // Any assigned user — can edit equipment records
+  currentUserId?: number | null  // Current logged-in user ID
   onPmSubmitted?: () => void
 }
 
@@ -631,7 +633,7 @@ function PhotoUploadBlock({
 
 // ─── Main PmChecklistSection ──────────────────────────────────────────────────
 
-export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, onPmSubmitted }: Props) {
+export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, currentUserId, onPmSubmitted }: Props) {
   const [pmRecord, setPmRecord] = useState<PmRecord | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -749,6 +751,8 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
     (r) => !!r.conflictIncidentId,
   ).length ?? 0
   const allComplete = completedCount === totalCount && totalCount > 0 && conflictCount === 0
+  // isPmOwner: only the primary responsible technician can Submit, Digital Sign, Upload Document
+  const isPmOwner = !!(currentUserId && pmRecord?.technician?.id && currentUserId === pmRecord.technician.id)
 
   const handleSubmitPm = async () => {
     if (!pmRecord) return
@@ -1144,7 +1148,7 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
       </div>
 
       {/* Submit PM Button — only visible when signed doc OR digital sign is present */}
-      {canEdit && !pmRecord.performedAt && (!!(pmRecord.signedInventoryPhotos?.length) || !!pmRecord.storeSignedAt) && (
+      {isPmOwner && !pmRecord.performedAt && (!!(pmRecord.signedInventoryPhotos?.length) || !!pmRecord.storeSignedAt) && (
         <button
           onClick={handleSubmitPm}
           disabled={submitting || !allComplete}
@@ -1196,8 +1200,8 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
           </p>
         )}
 
-        {/* Digital Sign + Upload — only for the responsible technician (canEdit) */}
-        {canEdit && (
+        {/* Digital Sign + Upload — only for the primary PM technician */}
+        {isPmOwner && (
           <div className="grid grid-cols-2 gap-2">
             {/* Online Sign Link */}
             <button

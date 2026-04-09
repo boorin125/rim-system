@@ -141,14 +141,14 @@ export class PmService {
     const incident = await this.prisma.incident.findUnique({
       where: { id: incidentId },
       select: {
-        assignee: { select: { firstName: true, lastName: true, firstNameEn: true, lastNameEn: true, signaturePath: true } },
+        assignee: { select: { id: true, firstName: true, lastName: true, firstNameEn: true, lastNameEn: true, signaturePath: true } },
       },
     });
     const technician = incident?.assignee
       ?? (record.technicianId
         ? await this.prisma.user.findUnique({
             where: { id: record.technicianId },
-            select: { firstName: true, lastName: true, firstNameEn: true, lastNameEn: true, signaturePath: true },
+            select: { id: true, firstName: true, lastName: true, firstNameEn: true, lastNameEn: true, signaturePath: true },
           })
         : null);
 

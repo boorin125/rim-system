@@ -1849,6 +1849,7 @@ SLA Breach Time: ${slaBreachText}`
           incidentId={incident.id}
           ticketNumber={incident.ticketNumber || `INC-${incident.id}`}
           canEdit={isAssignedToMe}
+          currentUserId={currentUserId}
           onPmSubmitted={() => fetchIncident()}
         />
       )}
