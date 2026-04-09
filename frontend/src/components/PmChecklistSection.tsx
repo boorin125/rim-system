@@ -644,6 +644,7 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
   const [pmReportData, setPmReportData] = useState<PmReportData | null>(null)
   const [inventoryData, setInventoryData] = useState<InventoryListData | null>(null)
   const [orgLogo, setOrgLogo] = useState<string | undefined>(undefined)
+  const [orgName, setOrgName] = useState<string | undefined>(undefined)
   const [themeColor, setThemeColor] = useState<string | undefined>(undefined)
   // signedPaperRef removed — replaced by signedCameraRef / signedGalleryRef
 
@@ -687,6 +688,7 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
           `${process.env.NEXT_PUBLIC_API_URL}/settings/organization`,
           { headers: { Authorization: `Bearer ${token}` } },
         )
+        if (res.data?.organizationName) setOrgName(res.data.organizationName)
         if (res.data?.logoPath) {
           const base = (process.env.NEXT_PUBLIC_API_URL || '').replace('/api', '')
           const logoUrl = `${base}${res.data.logoPath}`
@@ -878,6 +880,7 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
       store: pmRecord.store,
       performedAt: pmRecord.performedAt,
       organizationLogo: orgLogo,
+      organizationName: orgName,
       equipmentRecords: records.map((r) => ({
         name: r.equipment.name,
         category: r.equipment.category,

@@ -196,7 +196,7 @@ export function PmReportModal({
 
         {/* Footer */}
         <div className="mt-8 pt-4 border-t border-gray-200 text-xs text-gray-400 text-center">
-          สร้างโดยระบบ RIM — {new Date().toLocaleDateString('th-TH')}
+          Created by {data.organizationName || 'RIM System'}
         </div>
       </div>
     </ModalWrapper>
