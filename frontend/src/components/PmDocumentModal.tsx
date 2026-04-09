@@ -240,7 +240,7 @@ export function PmReportModal({
 
         {/* Footer */}
         <div className="mt-6 pt-4 border-t border-gray-200 text-xs text-gray-400 text-center">
-          Created automated by {data.organizationName || 'RIM System'}
+          Created automated by {data.organizationName ? `${data.organizationName} Incident Management` : 'RIM System'}
         </div>
       </div>
     </ModalWrapper>
