@@ -222,9 +222,13 @@ export function PmReportModal({
                 )}
               </div>
               <div className="border-b-2 border-gray-400 w-40 mx-auto mb-1" />
-              <p className="text-sm font-medium text-gray-700 inline-block">
-                ({data.storeSignerName || '\u00A0'.repeat(20)})
-              </p>
+              {data.storeSignerName ? (
+                <p className="text-sm font-medium text-gray-700 inline-block">({data.storeSignerName})</p>
+              ) : (
+                <div className="w-40 mx-auto flex items-center text-sm font-medium text-gray-700">
+                  <span>(</span><span className="flex-1" /><span>)</span>
+                </div>
+              )}
               <p className="text-gray-400 text-xs mt-1">
                 {data.storeSignedAt
                   ? (() => { const d = new Date(data.storeSignedAt); return `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}` })()
