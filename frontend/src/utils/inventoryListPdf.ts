@@ -24,9 +24,13 @@ export interface InventoryListData {
   }
   performedAt?: string
   technicianName?: string
+  technicianSignature?: string  // base64 data URL
   organizationName?: string
-  organizationLogo?: string  // Base64 data URL
-  themeColor?: string        // Hex e.g. '#581c87' — used for header background
+  organizationLogo?: string     // Base64 data URL
+  themeColor?: string           // Hex e.g. '#581c87' — used for header background
+  storeSignature?: string       // base64 — from Digital Sign
+  storeSignerName?: string
+  storeSignedAt?: string
   equipment: InventoryListEquipment[]
 }
 

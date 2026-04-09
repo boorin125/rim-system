@@ -973,22 +973,29 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
 
   const handleOpenInventoryList = async () => {
     if (!pmRecord) return
-    const records = await ensureAllPhotosLoaded()
+    const pmData = await buildPmReportData()
+    if (!pmData) return
     setInventoryData({
       ticketNumber,
       store: pmRecord.store,
       performedAt: pmRecord.performedAt,
       organizationLogo: orgLogo,
+      organizationName: orgName,
       themeColor: themeColor,
-      equipment: records.map((r, idx) => ({
+      technicianName: pmData.technicianName,
+      technicianSignature: pmData.technicianSignature,
+      storeSignature: pmData.storeSignature,
+      storeSignerName: pmData.storeSignerName,
+      storeSignedAt: pmData.storeSignedAt,
+      equipment: pmData.equipmentRecords.map((r, idx) => ({
         no: idx + 1,
-        name: r.equipment.name,
-        category: r.equipment.category,
-        serialNumber: r.updatedSerial || r.equipment.serialNumber,
-        brand: r.updatedBrand || r.equipment.brand,
-        model: r.updatedModel || r.equipment.model,
-        condition: r.condition ?? undefined,
-        comment: r.comment ?? undefined,
+        name: r.name,
+        category: r.category,
+        serialNumber: r.updatedSerial || r.serialNumber,
+        brand: r.updatedBrand || r.brand,
+        model: r.updatedModel || r.model,
+        condition: r.condition,
+        comment: r.comment,
         photo: r.afterPhotos[0],
       })),
     })

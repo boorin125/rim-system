@@ -295,14 +295,6 @@ export function InventoryListModal({
     return () => ro.disconnect()
   }, [])
 
-  const dateStr = data.performedAt
-    ? new Date(data.performedAt).toLocaleDateString('th-TH', {
-        year: 'numeric', month: 'long', day: 'numeric',
-      })
-    : '-'
-
-  const headerBg = data.themeColor || '#581c87'
-
   return (
     <ModalWrapper title="Inventory List" onClose={onClose} onSavePdf={onSavePdf} saving={saving}>
       {/* Outer wrapper — measures available width */}
@@ -315,89 +307,136 @@ export function InventoryListModal({
               : undefined
           }
         >
-          <div className="bg-white rounded-xl shadow-2xl overflow-hidden text-gray-800 font-sans">
-            {/* Colored header */}
-            <div style={{ background: headerBg }} className="px-5 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
+          <div className="relative bg-white rounded-xl shadow-2xl p-6 text-gray-800 font-sans">
+            {/* Close button */}
+            <button
+              onClick={onClose}
+              className="absolute top-3 right-3 w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors z-10"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            {/* Header — same style as PM Report */}
+            <div className="flex items-end justify-between border-b-4 border-purple-600 pb-4 mb-6">
+              <div className="flex items-end gap-3">
                 {data.organizationLogo && (
-                  <img src={data.organizationLogo} alt="logo" className="h-9 object-contain" />
+                  <img src={data.organizationLogo} alt="logo" className="h-10 sm:h-16 object-contain shrink-0" />
                 )}
-                <div>
-                  <p className="font-bold text-white text-sm">{data.organizationName || 'Inventory List'}</p>
-                  <p className="text-white/70 text-xs">Preventive Maintenance — Inventory List</p>
+                <div className="min-w-0">
+                  <p className="font-bold text-[10px] sm:text-lg text-gray-700 leading-tight">Inventory List</p>
+                  <p className="font-bold text-xs sm:text-base text-gray-900 leading-tight truncate">
+                    {data.store.storeCode} {data.store.name}
+                  </p>
+                  {data.store.address && (
+                    <p className="text-[9px] sm:text-xs text-gray-400 mt-0.5 line-clamp-1">{data.store.address}</p>
+                  )}
                 </div>
               </div>
-              <div className="text-right shrink-0">
-                <p className="text-white font-semibold text-sm">{data.ticketNumber}</p>
-                <p className="text-white/70 text-xs mt-0.5">{dateStr}</p>
+              <div className="text-right shrink-0 self-end pb-0.5 ml-2">
+                <p className="text-xs sm:text-sm font-semibold text-gray-900">{data.ticketNumber}</p>
+                <p className="text-[9px] sm:text-xs text-gray-400 mt-0.5">
+                  {data.performedAt
+                    ? (() => {
+                        const d = new Date(data.performedAt)
+                        const pad = (n: number) => String(n).padStart(2, '0')
+                        return `PM Date : ${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+                      })()
+                    : 'PM Date :'}
+                </p>
               </div>
             </div>
 
-            <div className="px-4 py-4">
-              {/* Store info */}
-              <p className="text-xs text-gray-500 mb-3">
-                <span className="font-medium text-gray-700">{data.store.storeCode} {data.store.name}</span>
-                {data.store.address && <span className="ml-2 text-gray-400">{data.store.address}</span>}
-              </p>
-
-              {/* Table */}
-              <table className="w-full border-collapse text-xs">
-                <thead>
-                  <tr style={{ background: headerBg }}>
-                    <th className="px-2 py-1.5 text-white text-center font-semibold border border-white/20 w-6">#</th>
-                    <th className="px-2 py-1.5 text-white text-left font-semibold border border-white/20">ชื่ออุปกรณ์</th>
-                    <th className="px-2 py-1.5 text-white text-left font-semibold border border-white/20">Brand/Model</th>
-                    <th className="px-2 py-1.5 text-white text-left font-semibold border border-white/20">Serial No.</th>
-                    <th className="px-2 py-1.5 text-white text-center font-semibold border border-white/20">รูป</th>
-                    <th className="px-2 py-1.5 text-white text-center font-semibold border border-white/20">Status</th>
-                    <th className="px-2 py-1.5 text-white text-left font-semibold border border-white/20">Note</th>
+            {/* Table */}
+            <table className="w-full border-collapse text-xs">
+              <thead>
+                <tr className="bg-purple-100">
+                  <th className="px-2 py-2 text-purple-800 text-center font-semibold border border-purple-200 w-6">#</th>
+                  <th className="px-2 py-2 text-purple-800 text-left font-semibold border border-purple-200">ชื่ออุปกรณ์</th>
+                  <th className="px-2 py-2 text-purple-800 text-left font-semibold border border-purple-200">Brand/Model</th>
+                  <th className="px-2 py-2 text-purple-800 text-left font-semibold border border-purple-200">Serial No.</th>
+                  <th className="px-2 py-2 text-purple-800 text-center font-semibold border border-purple-200">รูปอุปกรณ์</th>
+                  <th className="px-2 py-2 text-purple-800 text-center font-semibold border border-purple-200 w-16">Recheck</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.equipment.map((eq, idx) => (
+                  <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-purple-50/40'}>
+                    <td className="px-2 py-2 border border-gray-200 text-center text-gray-500 align-middle">{eq.no}</td>
+                    <td className="px-2 py-2 border border-gray-200 align-middle">
+                      <div className="font-medium">{eq.name}</div>
+                      <div className="text-gray-400 text-[10px]">{eq.category}</div>
+                    </td>
+                    <td className="px-2 py-2 border border-gray-200 text-gray-600 align-middle">
+                      {[eq.brand, eq.model].filter(Boolean).join(' / ') || '-'}
+                    </td>
+                    <td className="px-2 py-2 border border-gray-200 text-gray-600 align-middle">{eq.serialNumber || '-'}</td>
+                    <td className="px-1 py-1 border border-gray-200 text-center align-middle">
+                      {eq.photo ? (
+                        <img src={eq.photo} alt="" className="w-20 h-20 object-cover rounded border border-gray-200 mx-auto" />
+                      ) : (
+                        <div className="w-20 h-20 flex items-center justify-center rounded border border-red-200 bg-red-50 mx-auto">
+                          <p className="text-xs font-medium text-red-400">No Photo</p>
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-2 py-2 border border-gray-200 align-middle" />
                   </tr>
-                </thead>
-                <tbody>
-                  {data.equipment.map((eq, idx) => (
-                    <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                      <td className="px-2 py-1.5 border border-gray-200 text-center text-gray-500">{eq.no}</td>
-                      <td className="px-2 py-1.5 border border-gray-200 font-medium">
-                        <div>{eq.name}</div>
-                        <div className="text-gray-400 text-[10px]">{eq.category}</div>
-                      </td>
-                      <td className="px-2 py-1.5 border border-gray-200 text-gray-600">
-                        {[eq.brand, eq.model].filter(Boolean).join(' / ') || '-'}
-                      </td>
-                      <td className="px-2 py-1.5 border border-gray-200 text-gray-600">{eq.serialNumber || '-'}</td>
-                      <td className="px-2 py-1.5 border border-gray-200 text-center">
-                        {eq.photo ? (
-                          <img src={eq.photo} alt="" className="w-10 h-10 object-cover rounded border border-gray-200 mx-auto" />
-                        ) : <span className="text-gray-300">-</span>}
-                      </td>
-                      <td className="px-2 py-1.5 border border-gray-200 text-center">
-                        {eq.condition ? (
-                          <span style={{ ...conditionStyle[eq.condition], padding: '2px 6px', borderRadius: 99, fontSize: 9, fontWeight: 600 }}>
-                            {conditionLabel[eq.condition]}
-                          </span>
-                        ) : '-'}
-                      </td>
-                      <td className="px-2 py-1.5 border border-gray-200 text-gray-500">{eq.comment || '-'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                ))}
+              </tbody>
+            </table>
 
-              {/* Signature area */}
-              <div className="mt-8 grid grid-cols-2 gap-10">
-                <div className="text-center">
-                  <div className="border-b border-gray-300 mb-1 h-10" />
-                  <p className="text-xs text-gray-500">ลายเซ็นช่างเทคนิค</p>
+            {/* Signature Section — same as PM Report */}
+            <div className="mt-8 border border-gray-200 rounded-xl overflow-hidden">
+              <div className="bg-purple-50 px-4 py-2 border-b border-gray-200">
+                <p className="text-xs font-semibold text-gray-600">ลายเซ็น / Signatures</p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 divide-y divide-gray-200 sm:divide-y-0 sm:divide-x">
+                {/* Technician */}
+                <div className="px-6 py-5 text-center">
+                  <p className="text-xs text-gray-400 mb-3">ลายเซ็นช่างเทคนิค / Technician</p>
+                  <div className="h-14 flex items-end justify-center mb-3">
+                    {data.technicianSignature && (
+                      <img src={data.technicianSignature} alt="Technician signature" className="h-12 object-contain" />
+                    )}
+                  </div>
+                  <div className="border-b-2 border-gray-400 w-44 mx-auto mb-1" />
+                  <p className="text-sm font-medium text-gray-700 inline-block">
+                    ({data.technicianName || '\u00A0'.repeat(20)})
+                  </p>
+                  <p className="text-gray-400 text-xs mt-1">
+                    {data.performedAt
+                      ? (() => { const d = new Date(data.performedAt); return `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}` })()
+                      : '\u00A0'}
+                  </p>
                 </div>
-                <div className="text-center">
-                  <div className="border-b border-gray-300 mb-1 h-10" />
-                  <p className="text-xs text-gray-500">ลายเซ็นผู้รับเอกสาร</p>
+                {/* Store Staff */}
+                <div className="px-6 py-5 text-center">
+                  <p className="text-xs text-gray-400 mb-3">ลายเซ็นเจ้าหน้าที่สาขา / Store Staff</p>
+                  <div className="h-14 flex items-end justify-center mb-3">
+                    {data.storeSignature && (
+                      <img src={data.storeSignature} alt="Store signature" className="h-12 object-contain" />
+                    )}
+                  </div>
+                  <div className="border-b-2 border-gray-400 w-44 mx-auto mb-1" />
+                  {data.storeSignerName ? (
+                    <p className="text-sm font-medium text-gray-700 inline-block">({data.storeSignerName})</p>
+                  ) : (
+                    <div className="w-44 mx-auto flex items-center text-sm font-medium text-gray-700">
+                      <span>(</span><span className="flex-1" /><span>)</span>
+                    </div>
+                  )}
+                  <p className="text-gray-400 text-xs mt-1">
+                    {data.storeSignedAt
+                      ? (() => { const d = new Date(data.storeSignedAt); return `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}` })()
+                      : '\u00A0'}
+                  </p>
                 </div>
               </div>
+            </div>
 
-              <div className="mt-5 pt-3 border-t border-gray-200 text-[10px] text-gray-400 text-center">
-                สร้างโดยระบบ RIM — {new Date().toLocaleDateString('th-TH')}
-              </div>
+            {/* Footer */}
+            <div className="mt-6 pt-4 border-t border-gray-200 text-xs text-gray-400 text-center">
+              Created automated by {data.organizationName ? `${data.organizationName} Incident Management` : 'RIM System'}
             </div>
           </div>
         </div>
