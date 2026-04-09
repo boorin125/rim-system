@@ -880,10 +880,8 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
     return records
   }
 
-  const handleOpenPmReport = async () => {
-    if (!pmRecord) return
-    const token = localStorage.getItem('token')
-
+  const buildPmReportData = async (): Promise<PmReportData | null> => {
+    if (!pmRecord) return null
     const records = await ensureAllPhotosLoaded()
 
     // Technician from PM record (assigned technician), prefer Thai name
@@ -913,7 +911,7 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
       } catch {}
     }
 
-    setPmReportData({
+    return {
       ticketNumber,
       store: pmRecord.store,
       performedAt: pmRecord.performedAt,
@@ -938,7 +936,13 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
         updatedModel: r.updatedModel ?? undefined,
         updatedSerial: r.updatedSerial ?? undefined,
       })),
-    })
+    }
+  }
+
+  const handleOpenPmReport = async () => {
+    const data = await buildPmReportData()
+    if (!data) return
+    setPmReportData(data)
     setShowPmReportModal(true)
   }
 
@@ -947,6 +951,19 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
     try {
       setDownloadingPmReport(true)
       await generatePmReportPDF(pmReportData)
+    } catch {
+      toast.error('ดาวน์โหลด PDF ไม่สำเร็จ')
+    } finally {
+      setDownloadingPmReport(false)
+    }
+  }
+
+  const handleDirectDownloadPdf = async () => {
+    try {
+      setDownloadingPmReport(true)
+      const data = await buildPmReportData()
+      if (!data) return
+      await generatePmReportPDF(data)
     } catch {
       toast.error('ดาวน์โหลด PDF ไม่สำเร็จ')
     } finally {
@@ -1220,6 +1237,22 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
               {new Date(pmRecord.storeSignedAt).toLocaleDateString('th-TH')}
             </p>
           </div>
+        )}
+
+        {/* Download PDF button — shown after PM is submitted */}
+        {pmRecord.performedAt && (
+          <button
+            onClick={handleDirectDownloadPdf}
+            disabled={downloadingPmReport}
+            className="w-full flex items-center justify-center gap-2 py-3 bg-purple-700/80 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-xl transition-colors"
+          >
+            {downloadingPmReport ? (
+              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <Download className="w-5 h-5" />
+            )}
+            {downloadingPmReport ? 'กำลังสร้าง PDF...' : 'Download PDF'}
+          </button>
         )}
 
         {/* Uploaded signed paper preview */}
