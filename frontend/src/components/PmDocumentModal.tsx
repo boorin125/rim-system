@@ -124,9 +124,9 @@ export function PmReportModal({
                 ? (() => {
                     const d = new Date(data.performedAt)
                     const pad = (n: number) => String(n).padStart(2, '0')
-                    return `PM Date : ${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+                    return `Last Update : ${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`
                   })()
-                : 'PM Date :'}
+                : 'Last Update :'}
             </p>
           </div>
         </div>
@@ -339,9 +339,9 @@ export function InventoryListModal({
                     ? (() => {
                         const d = new Date(data.performedAt)
                         const pad = (n: number) => String(n).padStart(2, '0')
-                        return `PM Date : ${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+                        return `Last Update : ${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`
                       })()
-                    : 'PM Date :'}
+                    : 'Last Update :'}
                 </p>
               </div>
             </div>
