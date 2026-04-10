@@ -92,6 +92,7 @@ interface Props {
   canEdit: boolean        // Any assigned user — can edit equipment records
   currentUserId?: number | null  // Current logged-in user ID
   onPmSubmitted?: () => void
+  onPmLoaded?: (performedAt: string | null) => void  // Notifies parent of PM submit status
 }
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
@@ -633,7 +634,7 @@ function PhotoUploadBlock({
 
 // ─── Main PmChecklistSection ──────────────────────────────────────────────────
 
-export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, currentUserId, onPmSubmitted }: Props) {
+export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, currentUserId, onPmSubmitted, onPmLoaded }: Props) {
   const [pmRecord, setPmRecord] = useState<PmRecord | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -666,6 +667,7 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
         { headers: { Authorization: `Bearer ${token}` } },
       )
       setPmRecord(res.data)
+      onPmLoaded?.(res.data.performedAt ?? null)
       if (res.data.inventoryListToken) {
         setSignLink(`${window.location.origin}/inventory-sign/${res.data.inventoryListToken}`)
       }

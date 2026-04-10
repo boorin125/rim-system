@@ -89,6 +89,7 @@ export default function IncidentDetailPage() {
   const srMenuRef = useRef<HTMLDivElement>(null)
   const [showReopen, setShowReopen] = useState(false)
   const [showDirectClose, setShowDirectClose] = useState(false)
+  const [pmPerformedAt, setPmPerformedAt] = useState<string | null>(null)
 
 
   // Photo Viewer state
@@ -981,10 +982,12 @@ SLA Breach Time: ${slaBreachText}`
     !hasCheckedIn
 
   // Resolve - TECHNICIAN ที่ถูก assign คนไหนก็ resolve ได้
+  const isPmIncident = incident?.jobType === 'Preventive Maintenance'
   const canResolve =
     incident?.status === 'IN_PROGRESS' &&
     hasTechnicianRole &&
-    isAssignedToMe
+    isAssignedToMe &&
+    (!isPmIncident || !!pmPerformedAt)  // PM incidents require Submit PM first
 
   // Add Before Photos - TECHNICIAN ที่ถูก assign, สถานะ IN_PROGRESS, รูปยังไม่ครบ 5
   const currentBeforePhotosCount = incident?.beforePhotos?.length || 0
@@ -1067,6 +1070,12 @@ SLA Breach Time: ${slaBreachText}`
           type: 'info',
         }
       case 'IN_PROGRESS':
+        if (isPmIncident && !pmPerformedAt) {
+          return {
+            message: '📋 กรุณา Submit PM ในส่วน PM Checklist ก่อน จึงจะสามารถ Resolve Incident ได้',
+            type: 'info',
+          }
+        }
         return {
           message: '✅ คุณสามารถกด "Resolve Incident" เพื่อปิดงานได้แล้ว',
           type: 'info',
@@ -1851,6 +1860,7 @@ SLA Breach Time: ${slaBreachText}`
           canEdit={isAssignedToMe}
           currentUserId={currentUserId}
           onPmSubmitted={() => fetchIncident()}
+          onPmLoaded={(performedAt) => setPmPerformedAt(performedAt)}
         />
       )}
 
