@@ -253,9 +253,10 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
     }
     const toProcess = files.slice(0, remaining);
 
-    // Convert files to data URLs then open crop modal
+    // Convert iOS HEIC/HEIF and all formats → JPEG, then open crop modal
+    const converted = await compressImages(toProcess, { maxWidth: 2048, maxHeight: 2048, quality: 0.9 });
     const dataUrls = await Promise.all(
-      toProcess.map(
+      converted.map(
         (file) =>
           new Promise<string>((resolve) => {
             const reader = new FileReader();

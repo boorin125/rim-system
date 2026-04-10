@@ -706,12 +706,10 @@ export default function StoreDetailPage() {
   const handleIpRangeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (!['image/jpeg', 'image/jpg'].includes(file.type)) {
-      toast.error('รองรับเฉพาะไฟล์ JPEG/JPG เท่านั้น')
-      return
-    }
+    // Compress and convert (handles iOS HEIC/HEIF → JPEG)
+    const compressed = await compressImage(file, { maxWidth: 1920, maxHeight: 1920, quality: 0.85 })
     const formData = new FormData()
-    formData.append('file', file)
+    formData.append('file', compressed)
     try {
       setIpRangeUploading(true)
       const token = localStorage.getItem('token')
@@ -1590,7 +1588,7 @@ export default function StoreDetailPage() {
                   <label className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors ${layoutUploading ? 'opacity-50 cursor-not-allowed bg-slate-700 text-gray-400' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}>
                     <Upload className="w-3.5 h-3.5" />
                     {layoutUploading ? 'กำลังอัปโหลด...' : store.layoutImagePath ? 'อัปเดต' : 'อัปโหลด'}
-                    <input type="file" accept="image/jpeg,image/jpg" className="hidden" disabled={layoutUploading} onChange={handleLayoutUpload} />
+                    <input type="file" accept="image/*" className="hidden" disabled={layoutUploading} onChange={handleLayoutUpload} />
                   </label>
                 )}
               </div>
@@ -1640,7 +1638,7 @@ export default function StoreDetailPage() {
                   <label className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors ${ipRangeUploading ? 'opacity-50 cursor-not-allowed bg-slate-700 text-gray-400' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}>
                     <Upload className="w-3.5 h-3.5" />
                     {ipRangeUploading ? 'กำลังอัปโหลด...' : store.ipRangeImagePath ? 'อัปเดต' : 'อัปโหลด'}
-                    <input type="file" accept="image/jpeg,image/jpg" className="hidden" disabled={ipRangeUploading} onChange={handleIpRangeUpload} />
+                    <input type="file" accept="image/*" className="hidden" disabled={ipRangeUploading} onChange={handleIpRangeUpload} />
                   </label>
                 )}
               </div>
