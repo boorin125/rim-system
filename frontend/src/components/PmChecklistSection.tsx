@@ -92,7 +92,7 @@ interface Props {
   canEdit: boolean        // Any assigned user — can edit equipment records
   currentUserId?: number | null  // Current logged-in user ID
   onPmSubmitted?: () => void
-  onPmLoaded?: (performedAt: string | null) => void  // Notifies parent of PM submit status
+  onPmLoaded?: (status: { performedAt: string | null; storeSignedAt: string | null; signedInventoryPhotosCount: number }) => void
 }
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
@@ -667,7 +667,11 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
         { headers: { Authorization: `Bearer ${token}` } },
       )
       setPmRecord(res.data)
-      onPmLoaded?.(res.data.performedAt ?? null)
+      onPmLoaded?.({
+        performedAt: res.data.performedAt ?? null,
+        storeSignedAt: res.data.storeSignedAt ?? null,
+        signedInventoryPhotosCount: res.data.signedInventoryPhotos?.length ?? 0,
+      })
       if (res.data.inventoryListToken) {
         setSignLink(`${window.location.origin}/inventory-sign/${res.data.inventoryListToken}`)
       }
