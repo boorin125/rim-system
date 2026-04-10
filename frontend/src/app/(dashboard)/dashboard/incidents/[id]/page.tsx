@@ -2391,6 +2391,7 @@ SLA Breach Time: ${slaBreachText}`
         incidentEquipmentIds={incident.equipmentIds || []}
         onlineSRToken={incident.serviceReportToken}
         onlineSRSigned={!!incident.customerSignedAt}
+        isPmJob={isPmIncident}
       />
 
       {/* Update Resolution Modal */}

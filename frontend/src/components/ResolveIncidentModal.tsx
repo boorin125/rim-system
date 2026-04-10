@@ -14,6 +14,7 @@ interface ResolveIncidentModalProps {
   incidentEquipmentIds?: number[];
   onlineSRToken?: string;
   onlineSRSigned?: boolean;
+  isPmJob?: boolean;  // Hide after-photo section for PM — photos live in PM Checklist
 }
 
 // ✅ SparePart พร้อม equipmentId เพื่อเชื่อมโยงกับ Equipment ในระบบ
@@ -68,6 +69,7 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
   incidentEquipmentIds,
   onlineSRToken,
   onlineSRSigned,
+  isPmJob,
 }) => {
   const [resolutionNote, setResolutionNote] = useState('');
   const [afterPhotos, setAfterPhotos] = useState<File[]>([]);
@@ -469,9 +471,9 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
           )}
 
           {/* ========================================
-              SECTION 1: After Photos (ด้านบน)
+              SECTION 1: After Photos — hidden for PM (photos are in PM Checklist)
               ======================================== */}
-          <div>
+          {!isPmJob && <div>
             <label className="flex items-center justify-between text-sm font-medium text-gray-200 mb-3">
               <span>After Photos <span className="text-gray-300">(หลังซ่อม)</span></span>
               <span className="text-xs text-gray-400 font-normal">สูงสุด 20 รูป</span>
@@ -550,7 +552,7 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
                 )}
               </div>
             )}
-          </div>
+          </div>}
 
           {/* ========================================
               SECTION 2: Resolution Note with Voice to Text
