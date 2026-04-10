@@ -128,12 +128,25 @@ export class PmService {
     });
 
     // For each equipment, find the latest INCIDENT log newer than PM record's updatedAt
-    const conflictMap = new Map<number, string>();
+    const conflictMap = new Map<number, string>(); // equipmentId → incident UUID
     for (const log of conflictLogs) {
       if (conflictMap.has(log.equipmentId)) continue; // already have latest
       const pmUpdatedAt = recMap.get(log.equipmentId);
       if (pmUpdatedAt && log.createdAt > pmUpdatedAt && log.sourceId) {
         conflictMap.set(log.equipmentId, log.sourceId);
+      }
+    }
+
+    // Resolve incident UUIDs → ticketNumbers for user-friendly display
+    const conflictIncidentIds = [...new Set([...conflictMap.values()])];
+    const conflictTicketMap = new Map<string, string>(); // UUID → ticketNumber
+    if (conflictIncidentIds.length > 0) {
+      const conflictIncidents = await this.prisma.incident.findMany({
+        where: { id: { in: conflictIncidentIds } },
+        select: { id: true, ticketNumber: true },
+      });
+      for (const inc of conflictIncidents) {
+        conflictTicketMap.set(inc.id, inc.ticketNumber ?? inc.id);
       }
     }
 
@@ -175,7 +188,9 @@ export class PmService {
         afterPhotoCount: r.afterPhotos.length,
         beforePhotos: [],   // stripped — fetched lazily when card expands
         afterPhotos: [],
-        conflictIncidentId: conflictMap.get(r.equipmentId) ?? null,
+        conflictIncidentId: conflictMap.has(r.equipmentId)
+          ? (conflictTicketMap.get(conflictMap.get(r.equipmentId)!) ?? conflictMap.get(r.equipmentId)!)
+          : null,
       })),
     };
 
