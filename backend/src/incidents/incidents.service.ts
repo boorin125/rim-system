@@ -3133,6 +3133,101 @@ export class IncidentsService {
   }
 
   /**
+   * Resend close email for a CLOSED incident (IT Manager only — for testing/retry)
+   */
+  async resendCloseEmail(id: string, userId: number) {
+    const incident = await this.prisma.incident.findFirst({
+      where: { id },
+      include: {
+        store: true,
+        assignee: { select: { id: true, firstName: true, lastName: true, email: true } },
+        resolvedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+        spareParts: true,
+      },
+    });
+
+    if (!incident) throw new NotFoundException(`ไม่พบ Incident ${id}`);
+    if (incident.status !== IncidentStatus.CLOSED) {
+      throw new BadRequestException('Incident ต้องอยู่ในสถานะ CLOSED เท่านั้น');
+    }
+
+    // Re-generate tokens (already exist — just fetch)
+    let ratingToken: string | null = null;
+    try { ratingToken = await this.ratingsService.generateRatingToken(id); } catch {}
+
+    let serviceReportToken: string | null = null;
+    try { serviceReportToken = await this.generateServiceReportToken(id); } catch {}
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const publicIncidentLink = ratingToken ? `${frontendUrl}/incident/${ratingToken}` : null;
+    const ratingLink = ratingToken ? `${frontendUrl}/rate/${ratingToken}` : null;
+    const serviceReportLink = serviceReportToken ? `${frontendUrl}/service-report/${serviceReportToken}` : null;
+
+    // Enrich spare parts
+    let emailSpareParts: any[] = incident.spareParts || [];
+    if (emailSpareParts.length > 0) {
+      const equipIds = emailSpareParts
+        .flatMap((sp: any) => [sp.oldEquipmentId, sp.newEquipmentId, sp.parentEquipmentId])
+        .filter(Boolean) as number[];
+      if (equipIds.length > 0) {
+        const equipments = await this.prisma.equipment.findMany({
+          where: { id: { in: equipIds } },
+          select: { id: true, name: true, brand: true, model: true },
+        });
+        const equipMap = new Map(equipments.map((e) => [e.id, e]));
+        emailSpareParts = emailSpareParts.map((sp: any) => ({
+          ...sp,
+          oldEquipment: sp.oldEquipmentId ? (equipMap.get(sp.oldEquipmentId) ?? null) : null,
+          newEquipment: sp.newEquipmentId ? (equipMap.get(sp.newEquipmentId) ?? null) : null,
+          parentEquipment: sp.parentEquipmentId ? (equipMap.get(sp.parentEquipmentId) ?? null) : null,
+        }));
+      }
+    }
+
+    const creator = await this.prisma.user.findUnique({
+      where: { id: incident.createdById },
+      select: { email: true, firstName: true, lastName: true },
+    });
+    if (!creator?.email) throw new BadRequestException('ไม่พบอีเมลผู้สร้าง Incident');
+
+    const emailSettings = await this.settingsService.getEmailSettings();
+    const toEmail = emailSettings.closeNotificationTo || creator.email;
+    const ccEmails = emailSettings.closeNotificationCc
+      ? emailSettings.closeNotificationCc.split(',').map((e: string) => e.trim()).filter(Boolean)
+      : [];
+
+    const commonEmailData = {
+      incidentId: id,
+      ticketNumber: incident.ticketNumber,
+      title: incident.title,
+      storeName: incident.store?.name || 'N/A',
+      storeCode: incident.store?.storeCode || '',
+      technicianName: incident.resolvedBy
+        ? `${incident.resolvedBy.firstName} ${incident.resolvedBy.lastName}`
+        : 'N/A',
+      resolutionNote: incident.resolutionNote || 'No resolution note provided',
+      usedSpareParts: incident.usedSpareParts || false,
+      spareParts: emailSpareParts,
+      checkInAt: incident.checkInAt || null,
+      resolvedAt: incident.resolvedAt || new Date(),
+      confirmedAt: incident.confirmedAt || new Date(),
+      beforePhotos: incident.beforePhotos,
+      afterPhotos: incident.afterPhotos,
+      signedReportPhotos: incident.signedReportPhotos,
+      publicIncidentLink,
+      serviceReportLink,
+    };
+
+    await this.emailService.sendIncidentClosureEmail({ ...commonEmailData, to: toEmail, cc: ccEmails, ratingLink });
+
+    if (emailSettings.ccStoreEmail && incident.store?.email) {
+      await this.emailService.sendIncidentClosureEmail({ ...commonEmailData, to: incident.store.email, cc: undefined, ratingLink });
+    }
+
+    return { message: `ส่งอีเมลปิดงานไปที่ ${toEmail} สำเร็จ` };
+  }
+
+  /**
    * Get spare parts for incident
    * All authenticated users can view
    */

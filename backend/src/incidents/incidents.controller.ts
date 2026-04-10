@@ -398,6 +398,15 @@ export class IncidentsController {
   }
 
   /**
+   * Resend close email for a CLOSED incident (IT Manager only — for testing/retry)
+   */
+  @Post(':id/resend-close-email')
+  @Roles(UserRole.IT_MANAGER)
+  resendCloseEmail(@Param('id') id: string, @Request() req) {
+    return this.incidentsService.resendCloseEmail(id, req.user.id);
+  }
+
+  /**
    * Request onsite support - marks incident for Supervisor assignment
    * Status stays OPEN, resolutionType → ONSITE
    */

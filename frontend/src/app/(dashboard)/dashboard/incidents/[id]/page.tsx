@@ -89,7 +89,10 @@ export default function IncidentDetailPage() {
   const srMenuRef = useRef<HTMLDivElement>(null)
   const [showReopen, setShowReopen] = useState(false)
   const [showDirectClose, setShowDirectClose] = useState(false)
+  const [isResendingEmail, setIsResendingEmail] = useState(false)
   const [pmPerformedAt, setPmPerformedAt] = useState<string | null>(null)
+  const [pmStoreSignedAt, setPmStoreSignedAt] = useState<string | null>(null)
+  const [pmSignedDocsCount, setPmSignedDocsCount] = useState(0)
 
 
   // Photo Viewer state
@@ -529,6 +532,23 @@ export default function IncidentDetailPage() {
       throw new Error(
         error.response?.data?.message || 'Failed to reopen incident'
       )
+    }
+  }
+
+  const handleResendCloseEmail = async () => {
+    setIsResendingEmail(true)
+    try {
+      const token = localStorage.getItem('token')
+      const res = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/incidents/${params.id}/resend-close-email`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      toast.success(res.data?.message || 'ส่งอีเมลสำเร็จ')
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'ส่งอีเมลล้มเหลว')
+    } finally {
+      setIsResendingEmail(false)
     }
   }
 
@@ -1289,6 +1309,19 @@ SLA Breach Time: ${slaBreachText}`
               <span>Reopen Incident</span>
             </button>
           )}
+          {incident?.status === 'CLOSED' && isITManager && (
+            <button
+              onClick={handleResendCloseEmail}
+              disabled={isResendingEmail}
+              className="w-full sm:w-auto sm:min-w-[130px] flex items-center justify-center gap-2 px-4 py-2.5 bg-sky-700 hover:bg-sky-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition duration-200 text-sm font-medium"
+            >
+              {isResendingEmail ? (
+                <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin shrink-0" /><span>กำลังส่ง...</span></>
+              ) : (
+                <><Mail className="w-4 h-4 shrink-0" /><span>Resend Email</span></>
+              )}
+            </button>
+          )}
           {/* Helpdesk info: waiting for tech to confirm */}
           {incident?.status === 'RESOLVED' && (isHelpDesk || hasRole('IT_MANAGER')) && !incident?.techConfirmedAt && (
             <div className="flex items-start gap-3 p-3 bg-amber-900/20 border border-amber-700/50 rounded-lg">
@@ -1860,7 +1893,11 @@ SLA Breach Time: ${slaBreachText}`
           canEdit={isAssignedToMe}
           currentUserId={currentUserId}
           onPmSubmitted={() => fetchIncident()}
-          onPmLoaded={(performedAt) => setPmPerformedAt(performedAt)}
+          onPmLoaded={({ performedAt, storeSignedAt, signedInventoryPhotosCount }) => {
+            setPmPerformedAt(performedAt)
+            setPmStoreSignedAt(storeSignedAt)
+            setPmSignedDocsCount(signedInventoryPhotosCount)
+          }}
         />
       )}
 
@@ -2422,6 +2459,9 @@ SLA Breach Time: ${slaBreachText}`
           customerSignedAt: incident.customerSignedAt,
           serviceReportToken: incident.serviceReportToken,
         }}
+        isPmJob={isPmIncident}
+        pmStoreSignedAt={pmStoreSignedAt}
+        pmSignedDocsCount={pmSignedDocsCount}
         onConfirm={handleTechConfirm}
         isConfirming={isTechConfirming}
       />
