@@ -567,7 +567,7 @@ export default function ServiceReportPage() {
                               equipParts.map((sp, idx) => (
                                 <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                                   <td className="px-3 py-2 text-center text-gray-500 border-b border-gray-200">{idx + 1}</td>
-                                  <td className="px-3 py-2 text-gray-800 border-b border-gray-200">{sp.deviceName || '-'}</td>
+                                  <td className="px-3 py-2 text-gray-800 border-b border-gray-200">{sp.equipmentName || sp.deviceName || '-'}</td>
                                   <td className="px-3 py-2 text-gray-800 border-b border-gray-200">{sp.oldBrandModel || '-'}</td>
                                   <td className="px-3 py-2 text-gray-800 font-mono text-xs border-b border-gray-200">{sp.oldSerialNo || '-'}</td>
                                   <td className="px-3 py-2 text-gray-800 border-b border-gray-200">{sp.newBrandModel || '-'}</td>
@@ -1084,7 +1084,7 @@ export default function ServiceReportPage() {
                             equipParts.map((sp, idx) => (
                               <tr key={idx}>
                                 <td className="border border-gray-400 px-2 py-1.5 text-center text-gray-500">{idx + 1}</td>
-                                <td className="border border-gray-400 px-2 py-1.5 text-black">{sp.deviceName || '-'}</td>
+                                <td className="border border-gray-400 px-2 py-1.5 text-black">{sp.equipmentName || sp.deviceName || '-'}</td>
                                 <td className="border border-gray-400 px-2 py-1.5 text-black">{sp.oldBrandModel || '-'}</td>
                                 <td className="border border-gray-400 px-2 py-1.5 text-black font-mono text-xs">{sp.oldSerialNo || '-'}</td>
                                 <td className="border border-gray-400 px-2 py-1.5 text-black">{sp.newBrandModel || '-'}</td>
