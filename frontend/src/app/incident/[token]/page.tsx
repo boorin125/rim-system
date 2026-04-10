@@ -197,28 +197,38 @@ export default function PublicIncidentPage() {
           <div className="p-6 space-y-0">
             {/* ── Section 1: Incident Details ── */}
             <SectionHeader icon={FileText} title="Incident Details" />
-            <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3 mb-2">
-              {incident.store && (
-                <InfoCard icon={MapPin} label="Store" value={`${incident.store.storeCode} - ${incident.store.name}`} sub={incident.store.province || undefined} />
-              )}
-              {incident.category && (
-                <InfoCard icon={FileText} label="Category" value={incident.category} sub={incident.subCategory || undefined} />
-              )}
+            <div className="p-4 space-y-3 mb-2">
+              {/* Row 1: Store + Category */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {incident.store && (
+                  <InfoCard icon={MapPin} label="Store" value={`${incident.store.storeCode} - ${incident.store.name}`} sub={incident.store.province || undefined} />
+                )}
+                {incident.category && (
+                  <InfoCard icon={FileText} label="Category" value={incident.category} sub={incident.subCategory || undefined} />
+                )}
+              </div>
+              {/* Row 2: Address — full width */}
               {incident.store?.address && (
-                <InfoCard icon={MapPin} label="ที่อยู่ / Address" value={incident.store.address} />
+                <InfoCard icon={MapPin} label="ที่อยู่ / Address" value={incident.store.address} fullWidth />
               )}
-              {incident.technician && (
-                <InfoCard icon={User} label="Technician" value={incident.technician.name} />
-              )}
-              {incident.checkInAt && (
-                <InfoCard icon={Clock} label="Check-In" value={formatDate(incident.checkInAt)} />
-              )}
-              {incident.resolvedAt && (
-                <InfoCard icon={CheckCircle} label="Resolved" value={formatDate(incident.resolvedAt)} />
-              )}
-              {incident.confirmedAt && (
-                <InfoCard icon={CheckCircle} label="Confirmed Closed" value={formatDate(incident.confirmedAt)} />
-              )}
+              {/* Row 3: Technician + Check-In */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {incident.technician && (
+                  <InfoCard icon={User} label="Technician" value={incident.technician.name} />
+                )}
+                {incident.checkInAt && (
+                  <InfoCard icon={Clock} label="Check-In" value={formatDate(incident.checkInAt)} />
+                )}
+              </div>
+              {/* Row 4: Resolved + Confirmed Closed */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {incident.resolvedAt && (
+                  <InfoCard icon={CheckCircle} label="Resolved" value={formatDate(incident.resolvedAt)} />
+                )}
+                {incident.confirmedAt && (
+                  <InfoCard icon={CheckCircle} label="Confirmed Closed" value={formatDate(incident.confirmedAt)} />
+                )}
+              </div>
             </div>
 
             {/* ── Section 2: Problem / Symptoms ── */}
@@ -456,14 +466,15 @@ function SectionHeader({ icon: Icon, title }: { icon: React.ElementType; title: 
   )
 }
 
-function InfoCard({ icon: Icon, label, value, sub }: {
+function InfoCard({ icon: Icon, label, value, sub, fullWidth }: {
   icon: React.ElementType
   label: string
   value: string
   sub?: string
+  fullWidth?: boolean
 }) {
   return (
-    <div className="bg-slate-800/50 p-3 rounded-xl">
+    <div className={`bg-slate-800/50 p-3 rounded-xl${fullWidth ? ' col-span-full' : ''}`}>
       <p className="text-xs text-gray-500 flex items-center gap-1 mb-1">
         <Icon className="w-3 h-3" /> {label}
       </p>
