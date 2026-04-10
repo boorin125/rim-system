@@ -833,14 +833,23 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
   }
 
   // When file is picked — show crop before upload
-  const handleSignedFileSelected = (files: FileList | null) => {
+  const handleSignedFileSelected = async (files: FileList | null) => {
     if (!files?.length) return
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      setCropSrc(e.target?.result as string)
+    try {
+      // Convert HEIC/HEIF and other iOS formats → JPEG before crop
+      const [converted] = await compressImages([files[0]], { maxWidth: 2048, maxHeight: 2048, quality: 0.9 })
+      const base64 = await fileToBase64(converted)
+      setCropSrc(base64)
       setShowSignedDocChoice(false)
+    } catch {
+      // Fallback: read as-is
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setCropSrc(e.target?.result as string)
+        setShowSignedDocChoice(false)
+      }
+      reader.readAsDataURL(files[0])
     }
-    reader.readAsDataURL(files[0])
   }
 
   const handleDeleteSignedPaper = async (photoIndex: number) => {
