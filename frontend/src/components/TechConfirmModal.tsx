@@ -1,6 +1,6 @@
 // frontend/src/components/TechConfirmModal.tsx
 
-import { X, CheckCircle, FileText, Image, Edit3, AlertTriangle } from 'lucide-react';
+import { X, CheckCircle, FileText, Image, Edit3, AlertTriangle, ClipboardList } from 'lucide-react';
 
 interface TechConfirmModalProps {
   isOpen: boolean;
@@ -15,6 +15,9 @@ interface TechConfirmModalProps {
   };
   onConfirm: () => Promise<void>;
   isConfirming: boolean;
+  isPmJob?: boolean;
+  pmStoreSignedAt?: string | null;
+  pmSignedDocsCount?: number;
 }
 
 export default function TechConfirmModal({
@@ -23,17 +26,25 @@ export default function TechConfirmModal({
   incident,
   onConfirm,
   isConfirming,
+  isPmJob = false,
+  pmStoreSignedAt,
+  pmSignedDocsCount = 0,
 }: TechConfirmModalProps) {
   if (!isOpen) return null;
 
+  // --- PM job logic ---
+  const hasPmDigitalSign = !!pmStoreSignedAt;
+  const hasPmUploadedDocs = pmSignedDocsCount > 0;
+  const canConfirmPm = hasPmDigitalSign || hasPmUploadedDocs;
+
+  // --- Regular job logic ---
   const signedPhotosCount = incident.signedReportPhotos?.length || 0;
   const hasCustomerSignature = !!incident.customerSignedAt;
   const hasOnlineSR = !!incident.serviceReportToken;
   const pendingOnlineSignature = hasOnlineSR && !hasCustomerSignature;
-
-  // Must have at least one proof: signed photo OR online customer signature
   const hasServiceReportProof = signedPhotosCount > 0 || hasCustomerSignature;
-  const canConfirm = hasServiceReportProof;
+
+  const canConfirm = isPmJob ? canConfirmPm : hasServiceReportProof;
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-start sm:items-center justify-center z-50 p-4 pt-20 sm:pt-4">
@@ -66,82 +77,144 @@ export default function TechConfirmModal({
           <div className="space-y-3">
             <p className="text-sm font-medium text-gray-300">ตรวจสอบก่อนยืนยัน:</p>
 
-            {/* Signed Report Photos */}
-            <div className={`flex items-center gap-3 p-3 rounded-lg border ${
-              signedPhotosCount > 0
-                ? 'bg-green-900/20 border-green-700/50'
-                : 'bg-gray-700/30 border-gray-600/50'
-            }`}>
-              <Image className={`w-5 h-5 flex-shrink-0 ${
-                signedPhotosCount > 0 ? 'text-green-400' : 'text-gray-500'
-              }`} />
-              <div className="flex-1">
-                <p className={`text-sm font-medium ${
-                  signedPhotosCount > 0 ? 'text-green-300' : 'text-gray-400'
+            {isPmJob ? (
+              <>
+                {/* PM: Digital Sign (Inventory List) */}
+                <div className={`flex items-center gap-3 p-3 rounded-lg border ${
+                  hasPmDigitalSign
+                    ? 'bg-green-900/20 border-green-700/50'
+                    : 'bg-gray-700/30 border-gray-600/50'
                 }`}>
-                  รูปใบงาน (Signed Report Photos)
-                </p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  {signedPhotosCount > 0
-                    ? `อัปโหลดแล้ว ${signedPhotosCount} รูป`
-                    : 'ยังไม่ได้อัปโหลด (ไม่บังคับ)'}
-                </p>
-              </div>
-              {signedPhotosCount > 0 && (
-                <CheckCircle className="w-4 h-4 text-green-400" />
-              )}
-            </div>
+                  <Edit3 className={`w-5 h-5 flex-shrink-0 ${
+                    hasPmDigitalSign ? 'text-green-400' : 'text-gray-500'
+                  }`} />
+                  <div className="flex-1">
+                    <p className={`text-sm font-medium ${
+                      hasPmDigitalSign ? 'text-green-300' : 'text-gray-400'
+                    }`}>
+                      Digital Sign (Inventory List)
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {hasPmDigitalSign ? 'ลูกค้าเซ็นรับรองแล้ว' : 'ยังไม่ได้เซ็น (ไม่บังคับหากมีเอกสาร)'}
+                    </p>
+                  </div>
+                  {hasPmDigitalSign && <CheckCircle className="w-4 h-4 text-green-400" />}
+                </div>
 
-            {/* Customer Signature */}
-            <div className={`flex items-center gap-3 p-3 rounded-lg border ${
-              hasCustomerSignature
-                ? 'bg-green-900/20 border-green-700/50'
-                : pendingOnlineSignature
-                  ? 'bg-amber-900/20 border-amber-500/50'
-                  : 'bg-gray-700/30 border-gray-600/50'
-            }`}>
-              <Edit3 className={`w-5 h-5 flex-shrink-0 ${
-                hasCustomerSignature
-                  ? 'text-green-400'
-                  : pendingOnlineSignature
-                    ? 'text-amber-400'
-                    : 'text-gray-500'
-              }`} />
-              <div className="flex-1">
-                <p className={`text-sm font-medium ${
-                  hasCustomerSignature
-                    ? 'text-green-300'
-                    : pendingOnlineSignature
-                      ? 'text-amber-300'
-                      : 'text-gray-400'
+                {/* PM: Uploaded Documents */}
+                <div className={`flex items-center gap-3 p-3 rounded-lg border ${
+                  hasPmUploadedDocs
+                    ? 'bg-green-900/20 border-green-700/50'
+                    : 'bg-gray-700/30 border-gray-600/50'
                 }`}>
-                  ลายเซ็นลูกค้า (Customer Signature)
-                </p>
-                <p className={`text-xs mt-0.5 ${pendingOnlineSignature ? 'text-amber-400/80' : 'text-gray-500'}`}>
-                  {hasCustomerSignature
-                    ? 'ลูกค้าเซ็นแล้ว'
+                  <ClipboardList className={`w-5 h-5 flex-shrink-0 ${
+                    hasPmUploadedDocs ? 'text-green-400' : 'text-gray-500'
+                  }`} />
+                  <div className="flex-1">
+                    <p className={`text-sm font-medium ${
+                      hasPmUploadedDocs ? 'text-green-300' : 'text-gray-400'
+                    }`}>
+                      All Document (เอกสารอัปโหลด)
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {hasPmUploadedDocs
+                        ? `อัปโหลดแล้ว ${pmSignedDocsCount} รูป`
+                        : 'ยังไม่ได้อัปโหลด (ไม่บังคับหากมี Digital Sign)'}
+                    </p>
+                  </div>
+                  {hasPmUploadedDocs && <CheckCircle className="w-4 h-4 text-green-400" />}
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Regular: Signed Report Photos */}
+                <div className={`flex items-center gap-3 p-3 rounded-lg border ${
+                  signedPhotosCount > 0
+                    ? 'bg-green-900/20 border-green-700/50'
+                    : 'bg-gray-700/30 border-gray-600/50'
+                }`}>
+                  <Image className={`w-5 h-5 flex-shrink-0 ${
+                    signedPhotosCount > 0 ? 'text-green-400' : 'text-gray-500'
+                  }`} />
+                  <div className="flex-1">
+                    <p className={`text-sm font-medium ${
+                      signedPhotosCount > 0 ? 'text-green-300' : 'text-gray-400'
+                    }`}>
+                      รูปใบงาน (Signed Report Photos)
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {signedPhotosCount > 0
+                        ? `อัปโหลดแล้ว ${signedPhotosCount} รูป`
+                        : 'ยังไม่ได้อัปโหลด (ไม่บังคับ)'}
+                    </p>
+                  </div>
+                  {signedPhotosCount > 0 && (
+                    <CheckCircle className="w-4 h-4 text-green-400" />
+                  )}
+                </div>
+
+                {/* Regular: Customer Signature */}
+                <div className={`flex items-center gap-3 p-3 rounded-lg border ${
+                  hasCustomerSignature
+                    ? 'bg-green-900/20 border-green-700/50'
                     : pendingOnlineSignature
-                      ? 'ส่ง Service Report Online แล้ว แต่ลูกค้ายังไม่ได้เซ็น'
-                      : 'ยังไม่ได้เซ็น (ไม่บังคับ)'}
-                </p>
-              </div>
-              {hasCustomerSignature && (
-                <CheckCircle className="w-4 h-4 text-green-400" />
-              )}
-              {pendingOnlineSignature && (
-                <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
-              )}
-            </div>
+                      ? 'bg-amber-900/20 border-amber-500/50'
+                      : 'bg-gray-700/30 border-gray-600/50'
+                }`}>
+                  <Edit3 className={`w-5 h-5 flex-shrink-0 ${
+                    hasCustomerSignature
+                      ? 'text-green-400'
+                      : pendingOnlineSignature
+                        ? 'text-amber-400'
+                        : 'text-gray-500'
+                  }`} />
+                  <div className="flex-1">
+                    <p className={`text-sm font-medium ${
+                      hasCustomerSignature
+                        ? 'text-green-300'
+                        : pendingOnlineSignature
+                          ? 'text-amber-300'
+                          : 'text-gray-400'
+                    }`}>
+                      ลายเซ็นลูกค้า (Customer Signature)
+                    </p>
+                    <p className={`text-xs mt-0.5 ${pendingOnlineSignature ? 'text-amber-400/80' : 'text-gray-500'}`}>
+                      {hasCustomerSignature
+                        ? 'ลูกค้าเซ็นแล้ว'
+                        : pendingOnlineSignature
+                          ? 'ส่ง Service Report Online แล้ว แต่ลูกค้ายังไม่ได้เซ็น'
+                          : 'ยังไม่ได้เซ็น (ไม่บังคับ)'}
+                    </p>
+                  </div>
+                  {hasCustomerSignature && (
+                    <CheckCircle className="w-4 h-4 text-green-400" />
+                  )}
+                  {pendingOnlineSignature && (
+                    <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                  )}
+                </div>
+              </>
+            )}
           </div>
 
-          {/* Blocking warning: must have service report proof */}
+          {/* Blocking warning */}
           {!canConfirm && (
             <div className="flex items-start gap-2 p-3 bg-red-900/30 border border-red-600/50 rounded-lg">
               <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
               <p className="text-xs text-red-300">
-                <span className="font-semibold">ไม่สามารถยืนยันปิดงานได้</span> — กรุณาดำเนินการอย่างใดอย่างหนึ่งก่อน:
-                <br />• อัปโหลดรูปใบงานที่ลูกค้าเซ็นแล้ว (Signed Report Photo)
-                <br />• หรือรอลูกค้าเซ็น Service Report Online ผ่านลิงก์
+                {isPmJob ? (
+                  <>
+                    <span className="font-semibold">ไม่สามารถยืนยันปิดงานได้</span> — กรุณาดำเนินการอย่างใดอย่างหนึ่งก่อน:
+                    <br />• ให้ลูกค้าเซ็น Digital Sign ใน Inventory List
+                    <br />• หรืออัปโหลดเอกสาร (All Document) อย่างน้อย 1 รายการ
+                  </>
+                ) : (
+                  <>
+                    <span className="font-semibold">ไม่สามารถยืนยันปิดงานได้</span> — กรุณาดำเนินการอย่างใดอย่างหนึ่งก่อน:
+                    <br />• อัปโหลดรูปใบงานที่ลูกค้าเซ็นแล้ว (Signed Report Photo)
+                    <br />• หรือรอลูกค้าเซ็น Service Report Online ผ่านลิงก์
+                  </>
+                )}
               </p>
             </div>
           )}
@@ -170,7 +243,11 @@ export default function TechConfirmModal({
           <button
             onClick={onConfirm}
             disabled={isConfirming || !canConfirm}
-            title={!canConfirm ? 'ต้องอัปโหลดรูปใบงานหรือรอลูกค้าเซ็น Service Report Online ก่อน' : undefined}
+            title={!canConfirm
+              ? isPmJob
+                ? 'ต้องมี Digital Sign หรืออัปโหลดเอกสารก่อน'
+                : 'ต้องอัปโหลดรูปใบงานหรือรอลูกค้าเซ็น Service Report Online ก่อน'
+              : undefined}
             className="flex items-center gap-2 px-5 py-2 bg-teal-600 hover:bg-teal-700 disabled:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition font-medium"
           >
             {isConfirming ? (
