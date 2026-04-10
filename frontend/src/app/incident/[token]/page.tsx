@@ -222,40 +222,40 @@ export default function PublicIncidentPage() {
               )}
             </div>
 
-            {/* ── Section 2: Problem / Description ── */}
+            {/* ── Section 2: Problem / Symptoms ── */}
             {incident.description && (
               <>
-                <SectionHeader icon={AlertTriangle} title="ปัญหา / Description" />
+                <SectionHeader icon={AlertTriangle} title="ปัญหา / อาการเสีย / Problem / Symptoms" />
                 <div className="p-4 mb-2">
                   <p className="text-gray-300 whitespace-pre-wrap leading-relaxed">{incident.description}</p>
                 </div>
               </>
             )}
 
-            {/* ── Section 3: Resolution ── */}
+            {/* ── Section 3: Work Performance ── */}
             {incident.resolutionNote && (
               <>
-                <SectionHeader icon={Wrench} title="การแก้ไข / Resolution" />
+                <SectionHeader icon={Wrench} title="วิธีการแก้ไขปัญหา / Work Performance" />
                 <div className="p-4 mb-2">
                   <p className="text-gray-300 whitespace-pre-wrap leading-relaxed">{incident.resolutionNote}</p>
                 </div>
               </>
             )}
 
-            {/* ── Section 4: Spare Parts ── */}
+            {/* ── Section 4: Device Used / Spare Parts ── */}
             {incident.usedSpareParts && incident.spareParts.length > 0 && (() => {
               const equipParts = incident.spareParts.filter(sp => sp.repairType !== 'COMPONENT_REPLACEMENT')
               const compParts = incident.spareParts.filter(sp => sp.repairType === 'COMPONENT_REPLACEMENT')
               return (
                 <>
-                  <SectionHeader icon={Wrench} title="ชิ้นส่วนที่เปลี่ยน / Spare Parts" />
+                  <SectionHeader icon={Wrench} title="อุปกรณ์ที่ใช้ / Device Used" />
                   <div className="p-4 mb-2 space-y-4">
 
                     {/* Table 1: Device Used (EQUIPMENT_REPLACEMENT) */}
                     {(equipParts.length > 0 || compParts.length === 0) && (
                       <div>
                         {compParts.length > 0 && (
-                          <p className="text-xs text-gray-500 mb-2 font-medium">Device Used (เปลี่ยนอุปกรณ์ใหม่)</p>
+                          <p className="text-xs text-gray-500 mb-2 font-medium">อุปกรณ์ที่เปลี่ยน / Device Used</p>
                         )}
                         <div className="overflow-x-auto">
                           <table className="w-full text-sm">
@@ -290,7 +290,7 @@ export default function PublicIncidentPage() {
                     {compParts.length > 0 && (
                       <div>
                         {equipParts.length > 0 && (
-                          <p className="text-xs text-gray-500 mb-2 font-medium">Spare Part Used (เปลี่ยนชิ้นส่วน)</p>
+                          <p className="text-xs text-gray-500 mb-2 font-medium">ชิ้นส่วนที่เปลี่ยน / Spare Part Used</p>
                         )}
                         <div className="overflow-x-auto">
                           <table className="w-full text-sm">

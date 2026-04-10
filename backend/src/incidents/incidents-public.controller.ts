@@ -101,16 +101,31 @@ export class IncidentsPublicController {
       });
       equipments.forEach(e => equipMap.set(e.id, e));
     }
+
+    // Recover pre-update brand/model via EquipmentLog (same as email sending logic)
+    const oldEquipIds = rawParts.filter((sp: any) => sp.oldEquipmentId).map((sp: any) => sp.oldEquipmentId);
+    const equipLogs = oldEquipIds.length > 0
+      ? await this.prisma.equipmentLog.findMany({
+          where: { source: 'INCIDENT', sourceId: incident.id, equipmentId: { in: oldEquipIds } },
+          select: { equipmentId: true, oldValue: true },
+          orderBy: { createdAt: 'asc' },
+        })
+      : [];
+    const logOldValueMap = new Map(equipLogs.map(l => [l.equipmentId, l.oldValue as any]));
+
     const enrichedSpareParts = rawParts.map((sp: any) => {
       const oldEquip = sp.oldEquipmentId ? (equipMap.get(sp.oldEquipmentId) ?? null) : null;
       const parentEquip = sp.parentEquipmentId ? (equipMap.get(sp.parentEquipmentId) ?? null) : null;
+      const logOld = sp.oldEquipmentId ? logOldValueMap.get(sp.oldEquipmentId) : null;
+      const oldBrand = logOld?.brand !== undefined ? logOld.brand : oldEquip?.brand;
+      const oldModel = logOld?.model !== undefined ? logOld.model : oldEquip?.model;
       return {
         repairType: sp.repairType,
         deviceName: sp.deviceName,
         oldSerialNo: sp.oldSerialNo,
         newSerialNo: sp.newSerialNo,
         equipmentName: oldEquip?.name || sp.deviceName || '',
-        oldBrandModel: [oldEquip?.brand, oldEquip?.model].filter(Boolean).join(' ') || '',
+        oldBrandModel: [oldBrand, oldModel].filter(Boolean).join(' ') || '',
         newBrandModel: [sp.newBrand, sp.newModel].filter(Boolean).join(' ') || '',
         componentName: sp.componentName || '',
         oldComponentSerial: sp.oldComponentSerial || '',

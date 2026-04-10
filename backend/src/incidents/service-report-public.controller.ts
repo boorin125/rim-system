@@ -72,8 +72,8 @@ export class ServiceReportPublicController {
             componentName: true,
             oldComponentSerial: true,
             newComponentSerial: true,
-            oldEquipment: { select: { name: true, brand: true, model: true } },
-            newEquipment: { select: { name: true, brand: true, model: true } },
+            oldEquipment: { select: { id: true, name: true, brand: true, model: true } },
+            newEquipment: { select: { id: true, name: true, brand: true, model: true } },
             parentEquipment: { select: { name: true } },
           },
         },
@@ -160,22 +160,41 @@ export class ServiceReportPublicController {
       } : null,
       resolutionNote: incident.resolutionNote,
       usedSpareParts: incident.usedSpareParts,
-      spareParts: incident.spareParts.map(sp => {
-        const s = sp as any;
-        return {
-          deviceName: sp.deviceName,
-          oldSerialNo: sp.oldSerialNo,
-          newSerialNo: sp.newSerialNo,
-          repairType: sp.repairType,
-          componentName: sp.componentName,
-          oldComponentSerial: sp.oldComponentSerial,
-          newComponentSerial: sp.newComponentSerial,
-          equipmentName: s.oldEquipment?.name || sp.deviceName || '-',
-          oldBrandModel: [s.oldEquipment?.brand, s.oldEquipment?.model].filter(Boolean).join(' ') || '-',
-          newBrandModel: [s.newBrand, s.newModel].filter(Boolean).join(' ') || [s.newEquipment?.brand, s.newEquipment?.model].filter(Boolean).join(' ') || '-',
-          parentEquipmentName: s.parentEquipment?.name || null,
-        };
-      }),
+      // Recover pre-update brand/model for old equipment via EquipmentLog
+      // (syncEquipmentFromSparePart may overwrite oldEquipment.brand/model on UPDATED path)
+      spareParts: await (async () => {
+        const oldEquipIds = (incident.spareParts as any[])
+          .filter(sp => (sp as any).oldEquipment?.id)
+          .map(sp => (sp as any).oldEquipment.id);
+        const equipLogs = oldEquipIds.length > 0
+          ? await this.prisma.equipmentLog.findMany({
+              where: { source: 'INCIDENT', sourceId: incident.id, equipmentId: { in: oldEquipIds } },
+              select: { equipmentId: true, oldValue: true },
+              orderBy: { createdAt: 'asc' },
+            })
+          : [];
+        const logOldValueMap = new Map(equipLogs.map(l => [l.equipmentId, l.oldValue as any]));
+
+        return (incident.spareParts as any[]).map(sp => {
+          const s = sp as any;
+          const logOld = s.oldEquipment?.id ? logOldValueMap.get(s.oldEquipment.id) : null;
+          const oldBrand = logOld?.brand !== undefined ? logOld.brand : s.oldEquipment?.brand;
+          const oldModel = logOld?.model !== undefined ? logOld.model : s.oldEquipment?.model;
+          return {
+            deviceName: sp.deviceName,
+            oldSerialNo: sp.oldSerialNo,
+            newSerialNo: sp.newSerialNo,
+            repairType: sp.repairType,
+            componentName: sp.componentName,
+            oldComponentSerial: sp.oldComponentSerial,
+            newComponentSerial: sp.newComponentSerial,
+            equipmentName: s.oldEquipment?.name || sp.deviceName || '-',
+            oldBrandModel: [oldBrand, oldModel].filter(Boolean).join(' ') || '-',
+            newBrandModel: [s.newBrand, s.newModel].filter(Boolean).join(' ') || [s.newEquipment?.brand, s.newEquipment?.model].filter(Boolean).join(' ') || '-',
+            parentEquipmentName: s.parentEquipment?.name || null,
+          };
+        });
+      })(),
       beforePhotos: incident.beforePhotos,
       afterPhotos: incident.afterPhotos,
       signedReportPhotos: incident.signedReportPhotos,
