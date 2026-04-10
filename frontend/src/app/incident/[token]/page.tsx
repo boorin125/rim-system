@@ -204,13 +204,12 @@ export default function PublicIncidentPage() {
               {incident.category && (
                 <InfoCard icon={FileText} label="Category" value={incident.category} sub={incident.subCategory || undefined} />
               )}
+              {incident.store?.address && (
+                <InfoCard icon={MapPin} label="ที่อยู่ / Address" value={incident.store.address} />
+              )}
               {incident.technician && (
                 <InfoCard icon={User} label="Technician" value={incident.technician.name} />
               )}
-              {incident.resolvedBy && (
-                <InfoCard icon={CheckCircle} label="Resolved By" value={incident.resolvedBy.name} />
-              )}
-              <InfoCard icon={Calendar} label="Created" value={formatDate(incident.createdAt)} />
               {incident.checkInAt && (
                 <InfoCard icon={Clock} label="Check-In" value={formatDate(incident.checkInAt)} />
               )}
@@ -223,14 +222,16 @@ export default function PublicIncidentPage() {
             </div>
 
             {/* ── Section 2: Problem / Symptoms ── */}
-            {incident.description && (
-              <>
-                <SectionHeader icon={AlertTriangle} title="ปัญหา / อาการเสีย / Problem / Symptoms" />
-                <div className="p-4 mb-2">
-                  <p className="text-gray-300 whitespace-pre-wrap leading-relaxed">{incident.description}</p>
+            <>
+              <SectionHeader icon={AlertTriangle} title="ปัญหา / อาการเสีย / Problem / Symptoms" />
+              <div className="px-4 pb-4 mb-2">
+                <div className="bg-slate-800/60 border border-slate-700/50 rounded-xl p-4 min-h-[5rem]">
+                  <p className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">
+                    {incident.title}{incident.description ? `\n${incident.description}` : ''}
+                  </p>
                 </div>
-              </>
-            )}
+              </div>
+            </>
 
             {/* ── Section 3: Work Performance ── */}
             {incident.resolutionNote && (
