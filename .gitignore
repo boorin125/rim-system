@@ -21,5 +21,8 @@ Thumbs.db
 *.key
 *.pem
 
+# Backups (generated on server)
+backups/
+
 # Claude
 .claude/settings.local.json
