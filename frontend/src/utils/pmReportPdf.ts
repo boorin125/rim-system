@@ -97,6 +97,13 @@ export async function generatePmReportPDF(data: PmReportData): Promise<void> {
   const contentW = pageW - marginL - marginR
   let y = 14
 
+  // Short date string for footer
+  const dateStr = data.performedAt
+    ? new Date(data.performedAt).toLocaleDateString('th-TH', {
+        year: 'numeric', month: 'long', day: 'numeric',
+      })
+    : '-'
+
   // Last Update date string: DD/M/YYYY HH:MM (matches online format)
   const lastUpdateStr = data.performedAt
     ? (() => {
