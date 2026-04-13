@@ -238,10 +238,13 @@ export async function generatePmReportPDF(data: PmReportData): Promise<void> {
       y += lines.length * 4 + 2
     }
 
-    // Photos — square crop, left-aligned with equipment bar
-    const photoGap = 6
-    const photoOffsetX = marginL
-    const p2x = photoOffsetX + photoSize + photoGap
+    // Photos — square crop, each centered within its half of the content width
+    // Left half: marginL → marginL+halfW  |  Right half: marginL+halfW → marginL+contentW
+    const halfW = contentW / 2
+    const p1x = marginL + (halfW - photoSize) / 2          // centered in left half
+    const p2x = marginL + halfW + (halfW - photoSize) / 2  // centered in right half
+    const p1cx = marginL + halfW / 2                        // label center of left half
+    const p2cx = marginL + halfW + halfW / 2                // label center of right half
 
     const hasB = eq.beforePhotos.length > 0
     const hasA = eq.afterPhotos.length > 0
@@ -249,25 +252,25 @@ export async function generatePmReportPDF(data: PmReportData): Promise<void> {
     if (hasB || hasA) {
       doc.setFontSize(7)
       doc.setTextColor(80, 80, 200)
-      doc.text('ก่อน PM', photoOffsetX, y + 3)
+      doc.text('ก่อน PM', p1cx, y + 3, { align: 'center' })
       doc.setTextColor(30, 120, 30)
-      doc.text('หลัง PM', p2x, y + 3)
+      doc.text('หลัง PM', p2cx, y + 3, { align: 'center' })
       y += 4
 
       // Square placeholders
       doc.setDrawColor(180, 180, 180)
-      doc.rect(photoOffsetX, y, photoSize, photoSize)
+      doc.rect(p1x, y, photoSize, photoSize)
       doc.rect(p2x, y, photoSize, photoSize)
 
       if (hasB) {
         try {
           const cropped = await cropToSquare(eq.beforePhotos[0])
-          doc.addImage(cropped, 'JPEG', photoOffsetX, y, photoSize, photoSize, undefined, 'FAST')
+          doc.addImage(cropped, 'JPEG', p1x, y, photoSize, photoSize, undefined, 'FAST')
         } catch {}
       } else {
         doc.setFontSize(7)
         doc.setTextColor(160, 160, 160)
-        doc.text('ไม่มีรูป', photoOffsetX + photoSize / 2, y + photoSize / 2, { align: 'center' })
+        doc.text('ไม่มีรูป', p1cx, y + photoSize / 2, { align: 'center' })
       }
 
       if (hasA) {
@@ -278,7 +281,7 @@ export async function generatePmReportPDF(data: PmReportData): Promise<void> {
       } else {
         doc.setFontSize(7)
         doc.setTextColor(160, 160, 160)
-        doc.text('ไม่มีรูป', p2x + photoSize / 2, y + photoSize / 2, { align: 'center' })
+        doc.text('ไม่มีรูป', p2cx, y + photoSize / 2, { align: 'center' })
       }
 
       y += photoSize + 4
@@ -304,17 +307,17 @@ export async function generatePmReportPDF(data: PmReportData): Promise<void> {
   doc.setFontSize(8)
   doc.setTextColor(88, 28, 135)
   doc.text('ลายเซ็น / Signatures', marginL + 3, y + 5)
-  y += 10
+  y += 16  // increased padding below header bar
 
   const colW = contentW / 2
-  const sigImgH = 18   // max height for signature image
-  const lineY = y + sigImgH + 4  // y of the signature line
+  const sigImgH = 20   // max height for signature image
+  const lineY = y + sigImgH + 6  // y of the signature line
 
   // ── Technician column (left) ──
   doc.setFont(font, 'normal')
   doc.setFontSize(7.5)
   doc.setTextColor(100, 100, 100)
-  doc.text('ลายเซ็นช่างเทคนิค / Technician', marginL + colW / 2, y - 1, { align: 'center' })
+  doc.text('ลายเซ็นช่างเทคนิค / Technician', marginL + colW / 2, y - 2, { align: 'center' })
 
   if (data.technicianSignature) {
     try {
@@ -355,7 +358,7 @@ export async function generatePmReportPDF(data: PmReportData): Promise<void> {
   doc.setFont(font, 'normal')
   doc.setFontSize(7.5)
   doc.setTextColor(100, 100, 100)
-  doc.text('ลายเซ็นเจ้าหน้าที่สาขา / Store Staff', rightX + colW / 2, y - 1, { align: 'center' })
+  doc.text('ลายเซ็นเจ้าหน้าที่สาขา / Store Staff', rightX + colW / 2, y - 2, { align: 'center' })
 
   if (data.storeSignature) {
     try {
