@@ -684,6 +684,30 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
 
   useEffect(() => { fetchPmRecord() }, [incidentId])
 
+  // Poll every 15 s when sign link is active but customer hasn't signed yet
+  // (storeSignedAt only updates when customer signs via the link — requires a refetch)
+  useEffect(() => {
+    if (!signLink || pmRecord?.storeSignedAt || pmRecord?.performedAt) return
+    const id = setInterval(async () => {
+      try {
+        const token = localStorage.getItem('token')
+        const res = await axios.get(
+          `${process.env.NEXT_PUBLIC_API_URL}/pm/incident/${incidentId}`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        )
+        if (res.data.storeSignedAt) {
+          setPmRecord(res.data)
+          onPmLoaded?.({
+            performedAt: res.data.performedAt ?? null,
+            storeSignedAt: res.data.storeSignedAt ?? null,
+            signedInventoryPhotosCount: res.data.signedInventoryPhotos?.length ?? 0,
+          })
+        }
+      } catch { /* silent poll */ }
+    }, 15000)
+    return () => clearInterval(id)
+  }, [signLink, pmRecord?.storeSignedAt, pmRecord?.performedAt, incidentId]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Fetch org logo + theme color for PDF generation
   useEffect(() => {
     const token = localStorage.getItem('token')
@@ -754,7 +778,7 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
   }).length ?? 0
   const totalCount = pmRecord?.equipmentRecords.length ?? 0
   const conflictCount = pmRecord?.equipmentRecords.filter(
-    (r) => !!r.conflictIncidentId,
+    (r) => canEdit && !!r.conflictIncidentId && new Date(r.equipment.updatedAt) > new Date(r.updatedAt),
   ).length ?? 0
   const allComplete = completedCount === totalCount && totalCount > 0 && conflictCount === 0
   // isPmOwner: only the primary responsible technician can Submit, Digital Sign, Upload Document
