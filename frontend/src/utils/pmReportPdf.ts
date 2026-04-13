@@ -97,56 +97,88 @@ export async function generatePmReportPDF(data: PmReportData): Promise<void> {
   const contentW = pageW - marginL - marginR
   let y = 14
 
-  const dateStr = data.performedAt
-    ? new Date(data.performedAt).toLocaleDateString('th-TH', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
+  // Last Update date string: DD/M/YYYY HH:MM (matches online format)
+  const lastUpdateStr = data.performedAt
+    ? (() => {
+        const d = new Date(data.performedAt)
+        const pad = (n: number) => String(n).padStart(2, '0')
+        return `Last Update : ${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+      })()
+    : 'Last Update : -'
+
+  // ─── Header (matches PM Report Online style) ──────────────────────────────
+  // Left: Logo + "Preventive Maintenance Report" + store name + address
+  // Right: ticket number + last update date
+  // Bottom: thick purple underline
+
+  const logoMaxH = 18   // mm
+  const logoMaxW = 45   // mm
+  let textX = marginL   // shifts right if logo is present
+
+  if (data.organizationLogo) {
+    try {
+      // Detect dimensions to preserve aspect ratio
+      const logoDims = await new Promise<{ w: number; h: number }>((resolve) => {
+        const img = new Image()
+        img.onload = () => resolve({ w: img.width, h: img.height })
+        img.onerror = () => resolve({ w: 0, h: 0 })
+        img.src = data.organizationLogo!
       })
-    : '-'
+      if (logoDims.w > 0 && logoDims.h > 0) {
+        const ratio = logoDims.w / logoDims.h
+        const lh = Math.min(logoMaxH, logoMaxW / ratio)
+        const lw = lh * ratio
+        const fmt = data.organizationLogo.startsWith('data:image/png') ? 'PNG' : 'JPEG'
+        doc.addImage(data.organizationLogo, fmt, marginL, y, lw, lh, undefined, 'FAST')
+        textX = marginL + lw + 3
+      }
+    } catch { /* skip logo on error */ }
+  }
 
-  // ─── Header ───────────────────────────────────────────────────────────────
-  doc.setFillColor(88, 28, 135) // purple-900
-  doc.rect(0, 0, pageW, 28, 'F')
-
+  // Left text block
   doc.setFont(font, 'bold')
-  doc.setFontSize(16)
-  doc.setTextColor(255, 255, 255)
-  doc.text('PM REPORT', marginL, 12)
+  doc.setFontSize(11)
+  doc.setTextColor(55, 65, 81)   // gray-700
+  doc.text('Preventive Maintenance Report', textX, y + 6)
 
-  doc.setFont(font, 'normal')
-  doc.setFontSize(8)
-  doc.text(data.organizationName ?? 'RIM System', marginL, 19)
-  doc.text(`วันที่ PM: ${dateStr}`, marginL, 24)
-
-  doc.setFont(font, 'bold')
-  doc.setFontSize(10)
-  doc.text(data.ticketNumber, pageW - marginR, 12, { align: 'right' })
-  doc.setFont(font, 'normal')
-  doc.setFontSize(8)
-  doc.text(`ช่างเทคนิค: ${data.technicianName ?? '-'}`, pageW - marginR, 19, { align: 'right' })
-
-  y = 36
-
-  // ─── Store Info ───────────────────────────────────────────────────────────
-  doc.setFillColor(245, 243, 255) // purple-50
-  doc.roundedRect(marginL, y, contentW, 22, 2, 2, 'F')
   doc.setFont(font, 'bold')
   doc.setFontSize(10)
-  doc.setTextColor(88, 28, 135)
-  doc.text(`Store ${data.store.storeCode} ${data.store.name}`, marginL + 4, y + 7)
-  doc.setFont(font, 'normal')
-  doc.setFontSize(8)
-  doc.setTextColor(80, 80, 80)
-  if (data.store.province) doc.text(`จังหวัด: ${data.store.province}`, marginL + 4, y + 13)
-  if (data.store.address) doc.text(`ที่อยู่: ${data.store.address}`, marginL + 4, y + 18)
+  doc.setTextColor(17, 24, 39)   // gray-900
+  doc.text(`${data.store.storeCode} ${data.store.name}`, textX, y + 12)
 
-  y += 28
+  if (data.store.address) {
+    doc.setFont(font, 'normal')
+    doc.setFontSize(7.5)
+    doc.setTextColor(107, 114, 128) // gray-500
+    const addrLine = doc.splitTextToSize(data.store.address, pageW - marginR - textX - 50)
+    doc.text(addrLine[0], textX, y + 17) // single line only
+  }
+
+  // Right text block
+  doc.setFont(font, 'bold')
+  doc.setFontSize(10)
+  doc.setTextColor(17, 24, 39)
+  doc.text(data.ticketNumber, pageW - marginR, y + 6, { align: 'right' })
+
+  doc.setFont(font, 'normal')
+  doc.setFontSize(7.5)
+  doc.setTextColor(107, 114, 128)
+  doc.text(lastUpdateStr, pageW - marginR, y + 12, { align: 'right' })
+
+  // Purple underline
+  y += 22
+  doc.setDrawColor(147, 51, 234)  // purple-600
+  doc.setLineWidth(1.2)
+  doc.line(marginL, y, pageW - marginR, y)
+  doc.setDrawColor(180, 180, 180) // reset draw color
+  doc.setLineWidth(0.2)
+
+  y += 8  // gap after header
 
   // ─── Equipment Records ────────────────────────────────────────────────────
-  // Layout target: page 1 (starts at y≈64) → 2 items; subsequent pages (y=14) → 3 items
+  // Layout target: page 1 (starts at y≈44) → 2 items; subsequent pages (y=14) → 3 items
   // With photoSize=60: item height ≈ 9(header)+6(details)+4(label)+60(photo)+4(gap)+4(space) = 87 mm
-  // Page 1 available ≈ 283-64 = 219 mm → fits 2×87=174 mm ✓
+  // Page 1 available ≈ 283-44 = 239 mm → fits 2×87=174 mm ✓ (even 2 with some space)
   // Other pages available ≈ 283-14 = 269 mm → fits 3×87=261 mm ✓
   const photoSize = 60
   const itemMinHeight = 9 + 6 + 4 + photoSize + 8  // 87 mm — used for pre-item page-break check
