@@ -238,11 +238,9 @@ export async function generatePmReportPDF(data: PmReportData): Promise<void> {
       y += lines.length * 4 + 2
     }
 
-    // Photos — square crop, centered horizontally on the page
-    // Two 60mm photos + 6mm gap = 126mm; center offset = (182-126)/2 = 28mm
+    // Photos — square crop, left-aligned with equipment bar
     const photoGap = 6
-    const totalPhotoW = photoSize * 2 + photoGap
-    const photoOffsetX = marginL + (contentW - totalPhotoW) / 2
+    const photoOffsetX = marginL
     const p2x = photoOffsetX + photoSize + photoGap
 
     const hasB = eq.beforePhotos.length > 0
