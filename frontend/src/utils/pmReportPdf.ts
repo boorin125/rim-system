@@ -199,43 +199,49 @@ export async function generatePmReportPDF(data: PmReportData): Promise<void> {
       y += lines.length * 4 + 2
     }
 
-    // Photos — square crop (60×60 mm), before on left, after on right
+    // Photos — square crop, centered horizontally on the page
+    // Two 60mm photos + 6mm gap = 126mm; center offset = (182-126)/2 = 28mm
+    const photoGap = 6
+    const totalPhotoW = photoSize * 2 + photoGap
+    const photoOffsetX = marginL + (contentW - totalPhotoW) / 2
+    const p2x = photoOffsetX + photoSize + photoGap
+
     const hasB = eq.beforePhotos.length > 0
     const hasA = eq.afterPhotos.length > 0
 
     if (hasB || hasA) {
       doc.setFontSize(7)
       doc.setTextColor(80, 80, 200)
-      doc.text('ก่อน PM', marginL, y + 3)
+      doc.text('ก่อน PM', photoOffsetX, y + 3)
       doc.setTextColor(30, 120, 30)
-      doc.text('หลัง PM', marginL + photoSize + 6, y + 3)
+      doc.text('หลัง PM', p2x, y + 3)
       y += 4
 
       // Square placeholders
       doc.setDrawColor(180, 180, 180)
-      doc.rect(marginL, y, photoSize, photoSize)
-      doc.rect(marginL + photoSize + 6, y, photoSize, photoSize)
+      doc.rect(photoOffsetX, y, photoSize, photoSize)
+      doc.rect(p2x, y, photoSize, photoSize)
 
       if (hasB) {
         try {
           const cropped = await cropToSquare(eq.beforePhotos[0])
-          doc.addImage(cropped, 'JPEG', marginL, y, photoSize, photoSize, undefined, 'FAST')
+          doc.addImage(cropped, 'JPEG', photoOffsetX, y, photoSize, photoSize, undefined, 'FAST')
         } catch {}
       } else {
         doc.setFontSize(7)
         doc.setTextColor(160, 160, 160)
-        doc.text('ไม่มีรูป', marginL + photoSize / 2, y + photoSize / 2, { align: 'center' })
+        doc.text('ไม่มีรูป', photoOffsetX + photoSize / 2, y + photoSize / 2, { align: 'center' })
       }
 
       if (hasA) {
         try {
           const cropped = await cropToSquare(eq.afterPhotos[0])
-          doc.addImage(cropped, 'JPEG', marginL + photoSize + 6, y, photoSize, photoSize, undefined, 'FAST')
+          doc.addImage(cropped, 'JPEG', p2x, y, photoSize, photoSize, undefined, 'FAST')
         } catch {}
       } else {
         doc.setFontSize(7)
         doc.setTextColor(160, 160, 160)
-        doc.text('ไม่มีรูป', marginL + photoSize + 6 + photoSize / 2, y + photoSize / 2, { align: 'center' })
+        doc.text('ไม่มีรูป', p2x + photoSize / 2, y + photoSize / 2, { align: 'center' })
       }
 
       y += photoSize + 4
