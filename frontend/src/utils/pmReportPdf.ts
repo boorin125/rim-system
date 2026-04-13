@@ -287,6 +287,115 @@ export async function generatePmReportPDF(data: PmReportData): Promise<void> {
     y += 4 // gap between equipment
   }
 
+  // ─── Signature Section (last page) ──────────────────────────────────────
+  // Height needed: header(8) + sig image(20) + line+name+date(18) + padding = ~55 mm
+  const sigBlockH = 55
+  if (y + sigBlockH > pageH - 14) {
+    doc.addPage()
+    y = 14
+  } else {
+    y += 6 // gap after last equipment
+  }
+
+  // Section header bar
+  doc.setFillColor(237, 233, 254) // purple-100
+  doc.rect(marginL, y, contentW, 7, 'F')
+  doc.setFont(font, 'bold')
+  doc.setFontSize(8)
+  doc.setTextColor(88, 28, 135)
+  doc.text('ลายเซ็น / Signatures', marginL + 3, y + 5)
+  y += 10
+
+  const colW = contentW / 2
+  const sigImgH = 18   // max height for signature image
+  const lineY = y + sigImgH + 4  // y of the signature line
+
+  // ── Technician column (left) ──
+  doc.setFont(font, 'normal')
+  doc.setFontSize(7.5)
+  doc.setTextColor(100, 100, 100)
+  doc.text('ลายเซ็นช่างเทคนิค / Technician', marginL + colW / 2, y - 1, { align: 'center' })
+
+  if (data.technicianSignature) {
+    try {
+      const sigDims = await new Promise<{ w: number; h: number }>((resolve) => {
+        const img = new Image()
+        img.onload = () => resolve({ w: img.width, h: img.height })
+        img.onerror = () => resolve({ w: 0, h: 0 })
+        img.src = data.technicianSignature!
+      })
+      if (sigDims.w > 0) {
+        const ratio = sigDims.w / sigDims.h
+        const sh = Math.min(sigImgH, 50 * ratio > 50 ? sigImgH : sigImgH)
+        const sw = Math.min(sh * ratio, colW - 20)
+        const sx = marginL + (colW - sw) / 2
+        const fmt = data.technicianSignature.startsWith('data:image/png') ? 'PNG' : 'JPEG'
+        doc.addImage(data.technicianSignature, fmt, sx, y + 1, sw, Math.min(sh, sigImgH), undefined, 'FAST')
+      }
+    } catch {}
+  }
+
+  // Signature line
+  doc.setDrawColor(100, 100, 100)
+  doc.setLineWidth(0.4)
+  doc.line(marginL + 10, lineY, marginL + colW - 10, lineY)
+  doc.setFont(font, 'normal')
+  doc.setFontSize(8)
+  doc.setTextColor(50, 50, 50)
+  doc.text(`(${data.technicianName || '                    '})`, marginL + colW / 2, lineY + 5, { align: 'center' })
+  doc.setFontSize(7)
+  doc.setTextColor(120, 120, 120)
+  if (data.performedAt) {
+    const d = new Date(data.performedAt)
+    doc.text(`${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`, marginL + colW / 2, lineY + 10, { align: 'center' })
+  }
+
+  // ── Store Staff column (right) ──
+  const rightX = marginL + colW
+  doc.setFont(font, 'normal')
+  doc.setFontSize(7.5)
+  doc.setTextColor(100, 100, 100)
+  doc.text('ลายเซ็นเจ้าหน้าที่สาขา / Store Staff', rightX + colW / 2, y - 1, { align: 'center' })
+
+  if (data.storeSignature) {
+    try {
+      const sigDims = await new Promise<{ w: number; h: number }>((resolve) => {
+        const img = new Image()
+        img.onload = () => resolve({ w: img.width, h: img.height })
+        img.onerror = () => resolve({ w: 0, h: 0 })
+        img.src = data.storeSignature!
+      })
+      if (sigDims.w > 0) {
+        const ratio = sigDims.w / sigDims.h
+        const sw = Math.min(sigImgH * ratio, colW - 20)
+        const sh = sw / ratio
+        const sx = rightX + (colW - sw) / 2
+        const fmt = data.storeSignature.startsWith('data:image/png') ? 'PNG' : 'JPEG'
+        doc.addImage(data.storeSignature, fmt, sx, y + 1, sw, Math.min(sh, sigImgH), undefined, 'FAST')
+      }
+    } catch {}
+  }
+
+  doc.setDrawColor(100, 100, 100)
+  doc.setLineWidth(0.4)
+  doc.line(rightX + 10, lineY, rightX + colW - 10, lineY)
+  doc.setFont(font, 'normal')
+  doc.setFontSize(8)
+  doc.setTextColor(50, 50, 50)
+  doc.text(`(${data.storeSignerName || '                    '})`, rightX + colW / 2, lineY + 5, { align: 'center' })
+  doc.setFontSize(7)
+  doc.setTextColor(120, 120, 120)
+  if (data.storeSignedAt) {
+    const d = new Date(data.storeSignedAt)
+    doc.text(`${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`, rightX + colW / 2, lineY + 10, { align: 'center' })
+  }
+
+  // Vertical divider between columns
+  doc.setDrawColor(200, 200, 200)
+  doc.setLineWidth(0.3)
+  doc.line(marginL + colW, y - 2, marginL + colW, lineY + 12)
+  doc.setLineWidth(0.2)
+
   // ─── Footer ───────────────────────────────────────────────────────────────
   const totalPages = (doc as any).internal.getNumberOfPages()
   for (let p = 1; p <= totalPages; p++) {
