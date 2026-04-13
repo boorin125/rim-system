@@ -65,26 +65,25 @@ async function loadSarabunFont(doc: jsPDF): Promise<string> {
   return font
 }
 
-/** Resize and add an image; returns the image height used */
-function addPhoto(
-  doc: jsPDF,
-  base64: string,
-  x: number,
-  y: number,
-  maxW: number,
-  maxH: number,
-): number {
-  try {
+/** Center-crop a base64 image to a square using canvas (object-fit: cover equivalent) */
+async function cropToSquare(base64: string): Promise<string> {
+  return new Promise((resolve) => {
     const img = new Image()
+    img.onload = () => {
+      const size = Math.min(img.width, img.height)
+      const sx = (img.width - size) / 2
+      const sy = (img.height - size) / 2
+      const canvas = document.createElement('canvas')
+      canvas.width = size
+      canvas.height = size
+      const ctx = canvas.getContext('2d')
+      if (!ctx) { resolve(base64); return }
+      ctx.drawImage(img, sx, sy, size, size, 0, 0, size, size)
+      resolve(canvas.toDataURL('image/jpeg', 0.85))
+    }
+    img.onerror = () => resolve(base64)
     img.src = base64
-    // Use fixed dimensions — actual ratio kept by jsPDF
-    const w = maxW
-    const h = maxH
-    doc.addImage(base64, 'JPEG', x, y, w, h, undefined, 'FAST')
-    return h
-  } catch {
-    return 0
-  }
+  })
 }
 
 export async function generatePmReportPDF(data: PmReportData): Promise<void> {
@@ -193,14 +192,13 @@ export async function generatePmReportPDF(data: PmReportData): Promise<void> {
       y += lines.length * 4 + 2
     }
 
-    // Photos — before on left, after on right
-    const photoW = (contentW - 6) / 2
-    const photoH = 45
+    // Photos — square crop, before on left, after on right
+    const photoSize = 50   // square: 50×50 mm each; two photos = 50+6+50 = 106 mm (within 182 mm)
     const hasB = eq.beforePhotos.length > 0
     const hasA = eq.afterPhotos.length > 0
 
     if (hasB || hasA) {
-      if (y + photoH + 8 > pageH - 14) {
+      if (y + photoSize + 8 > pageH - 14) {
         doc.addPage()
         y = 14
       }
@@ -209,35 +207,37 @@ export async function generatePmReportPDF(data: PmReportData): Promise<void> {
       doc.setTextColor(80, 80, 200)
       doc.text('ก่อน PM', marginL, y + 3)
       doc.setTextColor(30, 120, 30)
-      doc.text('หลัง PM', marginL + photoW + 6, y + 3)
+      doc.text('หลัง PM', marginL + photoSize + 6, y + 3)
       y += 4
 
-      // Photo placeholders
+      // Square placeholders
       doc.setDrawColor(180, 180, 180)
-      doc.rect(marginL, y, photoW, photoH)
-      doc.rect(marginL + photoW + 6, y, photoW, photoH)
+      doc.rect(marginL, y, photoSize, photoSize)
+      doc.rect(marginL + photoSize + 6, y, photoSize, photoSize)
 
       if (hasB) {
         try {
-          doc.addImage(eq.beforePhotos[0], 'JPEG', marginL, y, photoW, photoH, undefined, 'FAST')
+          const cropped = await cropToSquare(eq.beforePhotos[0])
+          doc.addImage(cropped, 'JPEG', marginL, y, photoSize, photoSize, undefined, 'FAST')
         } catch {}
       } else {
         doc.setFontSize(7)
         doc.setTextColor(160, 160, 160)
-        doc.text('ไม่มีรูป', marginL + photoW / 2, y + photoH / 2, { align: 'center' })
+        doc.text('ไม่มีรูป', marginL + photoSize / 2, y + photoSize / 2, { align: 'center' })
       }
 
       if (hasA) {
         try {
-          doc.addImage(eq.afterPhotos[0], 'JPEG', marginL + photoW + 6, y, photoW, photoH, undefined, 'FAST')
+          const cropped = await cropToSquare(eq.afterPhotos[0])
+          doc.addImage(cropped, 'JPEG', marginL + photoSize + 6, y, photoSize, photoSize, undefined, 'FAST')
         } catch {}
       } else {
         doc.setFontSize(7)
         doc.setTextColor(160, 160, 160)
-        doc.text('ไม่มีรูป', marginL + photoW + 6 + photoW / 2, y + photoH / 2, { align: 'center' })
+        doc.text('ไม่มีรูป', marginL + photoSize + 6 + photoSize / 2, y + photoSize / 2, { align: 'center' })
       }
 
-      y += photoH + 4
+      y += photoSize + 4
     }
 
     y += 4 // gap between equipment
