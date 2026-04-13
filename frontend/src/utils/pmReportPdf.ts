@@ -144,11 +144,18 @@ export async function generatePmReportPDF(data: PmReportData): Promise<void> {
   y += 28
 
   // ─── Equipment Records ────────────────────────────────────────────────────
+  // Layout target: page 1 (starts at y≈64) → 2 items; subsequent pages (y=14) → 3 items
+  // With photoSize=60: item height ≈ 9(header)+6(details)+4(label)+60(photo)+4(gap)+4(space) = 87 mm
+  // Page 1 available ≈ 283-64 = 219 mm → fits 2×87=174 mm ✓
+  // Other pages available ≈ 283-14 = 269 mm → fits 3×87=261 mm ✓
+  const photoSize = 60
+  const itemMinHeight = 9 + 6 + 4 + photoSize + 8  // 87 mm — used for pre-item page-break check
+
   for (let i = 0; i < data.equipmentRecords.length; i++) {
     const eq = data.equipmentRecords[i]
 
-    // Check if we need a new page
-    if (y + 60 > pageH - 14) {
+    // Pre-item page break — check full item height before drawing anything
+    if (y + itemMinHeight > pageH - 14) {
       doc.addPage()
       y = 14
     }
@@ -192,17 +199,11 @@ export async function generatePmReportPDF(data: PmReportData): Promise<void> {
       y += lines.length * 4 + 2
     }
 
-    // Photos — square crop, before on left, after on right
-    const photoSize = 50   // square: 50×50 mm each; two photos = 50+6+50 = 106 mm (within 182 mm)
+    // Photos — square crop (60×60 mm), before on left, after on right
     const hasB = eq.beforePhotos.length > 0
     const hasA = eq.afterPhotos.length > 0
 
     if (hasB || hasA) {
-      if (y + photoSize + 8 > pageH - 14) {
-        doc.addPage()
-        y = 14
-      }
-
       doc.setFontSize(7)
       doc.setTextColor(80, 80, 200)
       doc.text('ก่อน PM', marginL, y + 3)
