@@ -809,7 +809,13 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
     }
   }
 
-  const handleGenerateSignLink = async () => {
+  const handleOpenSignPage = async () => {
+    // If link already exists, open it directly
+    if (signLink) {
+      window.open(signLink, '_blank')
+      return
+    }
+    // Otherwise generate a new token then open
     try {
       setGeneratingToken(true)
       const token = localStorage.getItem('token')
@@ -820,8 +826,26 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
       )
       const link = `${window.location.origin}/inventory-sign/${res.data.token}`
       setSignLink(link)
-      await navigator.clipboard.writeText(link)
-      toast.success('สร้างลิงก์สำเร็จ! คัดลอกลิงก์แล้ว')
+      window.open(link, '_blank')
+    } catch {
+      toast.error('สร้างลิงก์ไม่สำเร็จ')
+    } finally {
+      setGeneratingToken(false)
+    }
+  }
+
+  const handleRegenerateSignLink = async () => {
+    try {
+      setGeneratingToken(true)
+      const token = localStorage.getItem('token')
+      const res = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/pm/incident/${incidentId}/inventory-token`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } },
+      )
+      const link = `${window.location.origin}/inventory-sign/${res.data.token}`
+      setSignLink(link)
+      toast.success('สร้างลิงก์ใหม่แล้ว')
     } catch {
       toast.error('สร้างลิงก์ไม่สำเร็จ')
     } finally {
@@ -1282,11 +1306,11 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
         {/* Digital Sign + Upload — only for the primary PM technician */}
         {isPmOwner && (
           <div className="grid grid-cols-2 gap-2">
-            {/* Online Sign Link */}
+            {/* Digital Sign — opens sign page directly */}
             <button
-              onClick={handleGenerateSignLink}
+              onClick={handleOpenSignPage}
               disabled={generatingToken || !pmRecord.performedAt}
-              title={!pmRecord.performedAt ? 'Submit PM ก่อนจึงจะสร้างลิงก์ได้' : ''}
+              title={!pmRecord.performedAt ? 'Submit PM ก่อนจึงจะเซ็นได้' : ''}
               className="flex items-center justify-center gap-2 py-2.5 bg-indigo-600/80 hover:bg-indigo-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm rounded-lg transition-colors"
             >
               {generatingToken ? (
@@ -1294,7 +1318,7 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
               ) : (
                 <Link2 className="w-4 h-4" />
               )}
-              {signLink ? 'สร้างลิงก์ใหม่' : 'Digital Sign'}
+              {signLink ? 'เปิดหน้าเซ็น' : 'Digital Sign'}
             </button>
 
             {/* Upload Signed Paper — disabled at 5 photos */}
@@ -1359,15 +1383,23 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
         )}
 
         {/* Sign link display */}
-        {signLink && (
+        {signLink && !pmRecord.storeSignedAt && (
           <div className="flex items-center gap-2 p-3 bg-slate-700/50 rounded-lg">
             <Link2 className="w-4 h-4 text-indigo-400 flex-shrink-0" />
             <p className="text-xs text-indigo-300 truncate flex-1">{signLink}</p>
             <button
               onClick={() => { navigator.clipboard.writeText(signLink); toast.success('คัดลอกแล้ว') }}
-              className="text-xs text-gray-400 hover:text-white px-2 py-1 bg-slate-600 rounded"
+              className="text-xs text-gray-400 hover:text-white px-2 py-1 bg-slate-600 rounded flex-shrink-0"
             >
               Copy
+            </button>
+            <button
+              onClick={handleRegenerateSignLink}
+              disabled={generatingToken}
+              title="สร้างลิงก์ใหม่"
+              className="text-xs text-gray-400 hover:text-white px-2 py-1 bg-slate-600 rounded flex-shrink-0"
+            >
+              สร้างใหม่
             </button>
           </div>
         )}
