@@ -141,9 +141,12 @@ export async function generateInventoryListPDF(data: InventoryListData): Promise
   y += 8
 
   // ── Table ─────────────────────────────────────────────────────────────────
-  // ROW_H=26: 10 rows fill a full page on pages 2+ (y=21+260=281 < 292 ✓)
-  const ROWS_PER_PAGE = 10
+  // ROW_H=26: page 1 (y=47): 47+9×26=281 < 292 ✓  pages 2+ (y=21): 21+10×26=281 < 292 ✓
+  // Both page types end at y≈281, 11 mm above footer — balanced layout.
+  const ROWS_PER_PAGE_P1 = 9   // page 1 has taller header → 9 rows
+  const ROWS_PER_PAGE    = 10  // pages 2+ → 10 rows
   const ROW_H = 26
+  let isFirstPage = true
 
   const cols = [
     { label: 'ลำดับ',        w: 10,  align: 'center' as const },
@@ -177,13 +180,15 @@ export async function generateInventoryListPDF(data: InventoryListData): Promise
   for (let i = 0; i < data.equipment.length; i++) {
     const eq = data.equipment[i]
 
-    // Break after ROWS_PER_PAGE items per page
-    if (pageItemCount === ROWS_PER_PAGE) {
+    // Break when the current page is full
+    const rowLimit = isFirstPage ? ROWS_PER_PAGE_P1 : ROWS_PER_PAGE
+    if (pageItemCount === rowLimit) {
       doc.addPage()
       y = 14
       drawTableHeader(y)
       y += 7
       pageItemCount = 0
+      isFirstPage = false
     }
 
     // Row background: alternating purple-50 / white
