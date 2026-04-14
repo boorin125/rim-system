@@ -146,13 +146,13 @@ export async function generateInventoryListPDF(data: InventoryListData): Promise
   const ROW_H = 26
 
   const cols = [
-    { label: 'ลำดับ',        w: 10, align: 'center' as const },
-    { label: 'ชื่ออุปกรณ์',   w: 40, align: 'left'   as const },
-    { label: 'Brand / Model', w: 32, align: 'left'   as const },
-    { label: 'Serial No.',    w: 28, align: 'left'   as const },
-    { label: 'รูปอุปกรณ์',   w: 22, align: 'center' as const },
-    { label: 'Recheck',       w: contentW - 10 - 40 - 32 - 28 - 22, align: 'left' as const },
-    // Recheck = 190 - 132 = 58 mm
+    { label: 'ลำดับ',        w: 10,  align: 'center' as const },
+    { label: 'ชื่ออุปกรณ์',   w: 60,  align: 'left'   as const },
+    { label: 'Brand / Model', w: 35,  align: 'left'   as const },
+    { label: 'Serial No.',    w: 30,  align: 'left'   as const },
+    { label: 'รูปอุปกรณ์',   w: 30,  align: 'center' as const },
+    { label: 'Recheck',       w: 25,  align: 'center' as const },
+    // 10+60+35+30+30+25 = 190 mm
   ]
 
   const drawTableHeader = (yh: number) => {
