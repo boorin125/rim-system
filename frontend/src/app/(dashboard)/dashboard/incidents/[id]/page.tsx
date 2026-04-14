@@ -1003,11 +1003,12 @@ SLA Breach Time: ${slaBreachText}`
 
   // Resolve - TECHNICIAN ที่ถูก assign คนไหนก็ resolve ได้
   const isPmIncident = incident?.jobType === 'Preventive Maintenance'
+  const pmSigned = !!pmStoreSignedAt || pmSignedDocsCount > 0
   const canResolve =
     incident?.status === 'IN_PROGRESS' &&
     hasTechnicianRole &&
     isAssignedToMe &&
-    (!isPmIncident || !!pmPerformedAt)  // PM incidents require Submit PM first
+    (!isPmIncident || (!!pmPerformedAt && pmSigned))  // PM: must Submit PM + sign/upload doc
 
   // Add Before Photos - TECHNICIAN ที่ถูก assign, สถานะ IN_PROGRESS, รูปยังไม่ครบ 5
   const currentBeforePhotosCount = incident?.beforePhotos?.length || 0
@@ -1092,7 +1093,13 @@ SLA Breach Time: ${slaBreachText}`
       case 'IN_PROGRESS':
         if (isPmIncident && !pmPerformedAt) {
           return {
-            message: '📋 กรุณา Submit PM ในส่วน PM Checklist ก่อน จึงจะสามารถ Resolve Incident ได้',
+            message: '📋 กรุณาถ่ายรูปอุปกรณ์ให้ครบ แล้วกด Submit PM ในส่วน PM Checklist',
+            type: 'info',
+          }
+        }
+        if (isPmIncident && pmPerformedAt && !pmSigned) {
+          return {
+            message: '✍️ Submit PM แล้ว — กรุณา Digital Sign หรืออัพโหลดเอกสารใบงาน เพื่อ Resolve ได้',
             type: 'info',
           }
         }

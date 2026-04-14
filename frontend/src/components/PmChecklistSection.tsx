@@ -687,7 +687,7 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
   // Poll every 15 s when sign link is active but customer hasn't signed yet
   // (storeSignedAt only updates when customer signs via the link — requires a refetch)
   useEffect(() => {
-    if (!signLink || pmRecord?.storeSignedAt || pmRecord?.performedAt) return
+    if (!signLink || pmRecord?.storeSignedAt) return
     const id = setInterval(async () => {
       try {
         const token = localStorage.getItem('token')
@@ -1178,6 +1178,41 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
         />
       </div>
 
+      {/* ─── Step Indicator ─── */}
+      {isPmOwner && (() => {
+        const step1Done = allComplete || !!pmRecord.performedAt
+        const step2Done = !!pmRecord.performedAt
+        const step3Done = !!pmRecord.storeSignedAt || !!(pmRecord.signedInventoryPhotos?.length)
+        const steps = [
+          { label: 'ถ่ายรูปครบทุกอุปกรณ์', done: step1Done },
+          { label: 'Submit PM', done: step2Done },
+          { label: 'ลงนาม / อัพโหลดเอกสาร', done: step3Done },
+          { label: 'พร้อม Resolve', done: step2Done && step3Done },
+        ]
+        return (
+          <div className="flex items-center gap-1">
+            {steps.map((s, i) => (
+              <div key={i} className="flex items-center flex-1 min-w-0">
+                <div className={`flex items-center gap-1.5 flex-1 min-w-0 px-2 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${
+                  s.done ? 'bg-green-500/15 text-green-400' : 'bg-slate-700/50 text-gray-500'
+                }`}>
+                  <span className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold ${
+                    s.done ? 'bg-green-500 text-white' : 'bg-slate-600 text-gray-400'
+                  }`}>
+                    {s.done ? '✓' : i + 1}
+                  </span>
+                  <span className="truncate hidden sm:block">{s.label}</span>
+                  <span className="truncate sm:hidden">{i + 1}</span>
+                </div>
+                {i < steps.length - 1 && (
+                  <div className={`w-3 h-px flex-shrink-0 ${s.done ? 'bg-green-500/40' : 'bg-slate-600'}`} />
+                )}
+              </div>
+            ))}
+          </div>
+        )
+      })()}
+
       {/* PM Completed Badge */}
       {pmRecord.performedAt && (
         <div className="flex items-center gap-2 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
@@ -1210,8 +1245,8 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
         ))}
       </div>
 
-      {/* Submit PM Button — only visible when signed doc OR digital sign is present */}
-      {isPmOwner && !pmRecord.performedAt && (!!(pmRecord.signedInventoryPhotos?.length) || !!pmRecord.storeSignedAt) && (
+      {/* Submit PM Button — visible when all equipment photos are complete */}
+      {isPmOwner && !pmRecord.performedAt && (
         <button
           onClick={handleSubmitPm}
           disabled={submitting || !allComplete}
@@ -1303,14 +1338,13 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
           )}
         </div>
 
-        {/* Digital Sign + Upload — only for the primary PM technician */}
-        {isPmOwner && (
+        {/* Digital Sign + Upload — only for the primary PM technician, only after Submit PM */}
+        {isPmOwner && pmRecord.performedAt && (
           <div className="grid grid-cols-2 gap-2">
             {/* Digital Sign — opens sign page directly */}
             <button
               onClick={handleOpenSignPage}
-              disabled={generatingToken || !pmRecord.performedAt}
-              title={!pmRecord.performedAt ? 'Submit PM ก่อนจึงจะเซ็นได้' : ''}
+              disabled={generatingToken}
               className="flex items-center justify-center gap-2 py-2.5 bg-indigo-600/80 hover:bg-indigo-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm rounded-lg transition-colors"
             >
               {generatingToken ? (
@@ -1318,7 +1352,7 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
               ) : (
                 <Link2 className="w-4 h-4" />
               )}
-              {signLink ? 'เปิดหน้าเซ็น' : 'Digital Sign'}
+              Digital Sign
             </button>
 
             {/* Upload Signed Paper — disabled at 5 photos */}
@@ -1414,6 +1448,22 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
             </p>
           </div>
         )}
+
+        {/* ─── Resolve-readiness status — shown only after Submit PM ─── */}
+        {pmRecord.performedAt && isPmOwner && (() => {
+          const isSigned = !!pmRecord.storeSignedAt
+          const hasDoc = !!(pmRecord.signedInventoryPhotos?.length)
+          const ready = isSigned || hasDoc
+          if (ready) return null  // green badges above already confirm it
+          return (
+            <div className="flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+              <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-300 leading-relaxed">
+                ยังไม่สามารถ Resolve ได้ — กรุณา <strong>Digital Sign</strong> (ให้สาขาเซ็นออนไลน์) หรือ <strong>อัพโหลดเอกสาร</strong> ใบงานที่เซ็นแล้ว
+              </p>
+            </div>
+          )
+        })()}
 
         {/* Uploaded signed papers — up to 5 */}
         {!!pmRecord.signedInventoryPhotos?.length && (
