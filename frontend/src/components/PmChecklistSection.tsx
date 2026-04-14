@@ -684,6 +684,18 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
 
   useEffect(() => { fetchPmRecord() }, [incidentId])
 
+  // Sync pmRecord state changes → parent page (for canResolve gate)
+  // Needed because optimistic updates (upload/delete doc) update local state
+  // without re-calling fetchPmRecord, so parent's pmSignedDocsCount must follow
+  useEffect(() => {
+    if (!pmRecord) return
+    onPmLoaded?.({
+      performedAt: pmRecord.performedAt ?? null,
+      storeSignedAt: pmRecord.storeSignedAt ?? null,
+      signedInventoryPhotosCount: pmRecord.signedInventoryPhotos?.length ?? 0,
+    })
+  }, [pmRecord?.performedAt, pmRecord?.storeSignedAt, pmRecord?.signedInventoryPhotos?.length]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Poll every 15 s when sign link is active but customer hasn't signed yet
   // (storeSignedAt only updates when customer signs via the link — requires a refetch)
   useEffect(() => {
