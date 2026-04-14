@@ -296,17 +296,31 @@ export async function generateInventoryListPDF(data: InventoryListData): Promise
   doc.setFontSize(8)
   doc.setTextColor(88, 28, 135)
   doc.text('ลายเซ็น / Signatures', marginL + 3, y + 5)
-  y += 16
+  y += 7  // move past header bar
 
   const colW = contentW / 2
   const sigImgH = 20
-  const lineY = y + sigImgH + 6
+  const boxH = 44      // height of each signature box
+  const boxTop = y
 
-  // ── Technician column (left) — same as PM Report ──
+  // Bordered signature boxes (Service Report style)
+  doc.setDrawColor(160, 160, 160)
+  doc.setLineWidth(0.2)
+  doc.rect(marginL, boxTop, colW, boxH)
+  doc.rect(marginL + colW, boxTop, colW, boxH)
+
+  // Inner signature lines
+  const lineY = boxTop + 8 + sigImgH + 2  // boxTop + 30
+  doc.setDrawColor(180, 180, 180)
+  doc.setLineWidth(0.3)
+  doc.line(marginL + 8, lineY, marginL + colW - 8, lineY)
+  doc.line(marginL + colW + 8, lineY, marginL + colW * 2 - 8, lineY)
+
+  // ── Technician column (left) ──
   doc.setFont(font, 'normal')
   doc.setFontSize(7.5)
   doc.setTextColor(100, 100, 100)
-  doc.text('ลายเซ็นช่างเทคนิค / Technician', marginL + colW / 2, y - 2, { align: 'center' })
+  doc.text('ลายเซ็นช่างเทคนิค / Technician', marginL + colW / 2, boxTop + 4.5, { align: 'center' })
 
   if (data.technicianSignature) {
     try {
@@ -322,31 +336,29 @@ export async function generateInventoryListPDF(data: InventoryListData): Promise
         const sw = Math.min(sh * ratio, colW - 20)
         const sx = marginL + (colW - sw) / 2
         const fmt = data.technicianSignature.startsWith('data:image/png') ? 'PNG' : 'JPEG'
-        doc.addImage(data.technicianSignature, fmt, sx, y + 1, sw, Math.min(sh, sigImgH), undefined, 'FAST')
+        doc.addImage(data.technicianSignature, fmt, sx, boxTop + 8, sw, Math.min(sh, sigImgH), undefined, 'FAST')
       }
     } catch {}
   }
 
-  doc.setDrawColor(100, 100, 100)
-  doc.setLineWidth(0.4)
-  doc.line(marginL + 10, lineY, marginL + colW - 10, lineY)
-  doc.setFont(font, 'normal')
-  doc.setFontSize(8)
-  doc.setTextColor(50, 50, 50)
-  doc.text(`(${data.technicianName || '                    '})`, marginL + colW / 2, lineY + 5, { align: 'center' })
+  doc.setFont(font, 'bold')
   doc.setFontSize(7)
+  doc.setTextColor(50, 50, 50)
+  doc.text(`(${data.technicianName || '                    '})`, marginL + colW / 2, lineY + 4, { align: 'center' })
+  doc.setFont(font, 'normal')
+  doc.setFontSize(6)
   doc.setTextColor(120, 120, 120)
   if (data.performedAt) {
     const d = new Date(data.performedAt)
-    doc.text(`${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`, marginL + colW / 2, lineY + 10, { align: 'center' })
+    doc.text(`${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`, marginL + colW / 2, lineY + 8, { align: 'center' })
   }
 
-  // ── Store Staff column (right) — same as PM Report ──
+  // ── Store Staff column (right) ──
   const rightX = marginL + colW
   doc.setFont(font, 'normal')
   doc.setFontSize(7.5)
   doc.setTextColor(100, 100, 100)
-  doc.text('ลายเซ็นเจ้าหน้าที่สาขา / Store Staff', rightX + colW / 2, y - 2, { align: 'center' })
+  doc.text('ลายเซ็นเจ้าหน้าที่สาขา / Store Staff', rightX + colW / 2, boxTop + 4.5, { align: 'center' })
 
   if (data.storeSignature) {
     try {
@@ -362,29 +374,23 @@ export async function generateInventoryListPDF(data: InventoryListData): Promise
         const sh = sw / ratio
         const sx = rightX + (colW - sw) / 2
         const fmt = data.storeSignature.startsWith('data:image/png') ? 'PNG' : 'JPEG'
-        doc.addImage(data.storeSignature, fmt, sx, y + 1, sw, Math.min(sh, sigImgH), undefined, 'FAST')
+        doc.addImage(data.storeSignature, fmt, sx, boxTop + 8, sw, Math.min(sh, sigImgH), undefined, 'FAST')
       }
     } catch {}
   }
 
-  doc.setDrawColor(100, 100, 100)
-  doc.setLineWidth(0.4)
-  doc.line(rightX + 10, lineY, rightX + colW - 10, lineY)
-  doc.setFont(font, 'normal')
-  doc.setFontSize(8)
-  doc.setTextColor(50, 50, 50)
-  doc.text(`(${data.storeSignerName || '                    '})`, rightX + colW / 2, lineY + 5, { align: 'center' })
+  doc.setFont(font, 'bold')
   doc.setFontSize(7)
+  doc.setTextColor(50, 50, 50)
+  doc.text(`(${data.storeSignerName || '                    '})`, rightX + colW / 2, lineY + 4, { align: 'center' })
+  doc.setFont(font, 'normal')
+  doc.setFontSize(6)
   doc.setTextColor(120, 120, 120)
   if (data.storeSignedAt) {
     const d = new Date(data.storeSignedAt)
-    doc.text(`${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`, rightX + colW / 2, lineY + 10, { align: 'center' })
+    doc.text(`${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`, rightX + colW / 2, lineY + 8, { align: 'center' })
   }
 
-  // Vertical divider between columns
-  doc.setDrawColor(200, 200, 200)
-  doc.setLineWidth(0.3)
-  doc.line(marginL + colW, y - 2, marginL + colW, lineY + 12)
   doc.setLineWidth(0.2)
 
   // ── Page footer (page number) ──────────────────────────────────────────────
