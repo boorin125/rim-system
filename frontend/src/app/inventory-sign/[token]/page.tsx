@@ -266,9 +266,9 @@ export default function InventorySignPage() {
       <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
         <div className="bg-gray-900 border border-green-500/30 rounded-2xl p-8 max-w-sm w-full text-center">
           <CheckCircle2 className="w-14 h-14 text-green-400 mx-auto mb-4" />
-          <h2 className="text-white font-bold text-xl mb-2">ลงนามสำเร็จ</h2>
+          <h2 className="text-white font-bold text-xl mb-2">บันทึกลายเซ็นแล้ว</h2>
           <p className="text-gray-300 text-sm mb-1">
-            {data.store.storeCode} — {data.store.name}
+            {data.store.storeCode} {data.store.name}
           </p>
           {data.storeSignerName && (
             <p className="text-gray-400 text-sm">ผู้เซ็น: {data.storeSignerName}</p>
@@ -345,7 +345,7 @@ export default function InventorySignPage() {
             <div>
               <h1 className="text-white font-bold text-lg">Inventory List</h1>
               <p className="text-purple-300 text-sm">
-                {data.store.storeCode} — {data.store.name}
+                {data.store.storeCode} {data.store.name}
               </p>
             </div>
           </div>
