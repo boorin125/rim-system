@@ -3106,22 +3106,52 @@ export class IncidentsService {
           serviceReportLink,
         };
 
-        // 1) Internal email (IT Support + CC team) — WITH rating link
-        await this.emailService.sendIncidentClosureEmail({
-          ...commonEmailData,
-          to: toEmail,
-          cc: ccEmails,
-          ratingLink,
-        });
-
-        // 2) Store email — WITH rating link (only if store email exists and CC store enabled)
-        if (emailSettings.ccStoreEmail && updated.store?.email) {
+        if (incident.jobType === 'Preventive Maintenance') {
+          // PM incident: fetch PM record then send PM-specific closure email
+          const pmRecord = await this.prisma.pmRecord.findUnique({
+            where: { incidentId: id },
+            select: {
+              performedAt: true,
+              technicianId: true,
+              equipmentRecords: {
+                select: {
+                  equipmentId: true,
+                  condition: true,
+                  comment: true,
+                  updatedBrand: true,
+                  updatedModel: true,
+                  updatedSerial: true,
+                  afterPhotos: true,
+                },
+              },
+            },
+          });
+          if (pmRecord) {
+            this.pmService.sendPmCompletionEmail(
+              id,
+              pmRecord.performedAt || incident.resolvedAt || new Date(),
+              pmRecord.technicianId || incident.resolvedById || userId,
+              pmRecord.equipmentRecords,
+            ).catch((e) => console.error('Failed to send PM closure email:', e));
+          }
+        } else {
+          // 1) Standard closure email (IT Support + CC team) — WITH rating link
           await this.emailService.sendIncidentClosureEmail({
             ...commonEmailData,
-            to: updated.store.email,
-            cc: undefined,
+            to: toEmail,
+            cc: ccEmails,
             ratingLink,
           });
+
+          // 2) Store email — WITH rating link (only if store email exists and CC store enabled)
+          if (emailSettings.ccStoreEmail && updated.store?.email) {
+            await this.emailService.sendIncidentClosureEmail({
+              ...commonEmailData,
+              to: updated.store.email,
+              cc: undefined,
+              ratingLink,
+            });
+          }
         }
       }
     } catch (emailError) {

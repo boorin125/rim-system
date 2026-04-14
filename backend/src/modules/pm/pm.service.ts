@@ -373,18 +373,13 @@ export class PmService {
       }
     });
 
-    // Send PM completion email (non-blocking)
-    this.sendPmCompletionEmail(incidentId, now, userId, pmRecord.equipmentRecords).catch((e) =>
-      console.error('Failed to send PM completion email:', e),
-    );
-
     return { success: true, performedAt: now, skippedEquipmentIds: skippedEquipment };
   }
 
   /**
    * Send PM completion email to configured recipients.
    */
-  private async sendPmCompletionEmail(
+  async sendPmCompletionEmail(
     incidentId: string,
     performedAt: Date,
     technicianId: number,
