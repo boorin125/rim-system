@@ -290,15 +290,15 @@ export async function generatePmReportPDF(data: PmReportData): Promise<void> {
     y += 4 // gap between equipment
   }
 
-  // ─── Signature Section (last page) ──────────────────────────────────────
-  // Height needed: header(8) + sig image(20) + line+name+date(18) + padding = ~55 mm
+  // ─── Signature Section — always pinned to bottom of last page ───────────
   const sigBlockH = 55
-  if (y + sigBlockH > pageH - 14) {
+  const sigFixedY = pageH - 10 - sigBlockH  // ~232 mm from top
+
+  if (y + 6 > sigFixedY) {
+    // Equipment runs past signature area → push to a new page
     doc.addPage()
-    y = 14
-  } else {
-    y += 6 // gap after last equipment
   }
+  y = sigFixedY
 
   // Section header bar
   doc.setFillColor(237, 233, 254) // purple-100

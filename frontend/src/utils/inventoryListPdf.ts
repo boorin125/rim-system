@@ -77,14 +77,9 @@ export async function generateInventoryListPDF(data: InventoryListData): Promise
       })
     : new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })
 
-  // ── Header — Purple bar (matches Inventory List Page style) ───────────────
-  // Full-bleed purple background, logo left, title + store, ticket + date right
-  const headerH = 24  // mm — height of purple bar
-  doc.setFillColor(76, 29, 149)  // purple-900 #4c1d95
-  doc.rect(0, 0, pageW, headerH, 'F')
-
-  const logoMaxH = 16
-  const logoMaxW = 40
+  // ── Header (same style as PM Report PDF) ─────────────────────────────────
+  const logoMaxH = 18
+  const logoMaxW = 45
   let textX = marginL
 
   if (data.organizationLogo) {
@@ -99,61 +94,65 @@ export async function generateInventoryListPDF(data: InventoryListData): Promise
         const ratio = logoDims.w / logoDims.h
         const lh = Math.min(logoMaxH, logoMaxW / ratio)
         const lw = lh * ratio
-        const logoY = (headerH - lh) / 2
         const fmt = data.organizationLogo.startsWith('data:image/png') ? 'PNG' : 'JPEG'
-        doc.addImage(data.organizationLogo, fmt, marginL, logoY, lw, lh, undefined, 'FAST')
+        doc.addImage(data.organizationLogo, fmt, marginL, y, lw, lh, undefined, 'FAST')
         textX = marginL + lw + 3
       }
-    } catch { /* skip logo on error */ }
+    } catch {}
   }
 
-  // Left: title + store name
+  // Left text block
   doc.setFont(font, 'bold')
   doc.setFontSize(11)
-  doc.setTextColor(255, 255, 255)  // white
-  doc.text('Inventory List', textX, 9)
+  doc.setTextColor(55, 65, 81)
+  doc.text('Inventory List', textX, y + 6)
 
-  doc.setFont(font, 'normal')
-  doc.setFontSize(8.5)
-  doc.setTextColor(216, 180, 254)  // purple-300
-  doc.text(`${data.store.storeCode} ${data.store.name}`, textX, 16)
+  doc.setFont(font, 'bold')
+  doc.setFontSize(10)
+  doc.setTextColor(17, 24, 39)
+  doc.text(`${data.store.storeCode} ${data.store.name}`, textX, y + 12)
 
   if (data.store.address) {
-    doc.setFontSize(7)
-    doc.setTextColor(196, 151, 254)  // purple-400
-    const addrLine = doc.splitTextToSize(data.store.address, pageW / 2 - 10)
-    doc.text(addrLine[0], textX, 21)
+    doc.setFont(font, 'normal')
+    doc.setFontSize(7.5)
+    doc.setTextColor(107, 114, 128)
+    const addrLine = doc.splitTextToSize(data.store.address, pageW - marginR - textX - 50)
+    doc.text(addrLine[0], textX, y + 17)
   }
 
-  // Right: ticket number + PM date
+  // Right text block
   doc.setFont(font, 'bold')
-  doc.setFontSize(9)
-  doc.setTextColor(255, 255, 255)
-  doc.text(data.ticketNumber, pageW - marginR, 9, { align: 'right' })
+  doc.setFontSize(10)
+  doc.setTextColor(17, 24, 39)
+  doc.text(data.ticketNumber, pageW - marginR, y + 6, { align: 'right' })
 
   doc.setFont(font, 'normal')
   doc.setFontSize(7.5)
-  doc.setTextColor(216, 180, 254)  // purple-300
-  doc.text(`วันที่ PM: ${dateStr}`, pageW - marginR, 16, { align: 'right' })
+  doc.setTextColor(107, 114, 128)
+  doc.text(`วันที่ PM: ${dateStr}`, pageW - marginR, y + 12, { align: 'right' })
 
-  y = headerH + 6
+  // Purple underline
+  y += 22
+  doc.setDrawColor(147, 51, 234)
+  doc.setLineWidth(1.2)
+  doc.line(marginL, y, pageW - marginR, y)
   doc.setDrawColor(180, 180, 180)
   doc.setLineWidth(0.2)
+  y += 8
 
   // ── Table ─────────────────────────────────────────────────────────────────
-  // ROW_H=22: page 1 (y=38): 38+7+10×22=265 < 283 ✓  pages 2+ (y=14): 14+7+10×22=241 < 283 ✓
+  // ROW_H=26: 10 rows fill a full page on pages 2+ (y=21+260=281 < 292 ✓)
   const ROWS_PER_PAGE = 10
-  const ROW_H = 22
+  const ROW_H = 26
 
   const cols = [
-    { label: 'ลำดับ',       w: 10, align: 'center' as const },
-    { label: 'ชื่ออุปกรณ์',  w: 40, align: 'left'   as const },
+    { label: 'ลำดับ',        w: 10, align: 'center' as const },
+    { label: 'ชื่ออุปกรณ์',   w: 40, align: 'left'   as const },
     { label: 'Brand / Model', w: 32, align: 'left'   as const },
     { label: 'Serial No.',    w: 28, align: 'left'   as const },
     { label: 'รูปอุปกรณ์',   w: 22, align: 'center' as const },
-    { label: 'Status',        w: 20, align: 'center' as const },
-    { label: 'Note',          w: contentW - 10 - 40 - 32 - 28 - 22 - 20, align: 'left' as const },
-    // Note = 190 - 152 = 38 mm
+    { label: 'Recheck',       w: contentW - 10 - 40 - 32 - 28 - 22, align: 'left' as const },
+    // Recheck = 190 - 132 = 58 mm
   ]
 
   const drawTableHeader = (yh: number) => {
@@ -243,23 +242,12 @@ export async function generateInventoryListPDF(data: InventoryListData): Promise
     }
     cx += cols[4].w
 
-    // Status (condition)
-    const cond = eq.condition ? (conditionTh[eq.condition] ?? eq.condition) : '-'
-    const condRgb =
-      eq.condition === 'GOOD'         ? ([34, 197, 94]   as const) :
-      eq.condition === 'NEEDS_REPAIR' ? ([234, 179, 8]   as const) :
-      eq.condition === 'REPLACED'     ? ([239, 68, 68]   as const) :
-                                        ([120, 120, 120] as const)
-    doc.setTextColor(condRgb[0], condRgb[1], condRgb[2])
-    doc.text(cond, cx + cols[5].w / 2, midY, { align: 'center' })
-    doc.setTextColor(40, 40, 40)
-    cx += cols[5].w
-
-    // Note
+    // Recheck
     if (eq.comment) {
-      const noteLines = doc.splitTextToSize(eq.comment, cols[6].w - 3)
+      const noteLines = doc.splitTextToSize(eq.comment, cols[5].w - 3)
       doc.setFontSize(6.5)
-      doc.text(noteLines.slice(0, 2), cx + 1.5, y + 7)
+      doc.setTextColor(40, 40, 40)
+      doc.text(noteLines.slice(0, 3), cx + 1.5, y + 7)
       doc.setFontSize(7)
     }
 
@@ -280,14 +268,15 @@ export async function generateInventoryListPDF(data: InventoryListData): Promise
   doc.setLineWidth(0.2)
   y += 8
 
-  // ── Signature Section — PM Report style ───────────────────────────────────
-  const sigBlockH = 58
-  if (y + sigBlockH > pageH - 14) {
+  // ── Signature Section — always pinned to bottom of last page ─────────────
+  const sigBlockH = 55  // 7 (header bar) + 44 (boxes) + 4 (gap)
+  const sigFixedY = pageH - 10 - sigBlockH  // ~232 mm
+
+  if (y + 8 > sigFixedY) {
+    // Rows overflow into signature area → push to new page
     doc.addPage()
-    y = 14
-  } else {
-    y += 4
   }
+  y = sigFixedY
 
   // Section header bar
   doc.setFillColor(237, 233, 254)  // purple-100
