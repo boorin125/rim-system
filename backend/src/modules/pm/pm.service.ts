@@ -461,7 +461,7 @@ export class PmService {
       ? `${frontendUrl}/pm-report/${pmRecord.inventoryListToken}`
       : null;
     const inventoryListLink = pmRecord?.inventoryListToken
-      ? `${frontendUrl}/inventory-sign/${pmRecord.inventoryListToken}`
+      ? `${frontendUrl}/inventory-list/${pmRecord.inventoryListToken}`
       : null;
 
     await this.emailService.sendPmCompletedEmail({

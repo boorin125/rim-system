@@ -30,7 +30,8 @@ const publicPaths = [
   '/rate/',           // Public rating page
   '/service-report/', // Public service report
   '/incident/',       // Public incident view
-  '/inventory-sign/', // Public inventory sign
+  '/inventory-sign/', // Public inventory sign (for signing)
+  '/inventory-list/', // Public inventory list (view only)
   '/pm-report/',      // Public PM report
 ]
 
