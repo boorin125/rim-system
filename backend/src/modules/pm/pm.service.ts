@@ -552,7 +552,6 @@ export class PmService {
       where: { inventoryListToken: token },
       include: {
         store: { select: { id: true, storeCode: true, name: true, province: true, address: true } },
-        technician: { select: { id: true, firstName: true, lastName: true, firstNameEn: true, lastNameEn: true } },
         equipmentRecords: {
           include: {
             equipment: {
@@ -569,13 +568,21 @@ export class PmService {
       throw new BadRequestException('ลิงก์หมดอายุแล้ว');
     }
 
-    // Fetch incident title + ticketNumber
+    // Fetch technician separately
+    const technician = record.technicianId
+      ? await this.prisma.user.findUnique({
+          where: { id: record.technicianId },
+          select: { id: true, firstName: true, lastName: true },
+        })
+      : null;
+
+    // Fetch incident details
     const incident = await this.prisma.incident.findUnique({
       where: { id: record.incidentId },
       select: { ticketNumber: true, title: true, resolutionNote: true, resolvedAt: true },
     });
 
-    return { ...record, incident };
+    return { ...record, technician, incident };
   }
 
   /**
