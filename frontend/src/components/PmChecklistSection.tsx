@@ -1455,7 +1455,7 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
           <div className="flex items-center gap-2 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
             <CheckCircle2 className="w-4 h-4 text-green-400" />
             <p className="text-xs text-green-300">
-              เจ้าหน้าที่สาขาลงนามแล้ว ({pmRecord.storeSignerName}) —{' '}
+              เจ้าหน้าที่สาขาเซนรับทราบแล้ว ({pmRecord.storeSignerName}){' '}
               {new Date(pmRecord.storeSignedAt).toLocaleDateString('th-TH')}
             </p>
           </div>
