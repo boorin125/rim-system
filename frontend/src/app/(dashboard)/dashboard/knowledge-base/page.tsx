@@ -1012,36 +1012,6 @@ export default function KnowledgeBasePage() {
                 />
               </div>
 
-              {/* Visible To Roles */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  จำกัดการมองเห็น (เว้นว่าง = ทุก Role เห็นได้)
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {(['END_USER', 'TECHNICIAN', 'SUPERVISOR', 'HELP_DESK', 'FINANCE_ADMIN', 'IT_MANAGER', 'SUPER_ADMIN'] as const).map(role => (
-                    <label key={role} className="flex items-center gap-1.5 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={formData.visibleToRoles.includes(role)}
-                        onChange={(e) => setFormData(prev => ({
-                          ...prev,
-                          visibleToRoles: e.target.checked
-                            ? [...prev.visibleToRoles, role]
-                            : prev.visibleToRoles.filter(r => r !== role),
-                        }))}
-                        className="w-3.5 h-3.5 rounded border-gray-600 bg-gray-700 text-blue-500 focus:ring-blue-500"
-                      />
-                      <span className="text-xs text-gray-300">{role}</span>
-                    </label>
-                  ))}
-                </div>
-                {formData.visibleToRoles.length > 0 && (
-                  <p className="text-xs text-amber-400 mt-1">
-                    บทความนี้จะมองเห็นได้เฉพาะ: {formData.visibleToRoles.join(', ')} และ Role ที่สูงกว่า
-                  </p>
-                )}
-              </div>
-
               {/* Image Attachments */}
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -1135,6 +1105,36 @@ export default function KnowledgeBasePage() {
                   </div>
                 ) : (
                   <p className="text-xs text-gray-500">ยังไม่มีรูปภาพประกอบ — คลิก "เพิ่มรูป" เพื่ออัพโหลด (สูงสุด 10 รูป)</p>
+                )}
+              </div>
+
+              {/* Visible To Roles */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  จำกัดการมองเห็น (เว้นว่าง = ทุก Role เห็นได้)
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {(['END_USER', 'TECHNICIAN', 'SUPERVISOR', 'HELP_DESK', 'FINANCE_ADMIN', 'IT_MANAGER', 'SUPER_ADMIN'] as const).map(role => (
+                    <label key={role} className="flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.visibleToRoles.includes(role)}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          visibleToRoles: e.target.checked
+                            ? [...prev.visibleToRoles, role]
+                            : prev.visibleToRoles.filter(r => r !== role),
+                        }))}
+                        className="w-3.5 h-3.5 rounded border-gray-600 bg-gray-700 text-blue-500 focus:ring-blue-500"
+                      />
+                      <span className="text-xs text-gray-300">{role}</span>
+                    </label>
+                  ))}
+                </div>
+                {formData.visibleToRoles.length > 0 && (
+                  <p className="text-xs text-amber-400 mt-1">
+                    บทความนี้จะมองเห็นได้เฉพาะ: {formData.visibleToRoles.join(', ')} และ Role ที่สูงกว่า
+                  </p>
                 )}
               </div>
 
