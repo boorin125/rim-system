@@ -1206,16 +1206,12 @@ export class EmailService {
             ${photosHtml}
 
             <!-- Action Links -->
-            <div style="margin-top:28px;text-align:center;">
-              ${pmReportLink ? `
-              <a href="${pmReportLink}" style="display:inline-block;background-color:#1d4ed8;color:#ffffff;text-decoration:none;padding:11px 24px;border-radius:8px;font-weight:bold;font-size:14px;font-family:Tahoma,'Segoe UI',Arial,sans-serif;margin:4px 6px;">
-                📋 PM Report
-              </a>` : ''}
-              ${inventoryListLink ? `
-              <a href="${inventoryListLink}" style="display:inline-block;background-color:#0369a1;color:#ffffff;text-decoration:none;padding:11px 24px;border-radius:8px;font-weight:bold;font-size:14px;font-family:Tahoma,'Segoe UI',Arial,sans-serif;margin:4px 6px;">
-                📄 Inventory List
-              </a>` : ''}
-            </div>
+            ${(pmReportLink || inventoryListLink) ? `
+            <div style="margin-top:20px;padding:14px 16px;background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">
+              <p style="margin:0 0 8px 0;font-size:12px;font-weight:600;color:#64748b;">เอกสารที่เกี่ยวข้อง:</p>
+              ${pmReportLink ? `<p style="margin:4px 0;font-size:13px;">📋 <a href="${pmReportLink}" style="color:#1d4ed8;text-decoration:underline;">PM Report</a></p>` : ''}
+              ${inventoryListLink ? `<p style="margin:4px 0;font-size:13px;">📄 <a href="${inventoryListLink}" style="color:#1d4ed8;text-decoration:underline;">Inventory List</a></p>` : ''}
+            </div>` : ''}
 
             <!-- Footer -->
             <div style="margin-top:30px;padding-top:20px;border-top:1px solid #e2e8f0;text-align:center;color:#94a3b8;font-size:12px;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">

@@ -31,6 +31,7 @@ const publicPaths = [
   '/service-report/', // Public service report
   '/incident/',       // Public incident view
   '/inventory-sign/', // Public inventory sign
+  '/pm-report/',      // Public PM report
 ]
 
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
