@@ -1066,16 +1066,39 @@ export default function KnowledgeBasePage() {
                       onChange={(e) => {
                         const files = Array.from(e.target.files || [])
                         const remaining = 10 - formData.attachments.length
-                        files.slice(0, remaining).forEach((file) => {
-                          const reader = new FileReader()
-                          reader.onload = (ev) => {
-                            const b64 = ev.target?.result as string
-                            setFormData(prev => ({
-                              ...prev,
-                              attachments: [...prev.attachments, b64],
-                            }))
-                          }
-                          reader.readAsDataURL(file)
+                        const resizeImage = (file: File): Promise<string> =>
+                          new Promise((resolve) => {
+                            const reader = new FileReader()
+                            reader.onload = (ev) => {
+                              const img = new Image()
+                              img.onload = () => {
+                                const MAX = 1280
+                                let { width, height } = img
+                                if (width > MAX || height > MAX) {
+                                  if (width > height) {
+                                    height = Math.round((height * MAX) / width)
+                                    width = MAX
+                                  } else {
+                                    width = Math.round((width * MAX) / height)
+                                    height = MAX
+                                  }
+                                }
+                                const canvas = document.createElement('canvas')
+                                canvas.width = width
+                                canvas.height = height
+                                canvas.getContext('2d')!.drawImage(img, 0, 0, width, height)
+                                resolve(canvas.toDataURL('image/jpeg', 0.85))
+                              }
+                              img.src = ev.target?.result as string
+                            }
+                            reader.readAsDataURL(file)
+                          })
+
+                        Promise.all(files.slice(0, remaining).map(resizeImage)).then((resized) => {
+                          setFormData(prev => ({
+                            ...prev,
+                            attachments: [...prev.attachments, ...resized],
+                          }))
                         })
                         e.target.value = ''
                       }}
