@@ -1210,6 +1210,10 @@ export class EmailService {
         </body>
         </html>`;
 
+      const htmlSizeKb = Math.round(Buffer.byteLength(htmlContent, 'utf8') / 1024);
+      const photoCount = allAfterPhotos.length;
+      console.log(`[PM Email] HTML size=${htmlSizeKb}KB photos=${photoCount}`);
+
       const transporter = await this.createTransporter();
       await transporter.sendMail({
         from: `"${config.fromName}" <${config.fromEmail}>`,
