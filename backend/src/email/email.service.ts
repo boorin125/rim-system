@@ -963,6 +963,7 @@ export class EmailService {
     cc?: string[];
     incidentId: string;
     ticketNumber: string;
+    incidentTitle: string;
     storeName: string;
     storeCode?: string;
     technicianName: string;
@@ -981,7 +982,8 @@ export class EmailService {
       updatedSerial?: string | null;
       afterPhotos: string[];
     }>;
-    publicIncidentLink?: string | null;
+    pmReportLink: string;
+    inventoryListLink?: string | null;
   }): Promise<void> {
     try {
       const config = await this.getSmtpConfig();
@@ -995,8 +997,8 @@ export class EmailService {
       const orgName = cfgMap['organization_name'] || 'Incident Management';
       const headerName = orgName ? `${orgName} Incident Management` : 'Incident Management';
 
-      const { to, cc, ticketNumber, storeName, storeCode, technicianName, performedAt,
-              totalEquipment, equipmentRecords, publicIncidentLink } = data;
+      const { to, cc, ticketNumber, incidentTitle, storeName, storeCode, technicianName, performedAt,
+              totalEquipment, equipmentRecords, pmReportLink, inventoryListLink } = data;
 
       const storeDisplay = storeCode ? `${storeCode} ${storeName}` : storeName;
 
@@ -1046,16 +1048,16 @@ export class EmailService {
 
         equipmentTableHtml = `
           <div style="margin-top:24px;">
-            <h3 style="color:#7c3aed;margin:0 0 12px 0;font-size:15px;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">📋 Equipment Summary</h3>
+            <h3 style="color:#1d4ed8;margin:0 0 12px 0;font-size:15px;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">📋 Equipment Summary</h3>
             <table style="width:100%;border-collapse:collapse;font-size:12px;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">
               <thead>
-                <tr style="background-color:#ede9fe;">
-                  <th style="padding:7px 8px;border:1px solid #c4b5fd;color:#6d28d9;text-align:center;width:28px;">#</th>
-                  <th style="padding:7px 8px;border:1px solid #c4b5fd;color:#6d28d9;text-align:left;">Equipment</th>
-                  <th style="padding:7px 8px;border:1px solid #c4b5fd;color:#6d28d9;text-align:left;">Brand / Model</th>
-                  <th style="padding:7px 8px;border:1px solid #c4b5fd;color:#6d28d9;text-align:left;">Serial No.</th>
-                  <th style="padding:7px 8px;border:1px solid #c4b5fd;color:#6d28d9;text-align:center;">Condition</th>
-                  <th style="padding:7px 8px;border:1px solid #c4b5fd;color:#6d28d9;text-align:left;">Note</th>
+                <tr style="background-color:#dbeafe;">
+                  <th style="padding:7px 8px;border:1px solid #93c5fd;color:#1e40af;text-align:center;width:28px;">#</th>
+                  <th style="padding:7px 8px;border:1px solid #93c5fd;color:#1e40af;text-align:left;">Equipment</th>
+                  <th style="padding:7px 8px;border:1px solid #93c5fd;color:#1e40af;text-align:left;">Brand / Model</th>
+                  <th style="padding:7px 8px;border:1px solid #93c5fd;color:#1e40af;text-align:left;">Serial No.</th>
+                  <th style="padding:7px 8px;border:1px solid #93c5fd;color:#1e40af;text-align:center;">Condition</th>
+                  <th style="padding:7px 8px;border:1px solid #93c5fd;color:#1e40af;text-align:left;">Note</th>
                 </tr>
               </thead>
               <tbody>${rows}</tbody>
@@ -1089,13 +1091,14 @@ export class EmailService {
         } catch { return photo; }
       };
 
-      const afterFirstPhotos = equipmentRecords
-        .map((r) => r.afterPhotos?.[0])
+      // Collect ALL after photos from all equipment records
+      const allAfterPhotos = equipmentRecords
+        .flatMap((r) => r.afterPhotos || [])
         .filter(Boolean) as string[];
 
       let photosHtml = '';
-      if (afterFirstPhotos.length > 0) {
-        const thumbs = await Promise.all(afterFirstPhotos.map(resizePhotoForEmail));
+      if (allAfterPhotos.length > 0) {
+        const thumbs = await Promise.all(allAfterPhotos.map(resizePhotoForEmail));
         const cols = 5;
         const tableWidth = 540;
         const gap = 4;
@@ -1112,17 +1115,17 @@ export class EmailService {
         const emptyCell = `<td width="${cellSize}" style="width:${cellSize}px;height:${cellSize}px;"></td>`;
 
         const cells = thumbs.map(makeCell);
-        const rows: string[] = [];
+        const photoRows: string[] = [];
         for (let i = 0; i < cells.length; i += cols) {
           const slice = cells.slice(i, i + cols);
           while (slice.length < cols) slice.push(emptyCell);
-          rows.push(`<tr>${slice.join('')}</tr>`);
+          photoRows.push(`<tr>${slice.join('')}</tr>`);
         }
-        const grid = `<table width="${tableWidth}" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:${tableWidth}px;max-width:100%;">${rows.join('')}</table>`;
+        const grid = `<table width="${tableWidth}" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:${tableWidth}px;max-width:100%;">${photoRows.join('')}</table>`;
 
         photosHtml = `
           <div style="margin-top:24px;">
-            <h3 style="color:#7c3aed;margin:0 0 14px 0;font-size:15px;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">📷 Photos</h3>
+            <h3 style="color:#1d4ed8;margin:0 0 14px 0;font-size:15px;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">📷 After Photos</h3>
             ${grid}
           </div>`;
       }
@@ -1135,19 +1138,19 @@ export class EmailService {
           <div style="max-width:600px;margin:0 auto;background-color:#ffffff;border-radius:10px;padding:30px;border:1px solid #e2e8f0;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
 
             <!-- Header -->
-            <div style="text-align:center;padding-bottom:20px;border-bottom:2px solid #7c3aed;">
-              <h1 style="color:#7c3aed;margin:0;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">🔧 Preventive Maintenance Closed</h1>
+            <div style="text-align:center;padding-bottom:20px;border-bottom:2px solid #1d4ed8;">
+              <h1 style="color:#1d4ed8;margin:0;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">🔧 Preventive Maintenance Closed</h1>
               <p style="color:#64748b;margin:5px 0 0 0;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">${headerName}</p>
             </div>
 
             <!-- PM Details -->
             <div style="margin-top:25px;">
-              <h2 style="color:#7c3aed;margin-bottom:10px;font-size:16px;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">PM Details</h2>
+              <h2 style="color:#1d4ed8;margin-bottom:10px;font-size:16px;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">PM Details</h2>
               <table style="width:100%;border-collapse:collapse;">
                 <thead>
-                  <tr style="background-color:#ede9fe;">
-                    <th style="padding:8px 10px;border:1px solid #c4b5fd;text-align:left;font-size:13px;color:#6d28d9;font-weight:bold;width:35%;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">Field</th>
-                    <th style="padding:8px 10px;border:1px solid #c4b5fd;text-align:left;font-size:13px;color:#6d28d9;font-weight:bold;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">Detail</th>
+                  <tr style="background-color:#dbeafe;">
+                    <th style="padding:8px 10px;border:1px solid #93c5fd;text-align:left;font-size:13px;color:#1e40af;font-weight:bold;width:35%;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">Field</th>
+                    <th style="padding:8px 10px;border:1px solid #93c5fd;text-align:left;font-size:13px;color:#1e40af;font-weight:bold;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">Detail</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1155,11 +1158,15 @@ export class EmailService {
                     <td style="padding:8px 10px;border:1px solid #e2e8f0;font-weight:bold;font-size:14px;color:#475569;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">Ticket No.:</td>
                     <td style="padding:8px 10px;border:1px solid #e2e8f0;font-size:14px;color:#1e293b;font-weight:600;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">${ticketNumber}</td>
                   </tr>
+                  <tr style="background-color:#fafafa;">
+                    <td style="padding:8px 10px;border:1px solid #e2e8f0;font-weight:bold;font-size:14px;color:#475569;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">Title:</td>
+                    <td style="padding:8px 10px;border:1px solid #e2e8f0;font-size:14px;color:#1e293b;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">${incidentTitle}</td>
+                  </tr>
                   <tr>
                     <td style="padding:8px 10px;border:1px solid #e2e8f0;font-weight:bold;font-size:14px;color:#475569;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">Store:</td>
                     <td style="padding:8px 10px;border:1px solid #e2e8f0;font-size:14px;color:#1e293b;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">${storeDisplay}</td>
                   </tr>
-                  <tr>
+                  <tr style="background-color:#fafafa;">
                     <td style="padding:8px 10px;border:1px solid #e2e8f0;font-weight:bold;font-size:14px;color:#475569;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">Technician:</td>
                     <td style="padding:8px 10px;border:1px solid #e2e8f0;font-size:14px;color:#1e293b;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">${technicianName}</td>
                   </tr>
@@ -1167,10 +1174,10 @@ export class EmailService {
                     <td style="padding:8px 10px;border:1px solid #e2e8f0;font-weight:bold;font-size:14px;color:#475569;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">PM Date:</td>
                     <td style="padding:8px 10px;border:1px solid #e2e8f0;font-size:14px;color:#1e293b;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">${pmDateStr}</td>
                   </tr>
-                  <tr>
+                  <tr style="background-color:#fafafa;">
                     <td style="padding:8px 10px;border:1px solid #e2e8f0;font-weight:bold;font-size:14px;color:#475569;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">Equipment Checked:</td>
                     <td style="padding:8px 10px;border:1px solid #e2e8f0;font-size:14px;color:#1e293b;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">
-                      <span style="background-color:#ede9fe;color:#6d28d9;padding:2px 10px;border-radius:99px;font-weight:600;">${totalEquipment} รายการ</span>
+                      <span style="background-color:#dbeafe;color:#1e40af;padding:2px 10px;border-radius:99px;font-weight:600;">${totalEquipment} รายการ</span>
                     </td>
                   </tr>
                 </tbody>
@@ -1181,16 +1188,19 @@ export class EmailService {
             ${equipmentTableHtml}
             ${summaryBadges}
 
-            <!-- Photos -->
+            <!-- After Photos -->
             ${photosHtml}
 
-            <!-- View Incident Link -->
-            ${publicIncidentLink ? `
-            <div style="margin-top:25px;text-align:center;">
-              <a href="${publicIncidentLink}" style="color:#7c3aed;text-decoration:underline;font-size:14px;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">
-                📋 View Incident Details
+            <!-- Action Links -->
+            <div style="margin-top:28px;text-align:center;">
+              <a href="${pmReportLink}" style="display:inline-block;background-color:#1d4ed8;color:#ffffff;text-decoration:none;padding:11px 24px;border-radius:8px;font-weight:bold;font-size:14px;font-family:Tahoma,'Segoe UI',Arial,sans-serif;margin:4px 6px;">
+                📋 PM Report
               </a>
-            </div>` : ''}
+              ${inventoryListLink ? `
+              <a href="${inventoryListLink}" style="display:inline-block;background-color:#0369a1;color:#ffffff;text-decoration:none;padding:11px 24px;border-radius:8px;font-weight:bold;font-size:14px;font-family:Tahoma,'Segoe UI',Arial,sans-serif;margin:4px 6px;">
+                📄 Inventory List
+              </a>` : ''}
+            </div>
 
             <!-- Footer -->
             <div style="margin-top:30px;padding-top:20px;border-top:1px solid #e2e8f0;text-align:center;color:#94a3b8;font-size:12px;font-family:Tahoma,'Segoe UI',Arial,sans-serif;">
@@ -1205,7 +1215,7 @@ export class EmailService {
         from: `"${config.fromName}" <${config.fromEmail}>`,
         to,
         cc: cc && cc.length > 0 ? cc.join(', ') : undefined,
-        subject: `[PM Closed] ${storeDisplay} - ${ticketNumber}`,
+        subject: `[Preventive Maintenance Closed] ${storeDisplay} - ${ticketNumber} : ${incidentTitle}`,
         html: htmlContent,
       });
     } catch (error) {

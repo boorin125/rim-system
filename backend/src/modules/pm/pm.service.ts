@@ -390,7 +390,7 @@ export class PmService {
       where: { id: incidentId },
       select: {
         ticketNumber: true,
-        ratingToken: true,
+        title: true,
         store: { select: { storeCode: true, name: true } },
       },
     });
@@ -399,6 +399,12 @@ export class PmService {
     const technician = await this.prisma.user.findUnique({
       where: { id: technicianId },
       select: { firstName: true, lastName: true },
+    });
+
+    // Fetch pmRecord for inventoryListToken
+    const pmRecord = await this.prisma.pmRecord.findUnique({
+      where: { incidentId },
+      select: { inventoryListToken: true },
     });
 
     // Fetch equipment details for each record
@@ -436,8 +442,9 @@ export class PmService {
       : [];
 
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    const publicIncidentLink = incident.ratingToken
-      ? `${frontendUrl}/incident/${incident.ratingToken}`
+    const pmReportLink = `${frontendUrl}/dashboard/incidents/${incidentId}`;
+    const inventoryListLink = pmRecord?.inventoryListToken
+      ? `${frontendUrl}/inventory-sign/${pmRecord.inventoryListToken}`
       : null;
 
     await this.emailService.sendPmCompletedEmail({
@@ -445,6 +452,7 @@ export class PmService {
       cc: ccEmails,
       incidentId,
       ticketNumber: incident.ticketNumber,
+      incidentTitle: incident.title || '',
       storeName: incident.store?.name || '-',
       storeCode: incident.store?.storeCode,
       technicianName: technician
@@ -453,7 +461,8 @@ export class PmService {
       performedAt,
       totalEquipment: equipmentRecords.length,
       equipmentRecords: emailEquipmentRecords,
-      publicIncidentLink,
+      pmReportLink,
+      inventoryListLink,
     });
   }
 
