@@ -16,6 +16,8 @@ import {
   RecordUsageDto,
 } from './dto';
 import { UserRole } from '@prisma/client';
+import * as fs from 'fs';
+import * as path from 'path';
 
 // Role rank — higher number = higher privilege
 const ROLE_RANK: Record<UserRole, number> = {
@@ -544,7 +546,7 @@ export class KnowledgeBaseService {
   }
 
   /**
-   * Delete article
+   * Delete article (also deletes file if file-based)
    */
   async deleteArticle(id: number) {
     const article = await this.prisma.knowledgeArticle.findUnique({
@@ -555,8 +557,68 @@ export class KnowledgeBaseService {
       throw new NotFoundException(`Article not found: ${id}`);
     }
 
+    // Delete physical file if this is a file-based document
+    if (article.filePath) {
+      const fullPath = path.join(process.cwd(), 'uploads', article.filePath);
+      if (fs.existsSync(fullPath)) {
+        fs.unlinkSync(fullPath);
+      }
+    }
+
     return this.prisma.knowledgeArticle.delete({
       where: { id },
+    });
+  }
+
+  /**
+   * Create file-based document
+   */
+  async createDocument(
+    authorId: number,
+    data: {
+      title: string;
+      slug: string;
+      categoryId: number;
+      keywords: string[];
+      visibleToRoles: UserRole[];
+      isPublished: boolean;
+      filePath: string;
+      fileType: string;
+      fileSize: number;
+    },
+  ) {
+    // Ensure unique slug
+    let slug = data.slug;
+    const existing = await this.prisma.knowledgeArticle.findUnique({ where: { slug } });
+    if (existing) slug = `${slug}-${Date.now()}`;
+
+    const category = await this.prisma.knowledgeCategory.findUnique({
+      where: { id: data.categoryId },
+    });
+    if (!category) throw new NotFoundException(`Category not found: ${data.categoryId}`);
+
+    return this.prisma.knowledgeArticle.create({
+      data: {
+        categoryId: data.categoryId,
+        title: data.title,
+        slug,
+        content: null,
+        keywords: data.keywords,
+        isPublic: true,
+        isPublished: data.isPublished,
+        publishedAt: data.isPublished ? new Date() : null,
+        authorId,
+        visibleToRoles: data.visibleToRoles,
+        filePath: data.filePath,
+        fileType: data.fileType,
+        fileSize: data.fileSize,
+        attachments: [],
+        relatedArticleIds: [],
+      },
+      include: {
+        category: true,
+        author: { select: { id: true, firstName: true, lastName: true } },
+      },
     });
   }
 

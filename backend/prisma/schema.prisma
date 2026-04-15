@@ -1181,8 +1181,13 @@ model KnowledgeArticle {
   title      String
   slug       String   @unique
   summary    String?  @db.Text
-  content    String   @db.Text // Markdown content
+  content    String?  @db.Text // Markdown content (null for file-based documents)
   keywords   String[] @default([]) // Search keywords
+
+  // File-based document (null = article mode)
+  filePath   String?  @map("file_path")   // e.g. "kb/uuid-filename.pdf"
+  fileType   String?  @map("file_type")   // PDF | IMAGE | WORD | POWERPOINT
+  fileSize   Int?     @map("file_size")   // bytes
 
   // Visibility
   isPublic       Boolean   @default(true) @map("is_public") // Public to all users

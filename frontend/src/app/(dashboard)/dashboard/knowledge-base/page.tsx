@@ -29,6 +29,12 @@ import {
   Send,
   Check,
   AlertCircle,
+  Upload,
+  Download,
+  ExternalLink,
+  Image as ImageIcon,
+  Presentation,
+  File,
 } from 'lucide-react'
 
 const ROLE_FILTER_TABS = [
@@ -79,7 +85,7 @@ interface Article {
   title: string
   slug: string
   summary?: string
-  content: string
+  content?: string | null
   keywords: string[]
   isPublic: boolean
   isPublished: boolean
@@ -91,6 +97,9 @@ interface Article {
   version: number
   createdAt: string
   updatedAt: string
+  filePath?: string | null
+  fileType?: string | null   // PDF | IMAGE | WORD | POWERPOINT
+  fileSize?: number | null
   category: {
     id: number
     name: string
@@ -128,6 +137,23 @@ interface Article {
     feedbacks: number
     usageHistory: number
   }
+}
+
+function getFileTypeInfo(fileType: string | null | undefined) {
+  switch (fileType) {
+    case 'PDF':         return { label: 'PDF',        color: 'text-red-400',    bg: 'bg-red-500/15 border-red-500/30',    Icon: FileText }
+    case 'IMAGE':       return { label: 'รูปภาพ',     color: 'text-blue-400',   bg: 'bg-blue-500/15 border-blue-500/30',  Icon: ImageIcon }
+    case 'WORD':        return { label: 'Word',        color: 'text-sky-400',    bg: 'bg-sky-500/15 border-sky-500/30',    Icon: FileText }
+    case 'POWERPOINT':  return { label: 'PowerPoint',  color: 'text-orange-400', bg: 'bg-orange-500/15 border-orange-500/30', Icon: File }
+    default:            return { label: 'ไฟล์',        color: 'text-gray-400',   bg: 'bg-gray-500/15 border-gray-500/30',  Icon: File }
+  }
+}
+
+function formatFileSize(bytes: number | null | undefined) {
+  if (!bytes) return ''
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 interface KBStats {
@@ -172,6 +198,7 @@ export default function KnowledgeBasePage() {
   // Modal states
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showDetailModal, setShowDetailModal] = useState(false)
+  const [showUploadModal, setShowUploadModal] = useState(false)
   const [editingArticle, setEditingArticle] = useState<Article | null>(null)
 
   // Form states
@@ -187,6 +214,18 @@ export default function KnowledgeBasePage() {
     attachments: [] as string[],  // base64 images
   })
   const [isSaving, setIsSaving] = useState(false)
+
+  // Upload modal state
+  const [uploadData, setUploadData] = useState({
+    title: '',
+    categoryId: 0,
+    keywords: '',
+    visibleToRoles: [] as string[],
+    isPublished: false,
+  })
+  const [uploadFile, setUploadFile] = useState<File | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
 
   // Feedback state
   const [feedbackComment, setFeedbackComment] = useState('')
@@ -387,6 +426,41 @@ export default function KnowledgeBasePage() {
     }
   }
 
+  // Upload document
+  const handleUploadDocument = async () => {
+    if (!uploadFile) { toast.error('กรุณาเลือกไฟล์'); return }
+    if (!uploadData.title.trim()) { toast.error('กรุณาระบุชื่อเอกสาร'); return }
+    if (!uploadData.categoryId) { toast.error('กรุณาเลือกหมวดหมู่'); return }
+
+    setIsUploading(true)
+    try {
+      const token = localStorage.getItem('token')
+      const form = new FormData()
+      form.append('file', uploadFile)
+      form.append('title', uploadData.title.trim())
+      form.append('categoryId', String(uploadData.categoryId))
+      form.append('keywords', uploadData.keywords)
+      form.append('isPublished', String(uploadData.isPublished))
+      uploadData.visibleToRoles.forEach(r => form.append('visibleToRoles', r))
+
+      await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/kb/upload`,
+        form,
+        { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' } }
+      )
+      toast.success('อัพโหลดเอกสารสำเร็จ')
+      setShowUploadModal(false)
+      setUploadFile(null)
+      setUploadData({ title: '', categoryId: 0, keywords: '', visibleToRoles: [], isPublished: false })
+      fetchArticles()
+      fetchStats()
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'อัพโหลดไม่สำเร็จ')
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
   // Toggle publish
   const handleTogglePublish = async (article: Article) => {
     try {
@@ -454,7 +528,7 @@ export default function KnowledgeBasePage() {
       categoryId: article.category.id,
       title: article.title,
       summary: article.summary || '',
-      content: article.content,
+      content: article.content || '',
       keywords: article.keywords.join(', '),
       isPublic: article.isPublic,
       isPublished: article.isPublished,
@@ -517,16 +591,12 @@ export default function KnowledgeBasePage() {
           )}
           {canCreate && (
             <button
-              onClick={() => {
-                resetForm()
-                setEditingArticle(null)
-                setShowCreateModal(true)
-              }}
+              onClick={() => setShowUploadModal(true)}
               className="flex items-center gap-2 px-4 py-2 text-white rounded-lg transition-colors hover:brightness-110"
               style={{ backgroundColor: themeHighlight }}
             >
-              <Plus className="w-5 h-5" />
-              <span>สร้างบทความ</span>
+              <Upload className="w-5 h-5" />
+              <span>อัพโหลดเอกสาร</span>
             </button>
           )}
         </div>
@@ -797,71 +867,99 @@ export default function KnowledgeBasePage() {
                 {articles.map((article) => (
                   <div
                     key={article.id}
-                    className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 hover:border-blue-500/50 transition-colors group"
+                    className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 hover:border-blue-500/50 transition-colors group flex flex-col"
                   >
+                    {/* Top row: category + file type badge + draft + actions */}
                     <div className="flex items-start justify-between mb-2">
-                      <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded-full">
-                        {article.category.name}
-                      </span>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded-full">
+                          {article.category.name}
+                        </span>
+                        {article.fileType && (() => {
+                          const { label, color, bg, Icon } = getFileTypeInfo(article.fileType)
+                          return (
+                            <span className={`flex items-center gap-1 px-2 py-0.5 border rounded-full text-xs ${color} ${bg}`}>
+                              <Icon className="w-3 h-3" />
+                              {label}
+                            </span>
+                          )
+                        })()}
                         {!article.isPublished && (
                           <span className="px-2 py-0.5 bg-yellow-500/20 text-yellow-400 text-xs rounded-full">
                             Draft
                           </span>
                         )}
-                        {canEdit && (
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                openEditModal(article)
-                              }}
-                              className="p-1 text-gray-400 hover:text-white"
-                              title="แก้ไข"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            {canDelete && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleDeleteArticle(article)
-                                }}
-                                className="p-1 text-gray-400 hover:text-red-400"
-                                title="ลบ"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            )}
-                          </div>
-                        )}
                       </div>
+                      {canDelete && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDeleteArticle(article) }}
+                          className="p-1 text-gray-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="ลบ"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
 
-                    <button
-                      onClick={() => viewArticle(article)}
-                      className="text-left w-full"
-                    >
-                      <h3 className="text-white font-semibold mb-2 group-hover:text-blue-400 transition-colors line-clamp-2">
-                        {article.title}
-                      </h3>
-                      {article.summary && (
-                        <p className="text-sm text-gray-400 line-clamp-2 mb-3">
-                          {article.summary}
-                        </p>
-                      )}
-                    </button>
+                    {/* Title */}
+                    <h3 className="text-white font-semibold mb-2 line-clamp-2 flex-1">
+                      {article.title}
+                    </h3>
 
-                    <div className="flex items-center justify-between text-xs text-gray-500">
-                      <div className="flex items-center gap-3">
-                        <span className="flex items-center gap-1">
-                          <Eye className="w-3 h-3" />
-                          {article.viewCount}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <ThumbsUp className="w-3 h-3" />
-                          {article.helpfulCount}
-                        </span>
+                    {/* File size or summary */}
+                    {article.fileType ? (
+                      <p className="text-xs text-gray-500 mb-3">{formatFileSize(article.fileSize)}</p>
+                    ) : article.summary ? (
+                      <p className="text-sm text-gray-400 line-clamp-2 mb-3">{article.summary}</p>
+                    ) : null}
+
+                    {/* Actions row */}
+                    <div className="flex items-center justify-between text-xs text-gray-500 mt-auto">
+                      <div className="flex items-center gap-2">
+                        {article.fileType ? (
+                          <>
+                            <a
+                              href={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '')}/uploads/${article.filePath}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="flex items-center gap-1 px-2.5 py-1 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30 transition-colors"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                              เปิดดู
+                            </a>
+                            <a
+                              href={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '')}/uploads/${article.filePath}`}
+                              download
+                              onClick={(e) => e.stopPropagation()}
+                              className="flex items-center gap-1 px-2.5 py-1 bg-slate-700/50 text-gray-300 rounded-lg hover:bg-slate-700 transition-colors"
+                            >
+                              <Download className="w-3 h-3" />
+                              ดาวน์โหลด
+                            </a>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => viewArticle(article)}
+                            className="flex items-center gap-1 px-2.5 py-1 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30 transition-colors"
+                          >
+                            <Eye className="w-3 h-3" />
+                            อ่านบทความ
+                          </button>
+                        )}
+                        {canEdit && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleTogglePublish(article) }}
+                            className={`px-2.5 py-1 rounded-lg text-xs transition-colors ${
+                              article.isPublished
+                                ? 'bg-green-500/20 text-green-400 hover:bg-red-500/20 hover:text-red-400'
+                                : 'bg-yellow-500/20 text-yellow-400 hover:bg-green-500/20 hover:text-green-400'
+                            }`}
+                            title={article.isPublished ? 'คลิกเพื่อยกเลิกเผยแพร่' : 'คลิกเพื่อเผยแพร่'}
+                          >
+                            {article.isPublished ? 'เผยแพร่แล้ว' : 'Draft'}
+                          </button>
+                        )}
                       </div>
                       <span className="flex items-center gap-1">
                         <Clock className="w-3 h-3" />
@@ -914,6 +1012,184 @@ export default function KnowledgeBasePage() {
           </div>
         </div>
       </div>
+
+      {/* Upload Document Modal */}
+      {showUploadModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="p-6 border-b border-slate-700/50 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Upload className="w-5 h-5 text-blue-400" />
+                <h2 className="text-xl font-bold text-white">อัพโหลดเอกสาร</h2>
+              </div>
+              <button
+                onClick={() => { setShowUploadModal(false); setUploadFile(null) }}
+                className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-slate-700/50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto flex-1 space-y-4">
+              {/* Drop Zone */}
+              <div
+                onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  setIsDragging(false)
+                  const f = e.dataTransfer.files[0]
+                  if (f) {
+                    setUploadFile(f)
+                    if (!uploadData.title) setUploadData(prev => ({ ...prev, title: f.name.replace(/\.[^/.]+$/, '') }))
+                  }
+                }}
+                className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${
+                  isDragging ? 'border-blue-500 bg-blue-500/10' : uploadFile ? 'border-green-500/50 bg-green-500/5' : 'border-slate-600 hover:border-slate-500'
+                }`}
+              >
+                <input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.ppt,.pptx"
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) {
+                      setUploadFile(f)
+                      if (!uploadData.title) setUploadData(prev => ({ ...prev, title: f.name.replace(/\.[^/.]+$/, '') }))
+                    }
+                  }}
+                />
+                {uploadFile ? (
+                  <div className="flex flex-col items-center gap-2">
+                    {(() => {
+                      const t = uploadFile.type
+                      const ft = t.includes('pdf') ? 'PDF' : t.includes('image') ? 'IMAGE' : t.includes('word') || t.includes('document') ? 'WORD' : t.includes('presentation') || t.includes('powerpoint') ? 'POWERPOINT' : null
+                      const { Icon, color } = getFileTypeInfo(ft)
+                      return <Icon className={`w-10 h-10 ${color}`} />
+                    })()}
+                    <p className="text-white font-medium">{uploadFile.name}</p>
+                    <p className="text-gray-400 text-sm">{formatFileSize(uploadFile.size)}</p>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setUploadFile(null) }}
+                      className="text-xs text-red-400 hover:text-red-300 mt-1"
+                    >
+                      เปลี่ยนไฟล์
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-2 pointer-events-none">
+                    <Upload className="w-10 h-10 text-gray-500" />
+                    <p className="text-gray-300 font-medium">ลากไฟล์มาวางที่นี่ หรือคลิกเลือกไฟล์</p>
+                    <p className="text-gray-500 text-sm">PDF, JPG, PNG, DOCX, PPTX — สูงสุด 20MB</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Title */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  ชื่อเอกสาร <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={uploadData.title}
+                  onChange={(e) => setUploadData(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="ชื่อเอกสาร"
+                  className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Category */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  หมวดหมู่ <span className="text-red-400">*</span>
+                </label>
+                <select
+                  value={uploadData.categoryId}
+                  onChange={(e) => setUploadData(prev => ({ ...prev, categoryId: parseInt(e.target.value) }))}
+                  className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 [&>option]:bg-slate-800 [&>option]:text-white"
+                >
+                  <option value={0}>เลือกหมวดหมู่</option>
+                  {categories.flat.map(cat => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Keywords */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Keywords</label>
+                <input
+                  type="text"
+                  value={uploadData.keywords}
+                  onChange={(e) => setUploadData(prev => ({ ...prev, keywords: e.target.value }))}
+                  placeholder="คั่นด้วย comma เช่น: printer, คู่มือ, setup"
+                  className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Visible To Roles */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  จำกัดการมองเห็น (เว้นว่าง = ทุก Role เห็นได้)
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {(['END_USER', 'TECHNICIAN', 'SUPERVISOR', 'HELP_DESK', 'FINANCE_ADMIN', 'IT_MANAGER', 'SUPER_ADMIN'] as const).map(role => (
+                    <label key={role} className="flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={uploadData.visibleToRoles.includes(role)}
+                        onChange={(e) => setUploadData(prev => ({
+                          ...prev,
+                          visibleToRoles: e.target.checked
+                            ? [...prev.visibleToRoles, role]
+                            : prev.visibleToRoles.filter(r => r !== role),
+                        }))}
+                        className="w-3.5 h-3.5 rounded border-gray-600 bg-gray-700 text-blue-500"
+                      />
+                      <span className="text-xs text-gray-300">{role}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Publish */}
+              <label className="flex items-center gap-2 text-gray-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={uploadData.isPublished}
+                  onChange={(e) => setUploadData(prev => ({ ...prev, isPublished: e.target.checked }))}
+                  className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-blue-500"
+                />
+                <span className="text-sm">เผยแพร่ทันที</span>
+              </label>
+            </div>
+
+            <div className="p-6 border-t border-slate-700/50 flex items-center justify-end gap-3">
+              <button
+                onClick={() => { setShowUploadModal(false); setUploadFile(null) }}
+                className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={handleUploadDocument}
+                disabled={isUploading || !uploadFile}
+                className="flex items-center gap-2 px-6 py-2 text-white rounded-lg transition-colors hover:brightness-110 disabled:opacity-50"
+                style={{ backgroundColor: themeHighlight }}
+              >
+                {isUploading ? (
+                  <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /><span>กำลังอัพโหลด...</span></>
+                ) : (
+                  <><Upload className="w-5 h-5" /><span>อัพโหลด</span></>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Create/Edit Article Modal */}
       {showCreateModal && (

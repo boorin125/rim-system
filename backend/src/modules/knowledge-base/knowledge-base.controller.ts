@@ -14,7 +14,15 @@ import {
   ParseIntPipe,
   HttpCode,
   HttpStatus,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import * as path from 'path';
+import * as fs from 'fs';
+import { v4 as uuidv4 } from 'uuid';
 import { KnowledgeBaseService } from './knowledge-base.service';
 import {
   CreateCategoryDto,
@@ -28,6 +36,18 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
+
+const ALLOWED_MIME: Record<string, string> = {
+  'application/pdf': 'PDF',
+  'image/jpeg': 'IMAGE',
+  'image/png': 'IMAGE',
+  'image/gif': 'IMAGE',
+  'image/webp': 'IMAGE',
+  'application/msword': 'WORD',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'WORD',
+  'application/vnd.ms-powerpoint': 'POWERPOINT',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'POWERPOINT',
+};
 
 /**
  * Knowledge Base Controller
@@ -224,15 +244,6 @@ export class KnowledgeBaseController {
     return this.kbService.togglePublish(id, isPublished);
   }
 
-  /**
-   * Delete article (Admin)
-   */
-  @Delete('articles/:id')
-  @Roles(UserRole.IT_MANAGER, UserRole.HELP_DESK)
-  async deleteArticle(@Param('id', ParseIntPipe) id: number) {
-    return this.kbService.deleteArticle(id);
-  }
-
   // ==========================================
   // FEEDBACK & USAGE
   // ==========================================
@@ -270,6 +281,89 @@ export class KnowledgeBaseController {
   @Roles(UserRole.IT_MANAGER, UserRole.HELP_DESK, UserRole.SUPERVISOR)
   async getArticleUsageStats(@Param('id', ParseIntPipe) id: number) {
     return this.kbService.getArticleUsageStats(id);
+  }
+
+  // ==========================================
+  // FILE UPLOAD
+  // ==========================================
+
+  /**
+   * Upload a document (PDF, Image, Word, PowerPoint)
+   * Multipart form fields: title, categoryId, keywords, visibleToRoles[], isPublished
+   */
+  @Post('upload')
+  @Roles(UserRole.IT_MANAGER, UserRole.HELP_DESK, UserRole.SUPERVISOR, UserRole.TECHNICIAN)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: (req, file, cb) => {
+          const dir = path.join(process.cwd(), 'uploads', 'kb');
+          if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+          cb(null, dir);
+        },
+        filename: (req, file, cb) => {
+          const ext = path.extname(file.originalname).toLowerCase();
+          cb(null, `${uuidv4()}${ext}`);
+        },
+      }),
+      limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB
+      fileFilter: (req, file, cb) => {
+        if (ALLOWED_MIME[file.mimetype]) {
+          cb(null, true);
+        } else {
+          cb(new BadRequestException(`ประเภทไฟล์ไม่รองรับ: ${file.mimetype}`), false);
+        }
+      },
+    }),
+  )
+  async uploadDocument(
+    @Request() req,
+    @UploadedFile() file: Express.Multer.File,
+    @Body('title') title: string,
+    @Body('categoryId') categoryId: string,
+    @Body('keywords') keywords: string,
+    @Body('visibleToRoles') visibleToRoles: string | string[],
+    @Body('isPublished') isPublished: string,
+  ) {
+    if (!file) throw new BadRequestException('ไม่พบไฟล์ที่อัพโหลด');
+    if (!title?.trim()) throw new BadRequestException('กรุณาระบุชื่อเอกสาร');
+    if (!categoryId) throw new BadRequestException('กรุณาเลือกหมวดหมู่');
+
+    const fileType = ALLOWED_MIME[file.mimetype];
+    const filePath = `kb/${file.filename}`;
+    const keywordList = keywords
+      ? keywords.split(',').map((k) => k.trim()).filter(Boolean)
+      : [];
+    const roles: UserRole[] = visibleToRoles
+      ? (Array.isArray(visibleToRoles) ? visibleToRoles : [visibleToRoles]) as UserRole[]
+      : [];
+
+    const slug = title.trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9ก-๙\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .substring(0, 80) + '-' + Date.now();
+
+    return this.kbService.createDocument(req.user.id, {
+      title: title.trim(),
+      slug,
+      categoryId: parseInt(categoryId, 10),
+      keywords: keywordList,
+      visibleToRoles: roles,
+      isPublished: isPublished === 'true',
+      filePath,
+      fileType,
+      fileSize: file.size,
+    });
+  }
+
+  /**
+   * Delete document file when article is deleted
+   */
+  @Delete('articles/:id')
+  @Roles(UserRole.IT_MANAGER, UserRole.HELP_DESK)
+  async deleteArticle(@Param('id', ParseIntPipe) id: number) {
+    return this.kbService.deleteArticle(id);
   }
 
   // ==========================================
