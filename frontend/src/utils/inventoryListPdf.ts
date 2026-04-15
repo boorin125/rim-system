@@ -149,13 +149,13 @@ export async function generateInventoryListPDF(data: InventoryListData): Promise
   let isFirstPage = true
 
   const cols = [
-    { label: 'ลำดับ',        w: 10,  align: 'center' as const },
-    { label: 'ชื่ออุปกรณ์',   w: 60,  align: 'left'   as const },
-    { label: 'Brand / Model', w: 35,  align: 'left'   as const },
-    { label: 'Serial No.',    w: 30,  align: 'left'   as const },
+    { label: 'ลำดับ',        w: 8,   align: 'center' as const },
+    { label: 'ชื่ออุปกรณ์',   w: 50,  align: 'left'   as const },
+    { label: 'Brand / Model', w: 45,  align: 'left'   as const },
+    { label: 'Serial No.',    w: 32,  align: 'left'   as const },
     { label: 'รูปอุปกรณ์',   w: 30,  align: 'center' as const },
     { label: 'Recheck',       w: 25,  align: 'center' as const },
-    // 10+60+35+30+30+25 = 190 mm
+    // 8+50+45+32+30+25 = 190 mm
   ]
 
   const drawTableHeader = (yh: number) => {
@@ -223,7 +223,7 @@ export async function generateInventoryListPDF(data: InventoryListData): Promise
     cx += cols[1].w
 
     // Brand / Model
-    const bm = [eq.brand, eq.model].filter(Boolean).join(' / ')
+    const bm = [eq.brand, eq.model].filter(Boolean).join(' ')
     const bmLines = doc.splitTextToSize(bm, cols[2].w - 3)
     doc.text(bmLines.slice(0, 2), cx + 1.5, y + 7)
     cx += cols[2].w
