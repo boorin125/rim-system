@@ -146,6 +146,15 @@ export class PmPublicController {
   constructor(private readonly pmService: PmService) {}
 
   /**
+   * GET /public/pm/report/:token
+   * Get full PM Report data for the public report page (no auth required).
+   */
+  @Get('report/:token')
+  getPmReport(@Param('token') token: string) {
+    return this.pmService.getPmReportByToken(token);
+  }
+
+  /**
    * GET /public/pm/inventory-sign/:token
    * Get inventory data for the public signing page.
    */

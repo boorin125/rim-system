@@ -982,7 +982,7 @@ export class EmailService {
       updatedSerial?: string | null;
       afterPhotos: string[];
     }>;
-    pmReportLink: string;
+    pmReportLink?: string | null;
     inventoryListLink?: string | null;
   }): Promise<void> {
     try {
@@ -998,7 +998,7 @@ export class EmailService {
       const headerName = orgName ? `${orgName} Incident Management` : 'Incident Management';
 
       const { to, cc, ticketNumber, incidentTitle, storeName, storeCode, technicianName, performedAt,
-              totalEquipment, equipmentRecords, pmReportLink, inventoryListLink } = data;
+              totalEquipment, equipmentRecords, pmReportLink = null, inventoryListLink = null } = data;
 
       const storeDisplay = storeCode ? `${storeCode} ${storeName}` : storeName;
 
@@ -1207,9 +1207,10 @@ export class EmailService {
 
             <!-- Action Links -->
             <div style="margin-top:28px;text-align:center;">
+              ${pmReportLink ? `
               <a href="${pmReportLink}" style="display:inline-block;background-color:#1d4ed8;color:#ffffff;text-decoration:none;padding:11px 24px;border-radius:8px;font-weight:bold;font-size:14px;font-family:Tahoma,'Segoe UI',Arial,sans-serif;margin:4px 6px;">
                 📋 PM Report
-              </a>
+              </a>` : ''}
               ${inventoryListLink ? `
               <a href="${inventoryListLink}" style="display:inline-block;background-color:#0369a1;color:#ffffff;text-decoration:none;padding:11px 24px;border-radius:8px;font-weight:bold;font-size:14px;font-family:Tahoma,'Segoe UI',Arial,sans-serif;margin:4px 6px;">
                 📄 Inventory List

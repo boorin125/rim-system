@@ -401,11 +401,22 @@ export class PmService {
       select: { firstName: true, lastName: true },
     });
 
-    // Fetch pmRecord for inventoryListToken
-    const pmRecord = await this.prisma.pmRecord.findUnique({
+    // Fetch pmRecord for inventoryListToken — auto-generate if not exists
+    let pmRecord = await this.prisma.pmRecord.findUnique({
       where: { incidentId },
-      select: { inventoryListToken: true },
+      select: { inventoryListToken: true, inventoryListTokenExpiresAt: true },
     });
+    if (pmRecord && !pmRecord.inventoryListToken) {
+      const { randomUUID } = await import('crypto');
+      const token = randomUUID();
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 30);
+      await this.prisma.pmRecord.update({
+        where: { incidentId },
+        data: { inventoryListToken: token, inventoryListTokenExpiresAt: expiresAt },
+      });
+      pmRecord = { inventoryListToken: token, inventoryListTokenExpiresAt: expiresAt };
+    }
 
     // Fetch equipment details for each record
     const equipIds = equipmentRecords.map((r) => r.equipmentId);
@@ -446,7 +457,9 @@ export class PmService {
       : [];
 
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    const pmReportLink = `${frontendUrl}/dashboard/incidents/${incidentId}`;
+    const pmReportLink = pmRecord?.inventoryListToken
+      ? `${frontendUrl}/pm-report/${pmRecord.inventoryListToken}`
+      : null;
     const inventoryListLink = pmRecord?.inventoryListToken
       ? `${frontendUrl}/inventory-sign/${pmRecord.inventoryListToken}`
       : null;
@@ -528,6 +541,41 @@ export class PmService {
     }
 
     return record;
+  }
+
+  /**
+   * Get full PM Report data by public token (no auth required).
+   * Reuses inventoryListToken.
+   */
+  async getPmReportByToken(token: string) {
+    const record = await this.prisma.pmRecord.findUnique({
+      where: { inventoryListToken: token },
+      include: {
+        store: { select: { id: true, storeCode: true, name: true, province: true, address: true } },
+        technician: { select: { id: true, firstName: true, lastName: true, firstNameEn: true, lastNameEn: true } },
+        equipmentRecords: {
+          include: {
+            equipment: {
+              select: { id: true, name: true, category: true, brand: true, model: true, serialNumber: true },
+            },
+          },
+          orderBy: { equipmentId: 'asc' },
+        },
+      },
+    });
+
+    if (!record) throw new NotFoundException('ไม่พบรายงาน หรือลิงก์ไม่ถูกต้อง');
+    if (record.inventoryListTokenExpiresAt && record.inventoryListTokenExpiresAt < new Date()) {
+      throw new BadRequestException('ลิงก์หมดอายุแล้ว');
+    }
+
+    // Fetch incident title + ticketNumber
+    const incident = await this.prisma.incident.findUnique({
+      where: { id: record.incidentId },
+      select: { ticketNumber: true, title: true, resolutionNote: true, resolvedAt: true },
+    });
+
+    return { ...record, incident };
   }
 
   /**
