@@ -17,6 +17,7 @@ interface EquipmentItem {
     serialNumber: string
   }
   condition?: string
+  comment?: string
   updatedBrand?: string
   updatedModel?: string
   updatedSerial?: string
