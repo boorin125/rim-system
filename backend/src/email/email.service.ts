@@ -1096,6 +1096,8 @@ export class EmailService {
         .flatMap((r) => r.afterPhotos || [])
         .filter(Boolean) as string[];
 
+      // Build CID inline attachments (works in Gmail, Outlook — unlike data: URIs)
+      const photoAttachments: any[] = [];
       let photosHtml = '';
       if (allAfterPhotos.length > 0) {
         const thumbs = await Promise.all(allAfterPhotos.map(resizePhotoForEmail));
@@ -1104,17 +1106,29 @@ export class EmailService {
         const gap = 4;
         const imgSize = Math.floor(tableWidth / cols) - gap;
         const cellSize = imgSize + gap;
-
-        const makeCell = (src: string) =>
-          `<td width="${cellSize}" style="padding:2px;width:${cellSize}px;height:${cellSize}px;">` +
-            `<a href="${src}" target="_blank" style="display:block;text-decoration:none;">` +
-              `<img src="${src}" alt="photo" width="${imgSize}" height="${imgSize}" ` +
-                `style="display:block;width:${imgSize}px;height:${imgSize}px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;" />` +
-            `</a>` +
-          `</td>`;
         const emptyCell = `<td width="${cellSize}" style="width:${cellSize}px;height:${cellSize}px;"></td>`;
 
-        const cells = thumbs.map(makeCell);
+        const cells = thumbs.map((src, idx) => {
+          const cid = `pm-photo-${idx}@rim`;
+          if (src.startsWith('data:')) {
+            const base64Data = src.split(',')[1];
+            if (base64Data) {
+              photoAttachments.push({
+                filename: `photo-${idx}.jpg`,
+                content: Buffer.from(base64Data, 'base64'),
+                cid,
+                contentType: 'image/jpeg',
+                contentDisposition: 'inline',
+              });
+            }
+          }
+          const imgSrc = src.startsWith('data:') ? `cid:${cid}` : src;
+          return `<td width="${cellSize}" style="padding:2px;width:${cellSize}px;height:${cellSize}px;">` +
+            `<img src="${imgSrc}" alt="photo" width="${imgSize}" height="${imgSize}" ` +
+              `style="display:block;width:${imgSize}px;height:${imgSize}px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;" />` +
+            `</td>`;
+        });
+
         const photoRows: string[] = [];
         for (let i = 0; i < cells.length; i += cols) {
           const slice = cells.slice(i, i + cols);
@@ -1211,8 +1225,7 @@ export class EmailService {
         </html>`;
 
       const htmlSizeKb = Math.round(Buffer.byteLength(htmlContent, 'utf8') / 1024);
-      const photoCount = allAfterPhotos.length;
-      console.log(`[PM Email] HTML size=${htmlSizeKb}KB photos=${photoCount}`);
+      console.log(`[PM Email] HTML size=${htmlSizeKb}KB photos=${allAfterPhotos.length} attachments=${photoAttachments.length}`);
 
       const transporter = await this.createTransporter();
       await transporter.sendMail({
@@ -1221,6 +1234,7 @@ export class EmailService {
         cc: cc && cc.length > 0 ? cc.join(', ') : undefined,
         subject: `[Preventive Maintenance Closed] ${storeDisplay} - ${ticketNumber} : ${incidentTitle}`,
         html: htmlContent,
+        attachments: photoAttachments,
       });
       console.log(`[PM Email] Sent successfully to="${to}" subject="[Preventive Maintenance Closed] ${ticketNumber}"`);
     } catch (error) {
