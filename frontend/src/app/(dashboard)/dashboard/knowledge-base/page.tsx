@@ -14,6 +14,8 @@ import {
   Clock,
   User,
   Users,
+  ImagePlus,
+  ZoomIn,
   FolderOpen,
   FileText,
   Star,
@@ -104,6 +106,7 @@ interface Article {
     firstName: string
     lastName: string
   }
+  attachments: string[]
   relatedArticles?: {
     id: number
     title: string
@@ -181,12 +184,16 @@ export default function KnowledgeBasePage() {
     isPublic: true,
     isPublished: false,
     visibleToRoles: [] as string[],
+    attachments: [] as string[],  // base64 images
   })
   const [isSaving, setIsSaving] = useState(false)
 
   // Feedback state
   const [feedbackComment, setFeedbackComment] = useState('')
   const [submittingFeedback, setSubmittingFeedback] = useState(false)
+
+  // Lightbox for images in detail view
+  const [lightboxImg, setLightboxImg] = useState<string | null>(null)
 
   // Fetch categories
   const fetchCategories = useCallback(async () => {
@@ -436,6 +443,7 @@ export default function KnowledgeBasePage() {
       isPublic: true,
       isPublished: false,
       visibleToRoles: [],
+      attachments: [],
     })
   }
 
@@ -451,6 +459,7 @@ export default function KnowledgeBasePage() {
       isPublic: article.isPublic,
       isPublished: article.isPublished,
       visibleToRoles: article.visibleToRoles || [],
+      attachments: article.attachments || [],
     })
     setShowCreateModal(true)
   }
@@ -1033,6 +1042,79 @@ export default function KnowledgeBasePage() {
                 )}
               </div>
 
+              {/* Image Attachments */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium text-gray-300 flex items-center gap-2">
+                    <ImagePlus className="w-4 h-4 text-gray-400" />
+                    รูปภาพประกอบ
+                    <span className="text-xs text-gray-500">({formData.attachments.length}/10)</span>
+                  </label>
+                  <label className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm cursor-pointer transition-colors ${
+                    formData.attachments.length >= 10
+                      ? 'bg-gray-700/30 text-gray-600 cursor-not-allowed'
+                      : 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30'
+                  }`}>
+                    <ImagePlus className="w-4 h-4" />
+                    เพิ่มรูป
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      disabled={formData.attachments.length >= 10}
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files || [])
+                        const remaining = 10 - formData.attachments.length
+                        files.slice(0, remaining).forEach((file) => {
+                          const reader = new FileReader()
+                          reader.onload = (ev) => {
+                            const b64 = ev.target?.result as string
+                            setFormData(prev => ({
+                              ...prev,
+                              attachments: [...prev.attachments, b64],
+                            }))
+                          }
+                          reader.readAsDataURL(file)
+                        })
+                        e.target.value = ''
+                      }}
+                    />
+                  </label>
+                </div>
+                {formData.attachments.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {formData.attachments.map((img, idx) => (
+                      <div key={idx} className="relative group">
+                        <img
+                          src={img}
+                          alt={`attachment-${idx}`}
+                          className="w-20 h-20 object-cover rounded-lg border border-slate-600 cursor-pointer hover:brightness-90 transition"
+                          onClick={() => setLightboxImg(img)}
+                        />
+                        <button
+                          onClick={() => setFormData(prev => ({
+                            ...prev,
+                            attachments: prev.attachments.filter((_, i) => i !== idx),
+                          }))}
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 rounded-full text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                        <div
+                          className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                          onClick={() => setLightboxImg(img)}
+                        >
+                          <ZoomIn className="w-5 h-5 text-white drop-shadow" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500">ยังไม่มีรูปภาพประกอบ — คลิก "เพิ่มรูป" เพื่ออัพโหลด (สูงสุด 10 รูป)</p>
+                )}
+              </div>
+
               {/* Options */}
               <div className="flex items-center gap-6">
                 <label className="flex items-center gap-2 text-gray-300 cursor-pointer">
@@ -1165,6 +1247,31 @@ export default function KnowledgeBasePage() {
                 </div>
               </div>
 
+              {/* Attached Images */}
+              {selectedArticle.attachments && selectedArticle.attachments.length > 0 && (
+                <div className="mt-8">
+                  <h3 className="text-base font-semibold text-white mb-3 flex items-center gap-2">
+                    <ImagePlus className="w-4 h-4 text-gray-400" />
+                    รูปภาพประกอบ
+                    <span className="text-xs text-gray-500 font-normal">({selectedArticle.attachments.length} รูป)</span>
+                  </h3>
+                  <div className="flex flex-wrap gap-3">
+                    {selectedArticle.attachments.map((img, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setLightboxImg(img)}
+                        className="relative group w-28 h-28 rounded-xl overflow-hidden border border-slate-600 hover:border-blue-500/50 transition-colors"
+                      >
+                        <img src={img} alt={`img-${idx + 1}`} className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <ZoomIn className="w-6 h-6 text-white" />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Related Articles */}
               {selectedArticle.relatedArticles && selectedArticle.relatedArticles.length > 0 && (
                 <div className="mt-8">
@@ -1256,6 +1363,27 @@ export default function KnowledgeBasePage() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Lightbox */}
+      {lightboxImg && (
+        <div
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] p-4 cursor-zoom-out"
+          onClick={() => setLightboxImg(null)}
+        >
+          <button
+            className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
+            onClick={() => setLightboxImg(null)}
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <img
+            src={lightboxImg}
+            alt="preview"
+            className="max-w-full max-h-[90vh] object-contain rounded-xl shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       )}
     </div>
