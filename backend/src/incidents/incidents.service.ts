@@ -3024,13 +3024,43 @@ export class IncidentsService {
 
     // Send email notification to customer and CC relevant parties
     try {
-      // Get customer email (creator's email)
+      // PM incident: send PM-specific closure email (does NOT depend on creator having an email)
+      if (incident.jobType === 'Preventive Maintenance') {
+        const pmRecord = await this.prisma.pmRecord.findUnique({
+          where: { incidentId: id },
+          select: {
+            performedAt: true,
+            technicianId: true,
+            equipmentRecords: {
+              select: {
+                equipmentId: true,
+                condition: true,
+                comment: true,
+                updatedBrand: true,
+                updatedModel: true,
+                updatedSerial: true,
+                afterPhotos: true,
+              },
+            },
+          },
+        });
+        if (pmRecord) {
+          this.pmService.sendPmCompletionEmail(
+            id,
+            pmRecord.performedAt || incident.resolvedAt || new Date(),
+            pmRecord.technicianId || incident.resolvedById || userId,
+            pmRecord.equipmentRecords,
+          ).catch((e) => console.error('Failed to send PM closure email:', e));
+        }
+      }
+
+      // Get customer email (creator's email) — used for standard (non-PM) incidents
       const creator = await this.prisma.user.findUnique({
         where: { id: incident.createdById },
         select: { email: true, firstName: true, lastName: true },
       });
 
-      if (creator && creator.email) {
+      if (creator && creator.email && incident.jobType !== 'Preventive Maintenance') {
         // Get configured notification recipients from settings
         const emailSettings = await this.settingsService.getEmailSettings();
         const toEmail = emailSettings.closeNotificationTo || creator.email;
