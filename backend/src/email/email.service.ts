@@ -1218,8 +1218,10 @@ export class EmailService {
         subject: `[Preventive Maintenance Closed] ${storeDisplay} - ${ticketNumber} : ${incidentTitle}`,
         html: htmlContent,
       });
+      console.log(`[PM Email] Sent successfully to="${to}" subject="[Preventive Maintenance Closed] ${ticketNumber}"`);
     } catch (error) {
-      console.error('Error sending PM completed email:', error);
+      console.error('[PM Email] Error sending PM completed email:', error);
+      throw error;
     }
   }
 

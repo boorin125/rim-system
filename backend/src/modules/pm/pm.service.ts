@@ -435,7 +435,11 @@ export class PmService {
     // Get email settings
     const emailSettings = await this.settingsService.getEmailSettings();
     const toEmail = emailSettings.closeNotificationTo;
-    if (!toEmail) return;
+    console.log(`[PM Email] incidentId=${incidentId} toEmail="${toEmail}" cc="${emailSettings.closeNotificationCc || ''}"`);
+    if (!toEmail) {
+      console.warn('[PM Email] closeNotificationTo is empty — email skipped');
+      return;
+    }
 
     const ccEmails = emailSettings.closeNotificationCc
       ? emailSettings.closeNotificationCc.split(',').map((e: string) => e.trim()).filter(Boolean)
