@@ -3244,6 +3244,35 @@ export class IncidentsService {
       }
     }
 
+    // PM jobs use a separate email template
+    if (incident.jobType === 'Preventive Maintenance') {
+      const pmRecord = await this.prisma.pmRecord.findUnique({
+        where: { incidentId: id },
+        select: {
+          performedAt: true,
+          technicianId: true,
+          equipmentRecords: {
+            select: {
+              equipmentId: true, condition: true, comment: true,
+              updatedBrand: true, updatedModel: true, updatedSerial: true, afterPhotos: true,
+            },
+          },
+        },
+      });
+      if (!pmRecord) throw new BadRequestException('ไม่พบ PM Record สำหรับงานนี้');
+
+      await this.pmService.sendPmCompletionEmail(
+        id,
+        pmRecord.performedAt || incident.resolvedAt || new Date(),
+        pmRecord.technicianId || incident.resolvedById || userId,
+        pmRecord.equipmentRecords,
+      );
+
+      const emailSettings = await this.settingsService.getEmailSettings();
+      const toEmail = emailSettings.closeNotificationTo || '-';
+      return { message: `ส่งอีเมล PM Closed ไปที่ ${toEmail} สำเร็จ` };
+    }
+
     const creator = await this.prisma.user.findUnique({
       where: { id: incident.createdById },
       select: { email: true, firstName: true, lastName: true },
