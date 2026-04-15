@@ -302,6 +302,7 @@ export class KnowledgeBaseService {
       search?: string;
       isPublished?: boolean;
       authorId?: number;
+      roleFilter?: string; // 'ALL' | UserRole — filter by target audience
     },
   ) {
     const page = query?.page || 1;
@@ -309,6 +310,13 @@ export class KnowledgeBaseService {
     const skip = (page - 1) * limit;
 
     const where: any = { AND: [visibilityFilter(userRole)] };
+
+    // Role filter: 'ALL' = articles for everyone; '<ROLE>' = articles tagged for that role
+    if (query?.roleFilter === 'ALL') {
+      where.AND.push({ visibleToRoles: { isEmpty: true } });
+    } else if (query?.roleFilter) {
+      where.AND.push({ visibleToRoles: { has: query.roleFilter as UserRole } });
+    }
 
     if (query?.categoryId) {
       where.AND.push({ categoryId: query.categoryId });

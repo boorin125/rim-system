@@ -13,6 +13,7 @@ import {
   ThumbsDown,
   Clock,
   User,
+  Users,
   FolderOpen,
   FileText,
   Star,
@@ -27,6 +28,14 @@ import {
   Check,
   AlertCircle,
 } from 'lucide-react'
+
+const ROLE_FILTER_TABS = [
+  { value: 'ALL',        label: 'ทุก Role',    badge: 'bg-purple-500/20 text-purple-300',  badgeLabel: 'All'        },
+  { value: 'HELP_DESK',  label: 'Helpdesk',    badge: 'bg-orange-500/20 text-orange-300',  badgeLabel: 'HD'         },
+  { value: 'TECHNICIAN', label: 'Technician',  badge: 'bg-blue-500/20 text-blue-300',      badgeLabel: 'Tech'       },
+  { value: 'SUPERVISOR', label: 'Supervisor',  badge: 'bg-green-500/20 text-green-300',    badgeLabel: 'Sup'        },
+  { value: 'IT_MANAGER', label: 'IT Manager',  badge: 'bg-red-500/20 text-red-300',        badgeLabel: 'ITM'        },
+]
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import { canPerformAction, getAccessLevel, getUserRoles } from '@/config/permissions'
@@ -147,6 +156,7 @@ export default function KnowledgeBasePage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null)
   const [showDrafts, setShowDrafts] = useState(false)
+  const [roleFilter, setRoleFilter] = useState<string>('')  // '' = not yet initialized
 
   // Pagination
   const [pagination, setPagination] = useState({
@@ -194,6 +204,7 @@ export default function KnowledgeBasePage() {
 
   // Fetch articles
   const fetchArticles = useCallback(async () => {
+    if (!roleFilter) return  // wait until roleFilter is initialized
     try {
       const token = localStorage.getItem('token')
       const params = new URLSearchParams()
@@ -202,6 +213,7 @@ export default function KnowledgeBasePage() {
       if (selectedCategory) params.set('categoryId', String(selectedCategory))
       if (searchTerm) params.set('search', searchTerm)
       if (!showDrafts) params.set('isPublished', 'true')
+      params.set('roleFilter', roleFilter)
 
       const res = await axios.get(
         `${process.env.NEXT_PUBLIC_API_URL}/kb/articles?${params.toString()}`,
@@ -216,7 +228,7 @@ export default function KnowledgeBasePage() {
     } catch (err) {
       console.error('Error fetching articles:', err)
     }
-  }, [pagination.page, pagination.limit, selectedCategory, searchTerm, showDrafts])
+  }, [pagination.page, pagination.limit, selectedCategory, searchTerm, showDrafts, roleFilter])
 
   // Fetch stats
   const fetchStats = useCallback(async () => {
@@ -262,6 +274,10 @@ export default function KnowledgeBasePage() {
         return
       }
       setCurrentUser(user)
+      // Default role filter to the user's own role (if it's a known tab)
+      const userRole: string = user?.role || ''
+      const isKnownTab = ROLE_FILTER_TABS.some(t => t.value === userRole)
+      setRoleFilter(isKnownTab ? userRole : 'ALL')
     }
   }, [])
 
@@ -281,7 +297,7 @@ export default function KnowledgeBasePage() {
     if (!isLoading) {
       fetchArticles()
     }
-  }, [pagination.page, selectedCategory, searchTerm, showDrafts])
+  }, [pagination.page, selectedCategory, searchTerm, showDrafts, roleFilter])
 
   // View article detail
   const viewArticle = async (article: Article) => {
@@ -599,6 +615,49 @@ export default function KnowledgeBasePage() {
             </div>
           </div>
 
+          {/* Role filter tabs */}
+          <div className="glass-card p-4 rounded-xl">
+            <h3 className="text-sm font-semibold text-gray-400 mb-3 flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              คู่มือตาม Role
+            </h3>
+            <div className="space-y-1">
+              {ROLE_FILTER_TABS.map((tab) => {
+                const isActive = roleFilter === tab.value
+                const isMyRole = currentUser?.role === tab.value
+                return (
+                  <button
+                    key={tab.value}
+                    onClick={() => {
+                      setRoleFilter(tab.value)
+                      setPagination(prev => ({ ...prev, page: 1 }))
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded-lg transition-colors flex items-center gap-2 ${
+                      isActive ? 'text-white' : 'text-gray-300 hover:bg-gray-700/50'
+                    }`}
+                    style={isActive ? { backgroundColor: themeHighlight } : undefined}
+                  >
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                      isActive ? 'bg-white/20 text-white' : tab.badge
+                    }`}>
+                      {tab.badgeLabel}
+                    </span>
+                    <span className="text-sm flex-1">{tab.label}</span>
+                    {isMyRole && (
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded border ${
+                        isActive
+                          ? 'border-white/30 text-white/70'
+                          : 'border-gray-600 text-gray-500'
+                      }`}>
+                        Role ของคุณ
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
           {/* Categories */}
           <div className="glass-card p-4 rounded-xl">
             <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
@@ -681,12 +740,21 @@ export default function KnowledgeBasePage() {
           <div className="glass-card rounded-xl overflow-hidden">
             {/* Results header */}
             <div className="p-4 border-b border-gray-700/50 flex items-center justify-between">
-              <p className="text-sm text-gray-400">
-                พบ {pagination.total} บทความ
-                {selectedCategory && categories.flat.find(c => c.id === selectedCategory) && (
-                  <span> ใน "{categories.flat.find(c => c.id === selectedCategory)?.name}"</span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-sm text-gray-400">
+                  พบ {pagination.total} บทความ
+                  {selectedCategory && categories.flat.find(c => c.id === selectedCategory) && (
+                    <span> ใน "{categories.flat.find(c => c.id === selectedCategory)?.name}"</span>
+                  )}
+                </p>
+                {roleFilter && (
+                  <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${
+                    ROLE_FILTER_TABS.find(t => t.value === roleFilter)?.badge ?? 'bg-gray-700 text-gray-300'
+                  }`}>
+                    {ROLE_FILTER_TABS.find(t => t.value === roleFilter)?.label ?? roleFilter}
+                  </span>
                 )}
-              </p>
+              </div>
               {selectedCategory && (
                 <button
                   onClick={() => setSelectedCategory(null)}

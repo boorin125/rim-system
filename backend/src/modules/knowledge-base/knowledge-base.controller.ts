@@ -132,6 +132,7 @@ export class KnowledgeBaseController {
     @Query('search') search?: string,
     @Query('isPublished') isPublished?: string,
     @Query('authorId') authorId?: string,
+    @Query('roleFilter') roleFilter?: string,
   ) {
     return this.kbService.getArticles(req.user.role, {
       page: page ? parseInt(page) : 1,
@@ -140,6 +141,7 @@ export class KnowledgeBaseController {
       search,
       isPublished: isPublished ? isPublished === 'true' : undefined,
       authorId: authorId ? parseInt(authorId) : undefined,
+      roleFilter,
     });
   }
 
