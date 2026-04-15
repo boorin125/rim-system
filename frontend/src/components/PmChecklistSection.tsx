@@ -1288,66 +1288,20 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
 
         {/* Document view buttons — always visible; gain a Download icon after PM is submitted */}
         <div className="grid grid-cols-2 gap-2">
-          {pmRecord.performedAt ? (
-            <div className="flex rounded-lg overflow-hidden border border-blue-600/40">
-              <button
-                onClick={handleOpenPmReport}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-blue-600/80 hover:bg-blue-600 text-white text-sm transition-colors"
-              >
-                <FileText className="w-4 h-4" />
-                PM Report
-              </button>
-              <div className="w-px bg-blue-500/30" />
-              <button
-                onClick={handleDirectDownloadPdf}
-                disabled={downloadingPmReport}
-                title="Download PDF"
-                className="px-3 flex items-center justify-center bg-blue-600/80 hover:bg-blue-600 disabled:opacity-50 text-white transition-colors"
-              >
-                {downloadingPmReport
-                  ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  : <Download className="w-4 h-4" />}
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={handleOpenPmReport}
-              className="flex items-center justify-center gap-2 py-2.5 bg-blue-600/80 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors"
-            >
-              <FileText className="w-4 h-4" />
-              PM Report
-            </button>
-          )}
-          {pmRecord.performedAt ? (
-            <div className="flex rounded-lg overflow-hidden border border-teal-600/40">
-              <button
-                onClick={handleOpenInventoryList}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-teal-600/80 hover:bg-teal-600 text-white text-sm transition-colors"
-              >
-                <FileText className="w-4 h-4" />
-                Inventory List
-              </button>
-              <div className="w-px bg-teal-500/30" />
-              <button
-                onClick={handleDirectDownloadInventory}
-                disabled={downloadingInventory}
-                title="Download PDF"
-                className="px-3 flex items-center justify-center bg-teal-600/80 hover:bg-teal-600 disabled:opacity-50 text-white transition-colors"
-              >
-                {downloadingInventory
-                  ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  : <Download className="w-4 h-4" />}
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={handleOpenInventoryList}
-              className="flex items-center justify-center gap-2 py-2.5 bg-teal-600/80 hover:bg-teal-600 text-white text-sm rounded-lg transition-colors"
-            >
-              <FileText className="w-4 h-4" />
-              Inventory List
-            </button>
-          )}
+          <button
+            onClick={handleOpenPmReport}
+            className="flex items-center justify-center gap-2 py-2.5 bg-blue-600/80 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors"
+          >
+            <FileText className="w-4 h-4" />
+            PM Report
+          </button>
+          <button
+            onClick={handleOpenInventoryList}
+            className="flex items-center justify-center gap-2 py-2.5 bg-teal-600/80 hover:bg-teal-600 text-white text-sm rounded-lg transition-colors"
+          >
+            <FileText className="w-4 h-4" />
+            Inventory List
+          </button>
         </div>
 
         {/* Digital Sign + Upload — only for the primary PM technician, only after Submit PM */}
