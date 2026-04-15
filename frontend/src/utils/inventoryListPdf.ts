@@ -233,10 +233,26 @@ export async function generateInventoryListPDF(data: InventoryListData): Promise
     doc.text(snLines.slice(0, 2), cx + 1.5, y + 7)
     cx += cols[3].w
 
-    // Photo (after-PM)
+    // Photo (after-PM) — object-fit: contain, preserves aspect ratio
     if (eq.photo) {
       try {
-        doc.addImage(eq.photo, 'JPEG', cx + 1, y + 1, cols[4].w - 2, ROW_H - 2, undefined, 'FAST')
+        const dims = await new Promise<{ w: number; h: number }>((resolve) => {
+          const img = new Image()
+          img.onload = () => resolve({ w: img.width, h: img.height })
+          img.onerror = () => resolve({ w: 0, h: 0 })
+          img.src = eq.photo!
+        })
+        if (dims.w > 0) {
+          const maxW = cols[4].w - 2
+          const maxH = ROW_H - 2
+          const ratio = dims.w / dims.h
+          const pw = ratio > maxW / maxH ? maxW : maxH * ratio
+          const ph = ratio > maxW / maxH ? maxW / ratio : maxH
+          const px = cx + 1 + (maxW - pw) / 2
+          const py = y + 1 + (maxH - ph) / 2
+          const fmt = eq.photo.startsWith('data:image/png') ? 'PNG' : 'JPEG'
+          doc.addImage(eq.photo, fmt, px, py, pw, ph, undefined, 'FAST')
+        }
       } catch {}
     } else {
       doc.setFontSize(5.5)
@@ -273,12 +289,13 @@ export async function generateInventoryListPDF(data: InventoryListData): Promise
   doc.setLineWidth(0.2)
   y += 8
 
-  // ── Signature Section — always pinned to bottom of last page ─────────────
-  const sigBlockH = 55  // 7 (header bar) + 44 (boxes) + 4 (gap)
-  const sigFixedY = pageH - 10 - sigBlockH  // ~232 mm
+  // ── Signature Section ────────────────────────────────────────────────────
+  // sigBlockH=45: 7 (header bar) + 38 (boxes). Fits in 50 mm gap after 8 rows on last page.
+  // Condition: if remaining space is enough → stay on same page; else new page. Always pin to bottom.
+  const sigBlockH = 45
+  const sigFixedY = pageH - 10 - sigBlockH  // ~242 mm
 
-  if (y + 8 > sigFixedY) {
-    // Rows overflow into signature area → push to new page
+  if (y + sigBlockH > pageH - 10) {
     doc.addPage()
   }
   y = sigFixedY
@@ -290,21 +307,21 @@ export async function generateInventoryListPDF(data: InventoryListData): Promise
   doc.setFontSize(8)
   doc.setTextColor(88, 28, 135)
   doc.text('ลายเซ็น / Signatures', marginL + 3, y + 5)
-  y += 7  // move past header bar
+  y += 7
 
   const colW = contentW / 2
-  const sigImgH = 20
-  const boxH = 44      // height of each signature box
+  const sigImgH = 15
+  const boxH = 38
   const boxTop = y
 
-  // Bordered signature boxes (Service Report style)
+  // Bordered signature boxes
   doc.setDrawColor(160, 160, 160)
   doc.setLineWidth(0.2)
   doc.rect(marginL, boxTop, colW, boxH)
   doc.rect(marginL + colW, boxTop, colW, boxH)
 
   // Inner signature lines
-  const lineY = boxTop + 8 + sigImgH + 2  // boxTop + 30
+  const lineY = boxTop + 7 + sigImgH + 2  // boxTop + 24
   doc.setDrawColor(180, 180, 180)
   doc.setLineWidth(0.3)
   doc.line(marginL + 8, lineY, marginL + colW - 8, lineY)
@@ -312,7 +329,7 @@ export async function generateInventoryListPDF(data: InventoryListData): Promise
 
   // ── Technician column (left) ──
   doc.setFont(font, 'normal')
-  doc.setFontSize(7.5)
+  doc.setFontSize(7)
   doc.setTextColor(100, 100, 100)
   doc.text('ลายเซ็นช่างเทคนิค / Technician', marginL + colW / 2, boxTop + 4.5, { align: 'center' })
 
@@ -326,11 +343,11 @@ export async function generateInventoryListPDF(data: InventoryListData): Promise
       })
       if (sigDims.w > 0) {
         const ratio = sigDims.w / sigDims.h
-        const sh = Math.min(sigImgH, 50 * ratio > 50 ? sigImgH : sigImgH)
-        const sw = Math.min(sh * ratio, colW - 20)
+        const sw = Math.min(sigImgH * ratio, colW - 20)
+        const sh = sw / ratio
         const sx = marginL + (colW - sw) / 2
         const fmt = data.technicianSignature.startsWith('data:image/png') ? 'PNG' : 'JPEG'
-        doc.addImage(data.technicianSignature, fmt, sx, boxTop + 8, sw, Math.min(sh, sigImgH), undefined, 'FAST')
+        doc.addImage(data.technicianSignature, fmt, sx, boxTop + 7, sw, Math.min(sh, sigImgH), undefined, 'FAST')
       }
     } catch {}
   }
@@ -338,19 +355,19 @@ export async function generateInventoryListPDF(data: InventoryListData): Promise
   doc.setFont(font, 'bold')
   doc.setFontSize(7)
   doc.setTextColor(50, 50, 50)
-  doc.text(`(${data.technicianName || '                    '})`, marginL + colW / 2, lineY + 4, { align: 'center' })
+  doc.text(`(${data.technicianName || '                    '})`, marginL + colW / 2, lineY + 3.5, { align: 'center' })
   doc.setFont(font, 'normal')
   doc.setFontSize(6)
   doc.setTextColor(120, 120, 120)
   if (data.performedAt) {
     const d = new Date(data.performedAt)
-    doc.text(`${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`, marginL + colW / 2, lineY + 8, { align: 'center' })
+    doc.text(`${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`, marginL + colW / 2, lineY + 7, { align: 'center' })
   }
 
   // ── Store Staff column (right) ──
   const rightX = marginL + colW
   doc.setFont(font, 'normal')
-  doc.setFontSize(7.5)
+  doc.setFontSize(7)
   doc.setTextColor(100, 100, 100)
   doc.text('ลายเซ็นเจ้าหน้าที่สาขา / Store Staff', rightX + colW / 2, boxTop + 4.5, { align: 'center' })
 
@@ -368,7 +385,7 @@ export async function generateInventoryListPDF(data: InventoryListData): Promise
         const sh = sw / ratio
         const sx = rightX + (colW - sw) / 2
         const fmt = data.storeSignature.startsWith('data:image/png') ? 'PNG' : 'JPEG'
-        doc.addImage(data.storeSignature, fmt, sx, boxTop + 8, sw, Math.min(sh, sigImgH), undefined, 'FAST')
+        doc.addImage(data.storeSignature, fmt, sx, boxTop + 7, sw, Math.min(sh, sigImgH), undefined, 'FAST')
       }
     } catch {}
   }
@@ -376,13 +393,13 @@ export async function generateInventoryListPDF(data: InventoryListData): Promise
   doc.setFont(font, 'bold')
   doc.setFontSize(7)
   doc.setTextColor(50, 50, 50)
-  doc.text(`(${data.storeSignerName || '                    '})`, rightX + colW / 2, lineY + 4, { align: 'center' })
+  doc.text(`(${data.storeSignerName || '                    '})`, rightX + colW / 2, lineY + 3.5, { align: 'center' })
   doc.setFont(font, 'normal')
   doc.setFontSize(6)
   doc.setTextColor(120, 120, 120)
   if (data.storeSignedAt) {
     const d = new Date(data.storeSignedAt)
-    doc.text(`${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`, rightX + colW / 2, lineY + 8, { align: 'center' })
+    doc.text(`${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`, rightX + colW / 2, lineY + 7, { align: 'center' })
   }
 
   doc.setLineWidth(0.2)
