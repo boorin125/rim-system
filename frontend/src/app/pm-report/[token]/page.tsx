@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { Loader2, AlertCircle } from 'lucide-react'
+import { Loader2, AlertCircle, Download } from 'lucide-react'
 import axios from 'axios'
+import { generatePmReportPDF, PmReportData } from '@/utils/pmReportPdf'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'
 
@@ -63,6 +64,7 @@ export default function PmReportPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null)
+  const [downloading, setDownloading] = useState(false)
 
   useEffect(() => {
     if (!token) return
@@ -106,6 +108,44 @@ export default function PmReportPage() {
   const techName = data.technician
     ? `${data.technician.firstName} ${data.technician.lastName}`
     : undefined
+
+  const handleDownloadPdf = async () => {
+    if (!data) return
+    setDownloading(true)
+    try {
+      const pdfData: PmReportData = {
+        ticketNumber: data.incident?.ticketNumber || '',
+        store: data.store,
+        performedAt: data.performedAt,
+        technicianName: techName,
+        technicianSignature: data.technicianSignature,
+        storeSignature: data.storeSignature,
+        storeSignerName: data.storeSignerName,
+        storeSignedAt: data.storeSignedAt,
+        organizationName: orgName || undefined,
+        organizationLogo: orgLogo || undefined,
+        equipmentRecords: data.equipmentRecords.map(rec => ({
+          name: rec.equipment.name,
+          category: rec.equipment.category,
+          serialNumber: rec.equipment.serialNumber,
+          brand: rec.equipment.brand,
+          model: rec.equipment.model,
+          condition: rec.condition,
+          comment: rec.comment,
+          beforePhotos: rec.beforePhotos || [],
+          afterPhotos: rec.afterPhotos || [],
+          updatedBrand: rec.updatedBrand,
+          updatedModel: rec.updatedModel,
+          updatedSerial: rec.updatedSerial,
+        })),
+      }
+      await generatePmReportPDF(pdfData)
+    } catch {
+      alert('ดาวน์โหลด PDF ไม่สำเร็จ')
+    } finally {
+      setDownloading(false)
+    }
+  }
 
   const fmtDate = (d?: string) => {
     if (!d) return '\u00A0'
@@ -280,8 +320,22 @@ export default function PmReportPage() {
           </div>
 
           {/* Footer */}
-          <div className="mt-6 pt-4 border-t border-gray-200 text-xs text-gray-400 text-center">
-            Created automated by {orgName ? `${orgName} Incident Management` : 'RIM System'}
+          <div className="mt-6 pt-4 border-t border-gray-200 flex flex-col items-center gap-3">
+            <button
+              onClick={handleDownloadPdf}
+              disabled={downloading}
+              className="flex items-center gap-2 px-6 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition-colors"
+            >
+              {downloading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              {downloading ? 'กำลังสร้าง PDF...' : 'Download PDF'}
+            </button>
+            <p className="text-xs text-gray-400">
+              Created automated by {orgName ? `${orgName} Incident Management` : 'RIM System'}
+            </p>
           </div>
         </div>
       </div>
