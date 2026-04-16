@@ -37,6 +37,7 @@ body {
 }
 
 body {
+  font-family: 'Inter', 'Sarabun', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   color: rgb(var(--foreground-rgb));
   background: linear-gradient(
     135deg,
