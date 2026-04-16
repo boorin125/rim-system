@@ -1006,7 +1006,6 @@ export class IncidentsService {
           createdAt: true,
           updatedAt: true,
           resolvedAt: true,
-          closeDate: true,
           slaDeadline: true,
           storeId: true,
           assigneeId: true,

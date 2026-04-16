@@ -332,7 +332,7 @@ export default function ReportsPage() {
             const techName = i.assignees?.length > 0
               ? i.assignees.map((a: any) => `${a.user.firstName} ${a.user.lastName}`).join(', ')
               : 'Unassigned'
-            const closedDate = i.closeDate || i.resolvedAt
+            const closedDate = i.resolvedAt
             const fmtDate = (d: string) => { const dt = new Date(d); return `${dt.getDate()}/${dt.getMonth()+1}/${dt.getFullYear()}` }
             return [
               idx + 1,
