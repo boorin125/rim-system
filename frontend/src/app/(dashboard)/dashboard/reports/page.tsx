@@ -344,7 +344,7 @@ export default function ReportsPage() {
               i.category || 'N/A',
               i.priority || '',
               i.jobType || '',
-              i.createdAt ? fmtDate(i.createdAt) : '',
+              i.incidentDate ? new Date(i.incidentDate).toLocaleString('th-TH') : '',
               i.createdAt ? new Date(i.createdAt).toLocaleString('th-TH') : '',
               closedDate ? new Date(closedDate).toLocaleString('th-TH') : '',
               techName,

@@ -1002,6 +1002,7 @@ export class IncidentsService {
           resolutionType: true,
           resolutionNote: true,
           incidentType: true,
+          incidentDate: true,
           createdAt: true,
           updatedAt: true,
           resolvedAt: true,
