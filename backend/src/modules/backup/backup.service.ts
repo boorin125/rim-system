@@ -357,9 +357,12 @@ export class BackupService {
       users: () => this.prisma.user.findMany({
         select: {
           id: true, username: true, email: true,
-          firstName: true, lastName: true, phone: true,
-          department: true, technicianType: true, serviceCenter: true,
-          responsibleProvinces: true, address: true,
+          firstName: true, lastName: true,
+          firstNameEn: true, lastNameEn: true,
+          phone: true, department: true,
+          technicianType: true, serviceCenter: true,
+          responsibleProvinces: true,
+          address: true, subDistrict: true, district: true, province: true,
           cumulativeRating: true, status: true, isProtected: true,
           createdAt: true, updatedAt: true, createdBy: true,
         },
@@ -778,15 +781,29 @@ export class BackupService {
   private async restoreTableFromFile(table: string, data: any[]): Promise<{ restored: number }> {
     const dateFields = [
       'createdAt', 'updatedAt', 'resolvedAt', 'closedAt', 'slaDeadline',
-      'openDate', 'purchaseDate', 'warrantyExpiry', 'expiresAt', 'lastReopenedAt',
-      'respondedAt', 'scheduledAt', 'checkInAt', 'checkOutAt', 'performedAt',
-      'issuedAt', 'activatedAt', 'lastActivationAt', 'lastCheckAt',
+      'openDate', 'closeDate', 'purchaseDate', 'warrantyExpiry', 'expiresAt',
+      'lastReopenedAt', 'respondedAt', 'scheduledAt', 'checkInAt', 'checkedInAt',
+      'performedAt', 'issuedAt', 'activatedAt', 'lastActivationAt', 'lastCheckAt',
       'publishedAt', 'deadline', 'postedAt', 'awardedAt', 'completedAt',
       'verifiedAt', 'paidAt', 'documentSubmittedAt', 'submittedAt',
       'cancellationRequestedAt', 'cancellationConfirmedAt',
       'sparePartsConfirmedAt', 'documentsReceivedAt', 'lockedUntil',
       'lastLogin', 'lastPasswordChange', 'lastPmAt',
       'inventoryListTokenExpiresAt', 'storeSignedAt',
+      // Incident token/tracking dates
+      'ratingTokenCreatedAt', 'ratingTokenExpiresAt', 'ratingEmailSentAt',
+      'serviceReportTokenCreatedAt', 'serviceReportTokenExpiresAt',
+      'techConfirmedAt', 'emailSentAt',
+      // Assignment/reassignment
+      'assignedAt', 'reassignedAt', 'approvedAt', 'reviewedAt',
+      // Notification
+      'readAt',
+      // Knowledge
+      'usedAt',
+      // Outsource
+      'proposedStartDate', 'estimatedArrivalTime', 'startedAt',
+      // Performance scores
+      'startDate', 'endDate', 'calculatedAt',
     ];
 
     const processed = data.map(record => {
@@ -842,12 +859,17 @@ export class BackupService {
           password: defaultPasswordHash,
           firstName: u.firstName || null,
           lastName: u.lastName || null,
+          firstNameEn: u.firstNameEn || null,
+          lastNameEn: u.lastNameEn || null,
           phone: u.phone || null,
           department: u.department || null,
           technicianType: u.technicianType || null,
           serviceCenter: u.serviceCenter || null,
           responsibleProvinces: u.responsibleProvinces || [],
           address: u.address || null,
+          subDistrict: u.subDistrict || null,
+          district: u.district || null,
+          province: u.province || null,
           cumulativeRating: u.cumulativeRating ?? 5.0,
           status: u.status || 'ACTIVE',
           isProtected: false,
