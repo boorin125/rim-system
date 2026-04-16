@@ -327,22 +327,30 @@ export default function ReportsPage() {
             return defense.status
           }
 
-          const h = ['#', 'Status', 'Ticket No.', 'Store ID', 'Store Name', 'Title', 'Category', 'Create Date', 'Closed Date', 'Technician', 'Resolution', 'SLA Defense', 'เหตุผล Defense SLA']
-          const rows = items.map((i: any, idx: number) => [
-            idx + 1,
-            i.status || '',
-            i.ticketNumber || `#${i.id}`,
-            i.store?.storeCode ?? '',
-            i.store?.name || 'N/A',
-            i.title || '',
-            i.category || 'N/A',
-            i.createdAt ? new Date(i.createdAt).toLocaleString('th-TH') : '',
-            i.resolvedAt ? new Date(i.resolvedAt).toLocaleString('th-TH') : '',
-            i.assignee ? `${i.assignee.firstName} ${i.assignee.lastName}` : 'Unassigned',
-            i.resolutionNote || '',
-            getSlaDefenseLabel(i),
-            i.slaDefenses?.[0]?.reason || '-',
-          ])
+          const h = ['#', 'Status', 'Ticket No.', 'Store ID', 'Store Name', 'Title', 'Category', 'Priority', 'Job Type', 'Create Date', 'Closed Date', 'Technician', 'Resolution Note', 'SLA Defense', 'เหตุผล Defense SLA']
+          const rows = items.map((i: any, idx: number) => {
+            const techName = i.assignees?.length > 0
+              ? i.assignees.map((a: any) => `${a.user.firstName} ${a.user.lastName}`).join(', ')
+              : 'Unassigned'
+            const closedDate = i.closeDate || i.resolvedAt
+            return [
+              idx + 1,
+              i.status || '',
+              i.ticketNumber || `#${i.id}`,
+              i.store?.storeCode ?? '',
+              i.store?.name || 'N/A',
+              i.title || '',
+              i.category || 'N/A',
+              i.priority || '',
+              i.jobType || '',
+              i.createdAt ? new Date(i.createdAt).toLocaleString('th-TH') : '',
+              closedDate ? new Date(closedDate).toLocaleString('th-TH') : '',
+              techName,
+              i.resolutionNote || '',
+              getSlaDefenseLabel(i),
+              i.slaDefenses?.[0]?.reason || '-',
+            ]
+          })
           setPreviewHeaders(h)
           setPreviewRows(rows)
           break
