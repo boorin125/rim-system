@@ -28,7 +28,6 @@ interface EquipmentRecord {
 interface PmReportPublicData {
   id: number
   performedAt?: string
-  technicianSignature?: string
   storeSignature?: string
   storeSignerName?: string
   storeSignedAt?: string
@@ -37,7 +36,7 @@ interface PmReportPublicData {
     name: string
     address?: string
   }
-  technician?: { firstName: string; lastName: string }
+  technician?: { firstName: string; lastName: string; signaturePath?: string }
   equipmentRecords: EquipmentRecord[]
   incident?: {
     ticketNumber: string
@@ -109,6 +108,11 @@ export default function PmReportPage() {
     ? `${data.technician.firstName} ${data.technician.lastName}`
     : undefined
 
+  const base = API_URL.replace('/api', '')
+  const techSigUrl = data.technician?.signaturePath
+    ? `${base}/uploads/${data.technician.signaturePath}`
+    : undefined
+
   const handleDownloadPdf = async () => {
     if (!data) return
     setDownloading(true)
@@ -118,7 +122,7 @@ export default function PmReportPage() {
         store: data.store,
         performedAt: data.performedAt,
         technicianName: techName,
-        technicianSignature: data.technicianSignature,
+        technicianSignature: techSigUrl,
         storeSignature: data.storeSignature,
         storeSignerName: data.storeSignerName,
         storeSignedAt: data.storeSignedAt,
@@ -288,8 +292,8 @@ export default function PmReportPage() {
               <div className="px-6 py-5 text-center">
                 <p className="text-xs text-gray-400 mb-3">ลายเซ็นช่างเทคนิค / Technician</p>
                 <div className="h-14 flex items-end justify-center mb-3">
-                  {data.technicianSignature && (
-                    <img src={data.technicianSignature} alt="Technician signature" className="h-12 object-contain" />
+                  {techSigUrl && (
+                    <img src={techSigUrl} alt="Technician signature" className="h-12 object-contain" />
                   )}
                 </div>
                 <div className="border-b-2 border-gray-400 w-44 mx-auto mb-1" />

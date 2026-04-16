@@ -65,11 +65,13 @@ export default function InventoryListPage() {
       axios.get(`${base}/api/settings/organization`).catch(() => ({ data: null })),
     ]).then(([pmRes, orgRes]) => {
       const pm = pmRes.data
-      // Map technician name
       const techName = pm.technician
         ? `${pm.technician.firstName} ${pm.technician.lastName}`
         : undefined
-      setData({ ...pm, technicianName: techName })
+      const techSigUrl = pm.technician?.signaturePath
+        ? `${base}/uploads/${pm.technician.signaturePath}`
+        : undefined
+      setData({ ...pm, technicianName: techName, technicianSignature: techSigUrl })
 
       if (orgRes.data?.logoPath) {
         fetch(`${base}/${orgRes.data.logoPath}`)

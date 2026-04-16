@@ -255,8 +255,22 @@ export function PmReportModal({
         </div>
 
         {/* Footer */}
-        <div className="mt-6 pt-4 border-t border-gray-200 text-xs text-gray-400 text-center">
-          Created automated by {data.organizationName ? `${data.organizationName} Incident Management` : 'RIM System'}
+        <div className="mt-6 pt-4 border-t border-gray-200 flex flex-col items-center gap-3">
+          <button
+            onClick={onSavePdf}
+            disabled={saving}
+            className="flex items-center gap-2 px-6 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition-colors"
+          >
+            {saving ? (
+              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
+            {saving ? 'กำลังสร้าง PDF...' : 'Download PDF'}
+          </button>
+          <p className="text-xs text-gray-400">
+            Created automated by {data.organizationName ? `${data.organizationName} Incident Management` : 'RIM System'}
+          </p>
         </div>
       </div>
     </ModalWrapper>
@@ -435,8 +449,22 @@ export function InventoryListModal({
             </div>
 
             {/* Footer */}
-            <div className="mt-6 pt-4 border-t border-gray-200 text-xs text-gray-400 text-center">
-              Created automated by {data.organizationName ? `${data.organizationName} Incident Management` : 'RIM System'}
+            <div className="mt-6 pt-4 border-t border-gray-200 flex flex-col items-center gap-3">
+              <button
+                onClick={onSavePdf}
+                disabled={saving}
+                className="flex items-center gap-2 px-6 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition-colors"
+              >
+                {saving ? (
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+                {saving ? 'กำลังสร้าง PDF...' : 'Download PDF'}
+              </button>
+              <p className="text-xs text-gray-400">
+                Created automated by {data.organizationName ? `${data.organizationName} Incident Management` : 'RIM System'}
+              </p>
             </div>
           </div>
         </div>
