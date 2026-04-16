@@ -56,7 +56,12 @@ export class VersionService {
       where: { status: VersionStatus.CURRENT },
       include: { appliedBy: { select: { id: true, firstName: true, lastName: true } } },
     });
-    return current ?? { version: '1.0.0', status: 'CURRENT', releaseNotes: null, changes: [], appliedAt: null, appliedBy: null };
+    const base = current ?? { version: '1.0.0', status: 'CURRENT', releaseNotes: null, changes: [], appliedAt: null, appliedBy: null };
+    return {
+      ...base,
+      gitCommit: process.env.GIT_COMMIT || 'unknown',
+      buildDate: process.env.BUILD_DATE || null,
+    };
   }
 
   // ─── Get version history ──────────────────────────────────────────────────

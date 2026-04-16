@@ -152,6 +152,7 @@ interface ServiceReportSettings {
 interface SystemInfo {
   version: string
   buildDate: string
+  gitCommit?: string
   developer: string
   website: string
   email: string
@@ -773,7 +774,12 @@ export default function SettingsPage() {
       try {
         const verRes = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/version`, { headers })
         if (verRes.data?.version) {
-          setSystemInfo(prev => ({ ...prev, version: verRes.data.version }))
+          setSystemInfo(prev => ({
+            ...prev,
+            version: verRes.data.version,
+            gitCommit: verRes.data.gitCommit || undefined,
+            buildDate: verRes.data.buildDate || prev.buildDate,
+          }))
         }
       } catch {
         // Keep whatever version was set by system-info
@@ -3929,6 +3935,14 @@ export default function SettingsPage() {
                     <span className="text-gray-400">Build Date</span>
                     <span className="text-white">{systemInfo.buildDate}</span>
                   </div>
+                  {systemInfo.gitCommit && systemInfo.gitCommit !== 'unknown' && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400">Commit</span>
+                      <span className="text-white font-mono text-sm bg-slate-600/50 px-2 py-0.5 rounded">
+                        {systemInfo.gitCommit}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 

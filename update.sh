@@ -56,6 +56,9 @@ echo ""
 
 # ── Build ─────────────────────────────────────────────────────────────────────
 echo -e "${YELLOW}→ Build ใหม่...${NC}"
+export GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')
+export BUILD_DATE=$(date +%Y-%m-%d)
+echo -e "   Commit: ${YELLOW}${GIT_COMMIT}${NC} | Date: ${YELLOW}${BUILD_DATE}${NC}"
 if ! $COMPOSE_CMD build --parallel --no-cache; then
   echo ""
   echo -e "\033[0;31m❌ Build ล้มเหลว! กำลัง Restore ฐานข้อมูล...${NC}"
