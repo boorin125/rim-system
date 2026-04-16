@@ -497,6 +497,147 @@ export class IncidentsAnalyticsService {
   }
 
   /**
+   * Get Technician Detail Report (per-day activity + performance summary)
+   * Params: technicianId, from (YYYY-MM-DD), to (YYYY-MM-DD), period (YYYY-MM for performance)
+   */
+  async getTechnicianDetailReport(technicianId: number, from?: string, to?: string, period?: string) {
+    // ── Validate technician ────────────────────────────────────────────────────
+    const technician = await this.prisma.user.findUnique({
+      where: { id: technicianId },
+      select: { id: true, firstName: true, lastName: true, email: true, technicianType: true },
+    });
+    if (!technician) throw new Error(`Technician ID ${technicianId} not found`);
+
+    const fromDate = from ? new Date(from) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const toDate = to ? new Date(to) : new Date();
+    toDate.setHours(23, 59, 59, 999);
+
+    // ── Performance summary (monthly) ─────────────────────────────────────────
+    const targetPeriod = period || `${fromDate.getFullYear()}-${String(fromDate.getMonth() + 1).padStart(2, '0')}`;
+    const perfScore = await this.prisma.technicianPerformanceScore.findUnique({
+      where: { technicianId_period: { technicianId, period: targetPeriod } },
+    });
+
+    let performance: any = null;
+    if (perfScore) {
+      performance = {
+        period: targetPeriod,
+        overallScore: Number(perfScore.totalScore),
+        grade: perfScore.grade,
+        gradeDescription: perfScore.gradeDescription,
+        ranking: perfScore.teamRanking,
+        totalTechnicians: perfScore.totalTechnicians,
+        slaCompliance: Number(perfScore.slaCompliance),
+        workVolume: perfScore.workVolume,
+        avgResolutionTimeHrs: Number(perfScore.avgResolutionTime),
+        avgResponseTimeMins: Number(perfScore.avgResponseTime),
+        firstTimeFixRate: Number(perfScore.firstTimeFixRate),
+        reopenRate: Number(perfScore.reopenRate),
+        avgCustomerRating: perfScore.avgCustomerRating ? Number(perfScore.avgCustomerRating) : null,
+        bonusPoints: Number(perfScore.totalBonusPoints),
+      };
+    }
+
+    // ── Activity logs (login/logout) ───────────────────────────────────────────
+    const activityLogs = await this.prisma.userActivityLog.findMany({
+      where: {
+        userId: technicianId,
+        date: { gte: fromDate, lte: toDate },
+      },
+      orderBy: { date: 'asc' },
+    });
+    const activityMap = new Map(activityLogs.map((a) => [a.date.toISOString().split('T')[0], a]));
+
+    // ── Incidents in range ─────────────────────────────────────────────────────
+    const incidents = await this.prisma.incident.findMany({
+      where: {
+        assignees: { some: { userId: technicianId } },
+        createdAt: { gte: fromDate, lte: toDate },
+      },
+      select: {
+        id: true,
+        ticketNumber: true,
+        title: true,
+        status: true,
+        priority: true,
+        jobType: true,
+        createdAt: true,
+        resolvedAt: true,
+        checkInAt: true,
+        store: { select: { name: true, storeCode: true } },
+        slaDeadline: true,
+        slaDefenses: { select: { status: true } },
+      },
+      orderBy: { checkInAt: 'asc' },
+    });
+
+    // Group incidents by date (YYYY-MM-DD)
+    const incidentsByDay = new Map<string, typeof incidents>();
+    for (const inc of incidents) {
+      const key = inc.createdAt.toISOString().split('T')[0];
+      if (!incidentsByDay.has(key)) incidentsByDay.set(key, []);
+      incidentsByDay.get(key)!.push(inc);
+    }
+
+    // ── Build daily rows (union of activity + incident days) ──────────────────
+    const allDays = new Set<string>([...activityMap.keys(), ...incidentsByDay.keys()]);
+    const dailyRows: any[] = [];
+
+    for (const day of Array.from(allDays).sort()) {
+      const activity = activityMap.get(day);
+      const dayIncidents = incidentsByDay.get(day) || [];
+
+      // First check-in of the day
+      const checkedIn = dayIncidents.filter((i) => i.checkInAt);
+      checkedIn.sort((a, b) => a.checkInAt!.getTime() - b.checkInAt!.getTime());
+      const firstCheckIn = checkedIn[0]?.checkInAt ?? null;
+
+      const resolved = dayIncidents.filter((i) =>
+        i.status === 'RESOLVED' || i.status === 'CLOSED'
+      ).length;
+
+      const slaRelevant = dayIncidents.filter((i) => i.jobType !== 'Project');
+      const slaPass = slaRelevant.filter((i) => {
+        if (i.jobType === 'Adhoc') return true;
+        if (!i.slaDeadline || !i.resolvedAt) return true;
+        if (i.resolvedAt <= i.slaDeadline) return true;
+        return i.slaDefenses?.some((d: any) => d.status === 'APPROVED');
+      }).length;
+
+      dailyRows.push({
+        date: day,
+        loginAt: activity?.loginAt ?? null,
+        logoutAt: activity?.logoutAt ?? null,
+        firstCheckIn,
+        totalJobs: dayIncidents.length,
+        resolved,
+        slaPass,
+        slaTotal: slaRelevant.length,
+      });
+    }
+
+    // Sort by first check-in time (nulls last), then by date
+    dailyRows.sort((a, b) => {
+      if (a.firstCheckIn && b.firstCheckIn) return new Date(a.firstCheckIn).getTime() - new Date(b.firstCheckIn).getTime();
+      if (a.firstCheckIn) return -1;
+      if (b.firstCheckIn) return 1;
+      return a.date.localeCompare(b.date);
+    });
+
+    return {
+      technician: {
+        id: technician.id,
+        name: `${technician.firstName} ${technician.lastName}`,
+        email: technician.email,
+        technicianType: technician.technicianType,
+      },
+      dateRange: { from: fromDate.toISOString().split('T')[0], to: toDate.toISOString().split('T')[0] },
+      performance,
+      dailyRows,
+    };
+  }
+
+  /**
    * Helper: Get week number
    */
   private getWeekNumber(date: Date): number {

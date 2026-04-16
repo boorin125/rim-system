@@ -226,6 +226,13 @@ export class AuthService {
       },
     });
 
+    // Record login in activity log (upsert: only set loginAt on first login of the day)
+    await this.prisma.userActivityLog.upsert({
+      where: { userId_date: { userId: user.id, date: todayStart } },
+      create: { userId: user.id, date: todayStart, loginAt: now },
+      update: {},
+    });
+
     // Revoke all existing refresh tokens (single-session enforcement)
     await this.prisma.refreshToken.deleteMany({ where: { userId: user.id } });
 
@@ -367,6 +374,14 @@ export class AuthService {
         await this.prisma.user.update({
           where: { id: tokenRecord.userId },
           data: { isOnline: false },
+        })
+
+        // Record logout time in today's activity log
+        const logoutNow = new Date()
+        const todayForLogout = new Date(logoutNow.getFullYear(), logoutNow.getMonth(), logoutNow.getDate())
+        await this.prisma.userActivityLog.updateMany({
+          where: { userId: tokenRecord.userId, date: todayForLogout },
+          data: { logoutAt: logoutNow },
         })
       }
     }

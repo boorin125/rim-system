@@ -139,6 +139,20 @@ export class IncidentsAnalyticsController {
   }
 
   /**
+   * Get Technician Detail Report (per-day activity + performance summary)
+   */
+  @Get('technician-detail')
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR)
+  async getTechnicianDetailReport(
+    @Query('technicianId') technicianId: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('period') period?: string,
+  ) {
+    return this.analyticsService.getTechnicianDetailReport(Number(technicianId), from, to, period);
+  }
+
+  /**
    * Get check-in locations for map display
    */
   @Get('map-checkins')

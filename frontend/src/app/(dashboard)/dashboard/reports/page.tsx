@@ -21,6 +21,9 @@ import {
   Search,
   ListFilter,
   Package,
+  UserSearch,
+  Clock,
+  Award,
 } from 'lucide-react'
 import {
   Cell,
@@ -38,6 +41,41 @@ import {
 import { useThemeHighlight } from '@/hooks/useThemeHighlight'
 
 // ==================== TYPES ====================
+
+interface TechDetailPerf {
+  period: string
+  overallScore: number
+  grade: string
+  gradeDescription: string
+  ranking: number | null
+  totalTechnicians: number | null
+  slaCompliance: number
+  workVolume: number
+  avgResolutionTimeHrs: number
+  avgResponseTimeMins: number
+  firstTimeFixRate: number
+  reopenRate: number
+  avgCustomerRating: number | null
+  bonusPoints: number
+}
+
+interface TechDetailRow {
+  date: string
+  loginAt: string | null
+  logoutAt: string | null
+  firstCheckIn: string | null
+  totalJobs: number
+  resolved: number
+  slaPass: number
+  slaTotal: number
+}
+
+interface TechDetailData {
+  technician: { id: number; name: string; email: string; technicianType: string | null }
+  dateRange: { from: string; to: string }
+  performance: TechDetailPerf | null
+  dailyRows: TechDetailRow[]
+}
 
 interface SlaPerformance {
   total: number
@@ -65,6 +103,7 @@ const REPORT_TYPES = [
   { id: 'inventory', label: 'Inventory Report', icon: Package, description: 'รายงาน Inventory ตาม Category หรือ Store', color: 'blue' },
   { id: 'sla-performance', label: 'SLA Performance', icon: ShieldCheck, description: 'SLA Compliance, Met/Breached, Monthly Trend', color: 'emerald' },
   { id: 'technician-performance', label: 'Technician Performance', icon: Users, description: 'ผลงานแต่ละ Technician (Total, Resolved, Rate)', color: 'purple' },
+  { id: 'technician-detail', label: 'Technician Detail', icon: UserSearch, description: 'รายงานรายบุคคล: Login/Logout, Check-in, คะแนน Performance', color: 'indigo' },
   { id: 'customer-ratings', label: 'Customer Ratings', icon: Star, description: 'Rating Statistics & Distribution', color: 'amber' },
   { id: 'incident-list', label: 'Incident List', icon: FileText, description: 'รายการ Incidents ทั้งหมดแบบละเอียด', color: 'cyan' },
 ] as const
@@ -98,6 +137,7 @@ const colorMap: Record<string, { bg: string; text: string; border: string }> = {
   emerald: { bg: 'bg-emerald-500/20', text: 'text-emerald-400', border: 'border-emerald-500/30' },
   red: { bg: 'bg-red-500/20', text: 'text-red-400', border: 'border-red-500/30' },
   purple: { bg: 'bg-purple-500/20', text: 'text-purple-400', border: 'border-purple-500/30' },
+  indigo: { bg: 'bg-indigo-500/20', text: 'text-indigo-400', border: 'border-indigo-500/30' },
   amber: { bg: 'bg-amber-500/20', text: 'text-amber-400', border: 'border-amber-500/30' },
   cyan: { bg: 'bg-cyan-500/20', text: 'text-cyan-400', border: 'border-cyan-500/30' },
 }
@@ -125,6 +165,15 @@ export default function ReportsPage() {
   const [isGenerated, setIsGenerated] = useState(false)
   const [organizationName, setOrganizationName] = useState('')
 
+  // Technician detail report states
+  const [technicianList, setTechnicianList] = useState<any[]>([])
+  const [selectedTechnicianId, setSelectedTechnicianId] = useState('')
+  const [techDetailPeriod, setTechDetailPeriod] = useState(() => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  })
+  const [techDetailData, setTechDetailData] = useState<TechDetailData | null>(null)
+
   // Fetch organization name and store list
   useEffect(() => {
     const token = localStorage.getItem('token')
@@ -139,6 +188,13 @@ export default function ReportsPage() {
       .then((res) => {
         const stores = Array.isArray(res.data) ? res.data : (res.data.data || [])
         setStoreList(stores)
+      })
+      .catch(() => {})
+    axios
+      .get(`${process.env.NEXT_PUBLIC_API_URL}/users`, { headers, params: { role: 'TECHNICIAN', limit: 200 } })
+      .then((res) => {
+        const users = Array.isArray(res.data) ? res.data : (res.data.data || [])
+        setTechnicianList(users)
       })
       .catch(() => {})
   }, [])
@@ -357,6 +413,47 @@ export default function ReportsPage() {
           setPreviewRows(rows)
           break
         }
+
+        case 'technician-detail': {
+          if (!selectedTechnicianId) { toast.error('กรุณาเลือก Technician'); setIsLoading(false); return }
+          const r = await axios.get(`${API}/incidents/analytics/technician-detail`, {
+            headers,
+            params: {
+              technicianId: selectedTechnicianId,
+              from: dateFrom || undefined,
+              to: dateTo || undefined,
+              period: techDetailPeriod || undefined,
+            },
+          })
+          const data: TechDetailData = r.data
+          setTechDetailData(data)
+
+          const fmtDT = (iso: string | null) => {
+            if (!iso) return '-'
+            const d = new Date(iso)
+            return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+          }
+          const fmtDate = (s: string) => {
+            const [y, m, d] = s.split('-')
+            return `${d}/${m}/${y}`
+          }
+
+          const h = ['#', 'Date', 'Login', 'Logout', 'First Check-in', 'Total Jobs', 'Resolved', 'SLA Pass', 'SLA Total']
+          const rows = data.dailyRows.map((row, idx) => [
+            idx + 1,
+            fmtDate(row.date),
+            fmtDT(row.loginAt),
+            fmtDT(row.logoutAt),
+            fmtDT(row.firstCheckIn),
+            row.totalJobs,
+            row.resolved,
+            row.slaPass,
+            row.slaTotal,
+          ])
+          setPreviewHeaders(h)
+          setPreviewRows(rows)
+          break
+        }
       }
 
       setIsGenerated(true)
@@ -367,7 +464,7 @@ export default function ReportsPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [selectedReport, dateFrom, dateTo, filterCategory, filterPriority, filterStatus, filterSlaDefense, inventorySubType, inventoryStoreId, inventoryCategory, inventoryStatus])
+  }, [selectedReport, dateFrom, dateTo, filterCategory, filterPriority, filterStatus, filterSlaDefense, inventorySubType, inventoryStoreId, inventoryCategory, inventoryStatus, selectedTechnicianId, techDetailPeriod])
 
   // ==================== EXPORT HANDLERS ====================
 
@@ -375,6 +472,8 @@ export default function ReportsPage() {
     const reportDef = REPORT_TYPES.find((r) => r.id === selectedReport)
     const reportLabel = selectedReport === 'inventory'
       ? `Inventory Report - ${inventorySubType === 'by-category' ? 'By Category' : 'By Store'}${inventorySubType === 'by-store' && inventoryStoreId ? ` (${storeList.find((s: any) => String(s.id) === inventoryStoreId)?.name || inventoryStoreId})` : ''}`
+      : selectedReport === 'technician-detail' && techDetailData
+      ? `Technician Detail Report - ${techDetailData.technician.name}`
       : (reportDef?.label || 'Report')
 
     const filters: Record<string, string> = {}
@@ -385,6 +484,20 @@ export default function ReportsPage() {
         const store = storeList.find((s: any) => String(s.id) === inventoryStoreId)
         filters.Store = store ? formatStore(store) : inventoryStoreId
       }
+    } else if (selectedReport === 'technician-detail' && techDetailData?.performance) {
+      const p = techDetailData.performance
+      filters['Technician'] = techDetailData.technician.name
+      filters['Period'] = p.period
+      filters['Overall Score'] = `${p.overallScore.toFixed(1)} pts`
+      filters['Grade'] = `${p.grade} — ${p.gradeDescription}`
+      filters['SLA Compliance'] = `${p.slaCompliance.toFixed(1)}%`
+      filters['Work Volume'] = `${p.workVolume} jobs`
+      filters['Avg Resolution'] = `${p.avgResolutionTimeHrs.toFixed(1)} hrs`
+      filters['Avg Response'] = `${p.avgResponseTimeMins.toFixed(0)} min`
+      filters['First Time Fix'] = `${p.firstTimeFixRate.toFixed(1)}%`
+      filters['Reopen Rate'] = `${p.reopenRate.toFixed(1)}%`
+      if (p.avgCustomerRating != null) filters['Customer Rating'] = `★ ${p.avgCustomerRating.toFixed(1)} / 5.0`
+      if (p.ranking && p.totalTechnicians) filters['Ranking'] = `#${p.ranking} / ${p.totalTechnicians}`
     } else {
       filters.Category = filterCategory
       filters.Priority = filterPriority
@@ -407,11 +520,15 @@ export default function ReportsPage() {
         ? `★ ${ratingStats.averageRating.toFixed(1)} / 5.0  (${ratingStats.totalRatings} ratings)`
         : selectedReport === 'inventory'
         ? `Total: ${previewRows.length} items`
+        : selectedReport === 'technician-detail' && techDetailData?.performance
+        ? `${techDetailData.performance.overallScore.toFixed(1)} pts — Grade ${techDetailData.performance.grade}`
         : undefined,
       columnWidths: selectedReport === 'customer-ratings'
         ? [4, 7, 30, 8, 14, 10, 27]
         : selectedReport === 'incident-list'
         ? [2, 6, 7, 4, 9, 16, 6, 5, 7, 9, 10, 10, 11, 16, 7, 14]
+        : selectedReport === 'technician-detail'
+        ? [4, 10, 9, 9, 12, 10, 10, 10, 10]
         : undefined,
     }
   }
@@ -560,6 +677,34 @@ export default function ReportsPage() {
               </>
             )}
 
+            {/* Technician picker - for technician-detail */}
+            {selectedReport === 'technician-detail' && (
+              <>
+                <div className="sm:col-span-2">
+                  <label className="block text-gray-400 text-xs font-medium mb-1.5">Technician</label>
+                  <select
+                    value={selectedTechnicianId}
+                    onChange={(e) => setSelectedTechnicianId(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-600 text-white text-sm rounded-lg px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500 [&>option]:bg-slate-800 [&>option]:text-white"
+                  >
+                    <option value="">-- Select Technician --</option>
+                    {technicianList.map((t: any) => (
+                      <option key={t.id} value={t.id}>{t.firstName} {t.lastName}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-gray-400 text-xs font-medium mb-1.5">Performance Period (YYYY-MM)</label>
+                  <input
+                    type="month"
+                    value={techDetailPeriod}
+                    onChange={(e) => setTechDetailPeriod(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                </div>
+              </>
+            )}
+
             {/* Category filter - for incident-list */}
             {selectedReport === 'incident-list' && (
               <div>
@@ -672,6 +817,9 @@ export default function ReportsPage() {
           )}
           {selectedReport === 'technician-performance' && (
             <TechnicianCharts techPerf={techPerf} />
+          )}
+          {selectedReport === 'technician-detail' && techDetailData && (
+            <TechnicianDetailCards data={techDetailData} />
           )}
           {selectedReport === 'customer-ratings' && (
             <RatingCharts ratingStats={ratingStats} />
@@ -898,6 +1046,114 @@ function EmptyChart() {
   return (
     <div className="flex items-center justify-center h-[260px] text-gray-500 text-sm">
       No data available
+    </div>
+  )
+}
+
+// ==================== TECHNICIAN DETAIL CARDS ====================
+
+function TechnicianDetailCards({ data }: { data: TechDetailData }) {
+  const p = data.performance
+  const gradeColor = !p ? 'text-gray-400' :
+    p.overallScore >= 90 ? 'text-green-400' :
+    p.overallScore >= 80 ? 'text-blue-400' :
+    p.overallScore >= 70 ? 'text-yellow-400' :
+    p.overallScore >= 60 ? 'text-orange-400' : 'text-red-400'
+
+  const gradeRing = !p ? 'border-gray-500/30' :
+    p.overallScore >= 90 ? 'border-green-500/50' :
+    p.overallScore >= 80 ? 'border-blue-500/50' :
+    p.overallScore >= 70 ? 'border-yellow-500/50' :
+    p.overallScore >= 60 ? 'border-orange-500/50' : 'border-red-500/50'
+
+  const MetricCard = ({ label, value, sub, color = 'text-white' }: { label: string; value: string; sub?: string; color?: string }) => (
+    <div className="glass-card p-4 rounded-xl border border-slate-700/50">
+      <p className="text-gray-400 text-xs font-medium mb-1">{label}</p>
+      <p className={`text-xl font-bold ${color}`}>{value}</p>
+      {sub && <p className="text-gray-500 text-xs mt-0.5">{sub}</p>}
+    </div>
+  )
+
+  return (
+    <div className="space-y-5">
+      {/* Technician info + grade */}
+      <div className="glass-card p-6 rounded-2xl border border-indigo-500/30">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-6">
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-indigo-500/20 rounded-lg">
+                <UserSearch className="w-5 h-5 text-indigo-400" />
+              </div>
+              <div>
+                <p className="text-white font-semibold text-lg">{data.technician.name}</p>
+                <p className="text-gray-400 text-xs">{data.technician.email}</p>
+              </div>
+            </div>
+            {data.technician.technicianType && (
+              <span className="inline-block px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-xs border border-indigo-500/30">
+                {data.technician.technicianType}
+              </span>
+            )}
+          </div>
+
+          {p ? (
+            <div className={`flex flex-col items-center justify-center w-32 h-32 rounded-2xl border-2 ${gradeRing} bg-slate-800/60 shrink-0`}>
+              <p className={`text-5xl font-black ${gradeColor}`}>{p.grade}</p>
+              <p className={`text-lg font-bold ${gradeColor} mt-1`}>{p.overallScore.toFixed(1)}</p>
+              <p className="text-gray-500 text-xs">{p.period}</p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center w-32 h-32 rounded-2xl border-2 border-gray-700 bg-slate-800/60 shrink-0">
+              <Award className="w-8 h-8 text-gray-600" />
+              <p className="text-gray-500 text-xs mt-2">No performance data</p>
+            </div>
+          )}
+        </div>
+
+        {p && (
+          <div className="mt-5">
+            <p className="text-gray-500 text-xs mb-3">Performance Score Breakdown — {p.period}</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+              <MetricCard label="SLA Compliance" value={`${p.slaCompliance.toFixed(1)}%`} color={p.slaCompliance >= 95 ? 'text-green-400' : p.slaCompliance >= 80 ? 'text-yellow-400' : 'text-red-400'} />
+              <MetricCard label="Work Volume" value={`${p.workVolume} jobs`} />
+              <MetricCard label="Avg Resolution" value={`${p.avgResolutionTimeHrs.toFixed(1)} hrs`} color={p.avgResolutionTimeHrs <= 4 ? 'text-green-400' : p.avgResolutionTimeHrs <= 8 ? 'text-yellow-400' : 'text-red-400'} />
+              <MetricCard label="Avg Response" value={`${p.avgResponseTimeMins.toFixed(0)} min`} color={p.avgResponseTimeMins <= 30 ? 'text-green-400' : p.avgResponseTimeMins <= 60 ? 'text-yellow-400' : 'text-red-400'} />
+              <MetricCard label="First Time Fix" value={`${p.firstTimeFixRate.toFixed(1)}%`} color={p.firstTimeFixRate >= 85 ? 'text-green-400' : p.firstTimeFixRate >= 70 ? 'text-yellow-400' : 'text-red-400'} />
+              <MetricCard label="Reopen Rate" value={`${p.reopenRate.toFixed(1)}%`} color={p.reopenRate <= 5 ? 'text-green-400' : p.reopenRate <= 10 ? 'text-yellow-400' : 'text-red-400'} />
+              {p.avgCustomerRating != null && (
+                <MetricCard label="Customer Rating" value={`★ ${p.avgCustomerRating.toFixed(1)}`} color={p.avgCustomerRating >= 4 ? 'text-yellow-400' : p.avgCustomerRating >= 3 ? 'text-orange-400' : 'text-red-400'} />
+              )}
+            </div>
+            {p.ranking && p.totalTechnicians && (
+              <div className="mt-3 flex items-center gap-2 text-sm text-gray-400">
+                <span className="text-indigo-400 font-semibold">Ranking: #{p.ranking}</span>
+                <span>of {p.totalTechnicians} technicians</span>
+                {p.bonusPoints > 0 && <span className="text-amber-400 ml-2">+{p.bonusPoints.toFixed(1)} bonus pts</span>}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Daily activity summary stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="glass-card p-4 rounded-xl border border-slate-700/50">
+          <p className="text-gray-400 text-xs font-medium mb-1">Active Days</p>
+          <p className="text-2xl font-bold text-white">{data.dailyRows.filter(r => r.totalJobs > 0 || r.loginAt).length}</p>
+        </div>
+        <div className="glass-card p-4 rounded-xl border border-green-500/30">
+          <p className="text-gray-400 text-xs font-medium mb-1">Total Jobs</p>
+          <p className="text-2xl font-bold text-green-400">{data.dailyRows.reduce((s, r) => s + r.totalJobs, 0)}</p>
+        </div>
+        <div className="glass-card p-4 rounded-xl border border-blue-500/30">
+          <p className="text-gray-400 text-xs font-medium mb-1">Resolved</p>
+          <p className="text-2xl font-bold text-blue-400">{data.dailyRows.reduce((s, r) => s + r.resolved, 0)}</p>
+        </div>
+        <div className="glass-card p-4 rounded-xl border border-emerald-500/30">
+          <p className="text-gray-400 text-xs font-medium mb-1">Days Logged In</p>
+          <p className="text-2xl font-bold text-emerald-400">{data.dailyRows.filter(r => r.loginAt).length}</p>
+        </div>
+      </div>
     </div>
   )
 }
