@@ -1,10 +1,7 @@
 // app/layout.tsx - Root Layout with Auth Provider
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
 import './globals.css'
 import Providers from '@/components/Providers'
-
-const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'RIM System - Rubjobb Incident Management',
@@ -36,7 +33,7 @@ export default function RootLayout({
         {/* Capture beforeinstallprompt before React mounts — stored globally */}
         <script dangerouslySetInnerHTML={{ __html: `window.__pwaPrompt=null;window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__pwaPrompt=e;window.dispatchEvent(new Event('pwaPromptReady'));});` }} />
       </head>
-      <body className={inter.className}>
+      <body>
         <Providers>
           {children}
         </Providers>
