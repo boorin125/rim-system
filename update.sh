@@ -8,6 +8,7 @@ set -e
 
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+RED='\033[0;31m'
 BOLD='\033[1m'
 NC='\033[0m'
 
@@ -71,22 +72,20 @@ echo -e "${YELLOW}→ อัปเดต Backend...${NC}"
 $COMPOSE_CMD up -d --no-deps backend
 
 echo -e "${YELLOW}→ รอ Backend พร้อม...${NC}"
-MAX_WAIT=60
+MAX_WAIT=90
 ELAPSED=0
-while [ $ELAPSED -lt $MAX_WAIT ]; do
-  STATUS=$($COMPOSE_CMD ps --format json backend 2>/dev/null | grep -o '"State":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "unknown")
-  if [ "$STATUS" = "running" ]; then
-    sleep 3
-    break
+until $COMPOSE_CMD exec -T backend wget -qO- http://localhost:3000/health &>/dev/null; do
+  if [ $ELAPSED -ge $MAX_WAIT ]; then
+    echo -e "${RED}⚠️  Backend ไม่ตอบสนองภายใน ${MAX_WAIT}s${NC}"
+    echo -e "${RED}   กำลัง Restore จาก backup...${NC}"
+    gunzip -c "$BACKUP_FILE" | $COMPOSE_CMD exec -T postgres psql -U rimuser rimdb &>/dev/null || true
+    echo -e "${GREEN}✓ Restore สำเร็จจาก: $BACKUP_FILE${NC}"
+    exit 1
   fi
-  sleep 2
-  ELAPSED=$((ELAPSED + 2))
-  echo -e "   รอ... ($ELAPSED/${MAX_WAIT}s)"
+  sleep 3
+  ELAPSED=$((ELAPSED + 3))
+  echo -e "   รอ... (${ELAPSED}s)"
 done
-
-if [ $ELAPSED -ge $MAX_WAIT ]; then
-  echo -e "${YELLOW}⚠️  Backend ใช้เวลานานผิดปกติ — ลองต่อไปเลย${NC}"
-fi
 
 echo -e "${YELLOW}→ อัปเดต Database Schema...${NC}"
 $COMPOSE_CMD exec -T backend npx prisma db push --skip-generate --accept-data-loss

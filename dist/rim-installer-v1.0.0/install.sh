@@ -1,7 +1,7 @@
 #!/bin/bash
 # ════════════════════════════════════════════════════════════
-#  RIM System — One-Click Installer (Source Build)
-#  สำหรับ server ที่ git clone source code มา
+#  RIM System — One-Click Installer (Pre-built Docker Images)
+#  สำหรับ server ที่ใช้ Docker Hub images (dist package)
 #  Rubjobb Development Team — rub-jobb.com
 # ════════════════════════════════════════════════════════════
 
@@ -29,9 +29,9 @@ echo ""
 echo "════════════════════════════════════════════"
 echo ""
 
-# ── ตรวจสอบว่ารันจาก project root ──────────────
-if [ ! -f "docker-compose.yml" ] || [ ! -d "backend" ] || [ ! -d "frontend" ]; then
-  echo -e "${RED}❌ กรุณารันสคริปต์นี้จากโฟลเดอร์ root ของ RIM System${NC}"
+# ── ตรวจสอบว่ารันจาก installer folder ──────────
+if [ ! -f "docker-compose.yml" ]; then
+  echo -e "${RED}❌ กรุณารันสคริปต์นี้จากโฟลเดอร์ที่มีไฟล์ docker-compose.yml${NC}"
   exit 1
 fi
 
@@ -70,7 +70,7 @@ echo ""
 
 # DB Password
 echo -e "${BOLD}รหัสผ่าน Database:${NC}"
-echo "  (ตั้งรหัสผ่านแข็งแรงอย่างน้อย 12 ตัวอักษร)"
+echo "  (ตั้งรหัสผ่านแข็งแรงอย่างน้อย 8 ตัวอักษร)"
 while true; do
   read -rsp "  Password: " DB_PASSWORD
   echo ""
@@ -87,6 +87,7 @@ echo ""
 # Admin account
 echo -e "${BOLD}บัญชีผู้ดูแลระบบ (Super Admin):${NC}"
 read -rp "  ชื่อ (First Name): " ADMIN_FIRST
+ADMIN_FIRST="${ADMIN_FIRST:-Admin}"
 read -rp "  นามสกุล (Last Name): " ADMIN_LAST
 ADMIN_LAST="${ADMIN_LAST:-User}"
 read -rp "  Email: " ADMIN_EMAIL
@@ -132,7 +133,7 @@ else
   MACHINE_ID=$(LC_ALL=C tr -dc 'a-f0-9' </dev/urandom | head -c 32)
 fi
 
-# Generate VAPID keys via Node.js (in Docker if local node unavailable)
+# Generate VAPID keys via Node.js
 VAPID_PUBLIC_KEY=""
 VAPID_PRIVATE_KEY=""
 if command -v node &>/dev/null; then
@@ -173,11 +174,12 @@ EOF
 echo -e "${GREEN}✅ สร้างไฟล์ .env เรียบร้อย${NC}"
 echo ""
 
-# ── Build & Start ─────────────────────────────
-echo -e "${YELLOW}[4/5] Build และเริ่มต้นระบบ (อาจใช้เวลา 5-15 นาที)...${NC}"
+# ── Pull & Start ──────────────────────────────
+echo -e "${YELLOW}[4/5] ดาวน์โหลด Docker images และเริ่มต้นระบบ...${NC}"
 echo ""
 
-$COMPOSE_CMD up -d --build
+$COMPOSE_CMD pull
+$COMPOSE_CMD up -d
 
 echo ""
 
