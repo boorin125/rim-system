@@ -572,7 +572,7 @@ export class PmService {
     const technician = record.technicianId
       ? await this.prisma.user.findUnique({
           where: { id: record.technicianId },
-          select: { id: true, firstName: true, lastName: true },
+          select: { id: true, firstName: true, lastName: true, signaturePath: true },
         })
       : null;
 
