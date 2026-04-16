@@ -86,16 +86,13 @@ services:
       - backend
     volumes:
       - ./docker/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      - rim_ssl:/etc/letsencrypt
-      - rim_ssl_www:/var/www/certbot
+      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
     networks:
       - rim_network
 
 volumes:
   rim_db_data:
   rim_uploads:
-  rim_ssl:
-  rim_ssl_www:
 
 networks:
   rim_network:
