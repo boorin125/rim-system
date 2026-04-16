@@ -327,7 +327,7 @@ export default function ReportsPage() {
             return defense.status
           }
 
-          const h = ['#', 'Status', 'Ticket No.', 'Store ID', 'Store Name', 'Title', 'Category', 'Priority', 'Job Type', 'Create Date', 'Closed Date', 'Technician', 'Resolution Note', 'SLA Defense', 'เหตุผล Defense SLA']
+          const h = ['#', 'Status', 'Ticket No.', 'Store ID', 'Store Name', 'Title', 'Category', 'Priority', 'Job Type', 'Incident Date', 'Closed Date', 'Technician', 'Resolution Note', 'SLA Defense', 'เหตุผล Defense SLA']
           const rows = items.map((i: any, idx: number) => {
             const techName = i.assignees?.length > 0
               ? i.assignees.map((a: any) => `${a.user.firstName} ${a.user.lastName}`).join(', ')
