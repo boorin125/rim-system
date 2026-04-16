@@ -21,8 +21,6 @@ import {
   Search,
   ListFilter,
   Package,
-  UserSearch,
-  Clock,
   Award,
 } from 'lucide-react'
 import {
@@ -103,7 +101,7 @@ const REPORT_TYPES = [
   { id: 'inventory', label: 'Inventory Report', icon: Package, description: 'รายงาน Inventory ตาม Category หรือ Store', color: 'blue' },
   { id: 'sla-performance', label: 'SLA Performance', icon: ShieldCheck, description: 'SLA Compliance, Met/Breached, Monthly Trend', color: 'emerald' },
   { id: 'technician-performance', label: 'Technician Performance', icon: Users, description: 'ผลงานแต่ละ Technician (Total, Resolved, Rate)', color: 'purple' },
-  { id: 'technician-detail', label: 'Technician Detail', icon: UserSearch, description: 'รายงานรายบุคคล: Login/Logout, Check-in, คะแนน Performance', color: 'indigo' },
+  { id: 'technician-detail', label: 'Technician Detail', icon: Users, description: 'รายงานรายบุคคล: Login/Logout, Check-in, คะแนน Performance', color: 'indigo' },
   { id: 'customer-ratings', label: 'Customer Ratings', icon: Star, description: 'Rating Statistics & Distribution', color: 'amber' },
   { id: 'incident-list', label: 'Incident List', icon: FileText, description: 'รายการ Incidents ทั้งหมดแบบละเอียด', color: 'cyan' },
 ] as const
@@ -1082,7 +1080,7 @@ function TechnicianDetailCards({ data }: { data: TechDetailData }) {
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2 bg-indigo-500/20 rounded-lg">
-                <UserSearch className="w-5 h-5 text-indigo-400" />
+                <Users className="w-5 h-5 text-indigo-400" />
               </div>
               <div>
                 <p className="text-white font-semibold text-lg">{data.technician.name}</p>
