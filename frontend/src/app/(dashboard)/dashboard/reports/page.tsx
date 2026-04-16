@@ -62,6 +62,8 @@ interface TechDetailRow {
   loginAt: string | null
   logoutAt: string | null
   firstCheckIn: string | null
+  lastCheckIn: string | null
+  lastResolve: string | null
   totalJobs: number
   resolved: number
   slaPass: number
@@ -436,13 +438,15 @@ export default function ReportsPage() {
             return `${d}/${m}/${y}`
           }
 
-          const h = ['#', 'Date', 'Login', 'Logout', 'First Check-in', 'Total Jobs', 'Resolved', 'SLA Pass', 'SLA Total']
+          const h = ['#', 'Date', 'Login', 'Logout', 'First Check-in', 'Last Check-in', 'Last Resolve', 'Total Jobs', 'Resolved', 'SLA Pass', 'SLA Total']
           const rows = data.dailyRows.map((row, idx) => [
             idx + 1,
             fmtDate(row.date),
             fmtDT(row.loginAt),
             fmtDT(row.logoutAt),
             fmtDT(row.firstCheckIn),
+            fmtDT(row.lastCheckIn),
+            fmtDT(row.lastResolve),
             row.totalJobs,
             row.resolved,
             row.slaPass,
@@ -526,7 +530,7 @@ export default function ReportsPage() {
         : selectedReport === 'incident-list'
         ? [2, 6, 7, 4, 9, 16, 6, 5, 7, 9, 10, 10, 11, 16, 7, 14]
         : selectedReport === 'technician-detail'
-        ? [4, 10, 9, 9, 12, 10, 10, 10, 10]
+        ? [3, 9, 8, 8, 10, 10, 10, 8, 8, 8, 8]
         : undefined,
     }
   }

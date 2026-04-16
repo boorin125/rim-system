@@ -591,10 +591,17 @@ export class IncidentsAnalyticsService {
       const checkedIn = dayIncidents.filter((i) => i.checkInAt);
       checkedIn.sort((a, b) => a.checkInAt!.getTime() - b.checkInAt!.getTime());
       const firstCheckIn = checkedIn[0]?.checkInAt ?? null;
+      const lastCheckIn = checkedIn[checkedIn.length - 1]?.checkInAt ?? null;
 
-      const resolved = dayIncidents.filter((i) =>
+      const resolvedIncidents = dayIncidents.filter((i) =>
         i.status === 'RESOLVED' || i.status === 'CLOSED'
-      ).length;
+      );
+      const resolved = resolvedIncidents.length;
+
+      // Last resolve time of the day
+      const resolvedWithTime = resolvedIncidents.filter((i) => i.resolvedAt);
+      resolvedWithTime.sort((a, b) => a.resolvedAt!.getTime() - b.resolvedAt!.getTime());
+      const lastResolve = resolvedWithTime[resolvedWithTime.length - 1]?.resolvedAt ?? null;
 
       const slaRelevant = dayIncidents.filter((i) => i.jobType !== 'Project');
       const slaPass = slaRelevant.filter((i) => {
@@ -609,6 +616,8 @@ export class IncidentsAnalyticsService {
         loginAt: activity?.loginAt ?? null,
         logoutAt: activity?.logoutAt ?? null,
         firstCheckIn,
+        lastCheckIn,
+        lastResolve,
         totalJobs: dayIncidents.length,
         resolved,
         slaPass,
