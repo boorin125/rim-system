@@ -327,12 +327,13 @@ export default function ReportsPage() {
             return defense.status
           }
 
-          const h = ['#', 'Status', 'Ticket No.', 'Store ID', 'Store Name', 'Title', 'Category', 'Priority', 'Job Type', 'Incident Date', 'Closed Date', 'Technician', 'Resolution Note', 'SLA Defense', 'เหตุผล Defense SLA']
+          const h = ['#', 'Status', 'Ticket No.', 'Store ID', 'Store Name', 'Title', 'Category', 'Priority', 'Job Type', 'Incident Date', 'Create Date', 'Closed Date', 'Technician', 'Resolution Note', 'SLA Defense', 'เหตุผล Defense SLA']
           const rows = items.map((i: any, idx: number) => {
             const techName = i.assignees?.length > 0
               ? i.assignees.map((a: any) => `${a.user.firstName} ${a.user.lastName}`).join(', ')
               : 'Unassigned'
             const closedDate = i.closeDate || i.resolvedAt
+            const fmtDate = (d: string) => { const dt = new Date(d); return `${dt.getDate()}/${dt.getMonth()+1}/${dt.getFullYear()}` }
             return [
               idx + 1,
               i.status || '',
@@ -343,6 +344,7 @@ export default function ReportsPage() {
               i.category || 'N/A',
               i.priority || '',
               i.jobType || '',
+              i.createdAt ? fmtDate(i.createdAt) : '',
               i.createdAt ? new Date(i.createdAt).toLocaleString('th-TH') : '',
               closedDate ? new Date(closedDate).toLocaleString('th-TH') : '',
               techName,
