@@ -227,7 +227,7 @@ export default function ReportsPage() {
           const eqParams: Record<string, string | number> = { limit: 5000 }
           if (inventoryCategory !== 'All') eqParams.category = inventoryCategory
           if (inventoryStatus !== 'All') eqParams.status = inventoryStatus
-          if (inventorySubType === 'by-store' && inventoryStoreId) eqParams.storeId = inventoryStoreId
+          if (inventoryStoreId) eqParams.storeId = inventoryStoreId
 
           const res = await axios.get(`${API}/equipment`, { headers, params: eqParams })
           const items: any[] = Array.isArray(res.data) ? res.data : (res.data.data || [])
@@ -478,7 +478,7 @@ export default function ReportsPage() {
     if (selectedReport === 'inventory') {
       if (inventoryCategory !== 'All') filters.Category = inventoryCategory
       if (inventoryStatus !== 'All') filters.Status = inventoryStatus
-      if (inventorySubType === 'by-store' && inventoryStoreId) {
+      if (inventoryStoreId) {
         const store = storeList.find((s: any) => String(s.id) === inventoryStoreId)
         filters.Store = store ? formatStore(store) : inventoryStoreId
       }
@@ -631,33 +631,31 @@ export default function ReportsPage() {
                   <select
                     value={inventorySubType}
                     onChange={(e) => setInventorySubType(e.target.value as any)}
-                    className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full bg-slate-800 border border-slate-600 text-white text-sm rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500 [&>option]:bg-slate-800 [&>option]:text-white"
                   >
                     <option value="by-category">By Category</option>
                     <option value="by-store">By Store</option>
                   </select>
                 </div>
-                {inventorySubType === 'by-store' && (
-                  <div>
-                    <label className="block text-gray-400 text-xs font-medium mb-1.5">Store</label>
-                    <select
-                      value={inventoryStoreId}
-                      onChange={(e) => setInventoryStoreId(e.target.value)}
-                      className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="">All Stores</option>
-                      {storeList.map((s: any) => (
-                        <option key={s.id} value={s.id}>{formatStore(s)}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+                <div className="sm:col-span-2">
+                  <label className="block text-gray-400 text-xs font-medium mb-1.5">Store</label>
+                  <select
+                    value={inventoryStoreId}
+                    onChange={(e) => setInventoryStoreId(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-600 text-white text-sm rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500 [&>option]:bg-slate-800 [&>option]:text-white"
+                  >
+                    <option value="">All Stores</option>
+                    {storeList.map((s: any) => (
+                      <option key={s.id} value={s.id}>{formatStore(s)}</option>
+                    ))}
+                  </select>
+                </div>
                 <div>
                   <label className="block text-gray-400 text-xs font-medium mb-1.5">Equipment Category</label>
                   <select
                     value={inventoryCategory}
                     onChange={(e) => setInventoryCategory(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full bg-slate-800 border border-slate-600 text-white text-sm rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500 [&>option]:bg-slate-800 [&>option]:text-white"
                   >
                     {EQUIPMENT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                   </select>
@@ -667,7 +665,7 @@ export default function ReportsPage() {
                   <select
                     value={inventoryStatus}
                     onChange={(e) => setInventoryStatus(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full bg-slate-800 border border-slate-600 text-white text-sm rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500 [&>option]:bg-slate-800 [&>option]:text-white"
                   >
                     {EQUIPMENT_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
                   </select>
