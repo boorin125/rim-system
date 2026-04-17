@@ -34,8 +34,8 @@ async function bootstrap() {
     }),
   );
 
-  // Global prefix
-  app.setGlobalPrefix('api');
+  // Global prefix — exclude /health so health check works without auth
+  app.setGlobalPrefix('api', { exclude: ['health'] });
 
   // Listen on PORT 3000 (STANDARD!)
   const port = 3000;
