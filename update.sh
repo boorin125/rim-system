@@ -77,7 +77,7 @@ $COMPOSE_CMD up -d --no-deps backend
 echo -e "${YELLOW}→ รอ Backend พร้อม...${NC}"
 MAX_WAIT=120
 ELAPSED=0
-until $COMPOSE_CMD exec -T backend wget -qO- --timeout=5 --tries=1 http://localhost:3000/health &>/dev/null; do
+until $COMPOSE_CMD exec -T backend curl -sf http://localhost:3000/health &>/dev/null; do
   if [ $ELAPSED -ge $MAX_WAIT ]; then
     echo -e "${RED}⚠️  Backend ไม่ตอบสนองภายใน ${MAX_WAIT}s${NC}"
     echo -e "${RED}   กำลัง Restore จาก backup...${NC}"

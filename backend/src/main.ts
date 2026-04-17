@@ -25,6 +25,9 @@ async function bootstrap() {
     prefix: '/uploads/',
   });
 
+  // Raw Express middleware for /health — bypasses NestJS routing and JWT guards
+  app.use('/health', (_req: any, res: any) => res.json({ status: 'ok' }));
+
   // Global validation pipe
   app.useGlobalPipes(
     new ValidationPipe({
@@ -34,8 +37,7 @@ async function bootstrap() {
     }),
   );
 
-  // Global prefix — exclude /health so health check works without auth
-  app.setGlobalPrefix('api', { exclude: ['health'] });
+  app.setGlobalPrefix('api');
 
   // Listen on PORT 3000 (STANDARD!)
   const port = 3000;
