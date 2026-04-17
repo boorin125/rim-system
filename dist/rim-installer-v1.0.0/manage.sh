@@ -76,43 +76,77 @@ cmd_start() {
 cmd_backup() {
   BACKUP_DIR="${2:-./backups}"
   mkdir -p "$BACKUP_DIR"
-  BACKUP_FILE="${BACKUP_DIR}/rim_backup_$(date +%Y%m%d_%H%M%S).sql.gz"
+  TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+  DB_FILE="${BACKUP_DIR}/rim_backup_${TIMESTAMP}.sql.gz"
+  UPLOADS_FILE="${BACKUP_DIR}/rim_uploads_${TIMESTAMP}.tar.gz"
+
   echo -e "${YELLOW}→ Backup ฐานข้อมูล...${NC}"
-  $COMPOSE_CMD exec -T postgres pg_dump -U rimuser --clean --if-exists rimdb | gzip > "$BACKUP_FILE"
-  BACKUP_SIZE=$(du -sh "$BACKUP_FILE" | cut -f1)
-  echo -e "${GREEN}✅ Backup เรียบร้อย: ${BACKUP_FILE} (${BACKUP_SIZE})${NC}"
+  $COMPOSE_CMD exec -T postgres pg_dump -U rimuser --clean --if-exists rimdb | gzip > "$DB_FILE"
+  DB_SIZE=$(du -sh "$DB_FILE" | cut -f1)
+  echo -e "${GREEN}✅ DB: ${DB_FILE} (${DB_SIZE})${NC}"
+
+  echo -e "${YELLOW}→ Backup ไฟล์ uploads (รูปภาพ, logo, เอกสาร)...${NC}"
+  if $COMPOSE_CMD exec -T backend tar czf - /app/uploads 2>/dev/null > "$UPLOADS_FILE"; then
+    UPLOADS_SIZE=$(du -sh "$UPLOADS_FILE" | cut -f1)
+    echo -e "${GREEN}✅ Uploads: ${UPLOADS_FILE} (${UPLOADS_SIZE})${NC}"
+  else
+    rm -f "$UPLOADS_FILE"
+    echo -e "${YELLOW}⚠️  ไม่มีไฟล์ uploads หรือ container ไม่ได้รัน (ข้ามไป)${NC}"
+  fi
 
   # เก็บไว้แค่ 10 backup ล่าสุด
   ls -t "${BACKUP_DIR}"/rim_backup_*.sql.gz 2>/dev/null | tail -n +11 | xargs -r rm -f
+  ls -t "${BACKUP_DIR}"/rim_uploads_*.tar.gz 2>/dev/null | tail -n +11 | xargs -r rm -f
   BACKUP_COUNT=$(ls "${BACKUP_DIR}"/rim_backup_*.sql.gz 2>/dev/null | wc -l)
-  echo -e "   (มี backup ทั้งหมด ${BACKUP_COUNT} ไฟล์)"
+  echo -e "   (มี backup ทั้งหมด ${BACKUP_COUNT} ชุด)"
   echo ""
 }
 
 cmd_restore() {
   BACKUP_FILE="$2"
   if [ -z "$BACKUP_FILE" ]; then
-    echo -e "${RED}❌ กรุณาระบุไฟล์ backup${NC}"
+    echo -e "${RED}❌ กรุณาระบุไฟล์ backup (DB)${NC}"
     echo "   ตัวอย่าง: ./manage.sh restore backups/rim_backup_20260101_120000.sql.gz"
+    echo "   (ถ้ามีไฟล์ rim_uploads_TIMESTAMP.tar.gz คู่กัน จะ restore uploads อัตโนมัติด้วย)"
     exit 1
   fi
   if [ ! -f "$BACKUP_FILE" ]; then
     echo -e "${RED}❌ ไม่พบไฟล์: ${BACKUP_FILE}${NC}"
     exit 1
   fi
+
+  # ค้นหาไฟล์ uploads ที่ timestamp ตรงกัน
+  TIMESTAMP=$(basename "$BACKUP_FILE" | grep -oE '[0-9]{8}_[0-9]{6}')
+  UPLOADS_FILE="$(dirname "$BACKUP_FILE")/rim_uploads_${TIMESTAMP}.tar.gz"
+
   echo -e "${RED}⚠️  คำเตือน: การ restore จะลบข้อมูลปัจจุบันทั้งหมด${NC}"
+  echo -e "  DB backup   : ${BACKUP_FILE}"
+  if [ -f "$UPLOADS_FILE" ]; then
+    echo -e "  Uploads backup: ${UPLOADS_FILE}"
+  else
+    echo -e "  ${YELLOW}Uploads backup: ไม่พบ (จะ restore เฉพาะ DB)${NC}"
+  fi
   read -rp "  ยืนยัน? (yes/no): " CONFIRM
   if [ "$CONFIRM" != "yes" ]; then
     echo "ยกเลิก"
     exit 0
   fi
-  echo -e "${YELLOW}→ Restore จาก ${BACKUP_FILE}...${NC}"
-  # รองรับทั้ง .sql.gz และ .sql
+
+  echo -e "${YELLOW}→ Restore ฐานข้อมูล...${NC}"
   if [[ "$BACKUP_FILE" == *.gz ]]; then
     gunzip -c "$BACKUP_FILE" | $COMPOSE_CMD exec -T postgres psql -U rimuser --single-transaction rimdb
   else
     $COMPOSE_CMD exec -T postgres psql -U rimuser --single-transaction rimdb < "$BACKUP_FILE"
   fi
+  echo -e "${GREEN}✅ DB restored${NC}"
+
+  if [ -f "$UPLOADS_FILE" ]; then
+    echo -e "${YELLOW}→ Restore ไฟล์ uploads...${NC}"
+    $COMPOSE_CMD exec -T backend sh -c 'rm -rf /app/uploads && mkdir -p /app/uploads'
+    cat "$UPLOADS_FILE" | $COMPOSE_CMD exec -T backend tar xzf - -C /
+    echo -e "${GREEN}✅ Uploads restored${NC}"
+  fi
+
   echo -e "${GREEN}✅ Restore เรียบร้อย${NC}"
 }
 
