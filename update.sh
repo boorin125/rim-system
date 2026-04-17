@@ -31,7 +31,7 @@ mkdir -p "$BACKUP_DIR"
 
 echo -e "${YELLOW}→ Backup ฐานข้อมูลก่อนอัปเดต...${NC}"
 BACKUP_FILE="$BACKUP_DIR/rim_backup_$(date +%Y%m%d_%H%M%S).sql.gz"
-if $COMPOSE_CMD exec -T postgres pg_dump -U rimuser rimdb | gzip > "$BACKUP_FILE"; then
+if $COMPOSE_CMD exec -T postgres pg_dump -U rimuser --clean --if-exists rimdb | gzip > "$BACKUP_FILE"; then
   echo -e "${GREEN}✅ Backup: ${BACKUP_FILE}${NC}"
 else
   echo -e "\033[0;31m✗ Backup ล้มเหลว — ยกเลิก deploy เพื่อความปลอดภัย${NC}"
@@ -62,7 +62,7 @@ echo -e "   Commit: ${YELLOW}${GIT_COMMIT}${NC} | Date: ${YELLOW}${BUILD_DATE}${
 if ! $COMPOSE_CMD build --parallel --no-cache; then
   echo ""
   echo -e "\033[0;31m❌ Build ล้มเหลว! กำลัง Restore ฐานข้อมูล...${NC}"
-  gunzip -c "$BACKUP_FILE" | $COMPOSE_CMD exec -T postgres psql -U rimuser rimdb
+  gunzip -c "$BACKUP_FILE" | $COMPOSE_CMD exec -T postgres psql -U rimuser --single-transaction rimdb
   echo -e "${GREEN}✓ Restore สำเร็จจาก: $BACKUP_FILE${NC}"
   echo -e "  Containers ไม่ถูกเปลี่ยนแปลง"
   exit 1
@@ -81,7 +81,7 @@ until $COMPOSE_CMD exec -T backend curl -sf http://localhost:3000/health &>/dev/
   if [ $ELAPSED -ge $MAX_WAIT ]; then
     echo -e "${RED}⚠️  Backend ไม่ตอบสนองภายใน ${MAX_WAIT}s${NC}"
     echo -e "${RED}   กำลัง Restore จาก backup...${NC}"
-    gunzip -c "$BACKUP_FILE" | $COMPOSE_CMD exec -T postgres psql -U rimuser rimdb &>/dev/null || true
+    gunzip -c "$BACKUP_FILE" | $COMPOSE_CMD exec -T postgres psql -U rimuser --single-transaction rimdb &>/dev/null || true
     echo -e "${GREEN}✓ Restore สำเร็จจาก: $BACKUP_FILE${NC}"
     exit 1
   fi

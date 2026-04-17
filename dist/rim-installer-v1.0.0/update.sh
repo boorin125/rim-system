@@ -41,7 +41,7 @@ echo ""
 echo -e "${YELLOW}→ Backup ฐานข้อมูลก่อนอัปเดต...${NC}"
 BACKUP_FILE="rim_backup_$(date +%Y%m%d_%H%M%S).sql.gz"
 
-if ! $COMPOSE_CMD exec -T postgres pg_dump -U rimuser rimdb 2>/dev/null | gzip > "$BACKUP_FILE"; then
+if ! $COMPOSE_CMD exec -T postgres pg_dump -U rimuser --clean --if-exists rimdb 2>/dev/null | gzip > "$BACKUP_FILE"; then
   echo -e "${RED}❌ Backup ล้มเหลว — ยกเลิกการอัปเดต${NC}"
   rm -f "$BACKUP_FILE"
   exit 1
@@ -82,7 +82,7 @@ until $COMPOSE_CMD exec -T backend wget -qO- http://localhost:3000/health &>/dev
     echo -e "${RED}⚠️  Backend ไม่ตอบสนองภายใน ${MAX_WAIT}s${NC}"
     echo -e "${RED}   กำลัง Restore จาก backup...${NC}"
     # Restore DB
-    zcat "$BACKUP_FILE" | $COMPOSE_CMD exec -T postgres psql -U rimuser rimdb &>/dev/null || true
+    zcat "$BACKUP_FILE" | $COMPOSE_CMD exec -T postgres psql -U rimuser --single-transaction rimdb &>/dev/null || true
     echo -e "${RED}❌ อัปเดตล้มเหลว — กรุณาตรวจสอบ logs: ${COMPOSE_CMD} logs backend${NC}"
     exit 1
   fi
