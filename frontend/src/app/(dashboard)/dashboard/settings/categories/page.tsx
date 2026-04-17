@@ -25,6 +25,22 @@ import {
   Smartphone,
   ScanBarcode,
   Router,
+  Server,
+  Phone,
+  Keyboard,
+  Mouse,
+  Tv,
+  Headphones,
+  BatteryCharging,
+  Globe,
+  Lock,
+  CreditCard,
+  Tablet,
+  KeyRound,
+  Store,
+  Network,
+  Webcam,
+  Zap,
 } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
@@ -33,6 +49,8 @@ import { useThemeHighlight } from '@/hooks/useThemeHighlight'
 
 const iconMap: Record<string, React.ComponentType<any>> = {
   Monitor, Wifi, HardDrive, Code, Printer, Camera, MoreHorizontal, Tags, Smartphone, ScanBarcode, Router,
+  Server, Phone, Keyboard, Mouse, Tv, Headphones, BatteryCharging, Globe, Lock, CreditCard, Tablet, KeyRound,
+  Store, Network, Webcam, Zap,
 }
 
 interface JobType {
@@ -249,14 +267,30 @@ export default function CategoriesSettingsPage() {
 
   const iconOptions = [
     { name: 'Monitor', label: 'POS/Monitor' },
+    { name: 'Server', label: 'Server' },
     { name: 'Wifi', label: 'Network' },
     { name: 'Router', label: 'Access Point' },
+    { name: 'Network', label: 'Switch / Hub' },
+    { name: 'Globe', label: 'Internet' },
     { name: 'HardDrive', label: 'Hardware' },
     { name: 'Code', label: 'Software' },
     { name: 'Printer', label: 'Printer' },
     { name: 'Camera', label: 'CCTV' },
+    { name: 'Webcam', label: 'CCTV Camera' },
     { name: 'Smartphone', label: 'Mobile Phone' },
+    { name: 'Phone', label: 'IP Phone' },
+    { name: 'Tablet', label: 'Tablet' },
     { name: 'ScanBarcode', label: 'Barcode Scanner' },
+    { name: 'Keyboard', label: 'Keyboard' },
+    { name: 'Mouse', label: 'Mouse' },
+    { name: 'Headphones', label: 'Headset' },
+    { name: 'Tv', label: 'TV / Projector' },
+    { name: 'BatteryCharging', label: 'UPS' },
+    { name: 'Zap', label: 'Power / Electric' },
+    { name: 'CreditCard', label: 'Card Reader' },
+    { name: 'Lock', label: 'Security' },
+    { name: 'KeyRound', label: 'License / Key' },
+    { name: 'Store', label: 'Store' },
     { name: 'MoreHorizontal', label: 'Other' },
     { name: 'Tags', label: 'Default' },
   ]
