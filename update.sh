@@ -31,7 +31,13 @@ mkdir -p "$BACKUP_DIR"
 
 echo -e "${YELLOW}→ Backup ฐานข้อมูลก่อนอัปเดต...${NC}"
 BACKUP_FILE="$BACKUP_DIR/rim_backup_$(date +%Y%m%d_%H%M%S).sql.gz"
-if $COMPOSE_CMD exec -T postgres pg_dump -U rimuser --clean --if-exists rimdb | gzip > "$BACKUP_FILE"; then
+if $COMPOSE_CMD exec -T postgres pg_dump -U rimuser --clean --if-exists \
+    --exclude-table=licenses \
+    --exclude-table=license_activation_logs \
+    --exclude-table=refresh_tokens \
+    --exclude-table=password_reset_tokens \
+    --exclude-table=push_subscriptions \
+    rimdb | gzip > "$BACKUP_FILE"; then
   echo -e "${GREEN}✅ Backup: ${BACKUP_FILE}${NC}"
 else
   echo -e "\033[0;31m✗ Backup ล้มเหลว — ยกเลิก deploy เพื่อความปลอดภัย${NC}"

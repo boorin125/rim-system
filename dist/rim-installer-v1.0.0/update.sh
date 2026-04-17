@@ -41,7 +41,13 @@ echo ""
 echo -e "${YELLOW}→ Backup ฐานข้อมูลก่อนอัปเดต...${NC}"
 BACKUP_FILE="rim_backup_$(date +%Y%m%d_%H%M%S).sql.gz"
 
-if ! $COMPOSE_CMD exec -T postgres pg_dump -U rimuser --clean --if-exists rimdb 2>/dev/null | gzip > "$BACKUP_FILE"; then
+if ! $COMPOSE_CMD exec -T postgres pg_dump -U rimuser --clean --if-exists \
+    --exclude-table=licenses \
+    --exclude-table=license_activation_logs \
+    --exclude-table=refresh_tokens \
+    --exclude-table=password_reset_tokens \
+    --exclude-table=push_subscriptions \
+    rimdb 2>/dev/null | gzip > "$BACKUP_FILE"; then
   echo -e "${RED}❌ Backup ล้มเหลว — ยกเลิกการอัปเดต${NC}"
   rm -f "$BACKUP_FILE"
   exit 1

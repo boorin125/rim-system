@@ -81,7 +81,14 @@ cmd_backup() {
   UPLOADS_FILE="${BACKUP_DIR}/rim_uploads_${TIMESTAMP}.tar.gz"
 
   echo -e "${YELLOW}→ Backup ฐานข้อมูล...${NC}"
-  $COMPOSE_CMD exec -T postgres pg_dump -U rimuser --clean --if-exists rimdb | gzip > "$DB_FILE"
+  # ยกเว้น server-specific tables: licenses (machineId), tokens (invalid cross-server), push_subscriptions (re-registered by clients)
+  $COMPOSE_CMD exec -T postgres pg_dump -U rimuser --clean --if-exists \
+    --exclude-table=licenses \
+    --exclude-table=license_activation_logs \
+    --exclude-table=refresh_tokens \
+    --exclude-table=password_reset_tokens \
+    --exclude-table=push_subscriptions \
+    rimdb | gzip > "$DB_FILE"
   DB_SIZE=$(du -sh "$DB_FILE" | cut -f1)
   echo -e "${GREEN}✅ DB: ${DB_FILE} (${DB_SIZE})${NC}"
 
