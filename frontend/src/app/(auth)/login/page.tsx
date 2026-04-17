@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Mail, Lock, Eye, EyeOff, Phone } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, Phone, X, FileText } from 'lucide-react'
 import toast from 'react-hot-toast'
 import axios from 'axios'
 
@@ -85,6 +85,8 @@ function LoginContent() {
   const [showRegPassword, setShowRegPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [agreedToTerms, setAgreedToTerms] = useState(false)
+  const [showTermsModal, setShowTermsModal] = useState(false)
   const isSubmitting = useRef(false)
 
   // Login form state
@@ -155,6 +157,11 @@ function LoginContent() {
       return
     }
 
+    if (!agreedToTerms) {
+      toast.error('กรุณายอมรับข้อตกลงการใช้งานก่อนสมัครสมาชิก')
+      return
+    }
+
     setIsLoading(true)
 
     try {
@@ -185,6 +192,7 @@ function LoginContent() {
           phone: '',
           role: 'END_USER',
         })
+        setAgreedToTerms(false)
       }, 2000)
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'ลงทะเบียนไม่สำเร็จ')
@@ -224,6 +232,77 @@ function LoginContent() {
 
   return (
     <div className="min-h-screen flex items-start justify-center px-4 pt-8 pb-4 overflow-y-auto" style={bgStyle}>
+      {/* Terms of Service Modal */}
+      {showTermsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowTermsModal(false)} />
+          <div className="relative z-10 bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl">
+            <div className="flex items-center justify-between p-5 border-b border-slate-700">
+              <div className="flex items-center gap-3">
+                <FileText className="w-5 h-5 text-blue-400" />
+                <h2 className="text-lg font-semibold text-white">ข้อตกลงการใช้งาน</h2>
+              </div>
+              <button onClick={() => setShowTermsModal(false)} className="text-gray-400 hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="overflow-y-auto p-5 text-sm text-gray-300 space-y-4 leading-relaxed">
+              <p className="text-gray-400 text-xs">มีผลบังคับใช้ตั้งแต่วันที่สมัครใช้งาน</p>
+
+              <section>
+                <h3 className="text-white font-semibold mb-1">1. การยอมรับข้อตกลง</h3>
+                <p>การสมัครและใช้งานระบบ Remote Incident Management (RIM) ถือว่าผู้ใช้งานได้อ่าน เข้าใจ และยอมรับข้อตกลงการใช้งานฉบับนี้ทุกประการ หากไม่ยอมรับข้อตกลงนี้ กรุณางดใช้งานระบบ</p>
+              </section>
+
+              <section>
+                <h3 className="text-white font-semibold mb-1">2. ขอบเขตการใช้งาน</h3>
+                <p>ระบบนี้จัดทำขึ้นเพื่อการบริหารจัดการงานแจ้งซ่อมและติดตามสถานะงานภายในองค์กรเท่านั้น ผู้ใช้งานต้องไม่นำระบบไปใช้ในทางที่ผิดกฎหมาย หรือก่อให้เกิดความเสียหายต่อองค์กรและบุคคลอื่น</p>
+              </section>
+
+              <section>
+                <h3 className="text-white font-semibold mb-1">3. ข้อมูลส่วนบุคคล</h3>
+                <p>ระบบจะเก็บรวบรวมข้อมูลส่วนบุคคล ได้แก่ ชื่อ-นามสกุล อีเมล เบอร์โทรศัพท์ และข้อมูลที่เกี่ยวข้องกับการปฏิบัติงาน เพื่อวัตถุประสงค์ในการบริหารจัดการงานภายในองค์กรเท่านั้น โดยจะไม่มีการเปิดเผยข้อมูลแก่บุคคลภายนอกโดยไม่ได้รับอนุญาต</p>
+              </section>
+
+              <section>
+                <h3 className="text-white font-semibold mb-1">4. ความรับผิดชอบของผู้ใช้งาน</h3>
+                <ul className="list-disc list-inside space-y-1 text-gray-300">
+                  <li>รักษาข้อมูล Username และ Password ไว้เป็นความลับ</li>
+                  <li>ไม่อนุญาตให้บุคคลอื่นใช้บัญชีของตน</li>
+                  <li>รายงานข้อมูลและสถานะงานตามความเป็นจริง</li>
+                  <li>แจ้งผู้ดูแลระบบทันทีหากพบความผิดปกติหรือการละเมิดความปลอดภัย</li>
+                </ul>
+              </section>
+
+              <section>
+                <h3 className="text-white font-semibold mb-1">5. การระงับบัญชี</h3>
+                <p>ผู้ดูแลระบบสงวนสิทธิ์ในการระงับหรือยกเลิกบัญชีผู้ใช้งานที่ฝ่าฝืนข้อตกลงนี้ หรือกระทำการที่เป็นภัยต่อระบบและองค์กร โดยไม่จำเป็นต้องแจ้งให้ทราบล่วงหน้า</p>
+              </section>
+
+              <section>
+                <h3 className="text-white font-semibold mb-1">6. การเปลี่ยนแปลงข้อตกลง</h3>
+                <p>องค์กรขอสงวนสิทธิ์ในการปรับปรุงข้อตกลงการใช้งานนี้ได้ตามความเหมาะสม การใช้งานระบบต่อเนื่องหลังจากมีการเปลี่ยนแปลงถือว่าผู้ใช้งานยอมรับข้อตกลงฉบับใหม่แล้ว</p>
+              </section>
+            </div>
+            <div className="p-4 border-t border-slate-700 flex gap-3">
+              <button
+                onClick={() => { setAgreedToTerms(true); setShowTermsModal(false) }}
+                style={btnStyle}
+                className="flex-1 py-2.5 text-white font-medium rounded-lg hover:opacity-90 transition"
+              >
+                ยอมรับข้อตกลง
+              </button>
+              <button
+                onClick={() => setShowTermsModal(false)}
+                className="px-4 py-2.5 text-gray-300 bg-slate-700 hover:bg-slate-600 rounded-lg transition font-medium"
+              >
+                ปิด
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Background Pattern */}
       <div className="fixed inset-0 bg-pattern"></div>
 
@@ -552,11 +631,33 @@ function LoginContent() {
                     </div>
                   </div>
 
+                  {/* Terms of Service Checkbox */}
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      id="agreeTerms"
+                      checked={agreedToTerms}
+                      onChange={(e) => setAgreedToTerms(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 rounded border-gray-600 bg-gray-700 accent-blue-500 cursor-pointer flex-shrink-0"
+                    />
+                    <label htmlFor="agreeTerms" className="text-sm text-gray-400 leading-snug cursor-pointer select-none">
+                      ฉันได้อ่านและยอมรับ{' '}
+                      <button
+                        type="button"
+                        onClick={() => setShowTermsModal(true)}
+                        className="text-blue-400 hover:text-blue-300 underline underline-offset-2 font-medium"
+                      >
+                        ข้อตกลงการใช้งาน
+                      </button>
+                      {' '}ของระบบ
+                    </label>
+                  </div>
+
                   {/* Register Button */}
                   <button
                     type="submit"
-                    disabled={isLoading}
-                    style={btnStyle}
+                    disabled={isLoading || !agreedToTerms}
+                    style={agreedToTerms ? btnStyle : {}}
                     className="w-full py-3 px-4 text-white font-medium rounded-lg hover:opacity-90 transition duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isLoading ? (
