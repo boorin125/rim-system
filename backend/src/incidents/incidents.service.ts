@@ -20,6 +20,7 @@ import { AuditTrailService } from '../modules/audit-trail/audit-trail.service';
 import { RatingsService } from '../modules/ratings/ratings.service';
 import { PmService } from '../modules/pm/pm.service';
 import { addWatermark } from '../utils/image-watermark';
+import { saveBase64Files } from '../utils/file-storage';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
@@ -394,7 +395,14 @@ export class IncidentsService {
       throw new BadRequestException('Incident ต้องมีสถานะ RESOLVED หรือ CLOSED');
     }
 
-    const allPhotos = [...(incident.signedReportPhotos || []), ...photos];
+    const existingPhotos = incident.signedReportPhotos || [];
+    const base64Photos = photos.filter((p) => p.startsWith('data:'));
+    const savedPaths = base64Photos.length > 0
+      ? await saveBase64Files(base64Photos, `incidents/${id}`)
+      : [];
+    const queue = [...savedPaths];
+    const photoPaths = photos.map((p) => (p.startsWith('data:') ? queue.shift()! : p));
+    const allPhotos = [...existingPhotos, ...photoPaths];
     if (allPhotos.length > 5) {
       throw new BadRequestException('อัปโหลดรูป Service Report ที่เซ็นแล้วได้สูงสุด 5 รูป');
     }
@@ -2123,9 +2131,18 @@ export class IncidentsService {
       throw new BadRequestException('อัปโหลดรูปก่อนซ่อมได้สูงสุด 5 รูป');
     }
 
+    // Save base64 photos to disk (filter only base64 entries)
+    const base64Photos = beforePhotos.filter((p) => p.startsWith('data:'));
+    const savedPaths = base64Photos.length > 0
+      ? await saveBase64Files(base64Photos, `incidents/${id}`)
+      : [];
+    const photoPaths = beforePhotos.map((p) =>
+      p.startsWith('data:') ? savedPaths.shift()! : p,
+    );
+
     // Add BEFORE watermark to photos
     const watermarkedBeforePhotos = await this.addWatermarkToPhotos(
-      beforePhotos,
+      photoPaths,
       'BEFORE',
     );
 
@@ -2261,9 +2278,18 @@ export class IncidentsService {
       );
     }
 
+    // Save base64 photos to disk
+    const base64New = newPhotos.filter((p) => p.startsWith('data:'));
+    const savedNew = base64New.length > 0
+      ? await saveBase64Files(base64New, `incidents/${id}`)
+      : [];
+    const newPhotoPaths = newPhotos.map((p) =>
+      p.startsWith('data:') ? savedNew.shift()! : p,
+    );
+
     // Add BEFORE watermark to new photos
     const watermarkedNewPhotos = await this.addWatermarkToPhotos(
-      newPhotos,
+      newPhotoPaths,
       'BEFORE',
     );
 
@@ -2348,11 +2374,35 @@ export class IncidentsService {
       throw new BadRequestException('อัปโหลดรูป SR ที่เซ็นแล้วได้สูงสุด 5 รูป');
     }
 
+    // Save base64 after photos to disk
+    let afterPhotoPaths: string[] = [];
+    if (dto.afterPhotos && dto.afterPhotos.length > 0) {
+      const base64After = dto.afterPhotos.filter((p) => p.startsWith('data:'));
+      const savedAfter = base64After.length > 0
+        ? await saveBase64Files(base64After, `incidents/${id}`)
+        : [];
+      afterPhotoPaths = dto.afterPhotos.map((p) =>
+        p.startsWith('data:') ? savedAfter.shift()! : p,
+      );
+    }
+
+    // Save base64 signed report photos to disk
+    let signedReportPaths: string[] = [];
+    if (dto.signedReportPhotos && dto.signedReportPhotos.length > 0) {
+      const base64Signed = dto.signedReportPhotos.filter((p) => p.startsWith('data:'));
+      const savedSigned = base64Signed.length > 0
+        ? await saveBase64Files(base64Signed, `incidents/${id}`)
+        : [];
+      signedReportPaths = dto.signedReportPhotos.map((p) =>
+        p.startsWith('data:') ? savedSigned.shift()! : p,
+      );
+    }
+
     // Add AFTER watermark to photos
     let watermarkedAfterPhotos: string[] = [];
-    if (dto.afterPhotos && dto.afterPhotos.length > 0) {
+    if (afterPhotoPaths.length > 0) {
       watermarkedAfterPhotos = await this.addWatermarkToPhotos(
-        dto.afterPhotos,
+        afterPhotoPaths,
         'AFTER',
       );
     }
@@ -2433,7 +2483,7 @@ export class IncidentsService {
           resolutionNote: dto.resolutionNote,
           usedSpareParts: dto.usedSpareParts,
           afterPhotos: watermarkedAfterPhotos,
-          ...(dto.signedReportPhotos ? { signedReportPhotos: dto.signedReportPhotos } : {}),
+          ...(signedReportPaths.length > 0 ? { signedReportPhotos: signedReportPaths } : {}),
           resolvedAt: new Date(),
           resolvedById: userId,
           status: IncidentStatus.RESOLVED,
@@ -2636,11 +2686,20 @@ export class IncidentsService {
       }
 
       if (dto.afterPhotos !== undefined) {
-        updateData.afterPhotos = dto.afterPhotos;
+        const base64After = dto.afterPhotos.filter((p) => p.startsWith('data:'));
+        const savedAfter = base64After.length > 0 ? await saveBase64Files(base64After, `incidents/${id}`) : [];
+        const qAfter = [...savedAfter];
+        updateData.afterPhotos = dto.afterPhotos.map((p) => (p.startsWith('data:') ? qAfter.shift()! : p));
+        if (updateData.afterPhotos.length > 0) {
+          updateData.afterPhotos = await this.addWatermarkToPhotos(updateData.afterPhotos, 'AFTER');
+        }
       }
 
       if (dto.signedReportPhotos !== undefined) {
-        updateData.signedReportPhotos = dto.signedReportPhotos;
+        const base64Signed = dto.signedReportPhotos.filter((p) => p.startsWith('data:'));
+        const savedSigned = base64Signed.length > 0 ? await saveBase64Files(base64Signed, `incidents/${id}`) : [];
+        const qSigned = [...savedSigned];
+        updateData.signedReportPhotos = dto.signedReportPhotos.map((p) => (p.startsWith('data:') ? qSigned.shift()! : p));
       }
 
       // If tech had confirmed, reset the confirmation since resolution data changed

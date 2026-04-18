@@ -264,7 +264,12 @@ async function drawSignatures(
   doc.text('ลายเซ็นลูกค้า / Customer', leftCX, boxTop + 3.5, { align: 'center' })
 
   if (!blankSignature && data.customerSignature) {
-    try { doc.addImage(data.customerSignature, 'PNG', leftCX - 18, boxTop + 4.5, 36, 11) } catch { /* skip */ }
+    try {
+      const sigSrc = data.customerSignature.startsWith('data:')
+        ? data.customerSignature
+        : await loadImageAsDataURL(`${(typeof window !== 'undefined' ? process.env.NEXT_PUBLIC_API_URL : '') || ''}`.replace('/api', '') + `/uploads/${data.customerSignature}`)
+      if (sigSrc) doc.addImage(sigSrc, 'PNG', leftCX - 18, boxTop + 4.5, 36, 11)
+    } catch { /* skip */ }
   }
 
   doc.setDrawColor(180, 180, 180); doc.setLineWidth(0.3)

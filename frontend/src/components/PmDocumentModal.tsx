@@ -4,6 +4,7 @@ import { useRef, useState, useEffect } from 'react'
 import { X, Download } from 'lucide-react'
 import { PmReportData, generatePmReportPDF } from '@/utils/pmReportPdf'
 import { InventoryListData, generateInventoryListPDF } from '@/utils/inventoryListPdf'
+import { getPhotoUrl } from '@/utils/photoUtils'
 
 // ─── Shared helpers ──────────────────────────────────────────────────────────
 
@@ -173,7 +174,7 @@ export function PmReportModal({
                     {rec.beforePhotos.length > 0 ? (
                       <div className="flex gap-1.5 flex-wrap">
                         {rec.beforePhotos.slice(0, 4).map((p, i) => (
-                          <img key={i} src={p} alt="" className="w-24 h-24 object-cover rounded border border-gray-200" />
+                          <img key={i} src={getPhotoUrl(p)} alt="" className="w-24 h-24 object-cover rounded border border-gray-200" />
                         ))}
                         {rec.beforePhotos.length > 4 && <span className="text-xs text-gray-400 self-center">+{rec.beforePhotos.length - 4}</span>}
                       </div>
@@ -188,7 +189,7 @@ export function PmReportModal({
                     {rec.afterPhotos.length > 0 ? (
                       <div className="flex gap-1.5 flex-wrap">
                         {rec.afterPhotos.slice(0, 4).map((p, i) => (
-                          <img key={i} src={p} alt="" className="w-24 h-24 object-cover rounded border border-gray-200" />
+                          <img key={i} src={getPhotoUrl(p)} alt="" className="w-24 h-24 object-cover rounded border border-gray-200" />
                         ))}
                         {rec.afterPhotos.length > 4 && <span className="text-xs text-gray-400 self-center">+{rec.afterPhotos.length - 4}</span>}
                       </div>

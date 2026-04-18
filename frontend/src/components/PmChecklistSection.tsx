@@ -517,11 +517,11 @@ function PhotoUploadBlock({
             {photos.map((src, i) => (
               <div key={i} className="relative">
                 <button
-                  onClick={() => { if (confirmDeleteIndex !== i) setLightbox(src) }}
+                  onClick={() => { if (confirmDeleteIndex !== i) setLightbox(getPhotoUrl(src)) }}
                   className="focus:outline-none"
                 >
                   <img
-                    src={src}
+                    src={getPhotoUrl(src)}
                     alt=""
                     className={`w-12 h-12 object-cover rounded-lg border transition-all cursor-zoom-in ${
                       confirmDeleteIndex === i
@@ -1441,7 +1441,7 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
               {pmRecord.signedInventoryPhotos.map((photo, idx) => (
                 <div key={idx} className="relative">
                   <img
-                    src={photo}
+                    src={getPhotoUrl(photo)}
                     alt={`Document ${idx + 1}`}
                     onClick={() => { if (confirmDeleteSigned === null) setLightboxSignedDoc(idx) }}
                     className={`h-24 w-24 object-cover rounded-lg border cursor-pointer transition-opacity ${confirmDeleteSigned === idx ? 'border-red-500 opacity-40' : 'border-slate-600'}`}
@@ -1486,7 +1486,7 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
         onClick={() => setLightboxSignedDoc(null)}
       >
         <img
-          src={pmRecord.signedInventoryPhotos[lightboxSignedDoc]}
+          src={getPhotoUrl(pmRecord.signedInventoryPhotos[lightboxSignedDoc])}
           alt="Signed inventory"
           className="max-w-full max-h-full object-contain"
           onClick={(e) => e.stopPropagation()}

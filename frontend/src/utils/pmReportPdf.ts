@@ -2,6 +2,21 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { applyPdfWatermark } from './pdfWatermark'
 
+async function loadImageAsDataURL(url: string): Promise<string | null> {
+  try {
+    const fullUrl = url.startsWith('http') ? url : `${typeof window !== 'undefined' ? window.location.origin : ''}${url}`
+    const res = await fetch(fullUrl)
+    if (!res.ok) return null
+    const blob = await res.blob()
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(reader.result as string)
+      reader.onerror = reject
+      reader.readAsDataURL(blob)
+    })
+  } catch { return null }
+}
+
 export interface PmReportEquipment {
   name: string
   category: string
@@ -30,7 +45,7 @@ export interface PmReportData {
   technicianSignature?: string     // base64 data URL
   organizationName?: string
   organizationLogo?: string
-  storeSignature?: string    // Base64 — from Digital Sign
+  storeSignature?: string    // Base64 or relative path — from Digital Sign
   storeSignerName?: string
   storeSignedAt?: string
   equipmentRecords: PmReportEquipment[]
@@ -373,19 +388,25 @@ export async function generatePmReportPDF(data: PmReportData): Promise<void> {
 
   if (data.storeSignature) {
     try {
-      const sigDims = await new Promise<{ w: number; h: number }>((resolve) => {
-        const img = new Image()
-        img.onload = () => resolve({ w: img.width, h: img.height })
-        img.onerror = () => resolve({ w: 0, h: 0 })
-        img.src = data.storeSignature!
-      })
-      if (sigDims.w > 0) {
-        const ratio = sigDims.w / sigDims.h
-        const sw = Math.min(sigImgH * ratio, colW - 20)
-        const sh = sw / ratio
-        const sx = rightX + (colW - sw) / 2
-        const fmt = data.storeSignature.startsWith('data:image/png') ? 'PNG' : 'JPEG'
-        doc.addImage(data.storeSignature, fmt, sx, boxTop + 8, sw, Math.min(sh, sigImgH), undefined, 'FAST')
+      const apiBase = (typeof window !== 'undefined' ? process.env.NEXT_PUBLIC_API_URL : '') || ''
+      const sigSrc = data.storeSignature.startsWith('data:')
+        ? data.storeSignature
+        : await loadImageAsDataURL(`${apiBase.replace('/api', '')}/uploads/${data.storeSignature}`)
+      if (sigSrc) {
+        const sigDims = await new Promise<{ w: number; h: number }>((resolve) => {
+          const img = new Image()
+          img.onload = () => resolve({ w: img.width, h: img.height })
+          img.onerror = () => resolve({ w: 0, h: 0 })
+          img.src = sigSrc
+        })
+        if (sigDims.w > 0) {
+          const ratio = sigDims.w / sigDims.h
+          const sw = Math.min(sigImgH * ratio, colW - 20)
+          const sh = sw / ratio
+          const sx = rightX + (colW - sw) / 2
+          const fmt = sigSrc.startsWith('data:image/png') ? 'PNG' : 'JPEG'
+          doc.addImage(sigSrc, fmt, sx, boxTop + 8, sw, Math.min(sh, sigImgH), undefined, 'FAST')
+        }
       }
     } catch {}
   }

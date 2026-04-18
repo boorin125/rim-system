@@ -366,7 +366,7 @@ model Incident {
   serviceReportTokenExpiresAt DateTime? @map("service_report_token_expires_at")
 
   // Customer Signature
-  customerSignature     String?   @map("customer_signature") @db.Text
+  customerSignature     String?   @map("customer_signature")
   customerSignatureName String?   @map("customer_signature_name")
   customerSignedAt      DateTime? @map("customer_signed_at")
 
@@ -1702,10 +1702,10 @@ model PmRecord {
   // Inventory List online signature
   inventoryListToken          String?   @unique @map("inventory_list_token")
   inventoryListTokenExpiresAt DateTime? @map("inventory_list_token_expires_at")
-  storeSignature              String?   @map("store_signature") @db.Text
+  storeSignature              String?   @map("store_signature")
   storeSignerName             String?   @map("store_signer_name")
   storeSignedAt               DateTime? @map("store_signed_at")
-  signedInventoryPhoto        String?   @map("signed_inventory_photo") @db.Text
+  signedInventoryPhoto        String?   @map("signed_inventory_photo")
 
   incident         Incident            @relation(fields: [incidentId], references: [id], onDelete: Cascade)
   store            Store               @relation(fields: [storeId], references: [id])

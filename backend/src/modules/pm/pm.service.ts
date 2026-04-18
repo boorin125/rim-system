@@ -8,6 +8,7 @@ import { EquipmentLogAction, EquipmentLogSource, EquipmentStatus } from '@prisma
 import { UpdatePmEquipmentRecordDto, SignInventoryListDto } from './dto/index';
 import { EmailService } from '../../email/email.service';
 import { SettingsService } from '../../settings/settings.service';
+import { saveBase64File, saveBase64Files, deleteUploadFile } from '../../utils/file-storage';
 
 @Injectable()
 export class PmService {
@@ -227,16 +228,25 @@ export class PmService {
     if (!existing) throw new NotFoundException(`ไม่พบ PM Equipment Record ID ${recordId}`);
 
     const data: any = {};
+    const subDir = `pm/equipment/${recordId}`;
 
     if (dto.setBeforePhotos !== undefined) {
       data.beforePhotos = dto.setBeforePhotos;
     } else if (dto.beforePhotos?.length) {
-      data.beforePhotos = [...(existing.beforePhotos ?? []), ...dto.beforePhotos];
+      const base64Before = dto.beforePhotos.filter((p) => p.startsWith('data:'));
+      const savedBefore = base64Before.length > 0 ? await saveBase64Files(base64Before, subDir) : [];
+      const qBefore = [...savedBefore];
+      const paths = dto.beforePhotos.map((p) => (p.startsWith('data:') ? qBefore.shift()! : p));
+      data.beforePhotos = [...(existing.beforePhotos ?? []), ...paths];
     }
     if (dto.setAfterPhotos !== undefined) {
       data.afterPhotos = dto.setAfterPhotos;
     } else if (dto.afterPhotos?.length) {
-      data.afterPhotos = [...(existing.afterPhotos ?? []), ...dto.afterPhotos];
+      const base64After = dto.afterPhotos.filter((p) => p.startsWith('data:'));
+      const savedAfter = base64After.length > 0 ? await saveBase64Files(base64After, subDir) : [];
+      const qAfter = [...savedAfter];
+      const paths = dto.afterPhotos.map((p) => (p.startsWith('data:') ? qAfter.shift()! : p));
+      data.afterPhotos = [...(existing.afterPhotos ?? []), ...paths];
     }
     if (dto.comment !== undefined) data.comment = dto.comment;
     if (dto.condition !== undefined) data.condition = dto.condition;
@@ -595,10 +605,16 @@ export class PmService {
       throw new BadRequestException('เอกสารนี้ได้รับการลงนามแล้ว');
     }
 
+    const sigPath = await saveBase64File(
+      dto.signature,
+      'signatures',
+      `pm_store_${record.id}_${Date.now()}`,
+    );
+
     return this.prisma.pmRecord.update({
       where: { id: record.id },
       data: {
-        storeSignature: dto.signature,
+        storeSignature: sigPath,
         storeSignerName: dto.signerName,
         storeSignedAt: new Date(),
       },
@@ -615,7 +631,7 @@ export class PmService {
     });
     if (!row) throw new NotFoundException('ไม่พบ PM Record');
 
-    // Parse existing photos (JSON array or legacy single string)
+    // Parse existing photos (JSON array of paths)
     let photos: string[] = [];
     if (row.signedInventoryPhoto) {
       try {
@@ -627,7 +643,12 @@ export class PmService {
     }
     if (photos.length >= 5) throw new BadRequestException('อัพโหลดได้สูงสุด 5 รูป');
 
-    photos.push(photo);
+    // Save photo as file if base64
+    const photoPath = photo.startsWith('data:')
+      ? await saveBase64File(photo, `pm/signed/${row.id}`, `${Date.now()}`)
+      : photo;
+
+    photos.push(photoPath);
     await this.prisma.pmRecord.update({
       where: { id: row.id },
       data: { signedInventoryPhoto: JSON.stringify(photos) },
@@ -650,7 +671,10 @@ export class PmService {
       } catch {
         photos = [row.signedInventoryPhoto];
       }
-      photos.splice(photoIndex, 1);
+      const deleted = photos.splice(photoIndex, 1);
+      if (deleted[0] && !deleted[0].startsWith('data:')) {
+        await deleteUploadFile(deleted[0]);
+      }
       await this.prisma.pmRecord.update({
         where: { id: row.id },
         data: { signedInventoryPhoto: photos.length > 0 ? JSON.stringify(photos) : null },

@@ -662,7 +662,7 @@ export default function ServiceReportPage() {
                       <p className="text-xs text-gray-500 mb-3">ลายเซ็นลูกค้า / Customer</p>
                       {report.customerSignature && (
                         <img
-                          src={report.customerSignature}
+                          src={getPhotoUrl(report.customerSignature)}
                           alt="Customer Signature"
                           className="h-20 mx-auto mb-2 bg-white rounded-lg shadow-sm p-1"
                         />
@@ -1191,7 +1191,7 @@ export default function ServiceReportPage() {
                   <p className="text-xs text-gray-500 mb-3">ลายเซ็นลูกค้า / Customer</p>
                   {report.customerSignature && (
                     <img
-                      src={report.customerSignature}
+                      src={getPhotoUrl(report.customerSignature)}
                       alt="Customer Signature"
                       className="h-20 mx-auto mb-2 bg-white"
                     />

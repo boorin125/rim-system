@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import { Loader2, AlertCircle, Download } from 'lucide-react'
 import axios from 'axios'
 import { generatePmReportPDF, PmReportData } from '@/utils/pmReportPdf'
+import { getPhotoUrl } from '@/utils/photoUtils'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'
 
@@ -243,7 +244,7 @@ export default function PmReportPage() {
                         {rec.beforePhotos?.length > 0 ? (
                           <div className="flex gap-1.5 flex-wrap">
                             {rec.beforePhotos.slice(0, 4).map((p, i) => (
-                              <img key={i} src={p} alt="" onClick={() => setLightboxSrc(p)}
+                              <img key={i} src={getPhotoUrl(p)} alt="" onClick={() => setLightboxSrc(getPhotoUrl(p))}
                                 className="w-24 h-24 object-cover rounded border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity" />
                             ))}
                             {rec.beforePhotos.length > 4 && (
@@ -262,7 +263,7 @@ export default function PmReportPage() {
                         {rec.afterPhotos?.length > 0 ? (
                           <div className="flex gap-1.5 flex-wrap">
                             {rec.afterPhotos.slice(0, 4).map((p, i) => (
-                              <img key={i} src={p} alt="" onClick={() => setLightboxSrc(p)}
+                              <img key={i} src={getPhotoUrl(p)} alt="" onClick={() => setLightboxSrc(getPhotoUrl(p))}
                                 className="w-24 h-24 object-cover rounded border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity" />
                             ))}
                             {rec.afterPhotos.length > 4 && (
@@ -307,7 +308,7 @@ export default function PmReportPage() {
                 <p className="text-xs text-gray-400 mb-3">ลายเซ็นเจ้าหน้าที่สาขา / Store Staff</p>
                 <div className="h-14 flex items-end justify-center mb-3">
                   {data.storeSignature && (
-                    <img src={data.storeSignature} alt="Store signature" className="h-12 object-contain" />
+                    <img src={getPhotoUrl(data.storeSignature)} alt="Store signature" className="h-12 object-contain" />
                   )}
                 </div>
                 <div className="border-b-2 border-gray-400 w-44 mx-auto mb-1" />

@@ -4,6 +4,8 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as nodemailer from 'nodemailer';
 import sharp from 'sharp';
+import * as fsPromises from 'fs/promises';
+import * as path from 'path';
 
 interface SmtpConfig {
   host: string;
@@ -256,17 +258,24 @@ export class EmailService {
       // Resize each photo to 160×160px thumbnail via sharp before embedding (~10KB each vs ~400KB original)
       // This keeps total email size ~300KB even for 30 photos
       const resizePhotoForEmail = async (photo: string): Promise<string> => {
-        if (!photo.startsWith('data:')) return photo; // URL-based: pass through as-is
         try {
-          const base64Data = photo.split(',')[1];
-          if (!base64Data) return photo;
-          const resized = await sharp(Buffer.from(base64Data, 'base64'))
+          let buffer: Buffer;
+          if (photo.startsWith('data:')) {
+            const base64Data = photo.split(',')[1];
+            if (!base64Data) return photo;
+            buffer = Buffer.from(base64Data, 'base64');
+          } else if (!photo.startsWith('http')) {
+            buffer = await fsPromises.readFile(path.join(process.cwd(), 'uploads', photo));
+          } else {
+            return photo;
+          }
+          const resized = await sharp(buffer)
             .resize(160, 160, { fit: 'cover', position: 'centre' })
             .jpeg({ quality: 65 })
             .toBuffer();
           return `data:image/jpeg;base64,${resized.toString('base64')}`;
         } catch {
-          return photo; // fallback to original if resize fails
+          return photo;
         }
       };
 
@@ -1079,11 +1088,18 @@ export class EmailService {
 
       // Photos — after[0] of each equipment, grid 5/row
       const resizePhotoForEmail = async (photo: string): Promise<string> => {
-        if (!photo.startsWith('data:')) return photo;
         try {
-          const base64Data = photo.split(',')[1];
-          if (!base64Data) return photo;
-          const resized = await sharp(Buffer.from(base64Data, 'base64'))
+          let buffer: Buffer;
+          if (photo.startsWith('data:')) {
+            const base64Data = photo.split(',')[1];
+            if (!base64Data) return photo;
+            buffer = Buffer.from(base64Data, 'base64');
+          } else if (!photo.startsWith('http')) {
+            buffer = await fsPromises.readFile(path.join(process.cwd(), 'uploads', photo));
+          } else {
+            return photo;
+          }
+          const resized = await sharp(buffer)
             .resize(160, 160, { fit: 'cover', position: 'centre' })
             .jpeg({ quality: 65 })
             .toBuffer();

@@ -3,6 +3,7 @@
 
 import { Controller, Get, Post, Param, Body, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { saveBase64File } from '../utils/file-storage';
 
 @Controller('public/service-report')
 export class ServiceReportPublicController {
@@ -261,10 +262,16 @@ export class ServiceReportPublicController {
       throw new BadRequestException('ลิงก์หมดอายุแล้ว ไม่สามารถเซ็นได้');
     }
 
+    const sigPath = await saveBase64File(
+      body.signature,
+      'signatures',
+      `customer_${incident.id}_${Date.now()}`,
+    );
+
     await this.prisma.incident.update({
       where: { id: incident.id },
       data: {
-        customerSignature: body.signature,
+        customerSignature: sigPath,
         customerSignatureName: body.signerName.trim(),
         customerSignedAt: new Date(),
       },
