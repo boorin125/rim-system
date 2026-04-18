@@ -87,6 +87,7 @@ export default function IncidentDetailPage() {
   const [isSendingEmail, setIsSendingEmail] = useState(false)
   const [showSrMenu, setShowSrMenu] = useState(false)
   const srMenuRef = useRef<HTMLDivElement>(null)
+  const photosRef = useRef<HTMLDivElement>(null)
   const [showReopen, setShowReopen] = useState(false)
   const [showDirectClose, setShowDirectClose] = useState(false)
   const [isResendingEmail, setIsResendingEmail] = useState(false)
@@ -379,6 +380,7 @@ export default function IncidentDetailPage() {
       toast.success('Check In สำเร็จ! เริ่มทำงานแล้ว')
       await fetchIncident() // Refresh incident data
       setShowCheckIn(false)
+      setTimeout(() => photosRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
     } catch (error: any) {
       throw new Error(
         error.response?.data?.message || 'ไม่สามารถ Check In ได้'
@@ -404,6 +406,7 @@ export default function IncidentDetailPage() {
 
       toast.success(`เพิ่มรูปก่อนทำสำเร็จ ${photos.length} รูป`)
       await fetchIncident() // Refresh incident data
+      setTimeout(() => photosRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'ไม่สามารถเพิ่มรูปได้')
       throw error
@@ -1912,7 +1915,7 @@ SLA Breach Time: ${slaBreachText}`
       {((incident.beforePhotos && incident.beforePhotos.length > 0) ||
         (incident.afterPhotos && incident.afterPhotos.length > 0) ||
         (incident.signedReportPhotos && incident.signedReportPhotos.length > 0)) && (
-        <div className="glass-card p-6 rounded-2xl">
+        <div ref={photosRef} className="glass-card p-6 rounded-2xl">
           <h2 className="text-lg font-semibold text-white mb-6">Photos</h2>
 
           <div className="space-y-8">
@@ -1940,6 +1943,7 @@ SLA Breach Time: ${slaBreachText}`
                       <img
                         src={getPhotoUrl(photo)}
                         alt={`Before ${index + 1}`}
+                        loading="eager"
                         className="w-full h-full object-cover transition-transform group-hover:scale-110"
                       />
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
@@ -1975,6 +1979,7 @@ SLA Breach Time: ${slaBreachText}`
                       <img
                         src={getPhotoUrl(photo)}
                         alt={`After ${index + 1}`}
+                        loading="eager"
                         className="w-full h-full object-cover transition-transform group-hover:scale-110"
                       />
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
@@ -2011,6 +2016,7 @@ SLA Breach Time: ${slaBreachText}`
                       <img
                         src={getPhotoUrl(photo)}
                         alt={`Signed SR ${index + 1}`}
+                        loading="eager"
                         className="w-full h-full object-cover transition-transform group-hover:scale-110"
                       />
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />

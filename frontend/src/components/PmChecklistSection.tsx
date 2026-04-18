@@ -523,6 +523,7 @@ function PhotoUploadBlock({
                   <img
                     src={getPhotoUrl(src)}
                     alt=""
+                    loading="eager"
                     className={`w-12 h-12 object-cover rounded-lg border transition-all cursor-zoom-in ${
                       confirmDeleteIndex === i
                         ? 'border-red-500 opacity-40'
@@ -1443,6 +1444,7 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
                   <img
                     src={getPhotoUrl(photo)}
                     alt={`Document ${idx + 1}`}
+                    loading="eager"
                     onClick={() => { if (confirmDeleteSigned === null) setLightboxSignedDoc(idx) }}
                     className={`h-24 w-24 object-cover rounded-lg border cursor-pointer transition-opacity ${confirmDeleteSigned === idx ? 'border-red-500 opacity-40' : 'border-slate-600'}`}
                   />
