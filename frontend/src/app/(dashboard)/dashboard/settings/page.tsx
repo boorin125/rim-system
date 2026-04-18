@@ -491,7 +491,7 @@ export default function SettingsPage() {
   const [themeBrightness, setThemeBrightness] = useState(50)
 
   // Disk info state
-  const [diskInfo, setDiskInfo] = useState<{ total: number; used: number; free: number; usedPercent: number } | null>(null)
+  const [diskInfo, setDiskInfo] = useState<{ total: number; used: number; free: number; usedPercent: number; systemUsed?: number; backupUsed?: number } | null>(null)
   const [diskAlertThreshold, setDiskAlertThreshold] = useState(85)
   const [diskAlertInput, setDiskAlertInput] = useState(85)
   const [isSavingDiskAlert, setIsSavingDiskAlert] = useState(false)
@@ -4112,10 +4112,10 @@ export default function SettingsPage() {
 
               {diskInfo ? (
                 <>
-                  {/* Progress Bar */}
+                  {/* Overall Progress Bar */}
                   <div className="mb-4">
                     <div className="flex justify-between text-sm mb-2">
-                      <span className="text-gray-400">ใช้งานแล้ว</span>
+                      <span className="text-gray-400">ใช้งานแล้ว (รวม)</span>
                       <span className={`font-medium ${
                         diskInfo.usedPercent >= diskAlertThreshold ? 'text-red-400'
                         : diskInfo.usedPercent >= diskAlertThreshold - 10 ? 'text-amber-400'
@@ -4135,7 +4135,7 @@ export default function SettingsPage() {
                   </div>
 
                   {/* Disk Stats */}
-                  <div className="grid grid-cols-3 gap-2 sm:gap-4 text-sm">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-4 text-sm mb-4">
                     {[
                       { label: 'ทั้งหมด', value: diskInfo.total, color: 'text-white' },
                       { label: 'ใช้งาน', value: diskInfo.used, color: diskInfo.usedPercent >= diskAlertThreshold ? 'text-red-400' : 'text-amber-400' },
@@ -4151,6 +4151,54 @@ export default function SettingsPage() {
                       </div>
                     ))}
                   </div>
+
+                  {/* Breakdown: System vs Backup */}
+                  {(diskInfo.systemUsed !== undefined || diskInfo.backupUsed !== undefined) && (
+                    <div className="space-y-3 pt-3 border-t border-slate-700/50">
+                      <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">รายละเอียดการใช้พื้นที่</p>
+                      {(() => {
+                        const fmt = (v: number) => v >= 1_073_741_824
+                          ? `${(v / 1_073_741_824).toFixed(2)} GB`
+                          : `${(v / 1_048_576).toFixed(1)} MB`
+                        const sysBytes = diskInfo.systemUsed ?? 0
+                        const bakBytes = diskInfo.backupUsed ?? 0
+                        const sysPct = diskInfo.total > 0 ? (sysBytes / diskInfo.total) * 100 : 0
+                        const bakPct = diskInfo.total > 0 ? (bakBytes / diskInfo.total) * 100 : 0
+                        return (
+                          <>
+                            {/* System (uploads) */}
+                            <div>
+                              <div className="flex justify-between text-xs mb-1">
+                                <span className="text-blue-300 flex items-center gap-1.5">
+                                  <span className="w-2 h-2 rounded-full bg-blue-400 inline-block" />
+                                  ระบบ (รูปภาพ / เอกสาร)
+                                </span>
+                                <span className="text-blue-300 font-medium">{fmt(sysBytes)} ({sysPct.toFixed(1)}%)</span>
+                              </div>
+                              <div className="w-full h-2 bg-slate-700 rounded-full overflow-hidden">
+                                <div className="h-full bg-blue-500 rounded-full transition-all duration-500"
+                                  style={{ width: `${Math.min(sysPct, 100)}%` }} />
+                              </div>
+                            </div>
+                            {/* Backup */}
+                            <div>
+                              <div className="flex justify-between text-xs mb-1">
+                                <span className="text-purple-300 flex items-center gap-1.5">
+                                  <span className="w-2 h-2 rounded-full bg-purple-400 inline-block" />
+                                  Backup
+                                </span>
+                                <span className="text-purple-300 font-medium">{fmt(bakBytes)} ({bakPct.toFixed(1)}%)</span>
+                              </div>
+                              <div className="w-full h-2 bg-slate-700 rounded-full overflow-hidden">
+                                <div className="h-full bg-purple-500 rounded-full transition-all duration-500"
+                                  style={{ width: `${Math.min(bakPct, 100)}%` }} />
+                              </div>
+                            </div>
+                          </>
+                        )
+                      })()}
+                    </div>
+                  )}
                 </>
               ) : (
                 <p className="text-sm text-gray-500">ไม่สามารถอ่านข้อมูล Disk ได้</p>

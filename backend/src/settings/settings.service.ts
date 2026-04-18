@@ -254,7 +254,7 @@ export class SettingsService {
    */
   async getSystemInfo() {
     // Disk usage — use `df` (works on Linux/Mac)
-    let disk: { total: number; used: number; free: number; usedPercent: number } | null = null;
+    let disk: { total: number; used: number; free: number; usedPercent: number; systemUsed: number; backupUsed: number } | null = null;
     try {
       const output = execSync('df -k .', { encoding: 'utf8', timeout: 5000 });
       const lines = output.trim().split('\n');
@@ -263,12 +263,23 @@ export class SettingsService {
       const totalKb = parseInt(parts[1]);
       const usedKb  = parseInt(parts[2]);
       const freeKb  = parseInt(parts[3]);
+
+      const getDirSizeBytes = (dir: string): number => {
+        try {
+          const out = execSync(`du -sk "${dir}"`, { encoding: 'utf8', timeout: 5000 });
+          const kb = parseInt(out.trim().split(/\s+/)[0]);
+          return isNaN(kb) ? 0 : kb * 1024;
+        } catch { return 0; }
+      };
+
       if (!isNaN(totalKb) && totalKb > 0) {
         disk = {
           total: totalKb * 1024,
           used:  usedKb  * 1024,
           free:  freeKb  * 1024,
           usedPercent: Math.round((usedKb / totalKb) * 100),
+          systemUsed: getDirSizeBytes('./uploads'),
+          backupUsed: getDirSizeBytes('./Backup'),
         };
       }
     } catch { /* ignore on unsupported platforms */ }
