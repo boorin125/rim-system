@@ -29,12 +29,14 @@ if ! docker compose version &>/dev/null 2>&1; then
   fi
 fi
 
-VERSION="${1:-latest}"
+TARGET_VERSION="${1:-latest}"
+CURRENT_VERSION=$(grep '^RIM_VERSION=' .env 2>/dev/null | cut -d'=' -f2 | tr -d '[:space:]' || echo "unknown")
 
 echo ""
 echo -e "${BOLD}RIM System — Update${NC}"
 echo "════════════════════════════════════"
-echo -e "เวอร์ชั่น: ${YELLOW}${VERSION}${NC}"
+echo -e "เวอร์ชั่นปัจจุบัน : ${YELLOW}${CURRENT_VERSION}${NC}"
+echo -e "อัปเดตเป็น       : ${GREEN}${TARGET_VERSION}${NC}"
 echo ""
 
 # ── Backup DB ─────────────────────────────────
@@ -65,11 +67,9 @@ echo ""
 # ── Pull new images ───────────────────────────
 echo -e "${YELLOW}→ ดาวน์โหลด images เวอร์ชั่นใหม่...${NC}"
 
-# ถ้าระบุ version ให้อัปเดต docker-compose.yml tag
-if [ "$VERSION" != "latest" ]; then
-  # อัปเดต image tag ใน docker-compose.yml (sed แทน ถ้ามี tag อยู่แล้ว)
-  sed -i "s|rubjobb/rim-backend:[^[:space:]]*|rubjobb/rim-backend:${VERSION}|g" docker-compose.yml
-  sed -i "s|rubjobb/rim-frontend:[^[:space:]]*|rubjobb/rim-frontend:${VERSION}|g" docker-compose.yml
+if [ "$TARGET_VERSION" != "latest" ]; then
+  sed -i "s|rubjobb/rim-backend:[^[:space:]]*|rubjobb/rim-backend:${TARGET_VERSION}|g" docker-compose.yml
+  sed -i "s|rubjobb/rim-frontend:[^[:space:]]*|rubjobb/rim-frontend:${TARGET_VERSION}|g" docker-compose.yml
 fi
 
 $COMPOSE_CMD pull
@@ -83,11 +83,10 @@ $COMPOSE_CMD up -d --no-deps backend
 echo -e "${YELLOW}→ รอ Backend พร้อม...${NC}"
 MAX_WAIT=90
 ELAPSED=0
-until $COMPOSE_CMD exec -T backend wget -qO- http://localhost:3000/health &>/dev/null; do
+until $COMPOSE_CMD exec -T backend wget -qO- http://localhost:3000/api/version &>/dev/null; do
   if [ $ELAPSED -ge $MAX_WAIT ]; then
     echo -e "${RED}⚠️  Backend ไม่ตอบสนองภายใน ${MAX_WAIT}s${NC}"
     echo -e "${RED}   กำลัง Restore จาก backup...${NC}"
-    # Restore DB
     zcat "$BACKUP_FILE" | $COMPOSE_CMD exec -T postgres psql -U rimuser --single-transaction rimdb &>/dev/null || true
     echo -e "${RED}❌ อัปเดตล้มเหลว — กรุณาตรวจสอบ logs: ${COMPOSE_CMD} logs backend${NC}"
     exit 1
@@ -112,9 +111,19 @@ sleep 3
 echo -e "${YELLOW}→ อัปเดต Nginx...${NC}"
 $COMPOSE_CMD up -d --no-deps nginx
 
+# ── บันทึก version ใหม่ใน .env ───────────────
+if [ "$TARGET_VERSION" != "latest" ]; then
+  if grep -q '^RIM_VERSION=' .env; then
+    sed -i "s|^RIM_VERSION=.*|RIM_VERSION=${TARGET_VERSION}|" .env
+  else
+    echo "RIM_VERSION=${TARGET_VERSION}" >> .env
+  fi
+  echo -e "${GREEN}✅ อัปเดต RIM_VERSION=${TARGET_VERSION} ใน .env แล้ว${NC}"
+fi
+
 echo ""
 echo -e "${GREEN}════════════════════════════════════${NC}"
-echo -e "${GREEN}${BOLD}  ✅ อัปเดตสำเร็จ!${NC}"
+echo -e "${GREEN}${BOLD}  ✅ อัปเดตสำเร็จ! v${CURRENT_VERSION} → v${TARGET_VERSION}${NC}"
 echo -e "${GREEN}════════════════════════════════════${NC}"
 echo ""
 $COMPOSE_CMD ps
