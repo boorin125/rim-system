@@ -486,6 +486,27 @@ export class SettingsController {
   }
 
   // ==========================================
+  // PATCH UPDATE (Online via License Server)
+  // ==========================================
+
+  /** GET /settings/check-update — check if newer version available */
+  @Get('check-update')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.IT_MANAGER)
+  checkForUpdate() {
+    return this.settingsService.checkForUpdate();
+  }
+
+  /** POST /settings/apply-update — write update flag for watchdog */
+  @Post('apply-update')
+  @Roles(UserRole.SUPER_ADMIN)
+  async applyUpdate(@Body() body: { version: string }) {
+    if (!body.version || !/^\d+\.\d+\.\d+/.test(body.version)) {
+      throw new BadRequestException('Invalid version format');
+    }
+    return this.settingsService.applyUpdate(body.version);
+  }
+
+  // ==========================================
   // DISK ALERT THRESHOLD
   // ==========================================
 

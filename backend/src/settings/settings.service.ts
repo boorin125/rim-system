@@ -1,8 +1,14 @@
 // src/settings/settings.service.ts
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { execSync } from 'child_process';
+import * as fs from 'fs';
+import * as path from 'path';
+
+const CENTRAL_LICENSE_URL =
+  process.env.CENTRAL_LICENSE_URL || 'https://rim-license-server-production.up.railway.app';
+const SIGNALS_DIR = process.env.SIGNALS_DIR || './signals';
 
 @Injectable()
 export class SettingsService {
@@ -615,6 +621,46 @@ export class SettingsService {
   /**
    * Save incident-specific settings
    */
+  // ========================================
+  // PATCH UPDATE (Online via License Server)
+  // ========================================
+
+  private readonly logger = new Logger(SettingsService.name);
+
+  async checkForUpdate() {
+    const licenseKey = process.env.LICENSE_KEY || '';
+    const rimVersion = process.env.RIM_VERSION || '0.0.0';
+
+    try {
+      const url = `${CENTRAL_LICENSE_URL}/api/patches/check?version=${encodeURIComponent(rimVersion)}&product=RIM${licenseKey ? `&licenseKey=${encodeURIComponent(licenseKey)}` : ''}`;
+      const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
+      if (!resp.ok) {
+        return { available: false, currentVersion: rimVersion, error: `License server responded ${resp.status}` };
+      }
+      const data = await resp.json();
+      return { ...data, currentVersion: rimVersion };
+    } catch (err: any) {
+      this.logger.warn(`check-update failed: ${err.message}`);
+      return { available: false, currentVersion: rimVersion, error: 'Could not reach license server' };
+    }
+  }
+
+  async applyUpdate(targetVersion: string) {
+    try {
+      const signalsDir = path.resolve(SIGNALS_DIR);
+      if (!fs.existsSync(signalsDir)) {
+        fs.mkdirSync(signalsDir, { recursive: true });
+      }
+      const flagFile = path.join(signalsDir, '.update-flag');
+      fs.writeFileSync(flagFile, targetVersion, 'utf8');
+      this.logger.log(`Update flag written: ${targetVersion}`);
+      return { queued: true, version: targetVersion };
+    } catch (err: any) {
+      this.logger.error(`applyUpdate failed: ${err.message}`);
+      throw new Error('Failed to write update flag');
+    }
+  }
+
   async saveIncidentSettings(data: { serviceWarrantyDays?: number; autoAssignOnsite?: boolean }) {
     const ops: Promise<any>[] = [];
 
