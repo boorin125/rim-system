@@ -314,21 +314,41 @@ export default function ProfilePage() {
     img.src = url
   }
 
+  const clampPosition = (left: number, top: number, dispW: number, dispH: number) => ({
+    left: Math.min(0, Math.max(CROP_SIZE - dispW, left)),
+    top:  Math.min(0, Math.max(CROP_SIZE - dispH, top)),
+  })
+
+  // Zoom to an absolute scale value (used by slider)
   const applyCropZoom = (newScale: number) => {
     setCropData(prev => {
       if (!prev) return prev
       const minScale = Math.max(CROP_SIZE / prev.imgW, CROP_SIZE / prev.imgH)
-      newScale = Math.min(5, Math.max(minScale, newScale))
-      const ratio = newScale / prev.scale
+      const clamped = Math.min(5, Math.max(minScale, newScale))
+      const ratio = clamped / prev.scale
       const cx = CROP_SIZE / 2
-      const newLeft = cx - (cx - prev.left) * ratio
-      const newTop = cx - (cx - prev.top) * ratio
-      const dispW = prev.imgW * newScale
-      const dispH = prev.imgH * newScale
+      const dispW = prev.imgW * clamped
+      const dispH = prev.imgH * clamped
       return {
-        ...prev, scale: newScale,
-        left: Math.min(0, Math.max(CROP_SIZE - dispW, newLeft)),
-        top: Math.min(0, Math.max(CROP_SIZE - dispH, newTop)),
+        ...prev, scale: clamped,
+        ...clampPosition(cx - (cx - prev.left) * ratio, cx - (cx - prev.top) * ratio, dispW, dispH),
+      }
+    })
+  }
+
+  // Zoom by a multiplicative factor relative to current scale (used by wheel — avoids stale closure)
+  const applyCropZoomFactor = (factor: number) => {
+    setCropData(prev => {
+      if (!prev) return prev
+      const minScale = Math.max(CROP_SIZE / prev.imgW, CROP_SIZE / prev.imgH)
+      const clamped = Math.min(5, Math.max(minScale, prev.scale * factor))
+      const ratio = clamped / prev.scale
+      const cx = CROP_SIZE / 2
+      const dispW = prev.imgW * clamped
+      const dispH = prev.imgH * clamped
+      return {
+        ...prev, scale: clamped,
+        ...clampPosition(cx - (cx - prev.left) * ratio, cx - (cx - prev.top) * ratio, dispW, dispH),
       }
     })
   }
@@ -340,16 +360,16 @@ export default function ProfilePage() {
   }
 
   const handleCropPointerMove = (e: React.PointerEvent) => {
-    if (!dragRef.current || !cropData) return
+    if (!dragRef.current) return
     const dx = e.clientX - dragRef.current.startX
     const dy = e.clientY - dragRef.current.startY
-    const dispW = cropData.imgW * cropData.scale
-    const dispH = cropData.imgH * cropData.scale
-    setCropData(prev => prev ? {
-      ...prev,
-      left: Math.min(0, Math.max(CROP_SIZE - dispW, dragRef.current!.startLeft + dx)),
-      top: Math.min(0, Math.max(CROP_SIZE - dispH, dragRef.current!.startTop + dy)),
-    } : prev)
+    const { startLeft, startTop } = dragRef.current
+    setCropData(prev => {
+      if (!prev) return prev
+      const dispW = prev.imgW * prev.scale
+      const dispH = prev.imgH * prev.scale
+      return { ...prev, ...clampPosition(startLeft + dx, startTop + dy, dispW, dispH) }
+    })
   }
 
   const handleCropConfirm = async () => {
@@ -636,7 +656,7 @@ export default function ProfilePage() {
                 onPointerMove={handleCropPointerMove}
                 onPointerUp={() => { dragRef.current = null }}
                 onPointerLeave={() => { dragRef.current = null }}
-                onWheel={(e) => { applyCropZoom(cropData.scale * (1 - e.deltaY * 0.001)) }}
+                onWheel={(e) => { e.preventDefault(); applyCropZoomFactor(1 - e.deltaY * 0.001) }}
               >
                 <img
                   src={cropData.url} alt="crop" draggable={false}
