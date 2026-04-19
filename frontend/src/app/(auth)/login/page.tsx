@@ -304,7 +304,7 @@ function LoginContent() {
       )}
 
       {/* Background Pattern */}
-      <div className="fixed inset-0 bg-pattern"></div>
+      <div className="fixed inset-0 bg-pattern pointer-events-none"></div>
 
       {/* Main Container */}
       <div className="relative z-10 w-full max-w-md animate-fade-in">
