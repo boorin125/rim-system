@@ -588,218 +588,125 @@ export default function SettingsPage() {
 
   const fetchData = async () => {
     setIsLoading(true)
-    try {
-      const token = localStorage.getItem('token')
-      const headers = { Authorization: `Bearer ${token}` }
+    const token = localStorage.getItem('token')
+    const headers = { Authorization: `Bearer ${token}` }
+    const api = process.env.NEXT_PUBLIC_API_URL
 
-      // Fetch Organization Settings
-      try {
-        const orgRes = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/settings/organization`,
-          { headers }
-        )
-        if (orgRes.data) {
-          setOrgSettings(orgRes.data)
-        }
-      } catch {
-        // Use defaults if not found
-      }
+    const [orgRes, emailRes, slaRes, backupRes, bkCfgRes, scheduleRes, srRes, themeRes, incidentRes, infoRes, verRes] =
+      await Promise.allSettled([
+        axios.get(`${api}/settings/organization`, { headers }),
+        axios.get(`${api}/settings/email`, { headers }),
+        axios.get(`${api}/sla?includeInactive=true`, { headers }),
+        axios.get(`${api}/settings/backups`, { headers }),
+        axios.get(`${api}/settings/backup-config`, { headers }),
+        axios.get(`${api}/settings/backups/schedules`, { headers }),
+        axios.get(`${api}/settings/service-report`, { headers }),
+        axios.get(`${api}/settings/theme`, { headers }),
+        axios.get(`${api}/settings/incident`, { headers }),
+        axios.get(`${api}/settings/system-info`, { headers }),
+        axios.get(`${api}/version`, { headers }),
+      ])
 
-      // Fetch Email Settings
-      try {
-        const emailRes = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/settings/email`,
-          { headers }
-        )
-        if (emailRes.data) {
-          setEmailSettings(emailRes.data)
-          // Parse CC emails into array
-          if (emailRes.data.closeNotificationCc) {
-            const emails = emailRes.data.closeNotificationCc
-              .split(',')
-              .map((e: string) => e.trim())
-              .filter((e: string) => e.length > 0)
-            setCcEmails(emails.length > 0 ? emails : [''])
-          } else {
-            setCcEmails([''])
-          }
-        }
-      } catch {
-        // Use defaults if not found
-      }
-
-      // Fetch SLA Configs
-      try {
-        const slaRes = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/sla?includeInactive=true`,
-          { headers }
-        )
-        // Map API response to our interface
-        const mappedConfigs = (slaRes.data || []).map((sla: any) => ({
-          id: sla.id,
-          priority: sla.priority,
-          name: sla.name,
-          displayName: sla.displayName || sla.name,
-          responseTime: sla.responseTimeMinutes / 60,
-          resolutionTime: sla.resolutionTimeMinutes / 60,
-          responseTimeMinutes: sla.responseTimeMinutes,
-          resolutionTimeMinutes: sla.resolutionTimeMinutes,
-          // Provincial times (fall back to default if not set)
-          responseTimeProvincial: sla.responseTimeProvincial || Math.round(sla.responseTimeMinutes * 1.5),
-          resolutionTimeProvincial: sla.resolutionTimeProvincial || Math.round(sla.resolutionTimeMinutes * 1.5),
-          color: sla.color || '#6B7280',
-          isActive: sla.isActive,
-          warningThreshold: sla.warningThreshold || 80
-        }))
-        setSlaConfigs(mappedConfigs)
-      } catch {
-        // Use defaults with provincial times (1.5x multiplier)
-        setSlaConfigs([
-          { id: 1, priority: 'CRITICAL', name: 'Critical', displayName: 'Critical', responseTime: 0.25, resolutionTime: 4, responseTimeMinutes: 15, resolutionTimeMinutes: 240, responseTimeProvincial: 30, resolutionTimeProvincial: 360, color: '#EF4444', isActive: true, warningThreshold: 70 },
-          { id: 2, priority: 'HIGH', name: 'High', displayName: 'High', responseTime: 0.5, resolutionTime: 8, responseTimeMinutes: 30, resolutionTimeMinutes: 480, responseTimeProvincial: 45, resolutionTimeProvincial: 720, color: '#F97316', isActive: true, warningThreshold: 75 },
-          { id: 3, priority: 'MEDIUM', name: 'Medium', displayName: 'Medium', responseTime: 1, resolutionTime: 24, responseTimeMinutes: 60, resolutionTimeMinutes: 1440, responseTimeProvincial: 90, resolutionTimeProvincial: 2160, color: '#EAB308', isActive: true, warningThreshold: 80 },
-          { id: 4, priority: 'LOW', name: 'Low', displayName: 'Low', responseTime: 2, resolutionTime: 72, responseTimeMinutes: 120, resolutionTimeMinutes: 4320, responseTimeProvincial: 180, resolutionTimeProvincial: 5760, color: '#22C55E', isActive: true, warningThreshold: 85 },
-        ])
-      }
-
-      // Fetch Backups
-      try {
-        const backupRes = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/settings/backups`,
-          { headers }
-        )
-        setBackups(backupRes.data || [])
-      } catch {
-        setBackups([])
-      }
-
-      // Fetch Backup external copy config
-      try {
-        const bkCfgRes = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/settings/backup-config`,
-          { headers }
-        )
-        const p = bkCfgRes.data?.externalCopyPath || ''
-        setExternalCopyPath(p)
-        setExternalCopyPathInput(p)
-      } catch { /* ignore */ }
-
-      // Fetch Backup Schedules
-      try {
-        const scheduleRes = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/settings/backups/schedules`,
-          { headers }
-        )
-        const schedules = scheduleRes.data || []
-        if (schedules.length > 0) {
-          const firstSchedule = schedules[0]
-          setSchedule(firstSchedule)
-          setScheduleForm({
-            name: firstSchedule.name || 'Daily Backup',
-            frequency: firstSchedule.frequency || 'DAILY',
-            timeOfDay: firstSchedule.timeOfDay || '00:00',
-            dayOfWeek: firstSchedule.dayOfWeek ?? 0,
-            dayOfMonth: firstSchedule.dayOfMonth ?? 1,
-            retentionDays: firstSchedule.retentionDays ?? 30,
-            maxBackups: firstSchedule.maxBackups ?? 10,
-            isActive: firstSchedule.isActive ?? true,
-            storageType: firstSchedule.storageType || 'LOCAL',
-            externalPath: firstSchedule.externalPath || '',
-            schedulePassword: '',
-            schedulePasswordConfirm: '',
-          })
-        }
-      } catch {
-        // No schedules yet
-        setSchedule(null)
-      }
-
-      // Fetch Service Report Settings
-      try {
-        const srRes = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/settings/service-report`,
-          { headers }
-        )
-        if (srRes.data) {
-          setSrSettings(srRes.data)
-        }
-      } catch {
-        // Use defaults
-      }
-
-      // Fetch Theme Settings
-      try {
-        const themeRes = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/settings/theme`,
-          { headers }
-        )
-        if (themeRes.data) {
-          setSelectedTheme({ bgStart: themeRes.data.bgStart, bgEnd: themeRes.data.bgEnd })
-          setSavedTheme({ bgStart: themeRes.data.bgStart, bgEnd: themeRes.data.bgEnd })
-        }
-      } catch {
-        // Use defaults
-      }
-
-      // Fetch Incident Settings (Service Warranty)
-      try {
-        const incidentRes = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/settings/incident`,
-          { headers }
-        )
-        if (incidentRes.data?.serviceWarrantyDays !== undefined) {
-          setWarrantyDays(incidentRes.data.serviceWarrantyDays)
-        }
-        if (incidentRes.data?.autoAssignOnsite !== undefined) {
-          setAutoAssignOnsite(incidentRes.data.autoAssignOnsite)
-        }
-      } catch {
-        // Use defaults
-      }
-
-      // Fetch System Info
-      try {
-        const infoRes = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/settings/system-info`,
-          { headers }
-        )
-        if (infoRes.data) {
-          setSystemInfo(prev => ({ ...prev, ...infoRes.data }))
-          if (infoRes.data.disk) setDiskInfo(infoRes.data.disk)
-          if (infoRes.data.diskAlertThreshold) {
-            setDiskAlertThreshold(infoRes.data.diskAlertThreshold)
-            setDiskAlertInput(infoRes.data.diskAlertThreshold)
-          }
-          if (infoRes.data.diskAlertEmail !== undefined) {
-            setDiskAlertEmail(infoRes.data.diskAlertEmail)
-            setDiskAlertEmailInput(infoRes.data.diskAlertEmail)
-          }
-        }
-      } catch {
-        // Use defaults
-      }
-
-      // Fetch current app version — must run AFTER system-info to avoid being overwritten
-      try {
-        const verRes = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/version`, { headers })
-        if (verRes.data?.version) {
-          setSystemInfo(prev => ({
-            ...prev,
-            version: verRes.data.version,
-            gitCommit: verRes.data.gitCommit || undefined,
-            buildDate: verRes.data.buildDate || prev.buildDate,
-          }))
-        }
-      } catch {
-        // Keep whatever version was set by system-info
-      }
-    } catch (error) {
-      console.error('Error fetching settings:', error)
-    } finally {
-      setIsLoading(false)
+    if (orgRes.status === 'fulfilled' && orgRes.value.data) {
+      setOrgSettings(orgRes.value.data)
     }
 
-    // Fetch license separately (no auth required for current license)
+    if (emailRes.status === 'fulfilled' && emailRes.value.data) {
+      setEmailSettings(emailRes.value.data)
+      const ccRaw = emailRes.value.data.closeNotificationCc
+      if (ccRaw) {
+        const emails = ccRaw.split(',').map((e: string) => e.trim()).filter((e: string) => e.length > 0)
+        setCcEmails(emails.length > 0 ? emails : [''])
+      } else {
+        setCcEmails([''])
+      }
+    }
+
+    if (slaRes.status === 'fulfilled') {
+      const mappedConfigs = (slaRes.value.data || []).map((sla: any) => ({
+        id: sla.id, priority: sla.priority, name: sla.name,
+        displayName: sla.displayName || sla.name,
+        responseTime: sla.responseTimeMinutes / 60,
+        resolutionTime: sla.resolutionTimeMinutes / 60,
+        responseTimeMinutes: sla.responseTimeMinutes,
+        resolutionTimeMinutes: sla.resolutionTimeMinutes,
+        responseTimeProvincial: sla.responseTimeProvincial || Math.round(sla.responseTimeMinutes * 1.5),
+        resolutionTimeProvincial: sla.resolutionTimeProvincial || Math.round(sla.resolutionTimeMinutes * 1.5),
+        color: sla.color || '#6B7280', isActive: sla.isActive, warningThreshold: sla.warningThreshold || 80,
+      }))
+      setSlaConfigs(mappedConfigs)
+    } else {
+      setSlaConfigs([
+        { id: 1, priority: 'CRITICAL', name: 'Critical', displayName: 'Critical', responseTime: 0.25, resolutionTime: 4, responseTimeMinutes: 15, resolutionTimeMinutes: 240, responseTimeProvincial: 30, resolutionTimeProvincial: 360, color: '#EF4444', isActive: true, warningThreshold: 70 },
+        { id: 2, priority: 'HIGH', name: 'High', displayName: 'High', responseTime: 0.5, resolutionTime: 8, responseTimeMinutes: 30, resolutionTimeMinutes: 480, responseTimeProvincial: 45, resolutionTimeProvincial: 720, color: '#F97316', isActive: true, warningThreshold: 75 },
+        { id: 3, priority: 'MEDIUM', name: 'Medium', displayName: 'Medium', responseTime: 1, resolutionTime: 24, responseTimeMinutes: 60, resolutionTimeMinutes: 1440, responseTimeProvincial: 90, resolutionTimeProvincial: 2160, color: '#EAB308', isActive: true, warningThreshold: 80 },
+        { id: 4, priority: 'LOW', name: 'Low', displayName: 'Low', responseTime: 2, resolutionTime: 72, responseTimeMinutes: 120, resolutionTimeMinutes: 4320, responseTimeProvincial: 180, resolutionTimeProvincial: 5760, color: '#22C55E', isActive: true, warningThreshold: 85 },
+      ])
+    }
+
+    setBackups(backupRes.status === 'fulfilled' ? backupRes.value.data || [] : [])
+
+    if (bkCfgRes.status === 'fulfilled') {
+      const p = bkCfgRes.value.data?.externalCopyPath || ''
+      setExternalCopyPath(p)
+      setExternalCopyPathInput(p)
+    }
+
+    if (scheduleRes.status === 'fulfilled') {
+      const schedules = scheduleRes.value.data || []
+      if (schedules.length > 0) {
+        const s = schedules[0]
+        setSchedule(s)
+        setScheduleForm({
+          name: s.name || 'Daily Backup', frequency: s.frequency || 'DAILY',
+          timeOfDay: s.timeOfDay || '00:00', dayOfWeek: s.dayOfWeek ?? 0,
+          dayOfMonth: s.dayOfMonth ?? 1, retentionDays: s.retentionDays ?? 30,
+          maxBackups: s.maxBackups ?? 10, isActive: s.isActive ?? true,
+          storageType: s.storageType || 'LOCAL', externalPath: s.externalPath || '',
+          schedulePassword: '', schedulePasswordConfirm: '',
+        })
+      } else {
+        setSchedule(null)
+      }
+    }
+
+    if (srRes.status === 'fulfilled' && srRes.value.data) {
+      setSrSettings(srRes.value.data)
+    }
+
+    if (themeRes.status === 'fulfilled' && themeRes.value.data) {
+      setSelectedTheme({ bgStart: themeRes.value.data.bgStart, bgEnd: themeRes.value.data.bgEnd })
+      setSavedTheme({ bgStart: themeRes.value.data.bgStart, bgEnd: themeRes.value.data.bgEnd })
+    }
+
+    if (incidentRes.status === 'fulfilled' && incidentRes.value.data) {
+      if (incidentRes.value.data.serviceWarrantyDays !== undefined) setWarrantyDays(incidentRes.value.data.serviceWarrantyDays)
+      if (incidentRes.value.data.autoAssignOnsite !== undefined) setAutoAssignOnsite(incidentRes.value.data.autoAssignOnsite)
+    }
+
+    if (infoRes.status === 'fulfilled' && infoRes.value.data) {
+      setSystemInfo(prev => ({ ...prev, ...infoRes.value.data }))
+      if (infoRes.value.data.disk) setDiskInfo(infoRes.value.data.disk)
+      if (infoRes.value.data.diskAlertThreshold) {
+        setDiskAlertThreshold(infoRes.value.data.diskAlertThreshold)
+        setDiskAlertInput(infoRes.value.data.diskAlertThreshold)
+      }
+      if (infoRes.value.data.diskAlertEmail !== undefined) {
+        setDiskAlertEmail(infoRes.value.data.diskAlertEmail)
+        setDiskAlertEmailInput(infoRes.value.data.diskAlertEmail)
+      }
+    }
+
+    if (verRes.status === 'fulfilled' && verRes.value.data?.version) {
+      setSystemInfo(prev => ({
+        ...prev,
+        version: verRes.value.data.version,
+        gitCommit: verRes.value.data.gitCommit || undefined,
+        buildDate: verRes.value.data.buildDate || prev.buildDate,
+      }))
+    }
+
+    setIsLoading(false)
     fetchLicense()
   }
 
