@@ -226,6 +226,7 @@ export default function DashboardPage() {
     const highestRole = roles.reduce<string>((best, r) =>
       (ROLE_LEVEL[r] ?? -1) > (ROLE_LEVEL[best] ?? -1) ? r : best, roles[0] ?? '')
     const isPureTech = highestRole === 'TECHNICIAN'
+    const hasIncidentAccess = !['SUPER_ADMIN', 'FINANCE_ADMIN'].includes(highestRole)
 
     // Pure technician: fetch only their own assigned incidents (faster, less data)
     const incidentUrl = isPureTech
@@ -235,8 +236,8 @@ export default function DashboardPage() {
     setIsLoading(true)
     try {
       const [statsRes, incRes, notifsRes, unreadRes] = await Promise.allSettled([
-        axios.get(`${process.env.NEXT_PUBLIC_API_URL}/incidents/analytics/stats`, { headers: h }),
-        axios.get(incidentUrl, { headers: h }),
+        hasIncidentAccess ? axios.get(`${process.env.NEXT_PUBLIC_API_URL}/incidents/analytics/stats`, { headers: h }) : Promise.reject('no access'),
+        hasIncidentAccess ? axios.get(incidentUrl, { headers: h }) : Promise.reject('no access'),
         axios.get(`${process.env.NEXT_PUBLIC_API_URL}/notifications?limit=12`, { headers: h }),
         axios.get(`${process.env.NEXT_PUBLIC_API_URL}/notifications/unread-count`, { headers: h }),
       ])
