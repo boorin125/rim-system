@@ -573,7 +573,7 @@ export default function DashboardLayout({
                   <img
                     src={`${(process.env.NEXT_PUBLIC_API_URL || '').replace('/api', '')}${orgSettings.logoPath}`}
                     alt={orgSettings.organizationName || 'Logo'}
-                    className="w-full max-h-24 object-contain"
+                    className="w-full max-h-24 object-contain rounded-xl"
                     onError={(e) => {
                       ;(e.target as HTMLImageElement).src = '/logo.png'
                     }}
@@ -582,7 +582,7 @@ export default function DashboardLayout({
                   <img
                     src="/logo.png"
                     alt="RIM"
-                    className="w-full max-h-24 object-contain"
+                    className="w-full max-h-24 object-contain rounded-xl"
                   />
                 )}
                 <p className="text-[11px] text-gray-400 mt-2 leading-tight truncate text-center">
