@@ -3806,8 +3806,7 @@ export default function SettingsPage() {
                       key={preset.name}
                       onClick={() => {
                         setBasePreset({ bgStart: preset.bgStart, bgEnd: preset.bgEnd })
-                        setThemeBrightness(50)
-                        setSelectedTheme({ bgStart: preset.bgStart, bgEnd: preset.bgEnd })
+                        setSelectedTheme({ bgStart: adjustHex(preset.bgStart, themeBrightness), bgEnd: adjustHex(preset.bgEnd, themeBrightness) })
                       }}
                       className={`relative p-1 rounded-xl transition-all ${
                         isBaseSelected
