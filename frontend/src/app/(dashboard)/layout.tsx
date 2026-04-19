@@ -312,7 +312,7 @@ export default function DashboardLayout({
   const applyBranding = (settings: { organizationName?: string; logoPath?: string }) => {
     const appName = settings.organizationName
       ? `${settings.organizationName} Incident Management`
-      : 'Incident Management'
+      : 'Rubjobb Incident Management'
     document.title = appName
 
     if (settings.logoPath) {
@@ -575,12 +575,12 @@ export default function DashboardLayout({
                     alt={orgSettings.organizationName || 'Logo'}
                     className="w-full max-h-24 object-contain"
                     onError={(e) => {
-                      ;(e.target as HTMLImageElement).src = '/logo.jpg'
+                      ;(e.target as HTMLImageElement).src = '/logo.png'
                     }}
                   />
                 ) : (
                   <img
-                    src="/logo.jpg"
+                    src="/logo.png"
                     alt="RIM"
                     className="w-full max-h-24 object-contain"
                   />
@@ -588,7 +588,7 @@ export default function DashboardLayout({
                 <p className="text-[11px] text-gray-400 mt-2 leading-tight truncate text-center">
                   {orgSettings?.organizationName
                     ? `${orgSettings.organizationName} Incident Management`
-                    : 'Incident Management'}
+                    : 'Rubjobb Incident Management'}
                 </p>
               </div>
               <button
