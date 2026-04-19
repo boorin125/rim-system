@@ -103,9 +103,9 @@ export const menuPermissions: Record<string, MenuPermission> = {
     },
   },
   '/dashboard/equipment': {
-    roles: ['SUPER_ADMIN', 'IT_MANAGER', 'HELP_DESK', 'SUPERVISOR', 'TECHNICIAN', 'READ_ONLY'],
+    roles: ['IT_MANAGER', 'HELP_DESK', 'SUPERVISOR', 'TECHNICIAN', 'READ_ONLY'],
     accessLevel: {
-      SUPER_ADMIN: 'full',
+      SUPER_ADMIN: 'none',
       IT_MANAGER: 'view',
       FINANCE_ADMIN: 'none',
       HELP_DESK: 'full',
