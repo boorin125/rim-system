@@ -312,18 +312,11 @@ function LoginContent() {
         {/* Logo & Header */}
         <div className="text-center mb-3">
           <div className="mb-2">
-            {logoUrl ? (
-              <img
-                src={logoUrl}
-                alt="Organization Logo"
-                className="h-16 w-auto mx-auto object-contain"
-              />
-            ) : (
-              <>
-                <h1 className="logo-rim">RIM</h1>
-                <p className="logo-system">System</p>
-              </>
-            )}
+            <img
+              src={logoUrl || '/logo.png'}
+              alt="Organization Logo"
+              className="h-20 w-auto mx-auto object-contain rounded-xl"
+            />
           </div>
           <p className={`text-lg font-light ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{appTitle}</p>
         </div>

@@ -166,8 +166,7 @@ function ResetPasswordContent() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">RIM</h1>
-          <p className="text-gray-400">Retail Incident Management</p>
+          <img src="/logo.png" alt="RIM" className="h-20 w-auto mx-auto object-contain rounded-xl" />
         </div>
 
         {/* Reset Password Card */}
