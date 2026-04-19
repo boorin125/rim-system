@@ -201,11 +201,16 @@ export default function DashboardLayout({
   const activeColor = activeMenuBg
     ? isDark ? activeMenuBg : activeMenuBg.replace(', 42%)', ', 62%)')
     : isDark ? '#2563eb' : '#6096f0'
+  // Hover variant: 4% brighter lightness for button hover states
+  const activeColorHover = activeColor.startsWith('hsl')
+    ? activeColor.replace(/(\d+)%\)$/, (_, l) => `${Math.min(parseInt(l) + 8, 75)}%)`)
+    : activeColor
 
   // Sync highlight color to CSS custom property so child pages can use it
   useEffect(() => {
     document.documentElement.style.setProperty('--theme-highlight', activeColor)
-  }, [activeColor])
+    document.documentElement.style.setProperty('--theme-highlight-hover', activeColorHover)
+  }, [activeColor, activeColorHover])
 
   // Listen for theme changes from settings page
   useEffect(() => {

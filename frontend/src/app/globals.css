@@ -583,3 +583,40 @@ input[type="datetime-local"]::-webkit-datetime-edit-ampm-field {
 .animate-fade-in-up {
   animation: fadeInUp 0.3s ease-out both;
 }
+
+/* ===== THEME-AWARE PRIMARY ACCENT =====
+   --theme-highlight is set by the dashboard layout from the saved theme.
+   Falls back to blue on auth pages where the CSS variable is not set. */
+
+/* Primary solid buttons */
+.bg-blue-600 { background-color: var(--theme-highlight, #2563eb) !important; }
+.bg-blue-700 { background-color: var(--theme-highlight-hover, #1d4ed8) !important; }
+.hover\:bg-blue-700:hover { background-color: var(--theme-highlight-hover, #1d4ed8) !important; }
+.hover\:bg-blue-600:hover { background-color: var(--theme-highlight, #2563eb) !important; }
+
+/* Solid bg-blue-500 accents (progress bars, active dots, checkboxes) */
+.bg-blue-500 { background-color: var(--theme-highlight, #3b82f6) !important; }
+.hover\:bg-blue-500:hover { background-color: var(--theme-highlight, #3b82f6) !important; }
+
+/* Active border indicators (tab underlines, active filter borders) */
+.border-blue-500 { border-color: var(--theme-highlight, #3b82f6) !important; }
+.border-b-blue-500 { border-bottom-color: var(--theme-highlight, #3b82f6) !important; }
+.border-blue-600 { border-color: var(--theme-highlight, #2563eb) !important; }
+
+/* Input focus rings */
+.focus\:ring-blue-500:focus { --tw-ring-color: var(--theme-highlight, #3b82f6) !important; }
+.focus\:ring-blue-600:focus { --tw-ring-color: var(--theme-highlight, #2563eb) !important; }
+.focus\:border-blue-500:focus { border-color: var(--theme-highlight, #3b82f6) !important; }
+
+/* Range / checkbox / radio accent color */
+.accent-blue-500 { accent-color: var(--theme-highlight, #3b82f6) !important; }
+
+/* Ring offset colors (selected state badges e.g. ring-blue-400/ring-blue-500) */
+.ring-blue-400 { --tw-ring-color: var(--theme-highlight, #60a5fa) !important; }
+.ring-blue-500 { --tw-ring-color: var(--theme-highlight, #3b82f6) !important; }
+
+/* Active tab text — when paired with border-blue-500 active tab indicator */
+.border-blue-500.text-blue-400,
+.text-blue-400.border-blue-500 {
+  color: var(--theme-highlight, #60a5fa) !important;
+}
