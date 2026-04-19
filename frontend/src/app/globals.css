@@ -615,7 +615,19 @@ input[type="datetime-local"]::-webkit-datetime-edit-ampm-field {
 .ring-blue-400 { --tw-ring-color: var(--theme-highlight, #60a5fa) !important; }
 .ring-blue-500 { --tw-ring-color: var(--theme-highlight, #3b82f6) !important; }
 
-/* Active tab text — when paired with border-blue-500 active tab indicator */
+/* Loading spinners and accent borders (border-blue-400) */
+.border-blue-400 { border-color: var(--theme-highlight, #60a5fa) !important; }
+.border-b-2.border-blue-400 { border-bottom-color: var(--theme-highlight, #60a5fa) !important; }
+.hover\:border-blue-500:hover { border-color: var(--theme-highlight, #3b82f6) !important; }
+
+/* Checkbox checkmark / text-blue-500 accent */
+.text-blue-500 { color: var(--theme-highlight, #3b82f6) !important; }
+
+/* Active tab text — when paired with border-blue-400/500 active tab indicator */
+.border-b-2.border-blue-400.text-blue-400,
+.text-blue-400.border-b-2.border-blue-400 {
+  color: var(--theme-highlight, #60a5fa) !important;
+}
 .border-blue-500.text-blue-400,
 .text-blue-400.border-blue-500 {
   color: var(--theme-highlight, #60a5fa) !important;
