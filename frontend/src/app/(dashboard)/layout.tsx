@@ -621,7 +621,7 @@ export default function DashboardLayout({
                       ? 'text-white'
                       : 'text-gray-300 hover:bg-slate-700/50'
                   }`}
-                  style={isActive ? { backgroundColor: activeColor } : undefined}
+                  style={isActive ? { backgroundColor: 'var(--theme-highlight)' } : undefined}
                 >
                   <Icon className="w-5 h-5" />
                   <span className="font-medium">{item.name}</span>
@@ -726,12 +726,12 @@ export default function DashboardLayout({
                       src={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '')}${user.avatarPath.startsWith('/uploads/') ? user.avatarPath : `/uploads/${user.avatarPath}`}`}
                       alt="Avatar"
                       className="w-8 h-8 lg:w-10 lg:h-10 rounded-full object-cover border-2"
-                      style={{ borderColor: `${activeColor}80` }}
+                      style={{ borderColor: 'var(--theme-highlight)' }}
                     />
                   ) : (
                     <div
                       className="w-8 h-8 lg:w-10 lg:h-10 rounded-full flex items-center justify-center text-white text-xs lg:text-sm font-bold"
-                      style={{ backgroundColor: activeColor }}
+                      style={{ backgroundColor: 'var(--theme-highlight)' }}
                     >
                       {(user?.firstNameEn?.[0] || user?.firstName?.[0] || '?')}{(user?.lastNameEn?.[0] || user?.lastName?.[0] || '')}
                     </div>

@@ -80,7 +80,7 @@ function LoginContent() {
   }
   const highlightColor = getHighlightColor(branding.theme.bgEnd)
   // In light mode, use lighter button (55% lightness instead of 42%)
-  const btnStyle = { backgroundColor: isDark ? highlightColor : highlightColor.replace(', 42%)', ', 62%)') }
+  const btnStyle = { backgroundColor: 'var(--theme-highlight)' }
   const [showPassword, setShowPassword] = useState(false)
   const [showRegPassword, setShowRegPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
