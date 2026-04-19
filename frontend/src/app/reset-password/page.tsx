@@ -7,6 +7,8 @@ import Link from 'next/link'
 import { Key, Eye, EyeOff, CheckCircle, AlertCircle, ArrowLeft, Lock } from 'lucide-react'
 import axios from 'axios'
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
+
 function ResetPasswordContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -17,6 +19,16 @@ function ResetPasswordContent() {
     }
     return true
   })
+  const [logoUrl, setLogoUrl] = useState('')
+
+  useEffect(() => {
+    fetch(`${API_URL}/settings/public/branding`)
+      .then(r => r.json())
+      .then(data => {
+        if (data?.logoPath) setLogoUrl(`${API_URL.replace('/api', '')}${data.logoPath}`)
+      })
+      .catch(() => {})
+  }, [])
   const pageBg = isDark
     ? 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900'
     : 'bg-gradient-to-br from-blue-50 via-slate-100 to-blue-50'
@@ -166,7 +178,7 @@ function ResetPasswordContent() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <img src="/logo.png" alt="RIM" className="h-20 w-auto mx-auto object-contain rounded-xl" />
+          <img src={logoUrl || '/logo.png'} alt="RIM" className="h-20 w-auto mx-auto object-contain rounded-xl" />
         </div>
 
         {/* Reset Password Card */}

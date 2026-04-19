@@ -1,11 +1,13 @@
 // app/forgot-password/page.tsx
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Mail, ArrowLeft, Send, CheckCircle } from 'lucide-react'
 import axios from 'axios'
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
 export default function ForgotPasswordPage() {
   const router = useRouter()
@@ -13,12 +15,22 @@ export default function ForgotPasswordPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
   const [error, setError] = useState('')
+  const [logoUrl, setLogoUrl] = useState('')
   const [isDark] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       return (localStorage.getItem('colorTheme') || 'dark') === 'dark'
     }
     return true
   })
+
+  useEffect(() => {
+    fetch(`${API_URL}/settings/public/branding`)
+      .then(r => r.json())
+      .then(data => {
+        if (data?.logoPath) setLogoUrl(`${API_URL.replace('/api', '')}${data.logoPath}`)
+      })
+      .catch(() => {})
+  }, [])
   const pageBg = isDark
     ? 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900'
     : 'bg-gradient-to-br from-blue-50 via-slate-100 to-blue-50'
@@ -75,7 +87,7 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <img src="/logo.png" alt="RIM" className="h-20 w-auto mx-auto object-contain rounded-xl" />
+          <img src={logoUrl || '/logo.png'} alt="RIM" className="h-20 w-auto mx-auto object-contain rounded-xl" />
         </div>
 
         {/* Forgot Password Card */}
