@@ -487,8 +487,12 @@ export default function SettingsPage() {
 
   const [selectedTheme, setSelectedTheme] = useState({ bgStart: '#0f172a', bgEnd: '#1e293b' })
   const [savedTheme, setSavedTheme] = useState({ bgStart: '#0f172a', bgEnd: '#1e293b' })
-  const [basePreset, setBasePreset] = useState<{ bgStart: string; bgEnd: string } | null>(null)
-  const [themeBrightness, setThemeBrightness] = useState(50)
+  const [basePreset, setBasePreset] = useState<{ bgStart: string; bgEnd: string } | null>(() => {
+    try { const s = localStorage.getItem('themeBrightnessState'); return s ? JSON.parse(s).basePreset ?? null : null } catch { return null }
+  })
+  const [themeBrightness, setThemeBrightness] = useState<number>(() => {
+    try { const s = localStorage.getItem('themeBrightnessState'); return s ? (JSON.parse(s).brightness ?? 50) : 50 } catch { return 50 }
+  })
 
   // Disk info state
   const [diskInfo, setDiskInfo] = useState<{ total: number; used: number; free: number; usedPercent: number; systemUsed?: number; backupUsed?: number } | null>(null)
@@ -3846,6 +3850,7 @@ export default function SettingsPage() {
                       )
                       setSavedTheme(selectedTheme)
                       localStorage.setItem('themeStyle', JSON.stringify(selectedTheme))
+                      localStorage.setItem('themeBrightnessState', JSON.stringify({ brightness: themeBrightness, basePreset }))
                       window.dispatchEvent(new CustomEvent('themeUpdated', { detail: selectedTheme }))
                       toast.success('บันทึก Theme สำเร็จ')
                     } catch {
