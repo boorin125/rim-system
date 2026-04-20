@@ -3855,7 +3855,7 @@ export default function SettingsPage() {
                       setSavedTheme(selectedTheme)
                       localStorage.setItem('themeStyle', JSON.stringify(selectedTheme))
                       localStorage.setItem('themeBrightnessState', JSON.stringify({ brightness: themeBrightness, basePreset }))
-                      window.dispatchEvent(new CustomEvent('themeUpdated', { detail: selectedTheme }))
+                      window.dispatchEvent(new CustomEvent('themeUpdated', { detail: { ...selectedTheme, brightness: themeBrightness } }))
                       toast.success('บันทึก Theme สำเร็จ')
                     } catch {
                       toast.error('ไม่สามารถบันทึก Theme ได้')

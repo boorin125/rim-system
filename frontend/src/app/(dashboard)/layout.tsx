@@ -118,6 +118,7 @@ export default function DashboardLayout({
     }
     return null
   })
+  const [themeBrightness, setThemeBrightness] = useState<number>(50)
 
   const [isDark, setIsDark] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
@@ -179,7 +180,7 @@ export default function DashboardLayout({
   }, [isDark, themeStyle])
 
   // Derive highlight color from theme for active menu items
-  const getHighlightColor = (hex: string) => {
+  const getHighlightColor = (hex: string, pct: number) => {
     const c = hex.replace('#', '')
     const r = parseInt(c.substring(0, 2), 16) / 255
     const g = parseInt(c.substring(2, 4), 16) / 255
@@ -194,12 +195,14 @@ export default function DashboardLayout({
       else if (mx === g) h = ((b - r) / d + 2) / 6
       else h = ((r - g) / d + 4) / 6
     }
-    return `hsl(${Math.round(h * 360)}, ${Math.max(Math.round(s * 100), 30)}%, 42%)`
+    return `hsl(${Math.round(h * 360)}, ${Math.max(Math.round(s * 100), 30)}%, ${pct}%)`
   }
-  const activeMenuBg = themeStyle ? getHighlightColor(themeStyle.bgEnd) : undefined
-  // Lighter shade (62%) for light mode — used for active menu, avatar, and buttons
+  // Adjust accent lightness based on brightness: ±0.3% per unit from default 50
+  const darkPct  = Math.round(Math.min(56, Math.max(30, 42 + (themeBrightness - 50) * 0.3)))
+  const lightPct = Math.round(Math.min(72, Math.max(48, 62 + (themeBrightness - 50) * 0.3)))
+  const activeMenuBg = themeStyle ? getHighlightColor(themeStyle.bgEnd, darkPct) : undefined
   const activeColor = activeMenuBg
-    ? isDark ? activeMenuBg : activeMenuBg.replace(', 42%)', ', 62%)')
+    ? isDark ? activeMenuBg : activeMenuBg.replace(`, ${darkPct}%)`, `, ${lightPct}%)`)
     : isDark ? '#2563eb' : '#6096f0'
   // Hover variant: 4% brighter lightness for button hover states
   const activeColorHover = activeColor.startsWith('hsl')
@@ -212,6 +215,17 @@ export default function DashboardLayout({
     document.documentElement.style.setProperty('--theme-highlight-hover', activeColorHover)
   }, [activeColor, activeColorHover])
 
+  // Load brightness from localStorage on mount
+  useEffect(() => {
+    try {
+      const bs = localStorage.getItem('themeBrightnessState')
+      if (bs) {
+        const parsed = JSON.parse(bs)
+        if (parsed.brightness !== undefined) setThemeBrightness(parsed.brightness)
+      }
+    } catch {}
+  }, [])
+
   // Listen for theme changes from settings page
   useEffect(() => {
     const handleThemeChanged = (e: Event) => {
@@ -220,6 +234,7 @@ export default function DashboardLayout({
         setThemeStyle(detail)
         localStorage.setItem('themeStyle', JSON.stringify(detail))
       }
+      if (detail?.brightness !== undefined) setThemeBrightness(detail.brightness)
     }
     window.addEventListener('themeUpdated', handleThemeChanged)
     return () => window.removeEventListener('themeUpdated', handleThemeChanged)
