@@ -107,9 +107,9 @@ export default function MapPage() {
   const [loadingTechs, setLoadingTechs] = useState(false)
   const themeHighlight = useThemeHighlight()
 
-  const fetchCheckins = async () => {
+  const fetchCheckins = async (silent = false) => {
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
       const token = localStorage.getItem('token')
       const params: Record<string, string> = { from: selectedDate, to: selectedDate }
       if (filterStatus) params.status = filterStatus
@@ -119,9 +119,9 @@ export default function MapPage() {
       )
       setCheckins(res.data)
     } catch {
-      toast.error('ไม่สามารถโหลดข้อมูลแผนที่ได้')
+      if (!silent) toast.error('ไม่สามารถโหลดข้อมูลแผนที่ได้')
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }
 
@@ -150,6 +150,8 @@ export default function MapPage() {
 
   useEffect(() => {
     fetchCheckins()
+    const interval = setInterval(() => fetchCheckins(true), 30_000)
+    return () => clearInterval(interval)
   }, [filterStatus, selectedDate])
 
   // Auto-refresh technician locations every 60 seconds when the overlay is on

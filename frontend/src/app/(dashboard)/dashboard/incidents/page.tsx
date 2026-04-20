@@ -109,6 +109,14 @@ export default function IncidentsPage() {
     fetchCategories()
   }, [])
 
+  // Auto-poll every 30s (silent — no spinner) for real-time monitor display
+  const silentPollRef = useRef<() => void>(() => {})
+  useEffect(() => { silentPollRef.current = () => { if (!isSuperAdmin.current) fetchIncidents(true) } })
+  useEffect(() => {
+    const timer = setInterval(() => silentPollRef.current(), 30_000)
+    return () => clearInterval(timer)
+  }, [])
+
   // Re-fetch when filters/pagination change (skip initial mount — handled above)
   const isFirstRender = useRef(true)
   useEffect(() => {
@@ -152,9 +160,9 @@ export default function IncidentsPage() {
     return { ...params, ...overrides }
   }
 
-  const fetchIncidents = async () => {
+  const fetchIncidents = async (silent = false) => {
     try {
-      setIsLoading(true)
+      if (!silent) setIsLoading(true)
       const token = localStorage.getItem('token')
       const params = buildParams()
 
@@ -194,7 +202,7 @@ export default function IncidentsPage() {
       console.error(error)
       setIncidents([])
     } finally {
-      setIsLoading(false)
+      if (!silent) setIsLoading(false)
     }
   }
 
