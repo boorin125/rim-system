@@ -184,9 +184,20 @@ export class PerformanceController {
     @Query('period') period?: string,
     @Query('limit') limit?: string,
     @Query('jobTypes') jobTypes?: string,
+    @Query('category') category?: string,
   ) {
     const parsed = jobTypes ? jobTypes.split(',').map(s => s.trim()).filter(Boolean) : undefined;
-    return this.performanceService.getTopEquipment(period, limit ? parseInt(limit) : 10, parsed);
+    return this.performanceService.getTopEquipment(period, limit ? parseInt(limit) : 10, parsed, category || undefined);
+  }
+
+  @Get('equipment-categories')
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK)
+  async getEquipmentCategories(
+    @Query('period') period?: string,
+    @Query('jobTypes') jobTypes?: string,
+  ) {
+    const parsed = jobTypes ? jobTypes.split(',').map(s => s.trim()).filter(Boolean) : undefined;
+    return this.performanceService.getEquipmentCategories(period, parsed);
   }
 
   /**
@@ -294,6 +305,46 @@ export class PerformanceController {
   ) {
     const targetPeriod = period || this.getCurrentPeriod();
     return this.performanceService.calculatePerformance(id, targetPeriod, req.user.id);
+  }
+
+  /** Top Active Equipment by Incident Count */
+  @Get('top-active-equipment')
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK)
+  async getTopActiveEquipment(
+    @Query('period') period?: string,
+    @Query('limit') limit?: string,
+    @Query('jobTypes') jobTypes?: string,
+  ) {
+    const parsed = jobTypes ? jobTypes.split(',').map(s => s.trim()).filter(Boolean) : undefined;
+    return this.performanceService.getTopActiveEquipment(period, limit ? parseInt(limit) : 10, parsed);
+  }
+
+  /** Equipment Incident Detail (by equipmentId) */
+  @Get('equipment-incident-detail/:equipmentId')
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK)
+  async getEquipmentIncidentDetail(@Param('equipmentId', ParseIntPipe) equipmentId: number) {
+    return this.performanceService.getEquipmentIncidentDetail(equipmentId);
+  }
+
+  /** Equipment Name+Store pairs with >2 incidents */
+  @Get('equipment-repeat')
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK)
+  async getEquipmentRepeatIncidents(
+    @Query('period') period?: string,
+    @Query('jobTypes') jobTypes?: string,
+  ) {
+    const parsed = jobTypes ? jobTypes.split(',').map(s => s.trim()).filter(Boolean) : undefined;
+    return this.performanceService.getEquipmentRepeatIncidents(period, parsed);
+  }
+
+  /** Equipment Name+Store incident detail */
+  @Get('equipment-repeat-detail')
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK)
+  async getEquipmentNameStoreDetail(
+    @Query('equipmentName') equipmentName: string,
+    @Query('storeId', ParseIntPipe) storeId: number,
+  ) {
+    return this.performanceService.getEquipmentNameStoreDetail(equipmentName, storeId);
   }
 
   private getCurrentPeriod(): string {

@@ -1066,7 +1066,7 @@ export class PerformanceService {
   /**
    * Get Top N Equipment by Incident Count for a period
    */
-  async getTopEquipment(period?: string, limit = 10, jobTypes?: string[]) {
+  async getTopEquipment(period?: string, limit = 10, jobTypes?: string[], category?: string) {
     const targetPeriod = period || this.getCurrentPeriod();
     const [year, month] = targetPeriod.split('-').map(Number);
     const startDate = new Date(year, month - 1, 1);
@@ -1075,11 +1075,13 @@ export class PerformanceService {
     const incidents = await this.prisma.incident.findMany({
       where: {
         createdAt: { gte: startDate, lte: endDate },
+        equipmentId: { not: null },
         ...(jobTypes && jobTypes.length > 0 ? { jobType: { in: jobTypes } } : {}),
+        ...(category ? { equipment: { category } } : {}),
       },
       select: {
         equipmentId: true,
-        equipment: { select: { id: true, name: true, brand: true, model: true } },
+        equipment: { select: { id: true, name: true, brand: true, model: true, category: true } },
       },
     });
 
@@ -1088,7 +1090,6 @@ export class PerformanceService {
       if (!inc.equipmentId || !inc.equipment) continue;
       const brandModel = [inc.equipment.brand, inc.equipment.model].filter(Boolean).join(' ');
       const label = inc.equipment.name || brandModel || `Equipment ${inc.equipmentId}`;
-      // Group by normalised label name so duplicate equipment names merge into one bar
       const key = label.trim().toLowerCase();
       const entry = countMap.get(key);
       if (entry) entry.count++;
@@ -1099,6 +1100,28 @@ export class PerformanceService {
       .map(([, v]) => ({ name: v.label, count: v.count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, limit);
+  }
+
+  async getEquipmentCategories(period?: string, jobTypes?: string[]) {
+    const targetPeriod = period || this.getCurrentPeriod();
+    const [year, month] = targetPeriod.split('-').map(Number);
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59);
+
+    const incidents = await this.prisma.incident.findMany({
+      where: {
+        createdAt: { gte: startDate, lte: endDate },
+        equipmentId: { not: null },
+        ...(jobTypes && jobTypes.length > 0 ? { jobType: { in: jobTypes } } : {}),
+      },
+      select: { equipment: { select: { category: true } } },
+    });
+
+    const cats = new Set<string>();
+    for (const inc of incidents) {
+      if (inc.equipment?.category) cats.add(inc.equipment.category);
+    }
+    return Array.from(cats).sort();
   }
 
   // ──────────────────────────────────────────────────
