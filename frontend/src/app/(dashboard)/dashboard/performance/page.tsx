@@ -179,6 +179,49 @@ interface TopEquipmentEntry {
   count: number
 }
 
+interface ActiveEquipmentEntry {
+  equipmentId: number
+  category: string
+  brand: string
+  model: string
+  serialNumber: string
+  count: number
+  lastIncidentAt: string
+}
+
+interface RepeatEquipmentEntry {
+  equipmentName: string
+  storeId: number
+  storeCode: string
+  storeName: string
+  count: number
+  lastIncidentAt: string
+}
+
+interface EquipmentIncidentRow {
+  no: number
+  incidentDate: string
+  incidentNo: string
+  store: string
+  title: string
+  resolution: string
+  resolvedAt: string | null
+  technicianName: string
+}
+
+interface RepeatIncidentRow {
+  no: number
+  incidentDate: string
+  incidentNo: string
+  brand: string
+  model: string
+  serialNumber: string
+  title: string
+  resolution: string
+  resolvedAt: string | null
+  technicianName: string
+}
+
 interface HistoryEntry {
   period: string
   score: number
@@ -278,6 +321,18 @@ export default function PerformancePage() {
   const [topStores, setTopStores] = useState<TopStoreEntry[]>([])
   const [topEquipment, setTopEquipment] = useState<TopEquipmentEntry[]>([])
 
+  // Box 1: Top Active Equipment
+  const [topActiveEquipment, setTopActiveEquipment] = useState<ActiveEquipmentEntry[]>([])
+  const [activeEquipDetail, setActiveEquipDetail] = useState<{ equipment: any; incidents: EquipmentIncidentRow[] } | null>(null)
+  const [activeEquipModal, setActiveEquipModal] = useState(false)
+  const [loadingActiveDetail, setLoadingActiveDetail] = useState(false)
+
+  // Box 2: Repeat Equipment in Store
+  const [repeatEquipment, setRepeatEquipment] = useState<RepeatEquipmentEntry[]>([])
+  const [repeatEquipDetail, setRepeatEquipDetail] = useState<{ equipmentName: string; storeId: number; incidents: RepeatIncidentRow[] } | null>(null)
+  const [repeatEquipModal, setRepeatEquipModal] = useState(false)
+  const [loadingRepeatDetail, setLoadingRepeatDetail] = useState(false)
+
   // Resolution time stats
   const [resolutionTimeStats, setResolutionTimeStats] = useState<ResolutionTimeStats | null>(null)
 
@@ -372,8 +427,10 @@ export default function PerformancePage() {
           axios.get(`${api}/performance/top-stores?period=${period}&limit=10${jtParam}`, cfg).catch(() => null),
           axios.get(`${api}/performance/top-equipment?period=${period}&limit=10${jtParam}`, cfg).catch(() => null),
           axios.get(`${api}/performance/resolution-time?period=${period}${jtParam}`, cfg).catch(() => null),
+          axios.get(`${api}/performance/top-active-equipment?period=${period}&limit=10${jtParam}`, cfg).catch(() => null),
+          axios.get(`${api}/performance/equipment-repeat?period=${period}${jtParam}`, cfg).catch(() => null),
         ]
-        const [lbRes, statsRes, trendRes, ytdRes, ytmRes, ytyRes, topStoresRes, topEquipRes, resTimeRes] = await Promise.all(calls)
+        const [lbRes, statsRes, trendRes, ytdRes, ytmRes, ytyRes, topStoresRes, topEquipRes, resTimeRes, topActiveEquipRes, repeatEquipRes] = await Promise.all(calls)
         setLeaderboard(lbRes?.data || [])
         setIncidentStats(statsRes?.data || null)
         setSlaTrend(trendRes?.data || [])
@@ -383,6 +440,8 @@ export default function PerformancePage() {
         setTopStores(topStoresRes?.data || [])
         setTopEquipment(topEquipRes?.data || [])
         setResolutionTimeStats(resTimeRes?.data || null)
+        setTopActiveEquipment(topActiveEquipRes?.data || [])
+        setRepeatEquipment(repeatEquipRes?.data || [])
       }
     } catch (err) {
       console.error('Error loading performance:', err)
@@ -718,6 +777,113 @@ export default function PerformancePage() {
             </div>
           )}
 
+          {/* Box 1: Top 10 Active Equipment with Most Incidents */}
+          {topActiveEquipment.length > 0 && (
+            <div className="glass-card p-5 rounded-2xl">
+              <h3 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
+                <HardDrive className="w-4 h-4 text-cyan-400" />
+                Top 10 Equipment Active (Most Incidents)
+              </h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-gray-400 border-b border-slate-700">
+                      <th className="text-left py-2 px-2 font-medium">#</th>
+                      <th className="text-left py-2 px-2 font-medium">Brand / Model / S/N</th>
+                      <th className="text-center py-2 px-2 font-medium">ครั้ง</th>
+                      <th className="text-center py-2 px-2 font-medium">ล่าสุด</th>
+                      <th className="text-center py-2 px-2 font-medium"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {topActiveEquipment.map((eq, idx) => (
+                      <tr key={eq.equipmentId} className="border-b border-slate-700/50 hover:bg-slate-700/30 transition">
+                        <td className="py-2 px-2 text-gray-400">{idx + 1}</td>
+                        <td className="py-2 px-2 text-white">
+                          <div className="font-medium">{[eq.brand, eq.model].filter(Boolean).join(' ') || '-'}</div>
+                          <div className="text-xs text-gray-400">S/N: {eq.serialNumber || '-'}</div>
+                        </td>
+                        <td className="py-2 px-2 text-center">
+                          <span className="px-2 py-0.5 bg-red-500/20 text-red-400 rounded-full text-xs font-semibold">{eq.count}</span>
+                        </td>
+                        <td className="py-2 px-2 text-center text-gray-400 text-xs">
+                          {new Date(eq.lastIncidentAt).toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                        </td>
+                        <td className="py-2 px-2 text-center">
+                          <button
+                            onClick={async () => {
+                              setLoadingActiveDetail(true)
+                              setActiveEquipModal(true)
+                              try {
+                                const token = localStorage.getItem('token')
+                                const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/performance/equipment-incident-detail/${eq.equipmentId}`, { headers: { Authorization: `Bearer ${token}` } })
+                                setActiveEquipDetail(res.data)
+                              } catch { setActiveEquipDetail(null) }
+                              finally { setLoadingActiveDetail(false) }
+                            }}
+                            className="text-xs px-2 py-1 rounded-lg bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 transition"
+                          >Detail</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Box 2: Equipment Name in Store with >2 Incidents */}
+          {repeatEquipment.length > 0 && (
+            <div className="glass-card p-5 rounded-2xl">
+              <h3 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-orange-400" />
+                Equipment ที่แจ้งซ่อมซ้ำ &gt;2 ครั้ง (ต่อสาขา)
+              </h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-gray-400 border-b border-slate-700">
+                      <th className="text-left py-2 px-2 font-medium">Equipment</th>
+                      <th className="text-left py-2 px-2 font-medium">Store</th>
+                      <th className="text-center py-2 px-2 font-medium">ครั้ง</th>
+                      <th className="text-center py-2 px-2 font-medium">ล่าสุด</th>
+                      <th className="text-center py-2 px-2 font-medium"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {repeatEquipment.map((eq, idx) => (
+                      <tr key={`${eq.equipmentName}-${eq.storeId}`} className="border-b border-slate-700/50 hover:bg-slate-700/30 transition">
+                        <td className="py-2 px-2 text-white font-medium">{eq.equipmentName}</td>
+                        <td className="py-2 px-2 text-gray-300">{eq.storeCode} {eq.storeName}</td>
+                        <td className="py-2 px-2 text-center">
+                          <span className="px-2 py-0.5 bg-orange-500/20 text-orange-400 rounded-full text-xs font-semibold">{eq.count}</span>
+                        </td>
+                        <td className="py-2 px-2 text-center text-gray-400 text-xs">
+                          {new Date(eq.lastIncidentAt).toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                        </td>
+                        <td className="py-2 px-2 text-center">
+                          <button
+                            onClick={async () => {
+                              setLoadingRepeatDetail(true)
+                              setRepeatEquipModal(true)
+                              try {
+                                const token = localStorage.getItem('token')
+                                const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/performance/equipment-repeat-detail?equipmentName=${encodeURIComponent(eq.equipmentName)}&storeId=${eq.storeId}`, { headers: { Authorization: `Bearer ${token}` } })
+                                setRepeatEquipDetail(res.data)
+                              } catch { setRepeatEquipDetail(null) }
+                              finally { setLoadingRepeatDetail(false) }
+                            }}
+                            className="text-xs px-2 py-1 rounded-lg bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 transition"
+                          >Detail</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {/* Leaderboard */}
           {(() => {
             // Multi-level rank: workVolume → score → slaPercent → original rank (tiebreaker = first in)
@@ -884,6 +1050,142 @@ export default function PerformancePage() {
             </div>
             <div className="p-6 overflow-y-auto">
               <PerformanceDetail data={selectedPerformance} fmtTime={fmtTime} fmtPct={fmtPct} barColor={barColor} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Box 1 Modal: Active Equipment Incident Detail */}
+      {activeEquipModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-5 border-b border-slate-700/50 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <HardDrive className="w-5 h-5 text-cyan-400" />
+                  Equipment Incident Detail
+                </h2>
+                {activeEquipDetail?.equipment && (
+                  <p className="text-sm text-gray-400 mt-0.5">
+                    {[activeEquipDetail.equipment.category, activeEquipDetail.equipment.brand, activeEquipDetail.equipment.model].filter(Boolean).join(' · ')}
+                    {activeEquipDetail.equipment.serialNumber ? ` · S/N: ${activeEquipDetail.equipment.serialNumber}` : ''}
+                  </p>
+                )}
+              </div>
+              <button onClick={() => { setActiveEquipModal(false); setActiveEquipDetail(null) }} className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-slate-700/50">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="overflow-y-auto">
+              {loadingActiveDetail ? (
+                <div className="flex items-center justify-center p-10">
+                  <div className="spinner"></div>
+                </div>
+              ) : !activeEquipDetail || activeEquipDetail.incidents.length === 0 ? (
+                <div className="p-8 text-center text-gray-400">ไม่มีข้อมูล</div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-slate-800">
+                    <tr className="text-gray-400 border-b border-slate-700">
+                      <th className="text-center py-3 px-3 font-medium w-10">#</th>
+                      <th className="text-left py-3 px-3 font-medium">วันที่แจ้ง</th>
+                      <th className="text-left py-3 px-3 font-medium">Ticket No.</th>
+                      <th className="text-left py-3 px-3 font-medium">Store</th>
+                      <th className="text-left py-3 px-3 font-medium">หัวข้อ</th>
+                      <th className="text-left py-3 px-3 font-medium">Resolution</th>
+                      <th className="text-left py-3 px-3 font-medium">วันที่แก้ไข</th>
+                      <th className="text-left py-3 px-3 font-medium">ช่าง</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activeEquipDetail.incidents.map((row, idx) => (
+                      <tr key={idx} className="border-b border-slate-700/40 hover:bg-slate-700/30 transition">
+                        <td className="py-2.5 px-3 text-center text-gray-400">{idx + 1}</td>
+                        <td className="py-2.5 px-3 text-gray-300 whitespace-nowrap">
+                          {row.incidentDate ? new Date(row.incidentDate).toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '-'}
+                        </td>
+                        <td className="py-2.5 px-3 text-cyan-400 font-mono text-xs">{row.incidentNo || '-'}</td>
+                        <td className="py-2.5 px-3 text-gray-300 whitespace-nowrap">{row.store || '-'}</td>
+                        <td className="py-2.5 px-3 text-white">{row.title || '-'}</td>
+                        <td className="py-2.5 px-3 text-gray-300 max-w-[200px] truncate" title={row.resolution}>{row.resolution || '-'}</td>
+                        <td className="py-2.5 px-3 text-gray-300 whitespace-nowrap">
+                          {row.resolvedAt ? new Date(row.resolvedAt).toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '-'}
+                        </td>
+                        <td className="py-2.5 px-3 text-gray-300">{row.technicianName || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Box 2 Modal: Repeat Equipment in Store Detail */}
+      {repeatEquipModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-5 border-b border-slate-700/50 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-orange-400" />
+                  Equipment Repeat Incident Detail
+                </h2>
+                {repeatEquipDetail && (
+                  <p className="text-sm text-gray-400 mt-0.5">
+                    {repeatEquipDetail.equipmentName}
+                  </p>
+                )}
+              </div>
+              <button onClick={() => { setRepeatEquipModal(false); setRepeatEquipDetail(null) }} className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-slate-700/50">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="overflow-y-auto">
+              {loadingRepeatDetail ? (
+                <div className="flex items-center justify-center p-10">
+                  <div className="spinner"></div>
+                </div>
+              ) : !repeatEquipDetail || repeatEquipDetail.incidents.length === 0 ? (
+                <div className="p-8 text-center text-gray-400">ไม่มีข้อมูล</div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-slate-800">
+                    <tr className="text-gray-400 border-b border-slate-700">
+                      <th className="text-center py-3 px-3 font-medium w-10">#</th>
+                      <th className="text-left py-3 px-3 font-medium">วันที่แจ้ง</th>
+                      <th className="text-left py-3 px-3 font-medium">Ticket No.</th>
+                      <th className="text-left py-3 px-3 font-medium">Brand / Model / S/N</th>
+                      <th className="text-left py-3 px-3 font-medium">หัวข้อ</th>
+                      <th className="text-left py-3 px-3 font-medium">Resolution</th>
+                      <th className="text-left py-3 px-3 font-medium">วันที่แก้ไข</th>
+                      <th className="text-left py-3 px-3 font-medium">ช่าง</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {repeatEquipDetail.incidents.map((row, idx) => (
+                      <tr key={idx} className="border-b border-slate-700/40 hover:bg-slate-700/30 transition">
+                        <td className="py-2.5 px-3 text-center text-gray-400">{idx + 1}</td>
+                        <td className="py-2.5 px-3 text-gray-300 whitespace-nowrap">
+                          {row.incidentDate ? new Date(row.incidentDate).toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '-'}
+                        </td>
+                        <td className="py-2.5 px-3 text-orange-400 font-mono text-xs">{row.incidentNo || '-'}</td>
+                        <td className="py-2.5 px-3 text-white">
+                          <div>{[row.brand, row.model].filter(Boolean).join(' ') || '-'}</div>
+                          {row.serialNumber && <div className="text-xs text-gray-400">S/N: {row.serialNumber}</div>}
+                        </td>
+                        <td className="py-2.5 px-3 text-white">{row.title || '-'}</td>
+                        <td className="py-2.5 px-3 text-gray-300 max-w-[200px] truncate" title={row.resolution}>{row.resolution || '-'}</td>
+                        <td className="py-2.5 px-3 text-gray-300 whitespace-nowrap">
+                          {row.resolvedAt ? new Date(row.resolvedAt).toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '-'}
+                        </td>
+                        <td className="py-2.5 px-3 text-gray-300">{row.technicianName || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         </div>
