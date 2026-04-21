@@ -335,6 +335,9 @@ export default function PerformancePage() {
   const [repeatEquipModal, setRepeatEquipModal] = useState(false)
   const [loadingRepeatDetail, setLoadingRepeatDetail] = useState(false)
 
+  // Equipment boxes period mode
+  const [equipPeriodMode, setEquipPeriodMode] = useState<'all' | 'period'>('all')
+
   // Resolution time stats
   const [resolutionTimeStats, setResolutionTimeStats] = useState<ResolutionTimeStats | null>(null)
 
@@ -429,8 +432,8 @@ export default function PerformancePage() {
           axios.get(`${api}/performance/top-stores?period=${period}&limit=10${jtParam}`, cfg).catch(() => null),
           axios.get(`${api}/performance/top-equipment?period=${period}&limit=10${jtParam}`, cfg).catch(() => null),
           axios.get(`${api}/performance/resolution-time?period=${period}${jtParam}`, cfg).catch(() => null),
-          axios.get(`${api}/performance/top-active-equipment?period=${period}&limit=10${jtParam}`, cfg).catch(() => null),
-          axios.get(`${api}/performance/equipment-repeat?period=${period}${jtParam}`, cfg).catch(() => null),
+          axios.get(`${api}/performance/top-active-equipment?${equipPeriodMode === 'period' ? `period=${period}&` : ''}limit=10${jtParam}`, cfg).catch(() => null),
+          axios.get(`${api}/performance/equipment-repeat?${equipPeriodMode === 'period' ? `period=${period}` : ''}${jtParam}`, cfg).catch(() => null),
         ]
         const [lbRes, statsRes, trendRes, ytdRes, ytmRes, ytyRes, topStoresRes, topEquipRes, resTimeRes, topActiveEquipRes, repeatEquipRes] = await Promise.all(calls)
         setLeaderboard(lbRes?.data || [])
@@ -450,7 +453,7 @@ export default function PerformancePage() {
     } finally {
       setIsLoading(false)
     }
-  }, [currentUser, period, isTechnician, isSelfOnly, isManager, sortBy, selectedJobTypes])
+  }, [currentUser, period, isTechnician, isSelfOnly, isManager, sortBy, selectedJobTypes, equipPeriodMode])
 
   useEffect(() => {
     if (currentUser) loadData()
@@ -778,6 +781,21 @@ export default function PerformancePage() {
               )}
             </div>
           )}
+
+          {/* Equipment Boxes Period Toggle */}
+          <div className="flex items-center gap-2 justify-end">
+            <span className="text-xs text-gray-400">ช่วงเวลา Equipment:</span>
+            <div className="flex rounded-lg overflow-hidden border border-slate-600 text-xs">
+              <button
+                onClick={() => setEquipPeriodMode('all')}
+                className={`px-3 py-1.5 transition ${equipPeriodMode === 'all' ? 'bg-cyan-600 text-white' : 'bg-slate-700 text-gray-400 hover:text-white'}`}
+              >ทั้งหมด</button>
+              <button
+                onClick={() => setEquipPeriodMode('period')}
+                className={`px-3 py-1.5 transition ${equipPeriodMode === 'period' ? 'bg-cyan-600 text-white' : 'bg-slate-700 text-gray-400 hover:text-white'}`}
+              >ตาม Period</button>
+            </div>
+          </div>
 
           {/* Box 1: Top 10 Active Equipment with Most Incidents */}
           <div className="glass-card p-5 rounded-2xl">
