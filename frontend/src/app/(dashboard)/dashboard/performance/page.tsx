@@ -236,7 +236,7 @@ interface StoreIncidentRow {
 }
 
 interface StoreIncidentDetail {
-  store: { id: number; storeCode: string; storeName: string } | null
+  store: { id: number; storeCode: string; name: string } | null
   period: string
   periodStart: string
   periodEnd: string
