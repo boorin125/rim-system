@@ -777,14 +777,14 @@ export default function PerformancePage() {
                     Top 10 Equipment (Most Incidents)
                   </h3>
                   <div className="flex rounded-lg overflow-hidden border border-slate-600 text-xs">
-                    <button
-                      onClick={() => setEquipPeriodMode('period')}
-                      className={`px-3 py-1.5 transition ${equipPeriodMode === 'period' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-gray-400 hover:text-white'}`}
-                    >Period</button>
-                    <button
-                      onClick={() => setEquipPeriodMode('all')}
-                      className={`px-3 py-1.5 transition ${equipPeriodMode === 'all' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-gray-400 hover:text-white'}`}
-                    >ทั้งหมด</button>
+                    {(['period', 'all'] as const).map((mode, i) => (
+                      <button
+                        key={mode}
+                        onClick={() => setEquipPeriodMode(mode)}
+                        className={`px-3 py-1.5 transition ${equipPeriodMode === mode ? 'text-white' : 'bg-slate-700 text-gray-400 hover:text-white'}`}
+                        style={equipPeriodMode === mode ? { backgroundColor: themeHighlight } : undefined}
+                      >{mode === 'period' ? 'Period' : 'ทั้งหมด'}</button>
+                    ))}
                   </div>
                 </div>
                 {topEquipment.length === 0 ? (
