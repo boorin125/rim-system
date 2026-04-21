@@ -1076,20 +1076,22 @@ export class PerformanceService {
       where: {
         createdAt: { gte: startDate, lte: endDate },
         equipmentId: { not: null },
-        equipment: { category: { not: null } },
         ...(jobTypes && jobTypes.length > 0 ? { jobType: { in: jobTypes } } : {}),
       },
       select: {
         equipmentId: true,
-        equipment: { select: { category: true } },
+        equipment: { select: { category: true, name: true, brand: true, model: true } },
       },
     });
 
     const countMap = new Map<string, number>();
     for (const inc of incidents) {
-      const cat = inc.equipment?.category;
-      if (!cat) continue;
-      countMap.set(cat, (countMap.get(cat) ?? 0) + 1);
+      if (!inc.equipment) continue;
+      const label = inc.equipment.category
+        || inc.equipment.name
+        || [inc.equipment.brand, inc.equipment.model].filter(Boolean).join(' ')
+        || 'ไม่ระบุ';
+      countMap.set(label, (countMap.get(label) ?? 0) + 1);
     }
 
     return Array.from(countMap.entries())
