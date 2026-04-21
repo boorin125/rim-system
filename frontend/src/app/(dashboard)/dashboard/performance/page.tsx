@@ -589,7 +589,7 @@ export default function PerformancePage() {
           <h1 className="text-2xl font-bold text-white">Performance Dashboard</h1>
           <p className="text-gray-400 mt-1">ติดตามและประเมินผลการทำงาน</p>
         </div>
-        <div className="flex items-center gap-3 flex-wrap justify-end">
+        <div className="flex items-center gap-2 flex-wrap justify-end w-full sm:w-auto">
           {/* Job Type Filter Dropdown */}
           {isManager && availableJobTypes.length > 0 && (
             <div className="relative" ref={jtDropdownRef}>
@@ -667,7 +667,8 @@ export default function PerformancePage() {
               style={{ backgroundColor: themeHighlight }}
             >
               <RefreshCcw className={`w-5 h-5 ${isCalculating ? 'animate-spin' : ''}`} />
-              <span>{isCalculating ? 'กำลังคำนวณ...' : 'คำนวณ Performance'}</span>
+              <span className="hidden sm:inline">{isCalculating ? 'กำลังคำนวณ...' : 'คำนวณ Performance'}</span>
+              <span className="sm:hidden">{isCalculating ? '...' : 'คำนวณ'}</span>
             </button>
           )}
         </div>
@@ -738,7 +739,7 @@ export default function PerformancePage() {
         <div className="space-y-6">
           {/* Incident Stats Cards (row 1) */}
           {incidentStats && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+            <div className="grid grid-cols-4 sm:grid-cols-4 lg:grid-cols-8 gap-2 sm:gap-3">
               <StatCard icon={ClipboardList} label="Total" value={incidentStats.total} color="blue" />
               <StatCard icon={CheckCircle2} label="Closed" value={incidentStats.closed} color="green" />
               <StatCard icon={Clock} label="Pending" value={incidentStats.pending} color="yellow" />
@@ -761,7 +762,7 @@ export default function PerformancePage() {
             const curSla = incidentStats?.slaPercent ?? cur.slaPercent
             const curTotal = incidentStats ? (incidentStats.slaPass + incidentStats.slaFail) : (cur.slaPass + cur.slaFail)
             return (
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 <SlaMetricCard
                   icon={Calendar} title="Previous Month"
                   label={prev ? formatPeriod(prev.period) : '-'}
@@ -891,7 +892,7 @@ export default function PerformancePage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm min-w-[420px]">
                   <thead>
                     <tr className="text-gray-400 border-b border-slate-700">
                       <th className="text-left py-2 px-2 font-medium">#</th>
@@ -951,7 +952,7 @@ export default function PerformancePage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm min-w-[380px]">
                   <thead>
                     <tr className="text-gray-400 border-b border-slate-700">
                       <th className="text-left py-2 px-2 font-medium">Equipment</th>
@@ -1071,7 +1072,7 @@ export default function PerformancePage() {
                 {/* Leaderboard Table */}
                 {helpdeskLeaderboard && helpdeskLeaderboard.leaderboard.length > 0 ? (
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
+                    <table className="w-full text-sm min-w-[700px]">
                       <thead className="bg-slate-800/60">
                         <tr className="text-gray-400 border-b border-slate-700">
                           <th className="text-center py-3 px-3 font-medium w-10">#</th>
@@ -1198,7 +1199,7 @@ export default function PerformancePage() {
                   <EmptyState msg="ยังไม่มีข้อมูล Performance" sub="คลิก 'คำนวณ Performance' เพื่อคำนวณผลการปฏิบัติงาน" />
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="w-full">
+                    <table className="w-full min-w-[640px]">
                       <thead className="bg-slate-800/50">
                         <tr className="border-b border-slate-700/50">
                           <th className="text-left py-4 px-4 text-sm font-medium text-gray-400 w-16">อันดับ</th>
@@ -1318,13 +1319,13 @@ export default function PerformancePage() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="overflow-y-auto">
+            <div className="overflow-y-auto overflow-x-auto">
               {loadingStoreDetail ? (
                 <div className="flex items-center justify-center p-10"><div className="spinner"></div></div>
               ) : !storeDetail || storeDetail.incidents.length === 0 ? (
                 <div className="p-8 text-center text-gray-400">ไม่มีข้อมูล Incident ในช่วงเวลานี้</div>
               ) : (
-                <table className="w-full text-sm">
+                <table className="w-full text-sm min-w-[640px]">
                   <thead className="sticky top-0 bg-slate-800">
                     <tr className="text-gray-400 border-b border-slate-700">
                       <th className="text-center py-3 px-3 font-medium w-10">#</th>
@@ -1383,7 +1384,7 @@ export default function PerformancePage() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="overflow-y-auto">
+            <div className="overflow-y-auto overflow-x-auto">
               {loadingActiveDetail ? (
                 <div className="flex items-center justify-center p-10">
                   <div className="spinner"></div>
@@ -1391,7 +1392,7 @@ export default function PerformancePage() {
               ) : !activeEquipDetail || activeEquipDetail.incidents.length === 0 ? (
                 <div className="p-8 text-center text-gray-400">ไม่มีข้อมูล</div>
               ) : (
-                <table className="w-full text-sm">
+                <table className="w-full text-sm min-w-[640px]">
                   <thead className="sticky top-0 bg-slate-800">
                     <tr className="text-gray-400 border-b border-slate-700">
                       <th className="text-center py-3 px-3 font-medium w-10">#</th>
@@ -1449,7 +1450,7 @@ export default function PerformancePage() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="overflow-y-auto">
+            <div className="overflow-y-auto overflow-x-auto">
               {loadingRepeatDetail ? (
                 <div className="flex items-center justify-center p-10">
                   <div className="spinner"></div>
@@ -1457,7 +1458,7 @@ export default function PerformancePage() {
               ) : !repeatEquipDetail || repeatEquipDetail.incidents.length === 0 ? (
                 <div className="p-8 text-center text-gray-400">ไม่มีข้อมูล</div>
               ) : (
-                <table className="w-full text-sm">
+                <table className="w-full text-sm min-w-[680px]">
                   <thead className="sticky top-0 bg-slate-800">
                     <tr className="text-gray-400 border-b border-slate-700">
                       <th className="text-center py-3 px-3 font-medium w-10">#</th>
@@ -2527,14 +2528,14 @@ function StatCard({ icon: Icon, label, value, color, className }: {
     emerald: 'text-emerald-400 bg-emerald-500/20',
   }
   return (
-    <div className={`glass-card p-4 rounded-xl h-full ${className || ''}`}>
-      <div className="flex flex-col items-center justify-center text-center gap-2 h-full">
-        <div className={`p-2.5 rounded-lg ${cls[color] || 'text-gray-400 bg-gray-500/20'}`}>
-          <Icon className="w-5 h-5" />
+    <div className={`glass-card p-2 sm:p-4 rounded-xl h-full ${className || ''}`}>
+      <div className="flex flex-col items-center justify-center text-center gap-1 sm:gap-2 h-full">
+        <div className={`p-1.5 sm:p-2.5 rounded-lg ${cls[color] || 'text-gray-400 bg-gray-500/20'}`}>
+          <Icon className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
         </div>
         <div>
-          <p className="text-2xl font-bold text-white">{value}</p>
-          <p className="text-xs text-gray-400 mt-0.5">{label}</p>
+          <p className="text-lg sm:text-2xl font-bold text-white leading-tight">{value}</p>
+          <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5 leading-tight">{label}</p>
         </div>
       </div>
     </div>
