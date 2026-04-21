@@ -799,6 +799,8 @@ export default function PerformancePage() {
             </div>
           )}
 
+          {/* Box 1 + Box 2: Side by side */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Box 1: Top 10 Active Equipment with Most Incidents */}
           <div className="glass-card p-5 rounded-2xl">
             <h3 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
@@ -859,11 +861,11 @@ export default function PerformancePage() {
             )}
           </div>
 
-          {/* Box 2: Equipment Name in Store with >2 Incidents */}
+          {/* Box 2: Equipment Duplicate Problems */}
           <div className="glass-card p-5 rounded-2xl">
             <h3 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-orange-400" />
-              Equipment ที่แจ้งซ่อมซ้ำ &gt;2 ครั้ง (ต่อสาขา)
+              Equipment Duplicate Problems
             </h3>
             {repeatEquipment.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 gap-2 text-gray-500">
@@ -915,6 +917,7 @@ export default function PerformancePage() {
               </div>
             )}
           </div>
+          </div>{/* end grid Box1+Box2 */}
 
           {/* Leaderboard */}
           {(() => {
@@ -1162,7 +1165,7 @@ export default function PerformancePage() {
               <div>
                 <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                   <AlertTriangle className="w-5 h-5 text-orange-400" />
-                  Equipment Repeat Incident Detail
+                  Equipment Duplicate Problems — Detail
                 </h2>
                 {repeatEquipDetail && (
                   <p className="text-sm text-gray-400 mt-0.5">
