@@ -1299,60 +1299,66 @@ export default function PerformancePage() {
 
       {/* Store Incident Detail Modal */}
       {storeModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800 rounded-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="p-5 border-b border-slate-700/50 flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                  <ClipboardList className="w-5 h-5 text-blue-400" />
-                  {storeDetail?.store
-                    ? `${storeDetail.store.storeCode} ${storeDetail.store.name}`
-                    : 'Store Incident Detail'}
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="bg-slate-800 rounded-2xl w-full max-w-5xl max-h-[92vh] overflow-hidden flex flex-col">
+            <div className="p-3 sm:p-5 border-b border-slate-700/50 flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h2 className="text-sm sm:text-lg font-semibold text-white flex items-center gap-1.5 flex-wrap">
+                  <ClipboardList className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                  <span className="truncate">
+                    {storeDetail?.store
+                      ? `${storeDetail.store.storeCode} ${storeDetail.store.name}`
+                      : 'Store Incident Detail'}
+                  </span>
                 </h2>
                 {storeDetail && (
-                  <p className="text-sm text-gray-400 mt-0.5">
-                    Period: {new Date(storeDetail.periodStart).toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' })} — {new Date(storeDetail.periodEnd).toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    Period: {new Date(storeDetail.periodStart).toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: '2-digit' })} — {new Date(storeDetail.periodEnd).toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: '2-digit' })}
                   </p>
                 )}
               </div>
-              <button onClick={() => { setStoreModal(false); setStoreDetail(null) }} className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-slate-700/50">
-                <X className="w-5 h-5" />
+              <button onClick={() => { setStoreModal(false); setStoreDetail(null) }} className="p-1.5 sm:p-2 text-gray-400 hover:text-white rounded-lg hover:bg-slate-700/50 flex-shrink-0">
+                <X className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
             </div>
-            <div className="overflow-y-auto overflow-x-auto">
+            <div className="overflow-y-auto overflow-x-auto flex-1">
               {loadingStoreDetail ? (
                 <div className="flex items-center justify-center p-10"><div className="spinner"></div></div>
               ) : !storeDetail || storeDetail.incidents.length === 0 ? (
                 <div className="p-8 text-center text-gray-400">ไม่มีข้อมูล Incident ในช่วงเวลานี้</div>
               ) : (
-                <table className="w-full text-sm min-w-[640px]">
-                  <thead className="sticky top-0 bg-slate-800">
+                <table className="w-full text-xs min-w-[560px]">
+                  <thead className="sticky top-0 bg-slate-800 z-10">
                     <tr className="text-gray-400 border-b border-slate-700">
-                      <th className="text-center py-3 px-3 font-medium w-10">#</th>
-                      <th className="text-left py-3 px-3 font-medium">Incident Date</th>
-                      <th className="text-left py-3 px-3 font-medium">Ticket No.</th>
-                      <th className="text-left py-3 px-3 font-medium">Category</th>
-                      <th className="text-left py-3 px-3 font-medium">Title</th>
-                      <th className="text-left py-3 px-3 font-medium">Resolution</th>
-                      <th className="text-left py-3 px-3 font-medium">Resolved Date</th>
-                      <th className="text-left py-3 px-3 font-medium">Technician</th>
+                      <th className="text-center py-2 px-2 font-medium w-8">#</th>
+                      <th className="text-left py-2 px-2 font-medium whitespace-nowrap">Date</th>
+                      <th className="text-left py-2 px-2 font-medium whitespace-nowrap">Ticket No.</th>
+                      <th className="text-left py-2 px-2 font-medium">Category</th>
+                      <th className="text-left py-2 px-2 font-medium">Title</th>
+                      <th className="text-left py-2 px-2 font-medium">Resolution</th>
+                      <th className="text-left py-2 px-2 font-medium whitespace-nowrap">Resolved</th>
+                      <th className="text-left py-2 px-2 font-medium">Technician</th>
                     </tr>
                   </thead>
                   <tbody>
                     {storeDetail.incidents.map((row) => (
                       <tr key={row.no} className="border-b border-slate-700/40 hover:bg-slate-700/30 transition">
-                        <td className="py-2.5 px-3 text-center text-gray-400">{row.no}</td>
-                        <td className="py-2.5 px-3 text-gray-300 whitespace-nowrap">
+                        <td className="py-2 px-2 text-center text-gray-500">{row.no}</td>
+                        <td className="py-2 px-2 text-gray-300 whitespace-nowrap">
                           {row.incidentDate ? new Date(row.incidentDate).toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '-'}
                         </td>
-                        <td className="py-2.5 px-3 text-blue-400 font-mono text-xs">{row.incidentNo || '-'}</td>
-                        <td className="py-2.5 px-3 text-gray-300">{row.category}</td>
-                        <td className="py-2.5 px-3 text-white">{row.title || '-'}</td>
-                        <td className="py-2.5 px-3 text-gray-300 max-w-[180px] truncate" title={row.resolution}>{row.resolution}</td>
-                        <td className="py-2.5 px-3 text-gray-300 whitespace-nowrap">
+                        <td className="py-2 px-2 text-blue-400 font-mono">{row.incidentNo || '-'}</td>
+                        <td className="py-2 px-2 text-gray-300 whitespace-nowrap">{row.category}</td>
+                        <td className="py-2 px-2 text-white max-w-[140px]">
+                          <div className="truncate" title={row.title || '-'}>{row.title || '-'}</div>
+                        </td>
+                        <td className="py-2 px-2 text-gray-400 max-w-[120px]">
+                          <div className="truncate" title={row.resolution}>{row.resolution}</div>
+                        </td>
+                        <td className="py-2 px-2 text-gray-300 whitespace-nowrap">
                           {row.resolvedAt ? new Date(row.resolvedAt).toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '-'}
                         </td>
-                        <td className="py-2.5 px-3 text-gray-300">{row.technicianName}</td>
+                        <td className="py-2 px-2 text-gray-300 whitespace-nowrap">{row.technicianName}</td>
                       </tr>
                     ))}
                   </tbody>
