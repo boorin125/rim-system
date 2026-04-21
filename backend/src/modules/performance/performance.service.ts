@@ -1066,7 +1066,7 @@ export class PerformanceService {
   /**
    * Get Top N Equipment by Incident Count for a period
    */
-  async getTopEquipment(period?: string, limit = 10, jobTypes?: string[], category?: string) {
+  async getTopEquipment(period?: string, limit = 10, jobTypes?: string[]) {
     const targetPeriod = period || this.getCurrentPeriod();
     const [year, month] = targetPeriod.split('-').map(Number);
     const startDate = new Date(year, month - 1, 1);
@@ -1076,28 +1076,24 @@ export class PerformanceService {
       where: {
         createdAt: { gte: startDate, lte: endDate },
         equipmentId: { not: null },
+        equipment: { category: { not: null } },
         ...(jobTypes && jobTypes.length > 0 ? { jobType: { in: jobTypes } } : {}),
-        ...(category ? { equipment: { category } } : {}),
       },
       select: {
         equipmentId: true,
-        equipment: { select: { id: true, name: true, brand: true, model: true, category: true } },
+        equipment: { select: { category: true } },
       },
     });
 
-    const countMap = new Map<string, { count: number; label: string }>();
+    const countMap = new Map<string, number>();
     for (const inc of incidents) {
-      if (!inc.equipmentId || !inc.equipment) continue;
-      const brandModel = [inc.equipment.brand, inc.equipment.model].filter(Boolean).join(' ');
-      const label = inc.equipment.name || brandModel || `Equipment ${inc.equipmentId}`;
-      const key = label.trim().toLowerCase();
-      const entry = countMap.get(key);
-      if (entry) entry.count++;
-      else countMap.set(key, { count: 1, label });
+      const cat = inc.equipment?.category;
+      if (!cat) continue;
+      countMap.set(cat, (countMap.get(cat) ?? 0) + 1);
     }
 
     return Array.from(countMap.entries())
-      .map(([, v]) => ({ name: v.label, count: v.count }))
+      .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, limit);
   }

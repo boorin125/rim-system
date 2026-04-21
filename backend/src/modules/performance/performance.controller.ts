@@ -184,20 +184,9 @@ export class PerformanceController {
     @Query('period') period?: string,
     @Query('limit') limit?: string,
     @Query('jobTypes') jobTypes?: string,
-    @Query('category') category?: string,
   ) {
     const parsed = jobTypes ? jobTypes.split(',').map(s => s.trim()).filter(Boolean) : undefined;
-    return this.performanceService.getTopEquipment(period, limit ? parseInt(limit) : 10, parsed, category || undefined);
-  }
-
-  @Get('equipment-categories')
-  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK)
-  async getEquipmentCategories(
-    @Query('period') period?: string,
-    @Query('jobTypes') jobTypes?: string,
-  ) {
-    const parsed = jobTypes ? jobTypes.split(',').map(s => s.trim()).filter(Boolean) : undefined;
-    return this.performanceService.getEquipmentCategories(period, parsed);
+    return this.performanceService.getTopEquipment(period, limit ? parseInt(limit) : 10, parsed);
   }
 
   /**

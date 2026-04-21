@@ -322,8 +322,6 @@ export default function PerformancePage() {
   // Top stores / equipment
   const [topStores, setTopStores] = useState<TopStoreEntry[]>([])
   const [topEquipment, setTopEquipment] = useState<TopEquipmentEntry[]>([])
-  const [equipCategories, setEquipCategories] = useState<string[]>([])
-  const [equipCategoryFilter, setEquipCategoryFilter] = useState<string>('')
 
   // Box 1: Top Active Equipment
   const [topActiveEquipment, setTopActiveEquipment] = useState<ActiveEquipmentEntry[]>([])
@@ -432,13 +430,12 @@ export default function PerformancePage() {
           axios.get(`${api}/performance/ytm`, cfg).catch(() => null),
           axios.get(`${api}/performance/yty`, cfg).catch(() => null),
           axios.get(`${api}/performance/top-stores?period=${period}&limit=10${jtParam}`, cfg).catch(() => null),
-          axios.get(`${api}/performance/top-equipment?period=${period}&limit=10${jtParam}${equipCategoryFilter ? `&category=${encodeURIComponent(equipCategoryFilter)}` : ''}`, cfg).catch(() => null),
-          axios.get(`${api}/performance/equipment-categories?period=${period}${jtParam}`, cfg).catch(() => null),
+          axios.get(`${api}/performance/top-equipment?period=${period}&limit=10${jtParam}`, cfg).catch(() => null),
           axios.get(`${api}/performance/resolution-time?period=${period}${jtParam}`, cfg).catch(() => null),
           axios.get(`${api}/performance/top-active-equipment?${equipPeriodMode === 'period' ? `period=${period}&` : ''}limit=10${jtParam}`, cfg).catch(() => null),
           axios.get(`${api}/performance/equipment-repeat?${equipPeriodMode === 'period' ? `period=${period}` : ''}${jtParam}`, cfg).catch(() => null),
         ]
-        const [lbRes, statsRes, trendRes, ytdRes, ytmRes, ytyRes, topStoresRes, topEquipRes, equipCatRes, resTimeRes, topActiveEquipRes, repeatEquipRes] = await Promise.all(calls)
+        const [lbRes, statsRes, trendRes, ytdRes, ytmRes, ytyRes, topStoresRes, topEquipRes, resTimeRes, topActiveEquipRes, repeatEquipRes] = await Promise.all(calls)
         setLeaderboard(lbRes?.data || [])
         setIncidentStats(statsRes?.data || null)
         setSlaTrend(trendRes?.data || [])
@@ -447,7 +444,6 @@ export default function PerformancePage() {
         setYty(ytyRes?.data || null)
         setTopStores(topStoresRes?.data || [])
         setTopEquipment(topEquipRes?.data || [])
-        setEquipCategories(equipCatRes?.data || [])
         setResolutionTimeStats(resTimeRes?.data || null)
         setTopActiveEquipment(topActiveEquipRes?.data || [])
         setRepeatEquipment(repeatEquipRes?.data || [])
@@ -457,7 +453,7 @@ export default function PerformancePage() {
     } finally {
       setIsLoading(false)
     }
-  }, [currentUser, period, isTechnician, isSelfOnly, isManager, sortBy, selectedJobTypes, equipPeriodMode, equipCategoryFilter])
+  }, [currentUser, period, isTechnician, isSelfOnly, isManager, sortBy, selectedJobTypes, equipPeriodMode])
 
   useEffect(() => {
     if (currentUser) loadData()
@@ -763,8 +759,8 @@ export default function PerformancePage() {
           )}
 
           {/* Top 10 Store + Top 10 Equipment charts */}
-          {(topStores.length > 0 || topEquipment.length > 0 || equipCategories.length > 0) && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+          {(topStores.length > 0 || topEquipment.length > 0) && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {topStores.length > 0 && (
                 <div className="glass-card p-5 rounded-2xl">
                   <h3 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
@@ -780,21 +776,21 @@ export default function PerformancePage() {
                     <Zap className="w-4 h-4 text-amber-400" />
                     Top 10 Equipment (Most Incidents)
                   </h3>
-                  {equipCategories.length > 0 && (
-                    <select
-                      value={equipCategoryFilter}
-                      onChange={e => setEquipCategoryFilter(e.target.value)}
-                      className="text-xs px-2 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-white [&>option]:bg-slate-800 [&>option]:text-white focus:outline-none focus:ring-1 focus:ring-amber-500"
-                    >
-                      <option value="">ทุก Category</option>
-                      {equipCategories.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                  )}
+                  <div className="flex rounded-lg overflow-hidden border border-slate-600 text-xs">
+                    <button
+                      onClick={() => setEquipPeriodMode('all')}
+                      className={`px-3 py-1.5 transition ${equipPeriodMode === 'all' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-gray-400 hover:text-white'}`}
+                    >ทั้งหมด</button>
+                    <button
+                      onClick={() => setEquipPeriodMode('period')}
+                      className={`px-3 py-1.5 transition ${equipPeriodMode === 'period' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-gray-400 hover:text-white'}`}
+                    >ตาม Period</button>
+                  </div>
                 </div>
                 {topEquipment.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-10 gap-2 text-gray-500">
                     <Zap className="w-8 h-8 opacity-30" />
-                    <p className="text-sm">ไม่มีข้อมูลใน Category นี้</p>
+                    <p className="text-sm">ไม่มีข้อมูล Equipment</p>
                   </div>
                 ) : (
                   <TopBarChart data={topEquipment.map(e => ({ label: e.name, value: e.count }))} color="#f59e0b" />
@@ -802,21 +798,6 @@ export default function PerformancePage() {
               </div>
             </div>
           )}
-
-          {/* Equipment Boxes Period Toggle */}
-          <div className="flex items-center gap-2 justify-end">
-            <span className="text-xs text-gray-400">ช่วงเวลา Equipment:</span>
-            <div className="flex rounded-lg overflow-hidden border border-slate-600 text-xs">
-              <button
-                onClick={() => setEquipPeriodMode('all')}
-                className={`px-3 py-1.5 transition ${equipPeriodMode === 'all' ? 'bg-cyan-600 text-white' : 'bg-slate-700 text-gray-400 hover:text-white'}`}
-              >ทั้งหมด</button>
-              <button
-                onClick={() => setEquipPeriodMode('period')}
-                className={`px-3 py-1.5 transition ${equipPeriodMode === 'period' ? 'bg-cyan-600 text-white' : 'bg-slate-700 text-gray-400 hover:text-white'}`}
-              >ตาม Period</button>
-            </div>
-          </div>
 
           {/* Box 1: Top 10 Active Equipment with Most Incidents */}
           <div className="glass-card p-5 rounded-2xl">
