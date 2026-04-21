@@ -780,12 +780,17 @@ export default function PerformancePage() {
           )}
 
           {/* Box 1: Top 10 Active Equipment with Most Incidents */}
-          {topActiveEquipment.length > 0 && (
-            <div className="glass-card p-5 rounded-2xl">
-              <h3 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
-                <HardDrive className="w-4 h-4 text-cyan-400" />
-                Top 10 Equipment Active (Most Incidents)
-              </h3>
+          <div className="glass-card p-5 rounded-2xl">
+            <h3 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
+              <HardDrive className="w-4 h-4 text-cyan-400" />
+              Top 10 Equipment Active (Most Incidents)
+            </h3>
+            {topActiveEquipment.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 gap-2 text-gray-500">
+                <HardDrive className="w-8 h-8 opacity-30" />
+                <p className="text-sm">ไม่มีอุปกรณ์ที่ต้องให้ความสนใจในช่วงเวลานี้</p>
+              </div>
+            ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -831,16 +836,21 @@ export default function PerformancePage() {
                   </tbody>
                 </table>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Box 2: Equipment Name in Store with >2 Incidents */}
-          {repeatEquipment.length > 0 && (
-            <div className="glass-card p-5 rounded-2xl">
-              <h3 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-orange-400" />
-                Equipment ที่แจ้งซ่อมซ้ำ &gt;2 ครั้ง (ต่อสาขา)
-              </h3>
+          <div className="glass-card p-5 rounded-2xl">
+            <h3 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-orange-400" />
+              Equipment ที่แจ้งซ่อมซ้ำ &gt;2 ครั้ง (ต่อสาขา)
+            </h3>
+            {repeatEquipment.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 gap-2 text-gray-500">
+                <AlertTriangle className="w-8 h-8 opacity-30" />
+                <p className="text-sm">ไม่พบอุปกรณ์ที่แจ้งซ่อมซ้ำเกินเกณฑ์ในช่วงเวลานี้</p>
+              </div>
+            ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -883,8 +893,8 @@ export default function PerformancePage() {
                   </tbody>
                 </table>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Leaderboard */}
           {(() => {
