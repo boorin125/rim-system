@@ -2154,7 +2154,7 @@ function SlaLineChart({ data }: { data: SlaTrendEntry[] }) {
             const label = `${d.slaPercent}%`
             const labelAnchor = i === 0 ? 'start' : i === data.length - 1 ? 'end' : 'middle'
             const labelX = i === 0 ? cx + 4 : i === data.length - 1 ? cx - 4 : cx
-            const labelY = Math.max(cy - 18, 14)
+            const labelY = Math.max(cy - 28, 14)
             return (
               <g key={d.period}>
                 {/* % label */}
