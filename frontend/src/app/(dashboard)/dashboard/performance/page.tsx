@@ -235,6 +235,32 @@ interface StoreIncidentRow {
   technicianName: string
 }
 
+interface HelpdeskStats {
+  period: string
+  totalIncidents: number
+  responseTime: { avg: number | null; min: number | null; max: number | null; count: number }
+  confirmCloseTime: { avg: number | null; min: number | null; max: number | null; count: number }
+  score: number
+}
+
+interface HelpdeskEntry {
+  rank: number
+  id: number
+  name: string
+  totalCreated: number
+  totalConfirmed: number
+  responseTime: { avg: number | null; min: number | null; max: number | null; count: number }
+  confirmCloseTime: { avg: number | null; min: number | null; max: number | null; count: number }
+  score: number
+  grade: string
+  gradeDescription: string
+}
+
+interface HelpdeskLeaderboard {
+  period: string
+  leaderboard: HelpdeskEntry[]
+}
+
 interface StoreIncidentDetail {
   store: { id: number; storeCode: string; name: string } | null
   period: string
@@ -360,6 +386,10 @@ export default function PerformancePage() {
   // Equipment boxes period mode
   const [equipPeriodMode, setEquipPeriodMode] = useState<'all' | 'period'>('period')
 
+  // Help Desk Performance
+  const [helpdeskStats, setHelpdeskStats] = useState<HelpdeskStats | null>(null)
+  const [helpdeskLeaderboard, setHelpdeskLeaderboard] = useState<HelpdeskLeaderboard | null>(null)
+
   // Resolution time stats
   const [resolutionTimeStats, setResolutionTimeStats] = useState<ResolutionTimeStats | null>(null)
 
@@ -456,8 +486,10 @@ export default function PerformancePage() {
           axios.get(`${api}/performance/resolution-time?period=${period}${jtParam}`, cfg).catch(() => null),
           axios.get(`${api}/performance/top-active-equipment?${equipPeriodMode === 'period' ? `period=${period}&` : ''}limit=10${jtParam}`, cfg).catch(() => null),
           axios.get(`${api}/performance/equipment-repeat?${equipPeriodMode === 'period' ? `period=${period}` : ''}${jtParam}`, cfg).catch(() => null),
+          axios.get(`${api}/performance/helpdesk-stats?period=${period}${jtParam}`, cfg).catch(() => null),
+          axios.get(`${api}/performance/helpdesk-leaderboard?period=${period}${jtParam}`, cfg).catch(() => null),
         ]
-        const [lbRes, statsRes, trendRes, ytdRes, ytmRes, ytyRes, topStoresRes, topEquipRes, resTimeRes, topActiveEquipRes, repeatEquipRes] = await Promise.all(calls)
+        const [lbRes, statsRes, trendRes, ytdRes, ytmRes, ytyRes, topStoresRes, topEquipRes, resTimeRes, topActiveEquipRes, repeatEquipRes, hdStatsRes, hdLbRes] = await Promise.all(calls)
         setLeaderboard(lbRes?.data || [])
         setIncidentStats(statsRes?.data || null)
         setSlaTrend(trendRes?.data || [])
@@ -469,6 +501,8 @@ export default function PerformancePage() {
         setResolutionTimeStats(resTimeRes?.data || null)
         setTopActiveEquipment(topActiveEquipRes?.data || [])
         setRepeatEquipment(repeatEquipRes?.data || [])
+        setHelpdeskStats(hdStatsRes?.data || null)
+        setHelpdeskLeaderboard(hdLbRes?.data || null)
       }
     } catch (err) {
       console.error('Error loading performance:', err)
@@ -958,6 +992,126 @@ export default function PerformancePage() {
             )}
           </div>
           </div>{/* end grid Box1+Box2 */}
+
+          {/* Help Desk Performance */}
+          {(() => {
+            const fmtMin = (v: number | null) => {
+              if (v === null || v === undefined) return '-'
+              if (v < 60) return `${Math.round(v)} min`
+              if (v < 1440) return `${(v / 60).toFixed(1)} hrs`
+              return `${(v / 1440).toFixed(1)} days`
+            }
+            const hdGradeColor: Record<string, string> = {
+              'A+': 'text-emerald-400', 'A': 'text-green-400', 'B+': 'text-sky-400',
+              'B': 'text-blue-400', 'C+': 'text-yellow-400', 'C': 'text-orange-300',
+              'D': 'text-orange-400', 'F': 'text-red-400',
+            }
+            return (
+              <div className="glass-card rounded-2xl overflow-hidden">
+                {/* Header */}
+                <div className="p-4 sm:p-6 border-b border-slate-700/50">
+                  <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-cyan-400" />
+                    Help Desk Performance — {period}
+                  </h3>
+                  <p className="text-xs text-gray-400 mt-1">Response Time = เวลาที่ลูกค้าแจ้ง → Helpdesk เปิด Ticket &nbsp;|&nbsp; Confirm Close = เวลาที่ช่างแก้ไข → Helpdesk Confirm Close</p>
+                </div>
+
+                {/* Overall Stats */}
+                {helpdeskStats && (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 sm:p-6 border-b border-slate-700/30">
+                    {[
+                      { label: 'Avg Response Time', value: fmtMin(helpdeskStats.responseTime.avg), sub: `จาก ${helpdeskStats.responseTime.count} tickets`, color: 'text-cyan-400', icon: Timer },
+                      { label: 'Min Response Time', value: fmtMin(helpdeskStats.responseTime.min), sub: 'เร็วที่สุด', color: 'text-emerald-400', icon: Zap },
+                      { label: 'Max Response Time', value: fmtMin(helpdeskStats.responseTime.max), sub: 'ช้าที่สุด', color: 'text-red-400', icon: AlertTriangle },
+                      { label: 'Avg Confirm Close', value: fmtMin(helpdeskStats.confirmCloseTime.avg), sub: `จาก ${helpdeskStats.confirmCloseTime.count} tickets`, color: 'text-purple-400', icon: CheckCircle2 },
+                    ].map(({ label, value, sub, color, icon: Icon }) => (
+                      <div key={label} className="bg-slate-700/30 rounded-xl p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Icon className={`w-4 h-4 ${color}`} />
+                          <span className="text-xs text-gray-400">{label}</span>
+                        </div>
+                        <div className={`text-xl font-bold ${color}`}>{value}</div>
+                        <div className="text-xs text-gray-500 mt-0.5">{sub}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Leaderboard Table */}
+                {helpdeskLeaderboard && helpdeskLeaderboard.leaderboard.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-800/60">
+                        <tr className="text-gray-400 border-b border-slate-700">
+                          <th className="text-center py-3 px-3 font-medium w-10">#</th>
+                          <th className="text-left py-3 px-4 font-medium">Name</th>
+                          <th className="text-center py-3 px-3 font-medium">Created</th>
+                          <th className="text-center py-3 px-3 font-medium">Avg Response</th>
+                          <th className="text-center py-3 px-3 font-medium">Min</th>
+                          <th className="text-center py-3 px-3 font-medium">Max</th>
+                          <th className="text-center py-3 px-3 font-medium">Avg Confirm Close</th>
+                          <th className="text-center py-3 px-3 font-medium">Score</th>
+                          <th className="text-center py-3 px-3 font-medium">Grade</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {helpdeskLeaderboard.leaderboard.map(hd => (
+                          <tr key={hd.id} className="border-b border-slate-700/40 hover:bg-slate-700/20 transition">
+                            <td className="py-3 px-3 text-center text-gray-400 font-mono">{hd.rank}</td>
+                            <td className="py-3 px-4 text-white font-medium">{hd.name}</td>
+                            <td className="py-3 px-3 text-center text-gray-300">{hd.totalCreated}</td>
+                            <td className="py-3 px-3 text-center">
+                              <span className={hd.responseTime.avg !== null && hd.responseTime.avg <= 15 ? 'text-emerald-400' : hd.responseTime.avg !== null && hd.responseTime.avg <= 30 ? 'text-yellow-400' : 'text-red-400'}>
+                                {fmtMin(hd.responseTime.avg)}
+                              </span>
+                            </td>
+                            <td className="py-3 px-3 text-center text-gray-400">{fmtMin(hd.responseTime.min)}</td>
+                            <td className="py-3 px-3 text-center text-gray-400">{fmtMin(hd.responseTime.max)}</td>
+                            <td className="py-3 px-3 text-center">
+                              <span className={hd.confirmCloseTime.avg !== null && hd.confirmCloseTime.avg <= 30 ? 'text-emerald-400' : hd.confirmCloseTime.avg !== null && hd.confirmCloseTime.avg <= 60 ? 'text-yellow-400' : 'text-red-400'}>
+                                {fmtMin(hd.confirmCloseTime.avg)}
+                              </span>
+                            </td>
+                            <td className="py-3 px-3 text-center">
+                              <span className={scoreColor(hd.score)}>{hd.score}</span>
+                            </td>
+                            <td className="py-3 px-3 text-center">
+                              <span className={`font-bold text-sm ${hdGradeColor[hd.grade] ?? 'text-gray-400'}`}>{hd.grade}</span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="p-8 text-center text-gray-400">
+                    <Clock className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-sm">ไม่มีข้อมูล Helpdesk ในช่วงเวลานี้</p>
+                  </div>
+                )}
+
+                {/* Scoring Criteria */}
+                <div className="p-4 border-t border-slate-700/30 bg-slate-800/30">
+                  <p className="text-xs text-gray-400 font-medium mb-2">เกณฑ์การให้คะแนน</p>
+                  <div className="grid grid-cols-2 gap-4 text-xs text-gray-500">
+                    <div>
+                      <p className="text-gray-300 font-medium mb-1">Response Time (60%)</p>
+                      {[['≤ 5 min', '100'], ['≤ 15 min', '85'], ['≤ 30 min', '70'], ['≤ 60 min', '50'], ['≤ 120 min', '30'], ['> 120 min', '10']].map(([l, s]) => (
+                        <div key={l} className="flex justify-between"><span>{l}</span><span className="text-cyan-400">{s} pts</span></div>
+                      ))}
+                    </div>
+                    <div>
+                      <p className="text-gray-300 font-medium mb-1">Confirm Close (40%)</p>
+                      {[['≤ 15 min', '100'], ['≤ 30 min', '85'], ['≤ 60 min', '70'], ['≤ 120 min', '55'], ['≤ 240 min', '35'], ['> 240 min', '15']].map(([l, s]) => (
+                        <div key={l} className="flex justify-between"><span>{l}</span><span className="text-purple-400">{s} pts</span></div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
 
           {/* Leaderboard */}
           {(() => {

@@ -347,6 +347,28 @@ export class PerformanceController {
     return this.performanceService.getEquipmentNameStoreDetail(equipmentName, storeId);
   }
 
+  /** Help Desk Overall Stats */
+  @Get('helpdesk-stats')
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK)
+  async getHelpdeskStats(
+    @Query('period') period?: string,
+    @Query('jobTypes') jobTypes?: string,
+  ) {
+    const parsed = jobTypes ? jobTypes.split(',').map(s => s.trim()).filter(Boolean) : undefined;
+    return this.performanceService.getHelpdeskStats(period, parsed);
+  }
+
+  /** Help Desk Leaderboard */
+  @Get('helpdesk-leaderboard')
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK)
+  async getHelpdeskLeaderboard(
+    @Query('period') period?: string,
+    @Query('jobTypes') jobTypes?: string,
+  ) {
+    const parsed = jobTypes ? jobTypes.split(',').map(s => s.trim()).filter(Boolean) : undefined;
+    return this.performanceService.getHelpdeskLeaderboard(period, parsed);
+  }
+
   private getCurrentPeriod(): string {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;

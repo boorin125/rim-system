@@ -1348,6 +1348,228 @@ export class PerformanceService {
     };
   }
 
+  // ──────────────────────────────────────────────────
+  // HELP DESK PERFORMANCE
+  // ──────────────────────────────────────────────────
+
+  private helpdeskResponseScore(avgMin: number | null): number {
+    if (avgMin === null) return 0;
+    if (avgMin <= 5) return 100;
+    if (avgMin <= 15) return 85;
+    if (avgMin <= 30) return 70;
+    if (avgMin <= 60) return 50;
+    if (avgMin <= 120) return 30;
+    return 10;
+  }
+
+  private helpdeskConfirmScore(avgMin: number | null): number {
+    if (avgMin === null) return 0;
+    if (avgMin <= 15) return 100;
+    if (avgMin <= 30) return 85;
+    if (avgMin <= 60) return 70;
+    if (avgMin <= 120) return 55;
+    if (avgMin <= 240) return 35;
+    return 15;
+  }
+
+  private calcHelpdeskScore(responseAvg: number | null, confirmAvg: number | null): number {
+    const hasResponse = responseAvg !== null;
+    const hasConfirm = confirmAvg !== null;
+    if (!hasResponse && !hasConfirm) return 0;
+    const rs = this.helpdeskResponseScore(responseAvg);
+    const cs = this.helpdeskConfirmScore(confirmAvg);
+    if (!hasResponse) return cs;
+    if (!hasConfirm) return rs;
+    return Math.round(rs * 0.6 + cs * 0.4);
+  }
+
+  async getHelpdeskStats(period?: string, jobTypes?: string[]) {
+    const targetPeriod = period || this.getCurrentPeriod();
+    const [year, month] = targetPeriod.split('-').map(Number);
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59);
+
+    const helpdeskUsers = await this.prisma.user.findMany({
+      where: { roles: { some: { role: UserRole.HELP_DESK } }, status: 'ACTIVE' },
+      select: { id: true },
+    });
+    const helpdeskIds = helpdeskUsers.map(u => u.id);
+
+    const incidents = await this.prisma.incident.findMany({
+      where: {
+        createdAt: { gte: startDate, lte: endDate },
+        createdById: { in: helpdeskIds },
+        ...(jobTypes?.length ? { jobType: { in: jobTypes } } : {}),
+      },
+      select: {
+        incidentDate: true,
+        createdAt: true,
+        resolvedAt: true,
+        confirmedAt: true,
+        confirmedById: true,
+      },
+    });
+
+    const responseTimes = incidents
+      .filter(i => i.incidentDate && i.createdAt > i.incidentDate)
+      .map(i => (i.createdAt.getTime() - i.incidentDate!.getTime()) / 60000);
+
+    const confirmTimes = incidents
+      .filter(i => i.confirmedAt && i.resolvedAt && i.confirmedAt > i.resolvedAt)
+      .map(i => (i.confirmedAt!.getTime() - i.resolvedAt!.getTime()) / 60000);
+
+    const avg = (arr: number[]) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
+    const round2 = (v: number | null) => v !== null ? Math.round(v * 100) / 100 : null;
+
+    const responseAvg = round2(avg(responseTimes));
+    const confirmAvg = round2(avg(confirmTimes));
+
+    return {
+      period: targetPeriod,
+      totalIncidents: incidents.length,
+      responseTime: {
+        avg: responseAvg,
+        min: responseTimes.length ? round2(Math.min(...responseTimes)) : null,
+        max: responseTimes.length ? round2(Math.max(...responseTimes)) : null,
+        count: responseTimes.length,
+      },
+      confirmCloseTime: {
+        avg: confirmAvg,
+        min: confirmTimes.length ? round2(Math.min(...confirmTimes)) : null,
+        max: confirmTimes.length ? round2(Math.max(...confirmTimes)) : null,
+        count: confirmTimes.length,
+      },
+      score: this.calcHelpdeskScore(responseAvg, confirmAvg),
+    };
+  }
+
+  async getHelpdeskLeaderboard(period?: string, jobTypes?: string[]) {
+    const targetPeriod = period || this.getCurrentPeriod();
+    const [year, month] = targetPeriod.split('-').map(Number);
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59);
+
+    const helpdeskUsers = await this.prisma.user.findMany({
+      where: { roles: { some: { role: UserRole.HELP_DESK } }, status: 'ACTIVE' },
+      select: { id: true, firstName: true, lastName: true },
+    });
+    const helpdeskIds = helpdeskUsers.map(u => u.id);
+
+    const incidents = await this.prisma.incident.findMany({
+      where: {
+        createdAt: { gte: startDate, lte: endDate },
+        createdById: { in: helpdeskIds },
+        ...(jobTypes?.length ? { jobType: { in: jobTypes } } : {}),
+      },
+      select: {
+        incidentDate: true,
+        createdAt: true,
+        resolvedAt: true,
+        confirmedAt: true,
+        createdById: true,
+        confirmedById: true,
+      },
+    });
+
+    type HdData = {
+      id: number;
+      name: string;
+      responseTimes: number[];
+      confirmTimes: number[];
+      totalCreated: number;
+      totalConfirmed: number;
+    };
+
+    const map = new Map<number, HdData>();
+    for (const u of helpdeskUsers) {
+      map.set(u.id, {
+        id: u.id,
+        name: `${u.firstName} ${u.lastName}`,
+        responseTimes: [],
+        confirmTimes: [],
+        totalCreated: 0,
+        totalConfirmed: 0,
+      });
+    }
+
+    for (const inc of incidents) {
+      const creator = map.get(inc.createdById);
+      if (creator) {
+        creator.totalCreated++;
+        if (inc.incidentDate && inc.createdAt > inc.incidentDate) {
+          creator.responseTimes.push((inc.createdAt.getTime() - inc.incidentDate.getTime()) / 60000);
+        }
+      }
+      if (inc.confirmedById) {
+        const confirmer = map.get(inc.confirmedById);
+        if (confirmer && inc.confirmedAt && inc.resolvedAt && inc.confirmedAt > inc.resolvedAt) {
+          confirmer.confirmTimes.push((inc.confirmedAt.getTime() - inc.resolvedAt.getTime()) / 60000);
+          confirmer.totalConfirmed++;
+        }
+      }
+    }
+
+    const avg = (arr: number[]) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
+    const round2 = (v: number | null) => v !== null ? Math.round(v * 100) / 100 : null;
+
+    const results = Array.from(map.values()).map(hd => {
+      const responseAvg = round2(avg(hd.responseTimes));
+      const confirmAvg = round2(avg(hd.confirmTimes));
+      const score = this.calcHelpdeskScore(responseAvg, confirmAvg);
+      const gradeInfo = this.getGrade(score);
+      return {
+        id: hd.id,
+        name: hd.name,
+        totalCreated: hd.totalCreated,
+        totalConfirmed: hd.totalConfirmed,
+        responseTime: {
+          avg: responseAvg,
+          min: hd.responseTimes.length ? round2(Math.min(...hd.responseTimes)) : null,
+          max: hd.responseTimes.length ? round2(Math.max(...hd.responseTimes)) : null,
+          count: hd.responseTimes.length,
+        },
+        confirmCloseTime: {
+          avg: confirmAvg,
+          min: hd.confirmTimes.length ? round2(Math.min(...hd.confirmTimes)) : null,
+          max: hd.confirmTimes.length ? round2(Math.max(...hd.confirmTimes)) : null,
+          count: hd.confirmTimes.length,
+        },
+        score,
+        grade: gradeInfo.grade,
+        gradeDescription: gradeInfo.description,
+      };
+    });
+
+    return {
+      period: targetPeriod,
+      leaderboard: results.sort((a, b) => b.score - a.score).map((r, i) => ({ ...r, rank: i + 1 })),
+      scoringCriteria: {
+        responseTime: {
+          weight: '60%',
+          tiers: [
+            { label: '≤ 5 min', score: 100 },
+            { label: '≤ 15 min', score: 85 },
+            { label: '≤ 30 min', score: 70 },
+            { label: '≤ 60 min', score: 50 },
+            { label: '≤ 120 min', score: 30 },
+            { label: '> 120 min', score: 10 },
+          ],
+        },
+        confirmClose: {
+          weight: '40%',
+          tiers: [
+            { label: '≤ 15 min', score: 100 },
+            { label: '≤ 30 min', score: 85 },
+            { label: '≤ 60 min', score: 70 },
+            { label: '≤ 120 min', score: 55 },
+            { label: '≤ 240 min', score: 35 },
+            { label: '> 240 min', score: 15 },
+          ],
+        },
+      },
+    };
+  }
+
   // Helper: average score from an array of performance records
   private avgScore(scores: any[]): number {
     if (scores.length === 0) return 0;
