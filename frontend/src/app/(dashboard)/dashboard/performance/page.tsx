@@ -389,6 +389,7 @@ export default function PerformancePage() {
   // Help Desk Performance
   const [helpdeskStats, setHelpdeskStats] = useState<HelpdeskStats | null>(null)
   const [helpdeskLeaderboard, setHelpdeskLeaderboard] = useState<HelpdeskLeaderboard | null>(null)
+  const [showHdCriteria, setShowHdCriteria] = useState(false)
 
   // Resolution time stats
   const [resolutionTimeStats, setResolutionTimeStats] = useState<ResolutionTimeStats | null>(null)
@@ -1010,11 +1011,38 @@ export default function PerformancePage() {
               <div className="glass-card rounded-2xl overflow-hidden">
                 {/* Header */}
                 <div className="p-4 sm:p-6 border-b border-slate-700/50">
-                  <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                    <Clock className="w-5 h-5 text-cyan-400" />
-                    Help Desk Performance — {period}
-                  </h3>
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                      <Clock className="w-5 h-5 text-cyan-400" />
+                      Help Desk Performance — {period}
+                    </h3>
+                    <button
+                      onClick={() => setShowHdCriteria(v => !v)}
+                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${showHdCriteria ? 'bg-amber-500/20 text-amber-300' : 'text-amber-500 hover:text-amber-300 hover:bg-amber-500/10'}`}
+                      title="เกณฑ์การให้คะแนน"
+                    >
+                      <Lightbulb className="w-4 h-4" />
+                      เกณฑ์คะแนน
+                    </button>
+                  </div>
                   <p className="text-xs text-gray-400 mt-1">Response Time = เวลาที่ลูกค้าแจ้ง → Helpdesk เปิด Ticket &nbsp;|&nbsp; Confirm Close = เวลาที่ช่างแก้ไข → Helpdesk Confirm Close</p>
+                  {/* Scoring Criteria Panel */}
+                  {showHdCriteria && (
+                    <div className="mt-3 pt-3 border-t border-amber-500/20 grid grid-cols-2 gap-4 text-xs text-gray-500">
+                      <div>
+                        <p className="text-amber-400 font-semibold mb-1.5 flex items-center gap-1"><Lightbulb className="w-3 h-3" /> Response Time (60%)</p>
+                        {[['≤ 5 min', '100'], ['≤ 15 min', '85'], ['≤ 30 min', '70'], ['≤ 60 min', '50'], ['≤ 120 min', '30'], ['> 120 min', '10']].map(([l, s]) => (
+                          <div key={l} className="flex justify-between py-0.5"><span>{l}</span><span className="text-cyan-400 font-medium">{s} pts</span></div>
+                        ))}
+                      </div>
+                      <div>
+                        <p className="text-amber-400 font-semibold mb-1.5 flex items-center gap-1"><Lightbulb className="w-3 h-3" /> Confirm Close (40%)</p>
+                        {[['≤ 15 min', '100'], ['≤ 30 min', '85'], ['≤ 60 min', '70'], ['≤ 120 min', '55'], ['≤ 240 min', '35'], ['> 240 min', '15']].map(([l, s]) => (
+                          <div key={l} className="flex justify-between py-0.5"><span>{l}</span><span className="text-purple-400 font-medium">{s} pts</span></div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Overall Stats */}
@@ -1091,24 +1119,6 @@ export default function PerformancePage() {
                   </div>
                 )}
 
-                {/* Scoring Criteria */}
-                <div className="p-4 border-t border-slate-700/30 bg-slate-800/30">
-                  <p className="text-xs text-gray-400 font-medium mb-2">เกณฑ์การให้คะแนน</p>
-                  <div className="grid grid-cols-2 gap-4 text-xs text-gray-500">
-                    <div>
-                      <p className="text-gray-300 font-medium mb-1">Response Time (60%)</p>
-                      {[['≤ 5 min', '100'], ['≤ 15 min', '85'], ['≤ 30 min', '70'], ['≤ 60 min', '50'], ['≤ 120 min', '30'], ['> 120 min', '10']].map(([l, s]) => (
-                        <div key={l} className="flex justify-between"><span>{l}</span><span className="text-cyan-400">{s} pts</span></div>
-                      ))}
-                    </div>
-                    <div>
-                      <p className="text-gray-300 font-medium mb-1">Confirm Close (40%)</p>
-                      {[['≤ 15 min', '100'], ['≤ 30 min', '85'], ['≤ 60 min', '70'], ['≤ 120 min', '55'], ['≤ 240 min', '35'], ['> 240 min', '15']].map(([l, s]) => (
-                        <div key={l} className="flex justify-between"><span>{l}</span><span className="text-purple-400">{s} pts</span></div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
               </div>
             )
           })()}
