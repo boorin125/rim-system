@@ -1139,7 +1139,7 @@ export default function PerformancePage() {
                 <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                   <ClipboardList className="w-5 h-5 text-blue-400" />
                   {storeDetail?.store
-                    ? `${storeDetail.store.storeCode} ${storeDetail.store.storeName}`
+                    ? `${storeDetail.store.storeCode} ${storeDetail.store.name}`
                     : 'Store Incident Detail'}
                 </h2>
                 {storeDetail && (
@@ -1162,13 +1162,13 @@ export default function PerformancePage() {
                   <thead className="sticky top-0 bg-slate-800">
                     <tr className="text-gray-400 border-b border-slate-700">
                       <th className="text-center py-3 px-3 font-medium w-10">#</th>
-                      <th className="text-left py-3 px-3 font-medium">วันที่แจ้ง</th>
+                      <th className="text-left py-3 px-3 font-medium">Incident Date</th>
                       <th className="text-left py-3 px-3 font-medium">Ticket No.</th>
                       <th className="text-left py-3 px-3 font-medium">Category</th>
-                      <th className="text-left py-3 px-3 font-medium">หัวข้อ</th>
+                      <th className="text-left py-3 px-3 font-medium">Title</th>
                       <th className="text-left py-3 px-3 font-medium">Resolution</th>
-                      <th className="text-left py-3 px-3 font-medium">วันที่แก้ไข</th>
-                      <th className="text-left py-3 px-3 font-medium">ช่าง</th>
+                      <th className="text-left py-3 px-3 font-medium">Resolved Date</th>
+                      <th className="text-left py-3 px-3 font-medium">Technician</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1229,13 +1229,13 @@ export default function PerformancePage() {
                   <thead className="sticky top-0 bg-slate-800">
                     <tr className="text-gray-400 border-b border-slate-700">
                       <th className="text-center py-3 px-3 font-medium w-10">#</th>
-                      <th className="text-left py-3 px-3 font-medium">วันที่แจ้ง</th>
+                      <th className="text-left py-3 px-3 font-medium">Incident Date</th>
                       <th className="text-left py-3 px-3 font-medium">Ticket No.</th>
                       <th className="text-left py-3 px-3 font-medium">Store</th>
-                      <th className="text-left py-3 px-3 font-medium">หัวข้อ</th>
+                      <th className="text-left py-3 px-3 font-medium">Title</th>
                       <th className="text-left py-3 px-3 font-medium">Resolution</th>
-                      <th className="text-left py-3 px-3 font-medium">วันที่แก้ไข</th>
-                      <th className="text-left py-3 px-3 font-medium">ช่าง</th>
+                      <th className="text-left py-3 px-3 font-medium">Resolved Date</th>
+                      <th className="text-left py-3 px-3 font-medium">Technician</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1295,13 +1295,13 @@ export default function PerformancePage() {
                   <thead className="sticky top-0 bg-slate-800">
                     <tr className="text-gray-400 border-b border-slate-700">
                       <th className="text-center py-3 px-3 font-medium w-10">#</th>
-                      <th className="text-left py-3 px-3 font-medium">วันที่แจ้ง</th>
+                      <th className="text-left py-3 px-3 font-medium">Incident Date</th>
                       <th className="text-left py-3 px-3 font-medium">Ticket No.</th>
                       <th className="text-left py-3 px-3 font-medium">Brand / Model / S/N</th>
-                      <th className="text-left py-3 px-3 font-medium">หัวข้อ</th>
+                      <th className="text-left py-3 px-3 font-medium">Title</th>
                       <th className="text-left py-3 px-3 font-medium">Resolution</th>
-                      <th className="text-left py-3 px-3 font-medium">วันที่แก้ไข</th>
-                      <th className="text-left py-3 px-3 font-medium">ช่าง</th>
+                      <th className="text-left py-3 px-3 font-medium">Resolved Date</th>
+                      <th className="text-left py-3 px-3 font-medium">Technician</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1478,7 +1478,7 @@ function HorizontalBarChart({ data, color, onRowClick }: { data: { label: string
               {/* Row label — right-aligned, clickable */}
               <text x={PAD_L - 10} y={cy + 5} textAnchor="end"
                 fill={onRowClick ? '#60a5fa' : labelColor} fontSize={FONT_SZ} fontWeight="500"
-                style={onRowClick ? { textDecoration: 'underline' } : undefined}>
+                style={undefined}>
                 {d.label}
               </text>
 
