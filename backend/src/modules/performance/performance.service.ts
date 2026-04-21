@@ -1029,7 +1029,7 @@ export class PerformanceService {
 
     const store = await this.prisma.store.findUnique({
       where: { id: storeId },
-      select: { id: true, storeCode: true, storeName: true },
+      select: { id: true, storeCode: true, name: true },
     });
 
     const incidents = await this.prisma.incident.findMany({
