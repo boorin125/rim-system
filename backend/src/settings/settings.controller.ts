@@ -397,14 +397,13 @@ export class SettingsController {
 
     // Transform to frontend expected format
     return result.data.map((backup: any) => {
-      const safeName = backup.customName
-        ? backup.customName.replace(/[\s/\\:*?"<>|]/g, '_') + '_'
-        : '';
       return {
         id: backup.id,
         jobCode: backup.jobCode,
         customName: backup.customName || null,
-        filename: backup.fileName || `${safeName}${backup.jobCode}.json`,
+        filename: backup.fileName || (backup.customName
+          ? backup.customName.replace(/[\s/\\:*?"<>|]/g, '_') + '.json'
+          : `${backup.jobCode}.json`),
         size: backup.fileSize ? this.formatFileSize(backup.fileSize) : 'N/A',
         createdAt: backup.createdAt,
         type: backup.scheduleId ? 'auto' : 'manual',

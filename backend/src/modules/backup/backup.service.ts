@@ -271,11 +271,10 @@ export class BackupService {
         backup.schedule?.externalPath,
       );
 
-      // Create backup file — include custom name as prefix if provided
-      const safeName = backup.customName
-        ? backup.customName.replace(/[\s/\\:*?"<>|]/g, '_') + '_'
-        : '';
-      const fileName = `${safeName}${backup.jobCode}.json`;
+      // Create backup file — use customName as-is if provided, else fall back to jobCode
+      const fileName = backup.customName
+        ? backup.customName.replace(/[\s/\\:*?"<>|]/g, '_') + '.json'
+        : `${backup.jobCode}.json`;
       const filePath = path.join(backupDir, fileName);
 
       const passwordHash = preHashedPassword || (password ? await bcrypt.hash(password, 10) : undefined);
