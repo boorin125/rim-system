@@ -546,6 +546,7 @@ export class PerformanceService {
         jobType: true,
         slaDeadline: true,
         resolvedAt: true,
+        reopenCount: true,
         slaDefenses: { select: { status: true } },
       },
     });
@@ -591,6 +592,8 @@ export class PerformanceService {
       byJobType[jt] = (byJobType[jt] || 0) + 1;
     }
 
+    const reopen = incidents.filter(i => (i.reopenCount ?? 0) > 0).length;
+
     return {
       period: targetPeriod,
       total,
@@ -598,6 +601,7 @@ export class PerformanceService {
       pending,
       cancelled,
       open,
+      reopen,
       slaPass,
       slaFail,
       slaPercent,

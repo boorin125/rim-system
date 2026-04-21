@@ -155,6 +155,7 @@ interface IncidentStats {
   pending: number
   cancelled: number
   open: number
+  reopen: number
   slaPass: number
   slaFail: number
   slaPercent: number
@@ -737,7 +738,7 @@ export default function PerformancePage() {
         <div className="space-y-6">
           {/* Incident Stats Cards (row 1) */}
           {incidentStats && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
               <StatCard icon={ClipboardList} label="Total" value={incidentStats.total} color="blue" />
               <StatCard icon={CheckCircle2} label="Closed" value={incidentStats.closed} color="green" />
               <StatCard icon={Clock} label="Pending" value={incidentStats.pending} color="yellow" />
@@ -745,6 +746,7 @@ export default function PerformancePage() {
               <StatCard icon={Zap} label="MA" value={incidentStats.byJobType?.['MA'] ?? 0} color="blue" />
               <StatCard icon={Activity} label="Adhoc" value={incidentStats.byJobType?.['Adhoc'] ?? 0} color="indigo" />
               <StatCard icon={BarChart3} label="Project" value={incidentStats.byJobType?.['Project'] ?? 0} color="purple" />
+              <StatCard icon={RotateCcw} label="Reopen" value={incidentStats.reopen ?? 0} color="orange" />
             </div>
           )}
 
