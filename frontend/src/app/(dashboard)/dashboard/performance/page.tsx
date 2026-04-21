@@ -1432,7 +1432,7 @@ function TopBarChart({ data, color }: { data: { label: string; value: number }[]
 
   const PAD_L = 42
   const PAD_R = 16
-  const PAD_T = 16
+  const PAD_T = 32
   const COL_W = 58
   const BAR_W = 36
   const CHART_H = 220
@@ -1505,7 +1505,7 @@ function TopBarChart({ data, color }: { data: { label: string; value: number }[]
 
               {/* Value on top */}
               {d.value > 0 && (
-                <text x={bx + BAR_W / 2} y={by - D3 - 5} textAnchor="middle"
+                <text x={bx + BAR_W / 2} y={Math.max(by - D3 - 5, 14)} textAnchor="middle"
                   fill={valueColor} fontSize="13" fontWeight="800">{d.value}</text>
               )}
 
