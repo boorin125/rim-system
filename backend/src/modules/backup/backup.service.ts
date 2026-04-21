@@ -775,6 +775,46 @@ export class BackupService {
   }
 
   /**
+   * Step 1: Upload backup file to temp storage, return metadata for UI preview
+   */
+  async uploadRestoreTemp(buffer: Buffer): Promise<{ tempId: string; metadata: any; tables: string[] }> {
+    await this.checkBackupFeatureAllowed();
+    let backupData: any;
+    try {
+      backupData = JSON.parse(buffer.toString('utf-8'));
+    } catch {
+      throw new BadRequestException('Invalid backup file format');
+    }
+    const metadata = backupData.metadata;
+    const data = backupData.data;
+    if (!metadata || !data) throw new BadRequestException('Invalid backup file structure');
+
+    const tempDir = path.join(DEFAULT_BACKUP_DIR, 'restore-temp');
+    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+
+    const tempId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const tempPath = path.join(tempDir, `${tempId}.json`);
+    fs.writeFileSync(tempPath, buffer);
+
+    // Auto-delete after 30 minutes
+    setTimeout(() => { try { fs.unlinkSync(tempPath); } catch { /* ignore */ } }, 30 * 60 * 1000);
+
+    const tables = Object.keys(data).filter(k => Array.isArray(data[k]) && data[k].length > 0);
+    return { tempId, metadata: { ...metadata, passwordHash: undefined, isEncrypted: !!metadata.passwordHash }, tables };
+  }
+
+  /**
+   * Step 2: Restore from temp file using tempId
+   */
+  async restoreFromTempFile(userId: number, tempId: string, password?: string, selectedTables?: string[]) {
+    const tempPath = path.join(DEFAULT_BACKUP_DIR, 'restore-temp', `${tempId}.json`);
+    if (!fs.existsSync(tempPath)) throw new BadRequestException('Temp file not found or expired. Please re-upload the backup file.');
+    const content = fs.readFileSync(tempPath, 'utf-8');
+    try { fs.unlinkSync(tempPath); } catch { /* ignore */ }
+    return this.restoreFromFile(userId, content, password, selectedTables);
+  }
+
+  /**
    * Restore table data from file (createMany skipDuplicates)
    */
   private async restoreTableFromFile(table: string, data: any[]): Promise<{ restored: number }> {

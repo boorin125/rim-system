@@ -431,12 +431,36 @@ export class SettingsController {
   }
 
   /**
-   * Restore from uploaded file
+   * Restore from uploaded file (legacy — small files only)
    */
   @Post('backups/restore-file')
   @Roles(UserRole.SUPER_ADMIN)
   async restoreFromFile(@Request() req, @Body() dto: RestoreFromFileDto) {
     return this.backupService.restoreFromFile(req.user.id, dto.content, dto.password, dto.selectedTables);
+  }
+
+  /**
+   * Step 1: Upload backup file as multipart → returns metadata + tempId
+   */
+  @Post('backups/upload-restore')
+  @Roles(UserRole.SUPER_ADMIN)
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadRestoreFile(@UploadedFile() file: Express.Multer.File) {
+    if (!file) throw new BadRequestException('No file uploaded');
+    return this.backupService.uploadRestoreTemp(file.buffer);
+  }
+
+  /**
+   * Step 2: Confirm restore using tempId returned from upload-restore
+   */
+  @Post('backups/restore-temp/:tempId')
+  @Roles(UserRole.SUPER_ADMIN)
+  async restoreFromTemp(
+    @Request() req,
+    @Param('tempId') tempId: string,
+    @Body() body: { password?: string; selectedTables?: string[] },
+  ) {
+    return this.backupService.restoreFromTempFile(req.user.id, tempId, body.password, body.selectedTables);
   }
 
   /**

@@ -340,12 +340,13 @@ export default function SettingsPage() {
 
   // Restore from file state
   const restoreFileRef = useRef<HTMLInputElement>(null)
-  const [restoreFileContent, setRestoreFileContent] = useState<string | null>(null)
+  const [restoreTempId, setRestoreTempId] = useState<string | null>(null)
   const [restoreFileName, setRestoreFileName] = useState('')
   const [showRestoreFileModal, setShowRestoreFileModal] = useState(false)
   const [restoreFilePassword, setRestoreFilePassword] = useState('')
   const [restoreFileNeedsPassword, setRestoreFileNeedsPassword] = useState(false)
   const [isRestoringFile, setIsRestoringFile] = useState(false)
+  const [isUploadingRestoreFile, setIsUploadingRestoreFile] = useState(false)
   // which groups are IN the backup file (parsed from metadata.tables)
   const [restoreAvailableGroups, setRestoreAvailableGroups] = useState<string[]>([])
   // which groups the user wants to restore (default = all available)
@@ -1171,38 +1172,41 @@ export default function SettingsPage() {
     }
   }
 
-  const handleSelectRestoreFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSelectRestoreFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     setRestoreFileName(file.name)
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      const content = ev.target?.result as string
-      try {
-        const parsed = JSON.parse(content)
-        setRestoreFileContent(content)
-        setRestoreFileNeedsPassword(!!parsed?.metadata?.passwordHash)
-        setRestoreFilePassword('')
-
-        // Determine which backup groups are present in this file
-        const tablesInFile: string[] = parsed?.metadata?.tables || Object.keys(parsed?.data || {})
-        const availableGroups = BACKUP_GROUPS
-          .filter(g => g.tables.some((t: string) => tablesInFile.includes(t)))
-          .map(g => g.id)
-        setRestoreAvailableGroups(availableGroups)
-        setRestoreSelectedGroups(availableGroups) // default: restore all available
-
-        setShowRestoreFileModal(true)
-      } catch {
-        toast.error('Invalid backup file')
-      }
-    }
-    reader.readAsText(file)
     e.target.value = ''
+
+    setIsUploadingRestoreFile(true)
+    try {
+      const token = localStorage.getItem('token')
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/settings/backups/upload-restore`,
+        formData,
+        { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' } }
+      )
+      const { tempId, metadata, tables } = res.data
+      setRestoreTempId(tempId)
+      setRestoreFileNeedsPassword(!!metadata?.isEncrypted)
+      setRestoreFilePassword('')
+      const availableGroups = BACKUP_GROUPS
+        .filter(g => g.tables.some((t: string) => (tables as string[]).includes(t)))
+        .map(g => g.id)
+      setRestoreAvailableGroups(availableGroups)
+      setRestoreSelectedGroups(availableGroups)
+      setShowRestoreFileModal(true)
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'ไม่สามารถอ่านไฟล์ Backup ได้')
+    } finally {
+      setIsUploadingRestoreFile(false)
+    }
   }
 
   const handleRestoreFromFile = async () => {
-    if (!restoreFileContent) return
+    if (!restoreTempId) return
 
     // License check
     if (!licenseInfo?.hasLicense || !licenseInfo?.valid) {
@@ -1219,9 +1223,8 @@ export default function SettingsPage() {
         .flatMap(g => g.tables)
 
       const res = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/settings/backups/restore-file`,
+        `${process.env.NEXT_PUBLIC_API_URL}/settings/backups/restore-temp/${restoreTempId}`,
         {
-          content: restoreFileContent,
           password: restoreFilePassword || undefined,
           selectedTables: selectedTables.length > 0 ? selectedTables : undefined,
         },
@@ -1239,7 +1242,7 @@ export default function SettingsPage() {
         toast.success(`Restore สำเร็จ: ${data.message}`)
       }
       setShowRestoreFileModal(false)
-      setRestoreFileContent(null)
+      setRestoreTempId(null)
       setRestoreFilePassword('')
       setTimeout(() => window.location.reload(), 1000)
     } catch (error: any) {
@@ -3052,11 +3055,11 @@ export default function SettingsPage() {
                   />
                   <button
                     onClick={() => restoreFileRef.current?.click()}
-                    disabled={licenseInfo?.license?.licenseType === 'TRIAL'}
+                    disabled={licenseInfo?.license?.licenseType === 'TRIAL' || isUploadingRestoreFile}
                     className="flex items-center gap-2 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed text-sm"
                   >
-                    <FolderOpen className="w-4 h-4 flex-shrink-0" />
-                    <span>Restore</span>
+                    {isUploadingRestoreFile ? <Loader2 className="w-4 h-4 animate-spin" /> : <FolderOpen className="w-4 h-4 flex-shrink-0" />}
+                    <span>{isUploadingRestoreFile ? 'Uploading...' : 'Restore'}</span>
                   </button>
                   {/* Create Backup */}
                   <button
