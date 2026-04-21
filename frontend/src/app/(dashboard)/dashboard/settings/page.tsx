@@ -388,7 +388,12 @@ export default function SettingsPage() {
     schedulePasswordConfirm: '',
   })
   // Custom name for manual backup
-  const [backupCustomName, setBackupCustomName] = useState('')
+  const genBackupName = () => {
+    const now = new Date()
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `RIMBK-${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
+  }
+  const [backupCustomName, setBackupCustomName] = useState(genBackupName)
 
   // Service Warranty Settings State
   const [warrantyDays, setWarrantyDays] = useState<number>(30)
@@ -1161,7 +1166,7 @@ export default function SettingsPage() {
       setShowBackupPasswordModal(false)
       setBackupPassword('')
       setBackupPasswordConfirm('')
-      setBackupCustomName('')
+      setBackupCustomName(genBackupName())
       setSelectedBackupGroups(ALL_GROUP_IDS)
     }
   }
@@ -3704,7 +3709,7 @@ export default function SettingsPage() {
                     setShowBackupPasswordModal(false)
                     setBackupPassword('')
                     setBackupPasswordConfirm('')
-                    setBackupCustomName('')
+                    setBackupCustomName(genBackupName())
                     setSelectedBackupGroups(ALL_GROUP_IDS)
                   }}
                   className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition"
