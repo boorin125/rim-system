@@ -752,7 +752,7 @@ export default function PerformancePage() {
                     <TrendingUp className="w-5 h-5 text-blue-400" />
                     Monthly SLA Compliance (12 Months)
                   </h3>
-                  <SlaLineChart data={slaTrend} />
+                  <SlaLineChart data={slaTrend.filter(e => e.total > 0).slice(-12)} />
                 </div>
               )}
             </div>
