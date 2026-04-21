@@ -336,7 +336,7 @@ export default function PerformancePage() {
   const [loadingRepeatDetail, setLoadingRepeatDetail] = useState(false)
 
   // Equipment boxes period mode
-  const [equipPeriodMode, setEquipPeriodMode] = useState<'all' | 'period'>('all')
+  const [equipPeriodMode, setEquipPeriodMode] = useState<'all' | 'period'>('period')
 
   // Resolution time stats
   const [resolutionTimeStats, setResolutionTimeStats] = useState<ResolutionTimeStats | null>(null)
@@ -778,13 +778,13 @@ export default function PerformancePage() {
                   </h3>
                   <div className="flex rounded-lg overflow-hidden border border-slate-600 text-xs">
                     <button
+                      onClick={() => setEquipPeriodMode('period')}
+                      className={`px-3 py-1.5 transition ${equipPeriodMode === 'period' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-gray-400 hover:text-white'}`}
+                    >Period</button>
+                    <button
                       onClick={() => setEquipPeriodMode('all')}
                       className={`px-3 py-1.5 transition ${equipPeriodMode === 'all' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-gray-400 hover:text-white'}`}
                     >ทั้งหมด</button>
-                    <button
-                      onClick={() => setEquipPeriodMode('period')}
-                      className={`px-3 py-1.5 transition ${equipPeriodMode === 'period' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-gray-400 hover:text-white'}`}
-                    >ตาม Period</button>
                   </div>
                 </div>
                 {topEquipment.length === 0 ? (

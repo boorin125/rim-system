@@ -1075,22 +1075,14 @@ export class PerformanceService {
     const incidents = await this.prisma.incident.findMany({
       where: {
         createdAt: { gte: startDate, lte: endDate },
-        equipmentId: { not: null },
         ...(jobTypes && jobTypes.length > 0 ? { jobType: { in: jobTypes } } : {}),
       },
-      select: {
-        equipmentId: true,
-        equipment: { select: { category: true, name: true, brand: true, model: true } },
-      },
+      select: { category: true },
     });
 
     const countMap = new Map<string, number>();
     for (const inc of incidents) {
-      if (!inc.equipment) continue;
-      const label = inc.equipment.category
-        || inc.equipment.name
-        || [inc.equipment.brand, inc.equipment.model].filter(Boolean).join(' ')
-        || 'ไม่ระบุ';
+      const label = inc.category || 'ไม่ระบุ';
       countMap.set(label, (countMap.get(label) ?? 0) + 1);
     }
 
