@@ -1627,39 +1627,49 @@ function HorizontalBarChart({ data, color, onRowClick }: { data: { label: string
 
   const labelColor = isDark ? '#94a3b8' : '#475569'
   const valueColor = isDark ? '#ffffff' : '#1e293b'
-  const borderColor = isDark ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.6)'
+  const gradId = `hbg_${color.replace('#', '')}`
 
   return (
     <div className="w-full overflow-x-auto">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full"
-        style={{ minWidth: Math.min(W, 320), height: `${H + 4}px` }}>
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMinYMid meet"
+        className="w-full"
+        style={{ minWidth: Math.min(W, 280), height: `${H + 4}px` }}>
+        <defs>
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="1" />
+            <stop offset="100%" stopColor={color} stopOpacity="0.45" />
+          </linearGradient>
+        </defs>
         {data.map((d, i) => {
           const cy = PAD_T + i * ROW_H + ROW_H / 2
 
           return (
             <g key={i} style={onRowClick ? { cursor: 'pointer' } : undefined}
               onClick={onRowClick ? () => onRowClick(d) : undefined}>
-              {/* Row label — right-aligned, clickable */}
+              {/* Row label */}
               <text x={PAD_L - 10} y={cy + 5} textAnchor="end"
-                fill={onRowClick ? '#60a5fa' : labelColor} fontSize={FONT_SZ} fontWeight="500"
-                style={undefined}>
+                fill={onRowClick ? '#60a5fa' : labelColor} fontSize={FONT_SZ} fontWeight="500">
                 {d.label}
               </text>
 
-              {/* Squares */}
-              {Array.from({ length: d.value }).map((_, j) => (
-                <rect
-                  key={j}
-                  x={PAD_L + j * (SQ + GAP)}
-                  y={cy - SQ / 2}
-                  width={SQ} height={SQ}
-                  rx="3"
-                  fill={color}
-                  opacity="0.88"
-                  stroke={borderColor}
-                  strokeWidth="1"
-                />
-              ))}
+              {/* Squares with depth */}
+              {Array.from({ length: d.value }).map((_, j) => {
+                const sx = PAD_L + j * (SQ + GAP)
+                const sy = cy - SQ / 2
+                return (
+                  <g key={j}>
+                    {/* Base shadow */}
+                    <rect x={sx + 2} y={sy + 3} width={SQ} height={SQ} rx="4"
+                      fill={color} opacity="0.25" />
+                    {/* Main square with gradient */}
+                    <rect x={sx} y={sy} width={SQ} height={SQ} rx="4"
+                      fill={`url(#${gradId})`} />
+                    {/* Top highlight shine */}
+                    <rect x={sx + 2} y={sy + 2} width={SQ - 4} height={SQ / 2 - 2} rx="2"
+                      fill="white" opacity="0.22" />
+                  </g>
+                )
+              })}
 
               {/* Value number after squares */}
               <text
