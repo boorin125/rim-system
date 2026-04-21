@@ -163,6 +163,17 @@ export class PerformanceController {
    * Get Top Stores by Incident Count
    * Access: IT_MANAGER, SUPERVISOR, HELP_DESK
    */
+  @Get('store-incident-detail/:storeId')
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK)
+  async getStoreIncidentDetail(
+    @Param('storeId', ParseIntPipe) storeId: number,
+    @Query('period') period?: string,
+    @Query('jobTypes') jobTypes?: string,
+  ) {
+    const parsed = jobTypes ? jobTypes.split(',').map(s => s.trim()).filter(Boolean) : undefined;
+    return this.performanceService.getStoreIncidentDetail(storeId, period, parsed);
+  }
+
   @Get('top-stores')
   @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK)
   async getTopStores(

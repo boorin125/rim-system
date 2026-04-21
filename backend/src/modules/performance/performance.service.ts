@@ -1021,6 +1021,59 @@ export class PerformanceService {
     };
   }
 
+  async getStoreIncidentDetail(storeId: number, period?: string, jobTypes?: string[]) {
+    const targetPeriod = period || this.getCurrentPeriod();
+    const [year, month] = targetPeriod.split('-').map(Number);
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59);
+
+    const store = await this.prisma.store.findUnique({
+      where: { id: storeId },
+      select: { id: true, storeCode: true, storeName: true },
+    });
+
+    const incidents = await this.prisma.incident.findMany({
+      where: {
+        storeId,
+        createdAt: { gte: startDate, lte: endDate },
+        ...(jobTypes?.length ? { jobType: { in: jobTypes } } : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        ticketNumber: true,
+        incidentDate: true,
+        createdAt: true,
+        category: true,
+        title: true,
+        resolutionNote: true,
+        resolvedAt: true,
+        assignee: { select: { firstName: true, lastName: true } },
+        assignees: { select: { user: { select: { firstName: true, lastName: true } } } },
+      },
+    });
+
+    return {
+      store,
+      period: targetPeriod,
+      periodStart: startDate,
+      periodEnd: endDate,
+      incidents: incidents.map((inc, idx) => ({
+        no: idx + 1,
+        incidentDate: inc.incidentDate || inc.createdAt,
+        incidentNo: inc.ticketNumber,
+        category: inc.category || '-',
+        title: inc.title,
+        resolution: inc.resolutionNote || '-',
+        resolvedAt: inc.resolvedAt,
+        technicianName: inc.assignee
+          ? `${inc.assignee.firstName} ${inc.assignee.lastName}`
+          : inc.assignees?.[0]?.user
+          ? `${inc.assignees[0].user.firstName} ${inc.assignees[0].user.lastName}`
+          : '-',
+      })),
+    };
+  }
+
   /**
    * Get Top N Stores by Incident Count for a period
    */

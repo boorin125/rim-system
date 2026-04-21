@@ -224,6 +224,25 @@ interface RepeatIncidentRow {
   technicianName: string
 }
 
+interface StoreIncidentRow {
+  no: number
+  incidentDate: string
+  incidentNo: string
+  category: string
+  title: string
+  resolution: string
+  resolvedAt: string | null
+  technicianName: string
+}
+
+interface StoreIncidentDetail {
+  store: { id: number; storeCode: string; storeName: string } | null
+  period: string
+  periodStart: string
+  periodEnd: string
+  incidents: StoreIncidentRow[]
+}
+
 interface HistoryEntry {
   period: string
   score: number
@@ -322,6 +341,9 @@ export default function PerformancePage() {
   // Top stores / equipment
   const [topStores, setTopStores] = useState<TopStoreEntry[]>([])
   const [topEquipment, setTopEquipment] = useState<TopEquipmentEntry[]>([])
+  const [storeModal, setStoreModal] = useState(false)
+  const [storeDetail, setStoreDetail] = useState<StoreIncidentDetail | null>(null)
+  const [loadingStoreDetail, setLoadingStoreDetail] = useState(false)
 
   // Box 1: Top Active Equipment
   const [topActiveEquipment, setTopActiveEquipment] = useState<ActiveEquipmentEntry[]>([])
@@ -767,7 +789,25 @@ export default function PerformancePage() {
                     <ClipboardList className="w-4 h-4 text-blue-400" />
                     Top 10 Stores (Most Incidents)
                   </h3>
-                  <HorizontalBarChart data={topStores.map(s => ({ label: `${s.storeCode} ${s.storeName}`, value: s.count }))} color="#3b82f6" />
+                  <HorizontalBarChart
+                    data={topStores.map(s => ({ label: `${s.storeCode} ${s.storeName}`, value: s.count, id: s.storeId }))}
+                    color="#3b82f6"
+                    onRowClick={async (item) => {
+                      if (!item.id) return
+                      setStoreModal(true)
+                      setLoadingStoreDetail(true)
+                      try {
+                        const token = localStorage.getItem('token')
+                        const jtParam = selectedJobTypes.length > 0 ? `&jobTypes=${selectedJobTypes.join(',')}` : ''
+                        const res = await axios.get(
+                          `${process.env.NEXT_PUBLIC_API_URL}/performance/store-incident-detail/${item.id}?period=${period}${jtParam}`,
+                          { headers: { Authorization: `Bearer ${token}` } }
+                        )
+                        setStoreDetail(res.data)
+                      } catch { setStoreDetail(null) }
+                      finally { setLoadingStoreDetail(false) }
+                    }}
+                  />
                 </div>
               )}
               <div className="glass-card p-5 rounded-2xl">
@@ -1090,6 +1130,72 @@ export default function PerformancePage() {
         </div>
       )}
 
+      {/* Store Incident Detail Modal */}
+      {storeModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-5 border-b border-slate-700/50 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <ClipboardList className="w-5 h-5 text-blue-400" />
+                  {storeDetail?.store
+                    ? `${storeDetail.store.storeCode} ${storeDetail.store.storeName}`
+                    : 'Store Incident Detail'}
+                </h2>
+                {storeDetail && (
+                  <p className="text-sm text-gray-400 mt-0.5">
+                    Period: {new Date(storeDetail.periodStart).toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' })} — {new Date(storeDetail.periodEnd).toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                  </p>
+                )}
+              </div>
+              <button onClick={() => { setStoreModal(false); setStoreDetail(null) }} className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-slate-700/50">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="overflow-y-auto">
+              {loadingStoreDetail ? (
+                <div className="flex items-center justify-center p-10"><div className="spinner"></div></div>
+              ) : !storeDetail || storeDetail.incidents.length === 0 ? (
+                <div className="p-8 text-center text-gray-400">ไม่มีข้อมูล Incident ในช่วงเวลานี้</div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-slate-800">
+                    <tr className="text-gray-400 border-b border-slate-700">
+                      <th className="text-center py-3 px-3 font-medium w-10">#</th>
+                      <th className="text-left py-3 px-3 font-medium">วันที่แจ้ง</th>
+                      <th className="text-left py-3 px-3 font-medium">Ticket No.</th>
+                      <th className="text-left py-3 px-3 font-medium">Category</th>
+                      <th className="text-left py-3 px-3 font-medium">หัวข้อ</th>
+                      <th className="text-left py-3 px-3 font-medium">Resolution</th>
+                      <th className="text-left py-3 px-3 font-medium">วันที่แก้ไข</th>
+                      <th className="text-left py-3 px-3 font-medium">ช่าง</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {storeDetail.incidents.map((row) => (
+                      <tr key={row.no} className="border-b border-slate-700/40 hover:bg-slate-700/30 transition">
+                        <td className="py-2.5 px-3 text-center text-gray-400">{row.no}</td>
+                        <td className="py-2.5 px-3 text-gray-300 whitespace-nowrap">
+                          {row.incidentDate ? new Date(row.incidentDate).toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '-'}
+                        </td>
+                        <td className="py-2.5 px-3 text-blue-400 font-mono text-xs">{row.incidentNo || '-'}</td>
+                        <td className="py-2.5 px-3 text-gray-300">{row.category}</td>
+                        <td className="py-2.5 px-3 text-white">{row.title || '-'}</td>
+                        <td className="py-2.5 px-3 text-gray-300 max-w-[180px] truncate" title={row.resolution}>{row.resolution}</td>
+                        <td className="py-2.5 px-3 text-gray-300 whitespace-nowrap">
+                          {row.resolvedAt ? new Date(row.resolvedAt).toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '-'}
+                        </td>
+                        <td className="py-2.5 px-3 text-gray-300">{row.technicianName}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Box 1 Modal: Active Equipment Incident Detail */}
       {activeEquipModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -1327,7 +1433,7 @@ function ResolutionTimeCard({ data }: { data: ResolutionTimeStats | null }) {
 
 // ==================== HORIZONTAL BAR CHART (stores) ====================
 
-function HorizontalBarChart({ data, color }: { data: { label: string; value: number }[]; color: string }) {
+function HorizontalBarChart({ data, color, onRowClick }: { data: { label: string; value: number; id?: number }[]; color: string; onRowClick?: (item: { label: string; value: number; id?: number }) => void }) {
   const [isDark, setIsDark] = useState(() =>
     typeof window === 'undefined' || !document.documentElement.classList.contains('light')
   )
@@ -1367,10 +1473,12 @@ function HorizontalBarChart({ data, color }: { data: { label: string; value: num
           const cy = PAD_T + i * ROW_H + ROW_H / 2
 
           return (
-            <g key={i}>
-              {/* Row label — right-aligned */}
+            <g key={i} style={onRowClick ? { cursor: 'pointer' } : undefined}
+              onClick={onRowClick ? () => onRowClick(d) : undefined}>
+              {/* Row label — right-aligned, clickable */}
               <text x={PAD_L - 10} y={cy + 5} textAnchor="end"
-                fill={labelColor} fontSize={FONT_SZ} fontWeight="500">
+                fill={onRowClick ? '#60a5fa' : labelColor} fontSize={FONT_SZ} fontWeight="500"
+                style={onRowClick ? { textDecoration: 'underline' } : undefined}>
                 {d.label}
               </text>
 
