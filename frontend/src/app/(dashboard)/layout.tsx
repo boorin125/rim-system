@@ -36,6 +36,7 @@ import PwaInstallPrompt from '@/components/PwaInstallPrompt'
 import { hasMenuAccess, getUserRoles } from '@/config/permissions'
 import { LicenseProvider, useLicense } from '@/context/LicenseContext'
 import { usePushNotification } from '@/hooks/usePushNotification'
+import ScrollRestorer from '@/components/ScrollRestorer'
 
 // Organization settings interface
 interface OrgSettings {
@@ -570,6 +571,7 @@ export default function DashboardLayout({
   return (
     <LicenseProvider>
     <div className="min-h-screen" style={{ background: mainBg }}>
+      <ScrollRestorer />
       {/* Single Tab Guard — warns when app is open in multiple tabs */}
       <SingleTabGuard />
       {/* PWA Install Prompt */}
