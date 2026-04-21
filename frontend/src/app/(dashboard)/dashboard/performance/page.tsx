@@ -35,6 +35,8 @@ import {
   Activity,
   Lightbulb,
   ChevronDown,
+  HardDrive,
+  AlertTriangle,
 } from 'lucide-react'
 import { getUserRoles, getAccessLevel } from '@/config/permissions'
 
