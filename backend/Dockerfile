@@ -12,7 +12,7 @@ FROM node:20-alpine AS production
 ARG GIT_COMMIT=unknown
 ARG BUILD_DATE=unknown
 
-RUN apk add --no-cache curl
+RUN apk add --no-cache curl samba-client
 
 WORKDIR /app
 COPY package*.json ./

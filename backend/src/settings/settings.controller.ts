@@ -569,14 +569,29 @@ export class SettingsController {
   @Get('backup-config')
   @Roles(UserRole.SUPER_ADMIN, UserRole.IT_MANAGER)
   getBackupConfig() {
-    return this.backupService.getBackupConfig();
+    const cfg = this.backupService.getBackupConfig();
+    return {
+      ...cfg,
+      smb: cfg.smb ? { ...cfg.smb, password: cfg.smb.password ? '••••••••' : '' } : null,
+    };
   }
 
   @Put('backup-config')
   @Roles(UserRole.SUPER_ADMIN)
-  saveBackupConfig(@Body() body: { externalCopyPath?: string }) {
+  saveBackupConfig(@Body() body: { externalCopyPath?: string; smb?: any }) {
+    const current = this.backupService.getBackupConfig();
+    // If SMB password is the masked placeholder, keep existing password
+    const smb = body.smb
+      ? {
+          path: body.smb.path,
+          username: body.smb.username,
+          domain: body.smb.domain || undefined,
+          password: body.smb.password === '••••••••' ? (current.smb?.password ?? '') : body.smb.password,
+        }
+      : (body.smb === null ? null : current.smb);
     return this.backupService.saveBackupConfig({
       externalCopyPath: body.externalCopyPath || undefined,
+      smb: smb || null,
     });
   }
 
@@ -585,6 +600,21 @@ export class SettingsController {
   testBackupPath(@Body() body: { path: string }) {
     if (!body.path) throw new BadRequestException('กรุณาระบุ Path');
     return this.backupService.testExternalPath(body.path);
+  }
+
+  @Post('backup-config/test-smb')
+  @Roles(UserRole.SUPER_ADMIN)
+  async testSmbConnection(@Body() body: { path: string; username: string; password: string; domain?: string }) {
+    if (!body.path || !body.username || !body.password) {
+      throw new BadRequestException('กรุณาระบุ Path, Username และ Password');
+    }
+    // If password is masked, use stored password
+    let password = body.password;
+    if (password === '••••••••') {
+      const cfg = this.backupService.getBackupConfig();
+      password = cfg.smb?.password ?? '';
+    }
+    return this.backupService.testSmbConnection({ ...body, password });
   }
 
   // ==========================================

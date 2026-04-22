@@ -344,6 +344,12 @@ export default function SettingsPage() {
   const [isSavingExtPath, setIsSavingExtPath] = useState(false)
   const [isTestingExtPath, setIsTestingExtPath] = useState(false)
 
+  // SMB config
+  const [smbForm, setSmbForm] = useState({ path: '', username: '', password: '', domain: '' })
+  const [smbEnabled, setSmbEnabled] = useState(false)
+  const [isSavingSmb, setIsSavingSmb] = useState(false)
+  const [isTestingSmb, setIsTestingSmb] = useState(false)
+
   // Restore from file state
   const restoreFileRef = useRef<HTMLInputElement>(null)
   const [restoreTempId, setRestoreTempId] = useState<string | null>(null)
@@ -664,9 +670,14 @@ export default function SettingsPage() {
     setBackups(backupRes.status === 'fulfilled' ? backupRes.value.data || [] : [])
 
     if (bkCfgRes.status === 'fulfilled') {
-      const p = bkCfgRes.value.data?.externalCopyPath || ''
+      const d = bkCfgRes.value.data || {}
+      const p = d.externalCopyPath || ''
       setExternalCopyPath(p)
       setExternalCopyPathInput(p)
+      if (d.smb) {
+        setSmbEnabled(true)
+        setSmbForm({ path: d.smb.path || '', username: d.smb.username || '', password: d.smb.password || '', domain: d.smb.domain || '' })
+      }
     }
 
     if (scheduleRes.status === 'fulfilled') {
@@ -1394,6 +1405,47 @@ export default function SettingsPage() {
       toast.error(e?.response?.data?.message || 'ไม่สามารถทดสอบ Path ได้')
     } finally {
       setIsTestingExtPath(false)
+    }
+  }
+
+  const handleTestSmb = async () => {
+    if (!smbForm.path || !smbForm.username || !smbForm.password) {
+      toast.error('กรุณากรอก Path, Username และ Password'); return
+    }
+    setIsTestingSmb(true)
+    try {
+      const token = localStorage.getItem('token')
+      const res = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/settings/backup-config/test-smb`,
+        smbForm,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      if (res.data?.accessible) toast.success(`✓ ${res.data.message}`)
+      else toast.error(`✗ ${res.data.message}`)
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || 'ไม่สามารถเชื่อมต่อ SMB ได้')
+    } finally {
+      setIsTestingSmb(false)
+    }
+  }
+
+  const handleSaveSmb = async () => {
+    setIsSavingSmb(true)
+    try {
+      const token = localStorage.getItem('token')
+      await axios.put(
+        `${process.env.NEXT_PUBLIC_API_URL}/settings/backup-config`,
+        {
+          externalCopyPath: externalCopyPathInput.trim() || null,
+          smb: smbEnabled && smbForm.path ? smbForm : null,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      toast.success('บันทึก SMB Config สำเร็จ')
+    } catch {
+      toast.error('ไม่สามารถบันทึก SMB Config ได้')
+    } finally {
+      setIsSavingSmb(false)
     }
   }
 
@@ -3104,50 +3156,104 @@ export default function SettingsPage() {
               )}
             </div>
 
-            {/* External Copy Path Configuration */}
+            {/* Backup Copy Destination */}
             {isSuperAdmin && (
-              <div className="p-4 bg-slate-700/30 rounded-xl mb-4 border border-slate-600/50">
-                <div className="flex items-center gap-3 mb-3">
+              <div className="p-4 bg-slate-700/30 rounded-xl mb-4 border border-slate-600/50 space-y-4">
+                <div className="flex items-center gap-3">
                   <HardDrive className="w-5 h-5 text-blue-400" />
                   <div>
-                    <p className="font-medium text-white text-sm">สำเนา Backup ไปยัง External Path</p>
-                    <p className="text-xs text-gray-400">Backup จะถูกเก็บที่ <code className="text-green-400">./Backup</code> เสมอ และ Copy สำเนาไปยัง Path ด้านล่าง (File Sharing / NAS)</p>
+                    <p className="font-medium text-white text-sm">สำเนา Backup ไปยัง NAS / File Sharing</p>
+                    <p className="text-xs text-gray-400">Backup จะถูกเก็บที่ <code className="text-green-400">./Backup</code> เสมอ และ Copy สำเนาไปยังปลายทางด้านล่าง</p>
                   </div>
                 </div>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="text"
-                    value={externalCopyPathInput}
-                    onChange={(e) => setExternalCopyPathInput(e.target.value)}
-                    placeholder="เช่น \\192.168.1.100\backups หรือ /mnt/nas/rim-backup"
-                    className="flex-1 px-3 py-2 bg-slate-700 border border-slate-500 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <button
-                    onClick={handleTestExternalPath}
-                    disabled={isTestingExtPath || !externalCopyPathInput.trim()}
-                    className="px-3 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded-lg text-sm transition disabled:opacity-50 flex items-center gap-1.5 whitespace-nowrap"
-                  >
-                    {isTestingExtPath ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-                    ทดสอบ
-                  </button>
-                  <button
-                    onClick={handleSaveExternalPath}
-                    disabled={isSavingExtPath}
-                    className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition disabled:opacity-50 flex items-center gap-1.5 whitespace-nowrap"
-                  >
-                    {isSavingExtPath ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                    บันทึก
-                  </button>
-                </div>
-                {externalCopyPath && (
-                  <div className="mt-2 flex items-center gap-2 text-xs text-green-400">
-                    <CheckCircle className="w-3.5 h-3.5" />
-                    <span>ใช้งานอยู่: <strong>{externalCopyPath}</strong> — Backup ทุกครั้งจะต้องตั้ง Password</span>
+
+                {/* SMB / Windows Share */}
+                <div className="p-3 bg-slate-800/60 rounded-lg border border-slate-600/40">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm font-medium text-white flex items-center gap-2">
+                      <Server className="w-4 h-4 text-blue-400" /> SMB / Windows Share (NAS)
+                    </p>
+                    <button
+                      onClick={() => setSmbEnabled(!smbEnabled)}
+                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${smbEnabled ? 'bg-blue-500' : 'bg-slate-600'}`}
+                    >
+                      <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${smbEnabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                    </button>
                   </div>
-                )}
-                {!externalCopyPath && (
-                  <p className="text-xs text-gray-500 mt-1">เว้นว่างเพื่อปิดการใช้งาน External Copy</p>
-                )}
+                  {smbEnabled && (
+                    <div className="space-y-2">
+                      <input
+                        type="text"
+                        value={smbForm.path}
+                        onChange={(e) => setSmbForm({ ...smbForm, path: e.target.value })}
+                        placeholder="\\192.168.1.100\Backup"
+                        className="w-full px-3 py-2 bg-slate-700 border border-slate-500 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="text"
+                          value={smbForm.username}
+                          onChange={(e) => setSmbForm({ ...smbForm, username: e.target.value })}
+                          placeholder="Username"
+                          className="px-3 py-2 bg-slate-700 border border-slate-500 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <input
+                          type="password"
+                          value={smbForm.password}
+                          onChange={(e) => setSmbForm({ ...smbForm, password: e.target.value })}
+                          placeholder="Password"
+                          className="px-3 py-2 bg-slate-700 border border-slate-500 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <input
+                        type="text"
+                        value={smbForm.domain}
+                        onChange={(e) => setSmbForm({ ...smbForm, domain: e.target.value })}
+                        placeholder="Domain (ไม่บังคับ) เช่น WORKGROUP"
+                        className="w-full px-3 py-2 bg-slate-700 border border-slate-500 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          onClick={handleTestSmb}
+                          disabled={isTestingSmb}
+                          className="px-3 py-1.5 bg-slate-600 hover:bg-slate-500 text-white rounded-lg text-sm transition disabled:opacity-50 flex items-center gap-1.5"
+                        >
+                          {isTestingSmb ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
+                          ทดสอบ
+                        </button>
+                        <button
+                          onClick={handleSaveSmb}
+                          disabled={isSavingSmb}
+                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition disabled:opacity-50 flex items-center gap-1.5"
+                        >
+                          {isSavingSmb ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                          บันทึก
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Linux path fallback */}
+                <div className="p-3 bg-slate-800/60 rounded-lg border border-slate-600/40">
+                  <p className="text-sm text-gray-400 mb-2">Local / Mounted Path (Linux)</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={externalCopyPathInput}
+                      onChange={(e) => setExternalCopyPathInput(e.target.value)}
+                      placeholder="/mnt/nas/rim-backup"
+                      className="flex-1 px-3 py-2 bg-slate-700 border border-slate-500 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button onClick={handleTestExternalPath} disabled={isTestingExtPath || !externalCopyPathInput.trim()} className="px-3 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded-lg text-sm transition disabled:opacity-50 flex items-center gap-1.5 whitespace-nowrap">
+                      {isTestingExtPath ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />} ทดสอบ
+                    </button>
+                    <button onClick={handleSaveExternalPath} disabled={isSavingExtPath} className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition disabled:opacity-50 flex items-center gap-1.5 whitespace-nowrap">
+                      {isSavingExtPath ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} บันทึก
+                    </button>
+                  </div>
+                  {externalCopyPath && <p className="text-xs text-green-400 mt-1 flex items-center gap-1"><CheckCircle className="w-3 h-3" /> ใช้งานอยู่: {externalCopyPath}</p>}
+                </div>
               </div>
             )}
 

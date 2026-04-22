@@ -17,6 +17,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
+import { exec } from 'child_process';
 
 // Default backup directory
 const DEFAULT_BACKUP_DIR = process.env.BACKUP_DIR || './Backup';
@@ -24,8 +25,16 @@ const DEFAULT_BACKUP_DIR = process.env.BACKUP_DIR || './Backup';
 // Backup config file path (stores externalCopyPath etc.)
 const BACKUP_CONFIG_FILE = path.join(process.cwd(), 'backup-config.json');
 
+export interface SmbConfig {
+  path: string;       // \\server\share or //server/share
+  username: string;
+  password: string;
+  domain?: string;
+}
+
 export interface BackupConfig {
   externalCopyPath?: string;
+  smb?: SmbConfig | null;
 }
 
 // Tables by scope
@@ -88,6 +97,57 @@ export class BackupService {
   saveBackupConfig(config: BackupConfig): BackupConfig {
     fs.writeFileSync(BACKUP_CONFIG_FILE, JSON.stringify(config, null, 2));
     return config;
+  }
+
+  /** Parse UNC/SMB path → smbclient URL (//server/share) + optional subpath */
+  private parseSmbUrl(uncPath: string): string {
+    // \\server\share\sub → //server/share  (smbclient only needs server+share)
+    const normalized = uncPath.replace(/\\/g, '/').replace(/^\/\//, '');
+    const parts = normalized.split('/').filter(Boolean);
+    if (parts.length < 2) throw new Error('Path ต้องมีรูปแบบ \\\\server\\share');
+    return `//${parts[0]}/${parts[1]}`;
+  }
+
+  /** Build smbclient -U auth string */
+  private smbUserArg(smb: SmbConfig): string {
+    const user = smb.domain ? `${smb.domain}\\${smb.username}` : smb.username;
+    return `${user}%${smb.password}`;
+  }
+
+  /** Copy local file to SMB share */
+  async copySmbFile(localFilePath: string, fileName: string, smb: SmbConfig): Promise<void> {
+    const url = this.parseSmbUrl(smb.path);
+    const user = this.smbUserArg(smb);
+    const cmd = `smbclient "${url}" -U "${user}" -c "put \\"${localFilePath}\\" \\"${fileName}\\""`;
+    await new Promise<void>((resolve, reject) => {
+      exec(cmd, (err, _stdout, stderr) => {
+        if (err) reject(new Error(stderr?.trim() || err.message));
+        else resolve();
+      });
+    });
+  }
+
+  /** Test SMB connection by writing + deleting a temp file */
+  async testSmbConnection(smb: SmbConfig): Promise<{ accessible: boolean; message: string }> {
+    const tmpName = `.rim-smb-test-${Date.now()}`;
+    const tmpLocal = path.join(DEFAULT_BACKUP_DIR, tmpName);
+    try {
+      fs.writeFileSync(tmpLocal, 'rim-smb-test');
+      const url = this.parseSmbUrl(smb.path);
+      const user = this.smbUserArg(smb);
+      const cmd = `smbclient "${url}" -U "${user}" -c "put \\"${tmpLocal}\\" \\"${tmpName}\\"; del \\"${tmpName}\\""`;
+      await new Promise<void>((resolve, reject) => {
+        exec(cmd, (err, _stdout, stderr) => {
+          if (err) reject(new Error(stderr?.trim() || err.message));
+          else resolve();
+        });
+      });
+      return { accessible: true, message: `เชื่อมต่อ SMB สำเร็จ: ${smb.path}` };
+    } catch (err: any) {
+      return { accessible: false, message: err.message };
+    } finally {
+      try { fs.unlinkSync(tmpLocal); } catch { /* ignore */ }
+    }
   }
 
   /** Test if external path is writable */
@@ -325,7 +385,7 @@ export class BackupService {
 
       fs.writeFileSync(filePath, backupContent);
 
-      // Copy to external path if configured (always save locally first)
+      // Copy to external path / SMB if configured (always save locally first)
       const bkConfig = this.getBackupConfig();
       if (bkConfig.externalCopyPath) {
         try {
@@ -335,7 +395,13 @@ export class BackupService {
           fs.copyFileSync(filePath, path.join(bkConfig.externalCopyPath, fileName));
         } catch (extError: any) {
           console.warn(`[Backup] External copy failed: ${extError.message}`);
-          // Do not fail the backup — local copy is already saved
+        }
+      }
+      if (bkConfig.smb?.path) {
+        try {
+          await this.copySmbFile(filePath, fileName, bkConfig.smb);
+        } catch (smbError: any) {
+          console.warn(`[Backup] SMB copy failed: ${smbError.message}`);
         }
       }
 
