@@ -376,15 +376,13 @@ export class BackupService {
     const CONFIG_TABLES = new Set(['system_configs', 'sla_configs', 'incident_categories', 'job_types']);
     const s = since && !CONFIG_TABLES.has(table) ? since : undefined;
 
-    // Helper: where clause for tables with both createdAt + updatedAt
-    const w = (extra?: any): any => s
-      ? { where: { OR: [{ createdAt: { gt: s } }, { updatedAt: { gt: s } }], ...extra } }
-      : extra ? { where: extra } : {};
-
-    // Helper: where clause for tables with only createdAt (no updatedAt)
-    const wc = (extra?: any): any => s
-      ? { where: { createdAt: { gt: s }, ...extra } }
-      : extra ? { where: extra } : {};
+    // Helpers always return { where } so TypeScript never sees a union type
+    const w = (): { where: any } => ({
+      where: s ? { OR: [{ createdAt: { gt: s } }, { updatedAt: { gt: s } }] } : undefined,
+    });
+    const wc = (): { where: any } => ({
+      where: s ? { createdAt: { gt: s } } : undefined,
+    });
 
     const tableModelMap: Record<string, () => Promise<any[]>> = {
       // Config — always full
