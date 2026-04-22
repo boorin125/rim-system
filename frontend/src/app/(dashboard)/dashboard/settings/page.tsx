@@ -359,6 +359,7 @@ export default function SettingsPage() {
   const [showBackupPasswordModal, setShowBackupPasswordModal] = useState(false)
   const [backupPassword, setBackupPassword] = useState('')
   const [backupPasswordConfirm, setBackupPasswordConfirm] = useState('')
+  const [backupTypeSelection, setBackupTypeSelection] = useState<'FULL' | 'DIFFERENTIAL'>('FULL')
 
   // Backup group selection (all checked by default = Full backup)
   const BACKUP_GROUPS = [
@@ -1145,7 +1146,7 @@ export default function SettingsPage() {
     try {
       const token = localStorage.getItem('token')
       const isAll = selectedBackupGroups.length === BACKUP_GROUPS.length
-      const payload: any = {}
+      const payload: any = { backupType: backupTypeSelection }
       if (password) payload.password = password
       if (backupCustomName.trim()) payload.customName = backupCustomName.trim()
       if (isAll) {
@@ -1172,6 +1173,7 @@ export default function SettingsPage() {
       setBackupPasswordConfirm('')
       setBackupCustomName(genBackupName())
       setSelectedBackupGroups(ALL_GROUP_IDS)
+      setBackupTypeSelection('FULL')
     }
   }
 
@@ -3628,6 +3630,37 @@ export default function SettingsPage() {
               </div>
 
               <div className="space-y-4">
+                {/* Backup Type selector */}
+                <div>
+                  <label className="block text-sm text-gray-400 mb-2">ประเภท Backup</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {([
+                      { value: 'FULL', label: 'Full', desc: 'สำรองข้อมูลทั้งหมด', color: 'cyan' },
+                      { value: 'DIFFERENTIAL', label: 'Differential', desc: 'เฉพาะที่เปลี่ยนแปลงจาก Full ล่าสุด', color: 'purple' },
+                    ] as const).map(opt => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setBackupTypeSelection(opt.value)}
+                        className={`p-3 rounded-lg border text-left transition ${
+                          backupTypeSelection === opt.value
+                            ? opt.color === 'cyan'
+                              ? 'border-cyan-500 bg-cyan-500/10'
+                              : 'border-purple-500 bg-purple-500/10'
+                            : 'border-slate-600 bg-slate-700/40 hover:border-slate-500'
+                        }`}
+                      >
+                        <div className={`text-sm font-medium ${backupTypeSelection === opt.value ? (opt.color === 'cyan' ? 'text-cyan-300' : 'text-purple-300') : 'text-white'}`}>
+                          {opt.label}
+                        </div>
+                        <div className="text-xs text-gray-400 mt-0.5">{opt.desc}</div>
+                      </button>
+                    ))}
+                  </div>
+                  {backupTypeSelection === 'DIFFERENTIAL' && (
+                    <p className="text-xs text-yellow-400 mt-2">⚠ ต้องมี Full Backup อย่างน้อย 1 รายการก่อน มิฉะนั้นจะถูก Fallback เป็น Full อัตโนมัติ</p>
+                  )}
+                </div>
+
                 {/* Custom name */}
                 <div>
                   <label className="block text-sm text-gray-400 mb-1">ชื่อ Backup <span className="text-gray-500">(ไม่บังคับ)</span></label>

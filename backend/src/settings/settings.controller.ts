@@ -422,10 +422,11 @@ export class SettingsController {
    */
   @Post('backups')
   @Roles(UserRole.SUPER_ADMIN, UserRole.IT_MANAGER)
-  async createBackup(@Request() req, @Body() body: { password?: string; customName?: string; scope?: string; scopeDetails?: string[] }) {
+  async createBackup(@Request() req, @Body() body: { password?: string; customName?: string; scope?: string; scopeDetails?: string[]; backupType?: string }) {
     const scope = (body?.scope as BackupScope) || BackupScope.ALL;
+    const backupType = body?.backupType === 'DIFFERENTIAL' ? BackupType.DIFFERENTIAL : BackupType.FULL;
     return this.backupService.createBackup(req.user.id, {
-      backupType: BackupType.FULL,
+      backupType,
       scope,
       scopeDetails: body?.scopeDetails,
       password: body?.password,
