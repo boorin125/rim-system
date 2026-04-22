@@ -202,6 +202,10 @@ export class CreateScheduleDto {
   @Type(() => Number)
   @Min(1)
   diffIntervalMinutes?: number | null;
+
+  @IsOptional()
+  @IsString()
+  diffStartTime?: string | null;
 }
 
 export class UpdateScheduleDto {
@@ -272,6 +276,10 @@ export class UpdateScheduleDto {
   @Type(() => Number)
   @Min(1)
   diffIntervalMinutes?: number | null;
+
+  @IsOptional()
+  @IsString()
+  diffStartTime?: string | null;
 
   @IsOptional()
   @IsEnum(BackupType)

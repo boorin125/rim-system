@@ -1414,6 +1414,7 @@ model BackupSchedule {
 
   // Differential sub-schedule (only for FULL schedules)
   diffIntervalMinutes Int?      @map("diff_interval_minutes") // 15 | 30 | 60 | null = disabled
+  diffStartTime       String?   @map("diff_start_time")       // HH:mm — first Diff of day starts at this time
   nextDiffRunAt       DateTime? @map("next_diff_run_at")
 
   // Status

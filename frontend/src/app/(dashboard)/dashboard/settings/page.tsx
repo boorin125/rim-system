@@ -137,6 +137,7 @@ interface BackupSchedule {
   lastRunAt?: string
   nextRunAt?: string
   diffIntervalMinutes?: number | null
+  diffStartTime?: string | null
   nextDiffRunAt?: string | null
 }
 
@@ -396,6 +397,7 @@ export default function SettingsPage() {
     schedulePassword: '',
     schedulePasswordConfirm: '',
     diffIntervalMinutes: 30 as number | null,
+    diffStartTime: '08:00',
   })
   // Custom name for manual backup
   const genBackupName = () => {
@@ -680,6 +682,7 @@ export default function SettingsPage() {
           storageType: s.storageType || 'LOCAL', externalPath: s.externalPath || '',
           schedulePassword: '', schedulePasswordConfirm: '',
           diffIntervalMinutes: s.diffIntervalMinutes ?? 30,
+          diffStartTime: s.diffStartTime ?? '08:00',
         })
       } else {
         setSchedule(null)
@@ -3318,22 +3321,40 @@ export default function SettingsPage() {
                       </button>
                     </div>
                     {scheduleForm.diffIntervalMinutes && (
-                      <div className="flex gap-2">
-                        {[15, 30, 60].map(min => (
-                          <button
-                            key={min}
-                            onClick={() => setScheduleForm({ ...scheduleForm, diffIntervalMinutes: min })}
-                            className={`flex-1 py-2 rounded-lg text-sm font-medium border transition ${scheduleForm.diffIntervalMinutes === min ? 'bg-purple-500/20 border-purple-500 text-purple-300' : 'bg-slate-700/50 border-slate-600 text-gray-400 hover:border-slate-500'}`}
-                          >
-                            ทุก {min} นาที
-                          </button>
-                        ))}
+                      <div className="space-y-3">
+                        <div className="flex gap-2">
+                          {[15, 30, 60].map(min => (
+                            <button
+                              key={min}
+                              onClick={() => setScheduleForm({ ...scheduleForm, diffIntervalMinutes: min })}
+                              className={`flex-1 py-2 rounded-lg text-sm font-medium border transition ${scheduleForm.diffIntervalMinutes === min ? 'bg-purple-500/20 border-purple-500 text-purple-300' : 'bg-slate-700/50 border-slate-600 text-gray-400 hover:border-slate-500'}`}
+                            >
+                              ทุก {min} นาที
+                            </button>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <label className="text-sm text-gray-400 shrink-0">เริ่ม Diff เวลา</label>
+                          <input
+                            type="time"
+                            value={scheduleForm.diffStartTime}
+                            onChange={(e) => setScheduleForm({ ...scheduleForm, diffStartTime: e.target.value })}
+                            className="px-3 py-1.5 bg-slate-600/50 border border-slate-500 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          />
+                          <span className="text-xs text-gray-500">
+                            (Full รันเวลา {scheduleForm.timeOfDay || '02:00'} → Diff เริ่ม {scheduleForm.diffStartTime || '08:00'})
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-500">
+                          {(() => {
+                            const fullH = parseInt((scheduleForm.timeOfDay || '02:00').split(':')[0])
+                            const startH = parseInt((scheduleForm.diffStartTime || '08:00').split(':')[0])
+                            const windowHrs = ((fullH - startH + 24) % 24)
+                            const count = Math.floor(windowHrs * 60 / (scheduleForm.diffIntervalMinutes || 30))
+                            return `RPO ≤ ${scheduleForm.diffIntervalMinutes} นาที — Diff ≈ ${count} ไฟล์/วัน (ลบอัตโนมัติเมื่อ Full รัน)`
+                          })()}
+                        </p>
                       </div>
-                    )}
-                    {scheduleForm.diffIntervalMinutes && (
-                      <p className="text-xs text-gray-500 mt-2">
-                        RPO ≤ {scheduleForm.diffIntervalMinutes} นาที — Diff files สูงสุด {Math.floor(24 * 60 / scheduleForm.diffIntervalMinutes)} ไฟล์/วัน (ลบอัตโนมัติเมื่อ Full รันใหม่)
-                      </p>
                     )}
                   </div>
 
@@ -3434,7 +3455,8 @@ export default function SettingsPage() {
                     <div className="pt-2 border-t border-slate-600 flex items-center justify-between">
                       <div>
                         <p className="text-sm text-gray-400">Auto Differential</p>
-                        <p className="text-white text-sm">ทุก {schedule.diffIntervalMinutes} นาที
+                        <p className="text-white text-sm">
+                          เริ่ม {schedule.diffStartTime || '—'} · ทุก {schedule.diffIntervalMinutes} นาที
                           <span className="text-gray-500 ml-2 text-xs">(RPO ≤ {schedule.diffIntervalMinutes} นาที)</span>
                         </p>
                       </div>

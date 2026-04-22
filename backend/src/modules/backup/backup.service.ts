@@ -1294,9 +1294,9 @@ export class BackupService {
       ? await bcrypt.hash(dto.schedulePassword, 10)
       : undefined;
 
-    const diffIntervalMinutes = (dto.backupType === 'FULL' || !dto.backupType)
-      ? (dto.diffIntervalMinutes ?? null)
-      : null;
+    const isFull = dto.backupType === 'FULL' || !dto.backupType;
+    const diffIntervalMinutes = isFull ? (dto.diffIntervalMinutes ?? null) : null;
+    const diffStartTime = isFull ? (dto.diffStartTime ?? null) : null;
 
     return this.prisma.backupSchedule.create({
       data: {
@@ -1320,6 +1320,7 @@ export class BackupService {
         createdById: userId,
         nextRunAt,
         diffIntervalMinutes,
+        diffStartTime,
       },
     });
   }
@@ -1435,8 +1436,12 @@ export class BackupService {
       : (newPassword === '' ? null : undefined);
 
     const newBackupType = dto.backupType ?? schedule.backupType;
-    const newDiffInterval = newBackupType === 'FULL'
+    const isFull = newBackupType === 'FULL';
+    const newDiffInterval = isFull
       ? (dto.diffIntervalMinutes !== undefined ? dto.diffIntervalMinutes : schedule.diffIntervalMinutes)
+      : null;
+    const newDiffStartTime = isFull
+      ? (dto.diffStartTime !== undefined ? dto.diffStartTime : schedule.diffStartTime)
       : null;
 
     return this.prisma.backupSchedule.update({
@@ -1446,6 +1451,7 @@ export class BackupService {
         ...(schedulePasswordHash !== undefined && { schedulePassword: schedulePasswordHash }),
         nextRunAt,
         diffIntervalMinutes: newDiffInterval,
+        diffStartTime: newDiffStartTime,
       },
     });
   }
@@ -1522,7 +1528,7 @@ export class BackupService {
     // After FULL backup: delete old Differential backups + arm next Diff run
     if ((schedule.backupType === 'FULL' || !schedule.backupType) && schedule.diffIntervalMinutes) {
       await this.cleanupDiffBackupsForSchedule(schedule.id);
-      const nextDiffRunAt = new Date(Date.now() + schedule.diffIntervalMinutes * 60 * 1000);
+      const nextDiffRunAt = this.calcFirstDiffRunAt(schedule.diffStartTime);
       await this.prisma.backupSchedule.update({
         where: { id: schedule.id },
         data: { nextDiffRunAt },
@@ -1566,6 +1572,24 @@ export class BackupService {
     await this.executeBackup(backupJob.id, undefined, schedule.schedulePassword || undefined);
 
     return backupJob;
+  }
+
+  /**
+   * Calculate the first Diff run time after a Full backup.
+   * If diffStartTime (HH:mm) is in the future today → use today at that time.
+   * If already past → use tomorrow at that time.
+   * If no diffStartTime → run immediately (now + 1 min buffer).
+   */
+  private calcFirstDiffRunAt(diffStartTime?: string | null): Date {
+    const now = new Date();
+    if (!diffStartTime) {
+      return new Date(now.getTime() + 60 * 1000);
+    }
+    const [h, m] = diffStartTime.split(':').map(Number);
+    const candidate = new Date(now);
+    candidate.setHours(h, m, 0, 0);
+    if (candidate <= now) candidate.setDate(candidate.getDate() + 1);
+    return candidate;
   }
 
   /**
