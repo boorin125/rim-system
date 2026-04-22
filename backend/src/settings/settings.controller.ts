@@ -410,6 +410,9 @@ export class SettingsController {
         status: backup.status,
         tablesIncluded: backup.tablesIncluded || [],
         scope: backup.scope,
+        backupType: backup.backupType || 'FULL',
+        baseBackupId: backup.baseBackupId || null,
+        sinceTimestamp: backup.sinceTimestamp || null,
       };
     });
   }
@@ -461,6 +464,19 @@ export class SettingsController {
     @Body() body: { password?: string; selectedTables?: string[] },
   ) {
     return this.backupService.restoreFromTempFile(req.user.id, tempId, body.password, body.selectedTables);
+  }
+
+  /**
+   * Restore from Differential backup (auto-applies Full + Diff)
+   */
+  @Post('backups/:id/restore-differential')
+  @Roles(UserRole.SUPER_ADMIN)
+  async restoreDifferential(
+    @Request() req,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { password?: string; selectedTables?: string[] },
+  ) {
+    return this.backupService.restoreWithDifferential(req.user.id, id, body.password, body.selectedTables);
   }
 
   /**

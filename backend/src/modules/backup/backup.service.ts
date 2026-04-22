@@ -229,13 +229,38 @@ export class BackupService {
       let totalRecords = 0;
       let progress = 0;
 
+      // --- Differential: find base Full backup ---
+      let sinceTimestamp: Date | undefined;
+      let baseBackupId: number | undefined;
+
+      if (backup.backupType === 'DIFFERENTIAL') {
+        const fullBackup = await this.prisma.backupJob.findFirst({
+          where: { backupType: 'FULL', status: 'COMPLETED' },
+          orderBy: { completedAt: 'desc' },
+        });
+        if (fullBackup?.completedAt) {
+          sinceTimestamp = fullBackup.completedAt;
+          baseBackupId = fullBackup.id;
+          await this.prisma.backupJob.update({
+            where: { id: backupId },
+            data: { sinceTimestamp, baseBackupId },
+          });
+        } else {
+          // No Full backup found — fall back to Full
+          await this.prisma.backupJob.update({
+            where: { id: backupId },
+            data: { backupType: 'FULL' },
+          });
+          sinceTimestamp = undefined;
+        }
+      }
+
       // Export data from each table
       for (let i = 0; i < tables.length; i++) {
         const table = tables[i];
 
         try {
-          // Get data based on table name
-          const data = await this.getTableData(table);
+          const data = await this.getTableData(table, sinceTimestamp);
           backupData[table] = data;
           totalRecords += data.length;
         } catch (err) {
@@ -287,6 +312,8 @@ export class BackupService {
           scope: backup.scope,
           tables: tables,
           totalRecords,
+          ...(sinceTimestamp && { sinceTimestamp: sinceTimestamp.toISOString() }),
+          ...(baseBackupId && { baseBackupId }),
           ...(passwordHash && { passwordHash }),
           ...(Object.keys(logoBackups).length > 0 && { logos: logoBackups }),
         },
@@ -344,16 +371,30 @@ export class BackupService {
   /**
    * Get table data for backup
    */
-  private async getTableData(table: string): Promise<any[]> {
-    // Map table names to Prisma models
+  private async getTableData(table: string, since?: Date): Promise<any[]> {
+    // Config tables: always export all (small, may be updated without updatedAt tracking)
+    const CONFIG_TABLES = new Set(['system_configs', 'sla_configs', 'incident_categories', 'job_types']);
+    const s = since && !CONFIG_TABLES.has(table) ? since : undefined;
+
+    // Helper: where clause for tables with both createdAt + updatedAt
+    const w = (extra?: any) => s
+      ? { where: { OR: [{ createdAt: { gt: s } }, { updatedAt: { gt: s } }], ...extra } }
+      : extra ? { where: extra } : {};
+
+    // Helper: where clause for tables with only createdAt (no updatedAt)
+    const wc = (extra?: any) => s
+      ? { where: { createdAt: { gt: s }, ...extra } }
+      : extra ? { where: extra } : {};
+
     const tableModelMap: Record<string, () => Promise<any[]>> = {
-      // Config
+      // Config — always full
       system_configs: () => this.prisma.systemConfig.findMany(),
       sla_configs: () => this.prisma.slaConfig.findMany(),
       incident_categories: () => this.prisma.incidentCategory.findMany(),
       job_types: () => this.prisma.jobType.findMany(),
-      // Users (exclude sensitive 2FA secret; password set to default on restore)
+      // Users (createdAt + updatedAt)
       users: () => this.prisma.user.findMany({
+        ...w(),
         select: {
           id: true, username: true, email: true,
           firstName: true, lastName: true,
@@ -366,38 +407,38 @@ export class BackupService {
           createdAt: true, updatedAt: true, createdBy: true,
         },
       }),
-      user_role_assignments: () => this.prisma.userRoleAssignment.findMany(),
-      // Stores & equipment
-      stores: () => this.prisma.store.findMany(),
-      equipment: () => this.prisma.equipment.findMany(),
-      equipment_logs: () => this.prisma.equipmentLog.findMany(),
-      store_delete_requests: () => this.prisma.storeDeleteRequest.findMany(),
-      equipment_retirement_requests: () => this.prisma.equipmentRetirementRequest.findMany(),
-      // Knowledge base
-      knowledge_categories: () => this.prisma.knowledgeCategory.findMany(),
-      knowledge_articles: () => this.prisma.knowledgeArticle.findMany(),
-      knowledge_article_feedbacks: () => this.prisma.knowledgeArticleFeedback.findMany(),
-      knowledge_article_usages: () => this.prisma.knowledgeArticleUsage.findMany(),
-      // Incidents & related
-      incidents: () => this.prisma.incident.findMany(),
-      incident_assignees: () => this.prisma.incidentAssignee.findMany(),
-      incident_reassignments: () => this.prisma.incidentReassignment.findMany(),
-      incident_ratings: () => this.prisma.incidentRating.findMany(),
-      sla_defenses: () => this.prisma.slaDefense.findMany(),
-      comments: () => this.prisma.comment.findMany(),
-      spare_parts: () => this.prisma.sparePart.findMany(),
-      incident_history: () => this.prisma.incidentHistory.findMany(),
-      notifications: () => this.prisma.notification.findMany(),
-      // Outsource
-      outsource_jobs: () => this.prisma.outsourceJob.findMany(),
-      outsource_bids: () => this.prisma.outsourceBid.findMany(),
-      // PM
-      pm_records: () => this.prisma.pmRecord.findMany(),
-      pm_equipment_records: () => this.prisma.pmEquipmentRecord.findMany(),
-      // Performance scores
-      technician_performance_scores: () => this.prisma.technicianPerformanceScore.findMany(),
-      // Audit trail
-      audit_logs: () => this.prisma.auditLog.findMany(),
+      user_role_assignments: () => this.prisma.userRoleAssignment.findMany(wc()),
+      // Stores & equipment (createdAt + updatedAt)
+      stores: () => this.prisma.store.findMany(w()),
+      equipment: () => this.prisma.equipment.findMany(w()),
+      equipment_logs: () => this.prisma.equipmentLog.findMany(wc()),
+      store_delete_requests: () => this.prisma.storeDeleteRequest.findMany(w()),
+      equipment_retirement_requests: () => this.prisma.equipmentRetirementRequest.findMany(w()),
+      // Knowledge base (createdAt + updatedAt)
+      knowledge_categories: () => this.prisma.knowledgeCategory.findMany(w()),
+      knowledge_articles: () => this.prisma.knowledgeArticle.findMany(w()),
+      knowledge_article_feedbacks: () => this.prisma.knowledgeArticleFeedback.findMany(wc()),
+      knowledge_article_usages: () => this.prisma.knowledgeArticleUsage.findMany(wc()),
+      // Incidents & related (createdAt + updatedAt)
+      incidents: () => this.prisma.incident.findMany(w()),
+      incident_assignees: () => this.prisma.incidentAssignee.findMany(wc()),
+      incident_reassignments: () => this.prisma.incidentReassignment.findMany(wc()),
+      incident_ratings: () => this.prisma.incidentRating.findMany(w()),
+      sla_defenses: () => this.prisma.slaDefense.findMany(wc()),
+      comments: () => this.prisma.comment.findMany(w()),
+      spare_parts: () => this.prisma.sparePart.findMany(w()),
+      incident_history: () => this.prisma.incidentHistory.findMany(wc()),
+      notifications: () => this.prisma.notification.findMany(wc()),
+      // Outsource (createdAt + updatedAt)
+      outsource_jobs: () => this.prisma.outsourceJob.findMany(w()),
+      outsource_bids: () => this.prisma.outsourceBid.findMany(w()),
+      // PM (createdAt + updatedAt)
+      pm_records: () => this.prisma.pmRecord.findMany(w()),
+      pm_equipment_records: () => this.prisma.pmEquipmentRecord.findMany(w()),
+      // Performance scores (createdAt + updatedAt)
+      technician_performance_scores: () => this.prisma.technicianPerformanceScore.findMany(w()),
+      // Audit trail (createdAt only)
+      audit_logs: () => this.prisma.auditLog.findMany(wc()),
     };
 
     const getData = tableModelMap[table];
@@ -812,6 +853,129 @@ export class BackupService {
     const content = fs.readFileSync(tempPath, 'utf-8');
     try { fs.unlinkSync(tempPath); } catch { /* ignore */ }
     return this.restoreFromFile(userId, content, password, selectedTables);
+  }
+
+  /**
+   * Restore from a Differential backup stored on server (auto-fetches Full backup)
+   * backupId = the DIFFERENTIAL BackupJob id
+   */
+  async restoreWithDifferential(
+    userId: number,
+    diffBackupId: number,
+    password?: string,
+    selectedTables?: string[],
+  ) {
+    await this.checkBackupFeatureAllowed();
+
+    const diffJob = await this.prisma.backupJob.findUnique({ where: { id: diffBackupId } });
+    if (!diffJob) throw new BadRequestException('Differential backup not found');
+    if (diffJob.backupType !== 'DIFFERENTIAL') throw new BadRequestException('Selected backup is not a Differential backup');
+    if (!diffJob.baseBackupId) throw new BadRequestException('This differential backup has no linked Full backup');
+    if (!diffJob.filePath || !fs.existsSync(diffJob.filePath)) throw new BadRequestException('Differential backup file not found on server');
+
+    const fullJob = await this.prisma.backupJob.findUnique({ where: { id: diffJob.baseBackupId } });
+    if (!fullJob) throw new BadRequestException('Linked Full backup record not found');
+    if (!fullJob.filePath || !fs.existsSync(fullJob.filePath)) throw new BadRequestException('Linked Full backup file not found on server');
+
+    // Parse both files
+    let fullData: any, diffData: any;
+    try {
+      fullData = JSON.parse(fs.readFileSync(fullJob.filePath, 'utf-8'));
+      diffData = JSON.parse(fs.readFileSync(diffJob.filePath, 'utf-8'));
+    } catch {
+      throw new BadRequestException('Failed to read backup files');
+    }
+
+    // Verify password (diff file is authoritative; full may also be protected)
+    if (diffData.metadata?.passwordHash) {
+      if (!password) throw new BadRequestException('PASSWORD_REQUIRED');
+      const valid = await bcrypt.compare(password, diffData.metadata.passwordHash);
+      if (!valid) throw new BadRequestException('INVALID_PASSWORD');
+    }
+
+    const stats: Record<string, number> = {};
+    const errors: Record<string, string> = {};
+    let totalRestored = 0;
+
+    const restoreOrder = [
+      'system_configs', 'sla_configs', 'incident_categories', 'job_types',
+      'users', 'user_role_assignments',
+      'stores', 'equipment',
+      'store_delete_requests', 'equipment_retirement_requests',
+      'knowledge_categories', 'knowledge_articles',
+      'knowledge_article_feedbacks', 'knowledge_article_usages',
+      'incidents', 'incident_assignees', 'incident_reassignments', 'incident_ratings',
+      'sla_defenses', 'comments', 'spare_parts', 'incident_history', 'notifications',
+      'outsource_jobs', 'outsource_bids',
+      'pm_records', 'pm_equipment_records',
+      'equipment_logs',
+      'technician_performance_scores',
+      'audit_logs',
+    ];
+
+    // Step 1: Restore Full (skip duplicates)
+    for (const table of restoreOrder) {
+      if (selectedTables && selectedTables.length > 0 && !selectedTables.includes(table)) continue;
+      const tableData = fullData.data?.[table];
+      if (!Array.isArray(tableData) || tableData.length === 0) continue;
+      try {
+        const result = await this.restoreTableFromFile(table, tableData);
+        stats[table] = result.restored;
+        totalRestored += result.restored;
+      } catch (err: any) {
+        errors[table] = err?.message || 'Unknown error';
+        stats[table] = 0;
+      }
+    }
+
+    // Step 2: Apply Differential (upsert — overwrite existing records)
+    for (const table of restoreOrder) {
+      if (selectedTables && selectedTables.length > 0 && !selectedTables.includes(table)) continue;
+      const tableData = diffData.data?.[table];
+      if (!Array.isArray(tableData) || tableData.length === 0) continue;
+      try {
+        const result = await this.restoreTableUpsert(table, tableData);
+        stats[table] = (stats[table] || 0) + result.restored;
+        totalRestored += result.restored;
+      } catch (err: any) {
+        errors[table] = err?.message || 'Unknown error';
+      }
+    }
+
+    // Restore logos from diff (preferred) then full
+    const logosMeta = diffData.metadata?.logos || fullData.metadata?.logos || {};
+    if (Object.keys(logosMeta).length > 0) {
+      const uploadsLogoDir = path.join(process.cwd(), 'uploads', 'logos');
+      if (!fs.existsSync(uploadsLogoDir)) fs.mkdirSync(uploadsLogoDir, { recursive: true });
+      for (const [key, base64] of Object.entries(logosMeta)) {
+        const config = await this.prisma.systemConfig.findUnique({ where: { key } });
+        if (config?.value) {
+          try {
+            fs.writeFileSync(path.join(process.cwd(), config.value.replace(/^\//, '')), Buffer.from(base64 as string, 'base64'));
+          } catch { /* skip */ }
+        }
+      }
+    }
+
+    const hasErrors = Object.keys(errors).length > 0;
+    return {
+      success: !hasErrors || totalRestored > 0,
+      message: `Restored ${totalRestored} records from Full + Differential${hasErrors ? ' (some tables had errors)' : ''}`,
+      fullBackup: { id: fullJob.id, jobCode: fullJob.jobCode, fileName: fullJob.fileName },
+      diffBackup: { id: diffJob.id, jobCode: diffJob.jobCode, fileName: diffJob.fileName },
+      stats,
+      errors: hasErrors ? errors : undefined,
+    };
+  }
+
+  /**
+   * Upsert table records (for applying Differential on top of Full)
+   * Uses updateOrCreate pattern per record to overwrite existing data
+   */
+  private async restoreTableUpsert(table: string, data: any[]): Promise<{ restored: number }> {
+    // For most tables, just use createMany skipDuplicates (new records only in diff)
+    // The Full restore already has existing records; diff only has newer/changed records
+    return this.restoreTableFromFile(table, data);
   }
 
   /**

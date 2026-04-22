@@ -1288,9 +1288,13 @@ model BackupJob {
   customName String? @map("custom_name")
 
   // Backup Configuration
-  backupType   BackupType  @default(FULL) @map("backup_type")
-  scope        BackupScope @default(ALL) @map("scope")
-  scopeDetails String[]    @default([]) @map("scope_details") // Specific tables if SELECTIVE
+  backupType     BackupType  @default(FULL) @map("backup_type")
+  scope          BackupScope @default(ALL) @map("scope")
+  scopeDetails   String[]    @default([]) @map("scope_details") // Specific tables if SELECTIVE
+
+  // Differential support
+  baseBackupId   Int?      @map("base_backup_id")   // Full backup this Diff is based on
+  sinceTimestamp DateTime? @map("since_timestamp")  // Query changes after this time
 
   // Status
   status       BackupStatus @default(PENDING)
@@ -1326,12 +1330,15 @@ model BackupJob {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  createdBy   User            @relation("BackupCreatedBy", fields: [createdById], references: [id])
-  schedule    BackupSchedule? @relation(fields: [scheduleId], references: [id])
-  restoreJobs RestoreJob[]
+  createdBy          User            @relation("BackupCreatedBy", fields: [createdById], references: [id])
+  schedule           BackupSchedule? @relation(fields: [scheduleId], references: [id])
+  restoreJobs        RestoreJob[]
+  baseBackup         BackupJob?      @relation("DifferentialBase", fields: [baseBackupId], references: [id])
+  differentialBackups BackupJob[]   @relation("DifferentialBase")
 
   @@index([status])
   @@index([backupType])
+  @@index([baseBackupId])
   @@index([createdAt])
   @@index([createdById])
   @@map("backup_jobs")

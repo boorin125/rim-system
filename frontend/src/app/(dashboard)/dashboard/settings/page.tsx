@@ -115,6 +115,9 @@ interface BackupInfo {
   size: string
   createdAt: string
   type: 'auto' | 'manual'
+  backupType: 'FULL' | 'DIFFERENTIAL' | 'INCREMENTAL'
+  baseBackupId: number | null
+  sinceTimestamp: string | null
 }
 
 // Backup Schedule Interface
@@ -1281,21 +1284,27 @@ export default function SettingsPage() {
   }
 
   const handleRestoreBackup = async (backup: BackupInfo) => {
-    if (!confirm(`Are you sure you want to restore from "${backup.filename}"? This will overwrite current data.`)) {
-      return
-    }
+    const isDiff = backup.backupType === 'DIFFERENTIAL'
+    const fullBackup = isDiff ? backups.find(b => b.id === backup.baseBackupId) : null
+
+    const confirmMsg = isDiff
+      ? `Restore จาก Differential Backup "${backup.filename}"?\n\nจะนำ Full Backup (${fullBackup?.filename ?? `ID:${backup.baseBackupId}`}) + Differential นี้มา Restore ร่วมกัน\n\nข้อมูลปัจจุบันจะถูกทับ`
+      : `Are you sure you want to restore from "${backup.filename}"? This will overwrite current data.`
+
+    if (!confirm(confirmMsg)) return
 
     setIsRestoring(true)
     try {
       const token = localStorage.getItem('token')
-      await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/settings/backups/${backup.id}/restore`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
-      toast.success('Backup restored successfully')
+      const endpoint = isDiff
+        ? `${process.env.NEXT_PUBLIC_API_URL}/settings/backups/${backup.id}/restore-differential`
+        : `${process.env.NEXT_PUBLIC_API_URL}/settings/backups/${backup.id}/restore`
+      await axios.post(endpoint, {}, { headers: { Authorization: `Bearer ${token}` } })
+      toast.success(isDiff ? 'Restore Full + Differential สำเร็จ' : 'Backup restored successfully')
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to restore backup')
+      const msg = error.response?.data?.message
+      if (msg === 'PASSWORD_REQUIRED') toast.error('Backup นี้มีการป้องกัน Password')
+      else toast.error(msg || 'Failed to restore backup')
     } finally {
       setIsRestoring(false)
     }
@@ -3432,6 +3441,21 @@ export default function SettingsPage() {
                           }`}>
                             {backup.type === 'auto' ? 'Auto' : 'Manual'}
                           </span>
+                          {/* Backup type badge */}
+                          <span className={`px-2 py-0.5 rounded font-medium ${
+                            backup.backupType === 'DIFFERENTIAL'
+                              ? 'bg-purple-500/20 text-purple-300'
+                              : 'bg-cyan-500/20 text-cyan-300'
+                          }`}>
+                            {backup.backupType === 'DIFFERENTIAL' ? 'Diff' : 'Full'}
+                          </span>
+                          {/* Show linked Full backup name for Diff */}
+                          {backup.backupType === 'DIFFERENTIAL' && backup.baseBackupId && (() => {
+                            const base = backups.find(b => b.id === backup.baseBackupId)
+                            return base ? (
+                              <span className="text-purple-400/70 italic">base: {base.filename}</span>
+                            ) : null
+                          })()}
                         </div>
                       </div>
                     </div>
