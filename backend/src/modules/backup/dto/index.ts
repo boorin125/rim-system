@@ -196,6 +196,12 @@ export class CreateScheduleDto {
   @IsOptional()
   @IsString()
   schedulePassword?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  @Min(1)
+  diffIntervalMinutes?: number | null;
 }
 
 export class UpdateScheduleDto {
@@ -260,4 +266,14 @@ export class UpdateScheduleDto {
   @IsOptional()
   @IsString()
   schedulePassword?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  @Min(1)
+  diffIntervalMinutes?: number | null;
+
+  @IsOptional()
+  @IsEnum(BackupType)
+  backupType?: BackupType;
 }

@@ -1294,6 +1294,10 @@ export class BackupService {
       ? await bcrypt.hash(dto.schedulePassword, 10)
       : undefined;
 
+    const diffIntervalMinutes = (dto.backupType === 'FULL' || !dto.backupType)
+      ? (dto.diffIntervalMinutes ?? null)
+      : null;
+
     return this.prisma.backupSchedule.create({
       data: {
         name: dto.name,
@@ -1315,6 +1319,7 @@ export class BackupService {
         schedulePassword: schedulePasswordHash,
         createdById: userId,
         nextRunAt,
+        diffIntervalMinutes,
       },
     });
   }
@@ -1429,12 +1434,18 @@ export class BackupService {
       ? await bcrypt.hash(newPassword, 10)
       : (newPassword === '' ? null : undefined);
 
+    const newBackupType = dto.backupType ?? schedule.backupType;
+    const newDiffInterval = newBackupType === 'FULL'
+      ? (dto.diffIntervalMinutes !== undefined ? dto.diffIntervalMinutes : schedule.diffIntervalMinutes)
+      : null;
+
     return this.prisma.backupSchedule.update({
       where: { id },
       data: {
         ...dtoWithoutPassword,
         ...(schedulePasswordHash !== undefined && { schedulePassword: schedulePasswordHash }),
         nextRunAt,
+        diffIntervalMinutes: newDiffInterval,
       },
     });
   }
@@ -1508,7 +1519,67 @@ export class BackupService {
     // Execute the backup (pass stored hash directly to avoid double-hashing)
     await this.executeBackup(backupJob.id, undefined, schedule.schedulePassword || undefined);
 
+    // After FULL backup: delete old Differential backups + arm next Diff run
+    if ((schedule.backupType === 'FULL' || !schedule.backupType) && schedule.diffIntervalMinutes) {
+      await this.cleanupDiffBackupsForSchedule(schedule.id);
+      const nextDiffRunAt = new Date(Date.now() + schedule.diffIntervalMinutes * 60 * 1000);
+      await this.prisma.backupSchedule.update({
+        where: { id: schedule.id },
+        data: { nextDiffRunAt },
+      });
+    }
+
     return backupJob;
+  }
+
+  /**
+   * Execute a scheduled Differential backup (triggered by diffIntervalMinutes)
+   */
+  async executeScheduledDiffBackup(schedule: any) {
+    const jobCode = this.generateJobCode('BKP');
+    const scope = schedule.scope || 'ALL';
+    const tables = scope === 'SELECTIVE'
+      ? schedule.scopeDetails || []
+      : SCOPE_TABLES[scope as keyof typeof SCOPE_TABLES] || SCOPE_TABLES.ALL;
+
+    const backupJob = await this.prisma.backupJob.create({
+      data: {
+        jobCode,
+        backupType: 'DIFFERENTIAL',
+        scope,
+        scopeDetails: schedule.scopeDetails || [],
+        isCompressed: schedule.isCompressed ?? true,
+        isEncrypted: schedule.isEncrypted ?? true,
+        tablesIncluded: tables,
+        createdById: schedule.createdById,
+        scheduleId: schedule.id,
+        status: 'PENDING',
+      },
+    });
+
+    const nextDiffRunAt = new Date(Date.now() + schedule.diffIntervalMinutes * 60 * 1000);
+    await this.prisma.backupSchedule.update({
+      where: { id: schedule.id },
+      data: { nextDiffRunAt },
+    });
+
+    await this.executeBackup(backupJob.id, undefined, schedule.schedulePassword || undefined);
+
+    return backupJob;
+  }
+
+  /**
+   * Delete all Differential backup jobs (and files) linked to a schedule
+   */
+  private async cleanupDiffBackupsForSchedule(scheduleId: number) {
+    const diffs = await this.prisma.backupJob.findMany({
+      where: { scheduleId, backupType: 'DIFFERENTIAL' },
+    });
+    for (const diff of diffs) {
+      try {
+        await this.deleteBackup(diff.id);
+      } catch { /* skip if file already gone */ }
+    }
   }
 
   /**

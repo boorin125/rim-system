@@ -136,6 +136,8 @@ interface BackupSchedule {
   externalPath?: string
   lastRunAt?: string
   nextRunAt?: string
+  diffIntervalMinutes?: number | null
+  nextDiffRunAt?: string | null
 }
 
 // Service Report Settings Interface
@@ -393,6 +395,7 @@ export default function SettingsPage() {
     externalPath: '',
     schedulePassword: '',
     schedulePasswordConfirm: '',
+    diffIntervalMinutes: 30 as number | null,
   })
   // Custom name for manual backup
   const genBackupName = () => {
@@ -676,6 +679,7 @@ export default function SettingsPage() {
           maxBackups: s.maxBackups ?? 10, isActive: s.isActive ?? true,
           storageType: s.storageType || 'LOCAL', externalPath: s.externalPath || '',
           schedulePassword: '', schedulePasswordConfirm: '',
+          diffIntervalMinutes: s.diffIntervalMinutes ?? 30,
         })
       } else {
         setSchedule(null)
@@ -3299,6 +3303,40 @@ export default function SettingsPage() {
                     )}
                   </div>
 
+                  {/* Differential Backup sub-schedule */}
+                  <div className="mt-4 pt-4 border-t border-slate-600/50">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-sm text-gray-400 flex items-center gap-2">
+                        <CircleDot className="w-3.5 h-3.5 text-purple-400" />
+                        Auto Differential Backup (ทุก Full จะลบ Diff เก่าออก)
+                      </p>
+                      <button
+                        onClick={() => setScheduleForm({ ...scheduleForm, diffIntervalMinutes: scheduleForm.diffIntervalMinutes ? null : 30 })}
+                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${scheduleForm.diffIntervalMinutes ? 'bg-purple-500' : 'bg-slate-600'}`}
+                      >
+                        <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${scheduleForm.diffIntervalMinutes ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                      </button>
+                    </div>
+                    {scheduleForm.diffIntervalMinutes && (
+                      <div className="flex gap-2">
+                        {[15, 30, 60].map(min => (
+                          <button
+                            key={min}
+                            onClick={() => setScheduleForm({ ...scheduleForm, diffIntervalMinutes: min })}
+                            className={`flex-1 py-2 rounded-lg text-sm font-medium border transition ${scheduleForm.diffIntervalMinutes === min ? 'bg-purple-500/20 border-purple-500 text-purple-300' : 'bg-slate-700/50 border-slate-600 text-gray-400 hover:border-slate-500'}`}
+                          >
+                            ทุก {min} นาที
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {scheduleForm.diffIntervalMinutes && (
+                      <p className="text-xs text-gray-500 mt-2">
+                        RPO ≤ {scheduleForm.diffIntervalMinutes} นาที — Diff files สูงสุด {Math.floor(24 * 60 / scheduleForm.diffIntervalMinutes)} ไฟล์/วัน (ลบอัตโนมัติเมื่อ Full รันใหม่)
+                      </p>
+                    )}
+                  </div>
+
                   {/* Password for scheduled backups */}
                   <div className="mt-4 pt-4 border-t border-slate-600/50">
                     <p className="text-sm text-gray-400 mb-3 flex items-center gap-2">
@@ -3389,6 +3427,23 @@ export default function SettingsPage() {
                           ? `External: ${schedule.externalPath}`
                           : 'Local (./backups)'}
                       </p>
+                    </div>
+                  )}
+                  {/* Differential info */}
+                  {schedule?.diffIntervalMinutes && (
+                    <div className="pt-2 border-t border-slate-600 flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-400">Auto Differential</p>
+                        <p className="text-white text-sm">ทุก {schedule.diffIntervalMinutes} นาที
+                          <span className="text-gray-500 ml-2 text-xs">(RPO ≤ {schedule.diffIntervalMinutes} นาที)</span>
+                        </p>
+                      </div>
+                      {schedule.nextDiffRunAt && (
+                        <div className="text-right">
+                          <p className="text-xs text-gray-500">Next Diff</p>
+                          <p className="text-xs text-purple-400">{new Date(schedule.nextDiffRunAt).toLocaleString('th-TH')}</p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

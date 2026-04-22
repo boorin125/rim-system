@@ -43,6 +43,32 @@ export class BackupSchedulerService {
         },
       });
 
+      // Check for due Differential sub-schedules
+      const dueDiffSchedules = await this.prisma.backupSchedule.findMany({
+        where: {
+          isActive: true,
+          diffIntervalMinutes: { not: null },
+          nextDiffRunAt: { lte: now },
+        },
+      });
+
+      for (const schedule of dueDiffSchedules) {
+        try {
+          this.logger.log(`Executing scheduled Diff backup: ${schedule.name} (ID: ${schedule.id})`);
+          const backupJob = await this.backupService.executeScheduledDiffBackup(schedule);
+          await this.auditTrailService.logDirect({
+            module: AuditModule.SYSTEM,
+            action: AuditAction.CREATE,
+            entityType: 'BackupJob',
+            entityId: backupJob.id,
+            userId: schedule.createdById,
+            description: `Auto Diff Backup สำเร็จ - Schedule: ${schedule.name}, Job: ${backupJob.jobCode}`,
+          });
+        } catch (error) {
+          this.logger.error(`Failed Diff backup ${schedule.name}: ${error.message}`, error.stack);
+        }
+      }
+
       if (dueSchedules.length === 0) {
         return;
       }
@@ -150,11 +176,12 @@ export class BackupSchedulerService {
       for (const schedule of schedules) {
         if (!schedule.maxBackups) continue;
 
-        // Get backups for this schedule ordered by creation date
+        // Only count FULL backups against maxBackups (Diff backups are auto-managed)
         const backups = await this.prisma.backupJob.findMany({
           where: {
             scheduleId: schedule.id,
             status: 'COMPLETED',
+            backupType: 'FULL',
           },
           orderBy: { createdAt: 'desc' },
         });

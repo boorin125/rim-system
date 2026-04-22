@@ -1412,6 +1412,10 @@ model BackupSchedule {
   // Password Protection
   schedulePassword String? @map("schedule_password")
 
+  // Differential sub-schedule (only for FULL schedules)
+  diffIntervalMinutes Int?      @map("diff_interval_minutes") // 15 | 30 | 60 | null = disabled
+  nextDiffRunAt       DateTime? @map("next_diff_run_at")
+
   // Status
   isActive   Boolean       @default(true) @map("is_active")
   lastRunAt  DateTime?     @map("last_run_at")
