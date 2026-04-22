@@ -1504,6 +1504,8 @@ export default function SettingsPage() {
         externalPath: schedule.externalPath || '',
         schedulePassword: '',
         schedulePasswordConfirm: '',
+        diffIntervalMinutes: schedule.diffIntervalMinutes ?? 30,
+        diffStartTime: schedule.diffStartTime ?? '08:00',
       })
     }
     setIsEditingSchedule(true)
@@ -1525,6 +1527,8 @@ export default function SettingsPage() {
         externalPath: schedule.externalPath || '',
         schedulePassword: '',
         schedulePasswordConfirm: '',
+        diffIntervalMinutes: schedule.diffIntervalMinutes ?? 30,
+        diffStartTime: schedule.diffStartTime ?? '08:00',
       })
     }
   }
