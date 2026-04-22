@@ -787,6 +787,14 @@ export class BackupService {
       }
     }
 
+    // Cleanup: delete records created AFTER this backup's timestamp
+    // (records that didn't exist when Full backup was taken)
+    if (metadata.backupType !== 'DIFFERENTIAL' && metadata.createdAt) {
+      const backupTs = new Date(metadata.createdAt);
+      const cleanupTables = selectedTables && selectedTables.length > 0 ? selectedTables : undefined;
+      await this.cleanupPostRestore(backupTs, cleanupTables);
+    }
+
     // Restore logo files from base64 in metadata
     if (metadata.logos && typeof metadata.logos === 'object') {
       const uploadsLogoDir = path.join(process.cwd(), 'uploads', 'logos');
@@ -811,6 +819,68 @@ export class BackupService {
       stats,
       errors: hasErrors ? errors : undefined,
     };
+  }
+
+  /**
+   * Delete records created AFTER backupTimestamp (reverse FK order)
+   * Used after Full restore to remove records that didn't exist at backup time
+   */
+  private async cleanupPostRestore(backupTimestamp: Date, selectedTables?: string[]) {
+    // Reverse FK order: children deleted before parents
+    const deleteOrder = [
+      'audit_logs', 'technician_performance_scores', 'equipment_logs',
+      'pm_equipment_records', 'pm_records',
+      'outsource_bids', 'outsource_jobs',
+      'notifications', 'incident_history', 'spare_parts', 'comments',
+      'sla_defenses', 'incident_ratings', 'incident_reassignments', 'incident_assignees',
+      'incidents',
+      'knowledge_article_usages', 'knowledge_article_feedbacks',
+      'knowledge_articles', 'knowledge_categories',
+      'equipment_retirement_requests', 'store_delete_requests',
+      'equipment', 'stores',
+      'user_role_assignments', 'users',
+      // Config tables excluded — small and replaced via upsert
+    ];
+
+    const after = { gt: backupTimestamp };
+    const tableMap: Record<string, () => Promise<any>> = {
+      audit_logs:                    () => this.prisma.auditLog.deleteMany({ where: { createdAt: after } }),
+      technician_performance_scores: () => this.prisma.technicianPerformanceScore.deleteMany({ where: { createdAt: after } }),
+      equipment_logs:                () => this.prisma.equipmentLog.deleteMany({ where: { createdAt: after } }),
+      pm_equipment_records:          () => this.prisma.pmEquipmentRecord.deleteMany({ where: { createdAt: after } }),
+      pm_records:                    () => this.prisma.pmRecord.deleteMany({ where: { createdAt: after } }),
+      outsource_bids:                () => this.prisma.outsourceBid.deleteMany({ where: { createdAt: after } }),
+      outsource_jobs:                () => this.prisma.outsourceJob.deleteMany({ where: { createdAt: after } }),
+      notifications:                 () => this.prisma.notification.deleteMany({ where: { createdAt: after } }),
+      incident_history:              () => this.prisma.incidentHistory.deleteMany({ where: { createdAt: after } }),
+      spare_parts:                   () => this.prisma.sparePart.deleteMany({ where: { createdAt: after } }),
+      comments:                      () => this.prisma.comment.deleteMany({ where: { createdAt: after } }),
+      sla_defenses:                  () => this.prisma.slaDefense.deleteMany({ where: { createdAt: after } }),
+      incident_ratings:              () => this.prisma.incidentRating.deleteMany({ where: { createdAt: after } }),
+      incident_reassignments:        () => this.prisma.incidentReassignment.deleteMany({ where: { createdAt: after } }),
+      incident_assignees:            () => this.prisma.incidentAssignee.deleteMany({ where: { assignedAt: after } }),
+      incidents:                     () => this.prisma.incident.deleteMany({ where: { createdAt: after } }),
+      knowledge_article_usages:      () => this.prisma.knowledgeArticleUsage.deleteMany({ where: { createdAt: after } }),
+      knowledge_article_feedbacks:   () => this.prisma.knowledgeArticleFeedback.deleteMany({ where: { createdAt: after } }),
+      knowledge_articles:            () => this.prisma.knowledgeArticle.deleteMany({ where: { createdAt: after } }),
+      knowledge_categories:          () => this.prisma.knowledgeCategory.deleteMany({ where: { createdAt: after } }),
+      equipment_retirement_requests: () => this.prisma.equipmentRetirementRequest.deleteMany({ where: { createdAt: after } }),
+      store_delete_requests:         () => this.prisma.storeDeleteRequest.deleteMany({ where: { createdAt: after } }),
+      equipment:                     () => this.prisma.equipment.deleteMany({ where: { createdAt: after } }),
+      stores:                        () => this.prisma.store.deleteMany({ where: { createdAt: after } }),
+      user_role_assignments:         () => this.prisma.userRoleAssignment.deleteMany({ where: { createdAt: after } }),
+      users:                         () => this.prisma.user.deleteMany({ where: { createdAt: after, isProtected: false } }),
+    };
+
+    for (const table of deleteOrder) {
+      if (selectedTables && !selectedTables.includes(table)) continue;
+      if (!tableMap[table]) continue;
+      try {
+        await tableMap[table]();
+      } catch (err: any) {
+        console.warn(`[Restore Cleanup] Could not delete from ${table}:`, err?.message);
+      }
+    }
   }
 
   /**
