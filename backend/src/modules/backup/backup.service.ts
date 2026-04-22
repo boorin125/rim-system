@@ -377,12 +377,12 @@ export class BackupService {
     const s = since && !CONFIG_TABLES.has(table) ? since : undefined;
 
     // Helper: where clause for tables with both createdAt + updatedAt
-    const w = (extra?: any) => s
+    const w = (extra?: any): any => s
       ? { where: { OR: [{ createdAt: { gt: s } }, { updatedAt: { gt: s } }], ...extra } }
       : extra ? { where: extra } : {};
 
     // Helper: where clause for tables with only createdAt (no updatedAt)
-    const wc = (extra?: any) => s
+    const wc = (extra?: any): any => s
       ? { where: { createdAt: { gt: s }, ...extra } }
       : extra ? { where: extra } : {};
 
