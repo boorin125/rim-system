@@ -350,6 +350,8 @@ export default function SettingsPage() {
   const [restoreFileNeedsPassword, setRestoreFileNeedsPassword] = useState(false)
   const [isRestoringFile, setIsRestoringFile] = useState(false)
   const [isUploadingRestoreFile, setIsUploadingRestoreFile] = useState(false)
+  const [restoreFileIsDiff, setRestoreFileIsDiff] = useState(false)
+  const [restoreFileBaseJobCode, setRestoreFileBaseJobCode] = useState<string | null>(null)
   // which groups are IN the backup file (parsed from metadata.tables)
   const [restoreAvailableGroups, setRestoreAvailableGroups] = useState<string[]>([])
   // which groups the user wants to restore (default = all available)
@@ -1197,6 +1199,8 @@ export default function SettingsPage() {
       setRestoreTempId(tempId)
       setRestoreFileNeedsPassword(!!metadata?.isEncrypted)
       setRestoreFilePassword('')
+      setRestoreFileIsDiff(metadata?.backupType === 'DIFFERENTIAL')
+      setRestoreFileBaseJobCode(metadata?.baseJobCode ?? null)
       const availableGroups = BACKUP_GROUPS
         .filter(g => g.tables.some((t: string) => (tables as string[]).includes(t)))
         .map(g => g.id)
@@ -3518,6 +3522,27 @@ export default function SettingsPage() {
               <p className="text-sm text-gray-400 mb-4">
                 ไฟล์: <span className="text-white font-medium">{restoreFileName}</span>
               </p>
+
+              {/* Differential backup warning */}
+              {restoreFileIsDiff && (
+                <div className="p-3 bg-orange-500/10 border border-orange-500/40 rounded-lg mb-4">
+                  <p className="text-sm text-orange-300 font-semibold flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    ไฟล์นี้คือ Differential Backup
+                  </p>
+                  <p className="text-xs text-orange-400 mt-1 leading-relaxed">
+                    Differential Backup จะ<span className="font-semibold">เพิ่มข้อมูล</span>เข้ามาเท่านั้น ไม่ลบข้อมูลออก
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    หากกู้ข้อมูลหลัง server พัง ต้อง Restore <span className="text-white font-medium">Full Backup ก่อน</span> แล้วค่อย Restore ไฟล์นี้ตามลำดับ
+                  </p>
+                  {restoreFileBaseJobCode && (
+                    <p className="text-xs text-gray-500 mt-1.5">
+                      Base Full Backup: <span className="text-gray-300 font-mono">{restoreFileBaseJobCode}</span>
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Partial backup warning */}
               {restoreAvailableGroups.length > 0 && restoreAvailableGroups.length < BACKUP_GROUPS.length && (

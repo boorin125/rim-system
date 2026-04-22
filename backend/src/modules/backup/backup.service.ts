@@ -232,6 +232,7 @@ export class BackupService {
       // --- Differential: find base Full backup ---
       let sinceTimestamp: Date | undefined;
       let baseBackupId: number | undefined;
+      let baseJobCode: string | undefined;
 
       if (backup.backupType === 'DIFFERENTIAL') {
         const fullBackup = await this.prisma.backupJob.findFirst({
@@ -241,6 +242,7 @@ export class BackupService {
         if (fullBackup?.completedAt) {
           sinceTimestamp = fullBackup.completedAt;
           baseBackupId = fullBackup.id;
+          baseJobCode = fullBackup.jobCode;
           await this.prisma.backupJob.update({
             where: { id: backupId },
             data: { sinceTimestamp, baseBackupId },
@@ -314,6 +316,7 @@ export class BackupService {
           totalRecords,
           ...(sinceTimestamp && { sinceTimestamp: sinceTimestamp.toISOString() }),
           ...(baseBackupId && { baseBackupId }),
+          ...(baseJobCode && { baseJobCode }),
           ...(passwordHash && { passwordHash }),
           ...(Object.keys(logoBackups).length > 0 && { logos: logoBackups }),
         },
