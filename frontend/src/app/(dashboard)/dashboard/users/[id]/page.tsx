@@ -70,6 +70,7 @@ export default function UserDetailPage() {
     TECHNICIAN: { label: 'Technician', color: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30' },
     END_USER: { label: 'End User', color: 'bg-gray-500/20 text-gray-400 border-gray-500/30' },
     READ_ONLY: { label: 'Read Only', color: 'bg-slate-500/20 text-slate-400 border-slate-500/30' },
+    MONITOR: { label: 'Monitor', color: 'bg-purple-500/20 text-purple-400 border-purple-500/30' },
   }
 
   const statuses: Record<string, { label: string; color: string }> = {

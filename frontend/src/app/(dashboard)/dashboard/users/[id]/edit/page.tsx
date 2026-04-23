@@ -79,6 +79,7 @@ const [allProvinces, setAllProvinces] = useState<string[]>([])
     { value: 'TECHNICIAN', label: 'Technician', description: 'Technical support and field work', color: 'cyan' },
     { value: 'END_USER', label: 'End User', description: 'Standard user access', color: 'gray' },
     { value: 'READ_ONLY', label: 'Read Only', description: 'View-only access to system', color: 'slate' },
+    { value: 'MONITOR', label: 'Monitor', description: 'Performance & Realtime Tracking view only', color: 'violet' },
   ]
 
   // Filter roles based on current user's permissions

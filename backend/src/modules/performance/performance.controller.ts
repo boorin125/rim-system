@@ -98,10 +98,10 @@ export class PerformanceController {
 
   /**
    * Get Incident Statistics (total, closed, pending, cancelled, SLA)
-   * Access: IT_MANAGER, SUPERVISOR, HELP_DESK
+   * Access: IT_MANAGER, SUPERVISOR, HELP_DESK, MONITOR
    */
   @Get('incident-stats')
-  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK)
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK, UserRole.MONITOR)
   async getIncidentStats(
     @Query('period') period?: string,
     @Query('jobTypes') jobTypes?: string,
@@ -112,10 +112,10 @@ export class PerformanceController {
 
   /**
    * Get SLA Monthly Trend (line graph data)
-   * Access: IT_MANAGER, SUPERVISOR, HELP_DESK
+   * Access: IT_MANAGER, SUPERVISOR, HELP_DESK, MONITOR
    */
   @Get('sla-trend')
-  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK)
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK, UserRole.MONITOR)
   async getSlaTrend(
     @Query('months') months?: string,
     @Query('jobTypes') jobTypes?: string,
@@ -126,10 +126,10 @@ export class PerformanceController {
 
   /**
    * Get Enhanced Leaderboard (with workVolume and SLA%)
-   * Access: IT_MANAGER, SUPERVISOR, HELP_DESK
+   * Access: IT_MANAGER, SUPERVISOR, HELP_DESK, MONITOR
    */
   @Get('leaderboard')
-  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK)
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK, UserRole.MONITOR)
   async getLeaderboard(
     @Query('period') period?: string,
     @Query('limit') limit?: string,
@@ -147,10 +147,10 @@ export class PerformanceController {
 
   /**
    * Get Avg Resolution Time Stats (current vs previous period)
-   * Access: IT_MANAGER, SUPERVISOR, HELP_DESK
+   * Access: IT_MANAGER, SUPERVISOR, HELP_DESK, MONITOR
    */
   @Get('resolution-time')
-  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK)
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK, UserRole.MONITOR)
   async getResolutionTimeStats(
     @Query('period') period?: string,
     @Query('jobTypes') jobTypes?: string,
@@ -161,10 +161,10 @@ export class PerformanceController {
 
   /**
    * Get Top Stores by Incident Count
-   * Access: IT_MANAGER, SUPERVISOR, HELP_DESK
+   * Access: IT_MANAGER, SUPERVISOR, HELP_DESK, MONITOR
    */
   @Get('store-incident-detail/:storeId')
-  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK)
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK, UserRole.MONITOR)
   async getStoreIncidentDetail(
     @Param('storeId', ParseIntPipe) storeId: number,
     @Query('period') period?: string,
@@ -175,7 +175,7 @@ export class PerformanceController {
   }
 
   @Get('top-stores')
-  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK)
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK, UserRole.MONITOR)
   async getTopStores(
     @Query('period') period?: string,
     @Query('limit') limit?: string,
@@ -187,10 +187,10 @@ export class PerformanceController {
 
   /**
    * Get Top Equipment by Incident Count
-   * Access: IT_MANAGER, SUPERVISOR, HELP_DESK
+   * Access: IT_MANAGER, SUPERVISOR, HELP_DESK, MONITOR
    */
   @Get('top-equipment')
-  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK)
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK, UserRole.MONITOR)
   async getTopEquipment(
     @Query('period') period?: string,
     @Query('limit') limit?: string,
@@ -202,30 +202,30 @@ export class PerformanceController {
 
   /**
    * Get Team Statistics
-   * Access: IT_MANAGER, SUPERVISOR, HELP_DESK
+   * Access: IT_MANAGER, SUPERVISOR, HELP_DESK, MONITOR
    */
   @Get('stats')
-  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK)
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK, UserRole.MONITOR)
   async getTeamStats(@Query('period') period?: string) {
     return this.performanceService.getTeamStats(period);
   }
 
   /**
    * Get Team YTD Performance
-   * Access: IT_MANAGER, SUPERVISOR
+   * Access: IT_MANAGER, SUPERVISOR, MONITOR
    */
   @Get('ytd')
-  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR)
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.MONITOR)
   async getTeamYTD() {
     return this.performanceService.getYTDPerformance();
   }
 
   /**
    * Get Team YTM Performance
-   * Access: IT_MANAGER, SUPERVISOR
+   * Access: IT_MANAGER, SUPERVISOR, MONITOR
    */
   @Get('ytm')
-  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR)
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.MONITOR)
   async getTeamYTM(@Query('month') month?: string) {
     return this.performanceService.getYTMPerformance(
       undefined,
@@ -235,20 +235,20 @@ export class PerformanceController {
 
   /**
    * Get Team YTY Performance
-   * Access: IT_MANAGER, SUPERVISOR
+   * Access: IT_MANAGER, SUPERVISOR, MONITOR
    */
   @Get('yty')
-  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR)
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.MONITOR)
   async getTeamYTY() {
     return this.performanceService.getYTYPerformance();
   }
 
   /**
    * Get Technician's Performance
-   * Access: IT_MANAGER, SUPERVISOR
+   * Access: IT_MANAGER, SUPERVISOR, MONITOR
    */
   @Get('technicians/:id')
-  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR)
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.MONITOR)
   async getTechnicianPerformance(
     @Param('id', ParseIntPipe) id: number,
     @Query('period') period?: string,
@@ -258,10 +258,10 @@ export class PerformanceController {
 
   /**
    * Get Technician's Performance History
-   * Access: IT_MANAGER, SUPERVISOR
+   * Access: IT_MANAGER, SUPERVISOR, MONITOR
    */
   @Get('technicians/:id/history')
-  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR)
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.MONITOR)
   async getTechnicianHistory(
     @Param('id', ParseIntPipe) id: number,
     @Query('months') months?: string,
@@ -309,7 +309,7 @@ export class PerformanceController {
 
   /** Top Active Equipment by Incident Count */
   @Get('top-active-equipment')
-  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK)
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK, UserRole.MONITOR)
   async getTopActiveEquipment(
     @Query('period') period?: string,
     @Query('limit') limit?: string,
@@ -321,14 +321,14 @@ export class PerformanceController {
 
   /** Equipment Incident Detail (by equipmentId) */
   @Get('equipment-incident-detail/:equipmentId')
-  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK)
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK, UserRole.MONITOR)
   async getEquipmentIncidentDetail(@Param('equipmentId', ParseIntPipe) equipmentId: number) {
     return this.performanceService.getEquipmentIncidentDetail(equipmentId);
   }
 
   /** Equipment Name+Store pairs with >2 incidents */
   @Get('equipment-repeat')
-  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK)
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK, UserRole.MONITOR)
   async getEquipmentRepeatIncidents(
     @Query('period') period?: string,
     @Query('jobTypes') jobTypes?: string,
@@ -339,7 +339,7 @@ export class PerformanceController {
 
   /** Equipment Name+Store incident detail */
   @Get('equipment-repeat-detail')
-  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK)
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK, UserRole.MONITOR)
   async getEquipmentNameStoreDetail(
     @Query('equipmentName') equipmentName: string,
     @Query('storeId', ParseIntPipe) storeId: number,
@@ -349,7 +349,7 @@ export class PerformanceController {
 
   /** Help Desk Overall Stats */
   @Get('helpdesk-stats')
-  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK)
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK, UserRole.MONITOR)
   async getHelpdeskStats(
     @Query('period') period?: string,
     @Query('jobTypes') jobTypes?: string,
@@ -360,7 +360,7 @@ export class PerformanceController {
 
   /** Help Desk Leaderboard */
   @Get('helpdesk-leaderboard')
-  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK)
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK, UserRole.MONITOR)
   async getHelpdeskLeaderboard(
     @Query('period') period?: string,
     @Query('jobTypes') jobTypes?: string,

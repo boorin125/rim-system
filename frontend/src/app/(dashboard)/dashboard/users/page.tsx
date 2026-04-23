@@ -56,6 +56,7 @@ export default function UsersPage() {
     { value: 'TECHNICIAN', label: 'Technician' },
     { value: 'END_USER', label: 'End User' },
     { value: 'READ_ONLY', label: 'Read Only' },
+    { value: 'MONITOR', label: 'Monitor' },
   ]
 
   const statuses = [
@@ -136,6 +137,7 @@ export default function UsersPage() {
       TECHNICIAN: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
       END_USER: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
       READ_ONLY: 'bg-slate-500/20 text-slate-400 border-slate-500/30',
+      MONITOR: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
     }
     return badges[role] || 'bg-gray-500/20 text-gray-400 border-gray-500/30'
   }

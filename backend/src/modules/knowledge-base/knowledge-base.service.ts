@@ -21,6 +21,7 @@ import * as path from 'path';
 
 // Role rank — higher number = higher privilege
 const ROLE_RANK: Record<UserRole, number> = {
+  MONITOR: 0,
   READ_ONLY: 1,
   END_USER: 2,
   TECHNICIAN: 3,

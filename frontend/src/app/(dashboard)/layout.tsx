@@ -33,7 +33,7 @@ import NotificationBell from '@/components/NotificationBell'
 import SupervisorPendingAlert from '@/components/SupervisorPendingAlert'
 import SingleTabGuard from '@/components/SingleTabGuard'
 import PwaInstallPrompt from '@/components/PwaInstallPrompt'
-import { hasMenuAccess, getUserRoles } from '@/config/permissions'
+import { hasMenuAccess, getUserRoles, getHighestRole } from '@/config/permissions'
 import { LicenseProvider, useLicense } from '@/context/LicenseContext'
 import { usePushNotification } from '@/hooks/usePushNotification'
 import ScrollRestorer from '@/components/ScrollRestorer'
@@ -281,6 +281,16 @@ export default function DashboardLayout({
           // Update localStorage with fresh user data (including updated roles)
           localStorage.setItem('user', JSON.stringify(res.data))
           setUser(res.data)
+
+          // MONITOR role: restrict to Performance and Realtime Tracking only
+          const highestRole = getHighestRole(res.data)
+          if (highestRole === 'MONITOR') {
+            const monitorPaths = ['/dashboard/performance', '/dashboard/map']
+            if (!monitorPaths.some(p => pathname.startsWith(p))) {
+              router.push('/dashboard/performance')
+              return
+            }
+          }
 
           // Show profile incomplete warning once per day (first login of day)
           const today = new Date().toISOString().slice(0, 10)

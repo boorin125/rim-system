@@ -9,6 +9,7 @@ export type UserRole =
   | 'TECHNICIAN'
   | 'END_USER'
   | 'READ_ONLY'
+  | 'MONITOR'
 
 // Role hierarchy: higher number = higher privilege
 export const ROLE_HIERARCHY: Record<string, number> = {
@@ -20,6 +21,7 @@ export const ROLE_HIERARCHY: Record<string, number> = {
   TECHNICIAN: 3,
   END_USER: 2,
   READ_ONLY: 1,
+  MONITOR: 0.5,
 }
 
 /** Returns the single highest-privilege role the user has */
@@ -61,6 +63,7 @@ export const menuPermissions: Record<string, MenuPermission> = {
       TECHNICIAN: 'full',
       END_USER: 'full',
       READ_ONLY: 'view',
+      MONITOR: 'none',
     },
   },
   '/dashboard/incidents': {
@@ -74,6 +77,7 @@ export const menuPermissions: Record<string, MenuPermission> = {
       TECHNICIAN: 'view',          // Can view, accept, resolve (backend controls actions)
       END_USER: 'create_view',     // Can create and view own incidents
       READ_ONLY: 'view',
+      MONITOR: 'none',
     },
   },
   '/dashboard/stores': {
@@ -87,6 +91,7 @@ export const menuPermissions: Record<string, MenuPermission> = {
       TECHNICIAN: 'view',
       END_USER: 'none',
       READ_ONLY: 'view',
+      MONITOR: 'none',
     },
   },
   '/dashboard/stores/import': {
@@ -100,6 +105,7 @@ export const menuPermissions: Record<string, MenuPermission> = {
       TECHNICIAN: 'none',
       END_USER: 'none',
       READ_ONLY: 'none',
+      MONITOR: 'none',
     },
   },
   '/dashboard/equipment': {
@@ -113,6 +119,7 @@ export const menuPermissions: Record<string, MenuPermission> = {
       TECHNICIAN: 'view',
       END_USER: 'none',
       READ_ONLY: 'view',
+      MONITOR: 'none',
     },
   },
   '/dashboard/users': {
@@ -126,10 +133,11 @@ export const menuPermissions: Record<string, MenuPermission> = {
       TECHNICIAN: 'none',
       END_USER: 'none',
       READ_ONLY: 'none',
+      MONITOR: 'none',
     },
   },
   '/dashboard/performance': {
-    roles: ['IT_MANAGER', 'SUPERVISOR', 'TECHNICIAN'],
+    roles: ['IT_MANAGER', 'SUPERVISOR', 'TECHNICIAN', 'MONITOR'],
     accessLevel: {
       SUPER_ADMIN: 'none',
       IT_MANAGER: 'full',
@@ -139,6 +147,7 @@ export const menuPermissions: Record<string, MenuPermission> = {
       TECHNICIAN: 'self',
       END_USER: 'none',
       READ_ONLY: 'none',
+      MONITOR: 'view',
     },
   },
   '/dashboard/outsource': {
@@ -152,10 +161,11 @@ export const menuPermissions: Record<string, MenuPermission> = {
       TECHNICIAN: 'self', // Outsource technicians only (handled in page)
       END_USER: 'none',
       READ_ONLY: 'none',
+      MONITOR: 'none',
     },
   },
   '/dashboard/map': {
-    roles: ['IT_MANAGER'],
+    roles: ['IT_MANAGER', 'MONITOR'],
     accessLevel: {
       SUPER_ADMIN: 'none',
       IT_MANAGER: 'full',
@@ -165,6 +175,7 @@ export const menuPermissions: Record<string, MenuPermission> = {
       TECHNICIAN: 'none',
       END_USER: 'none',
       READ_ONLY: 'none',
+      MONITOR: 'view',
     },
   },
   '/dashboard/reports': {
@@ -178,6 +189,7 @@ export const menuPermissions: Record<string, MenuPermission> = {
       TECHNICIAN: 'none',
       END_USER: 'none',
       READ_ONLY: 'view',
+      MONITOR: 'none',
     },
   },
   '/dashboard/audit-trail': {
@@ -191,6 +203,7 @@ export const menuPermissions: Record<string, MenuPermission> = {
       TECHNICIAN: 'none',
       END_USER: 'none',
       READ_ONLY: 'none',
+      MONITOR: 'none',
     },
   },
   '/dashboard/knowledge-base': {
@@ -204,6 +217,7 @@ export const menuPermissions: Record<string, MenuPermission> = {
       TECHNICIAN: 'create_view',  // Can view and create articles
       END_USER: 'view',           // Can only view published articles
       READ_ONLY: 'view',
+      MONITOR: 'none',
     },
   },
   '/dashboard/settings': {
@@ -217,6 +231,7 @@ export const menuPermissions: Record<string, MenuPermission> = {
       TECHNICIAN: 'none',
       END_USER: 'none',
       READ_ONLY: 'none',
+      MONITOR: 'none',
     },
   },
   '/dashboard/settings/categories': {
@@ -230,6 +245,7 @@ export const menuPermissions: Record<string, MenuPermission> = {
       TECHNICIAN: 'none',
       END_USER: 'none',
       READ_ONLY: 'none',
+      MONITOR: 'none',
     },
   },
   '/dashboard/settings/job-types': {
@@ -243,6 +259,7 @@ export const menuPermissions: Record<string, MenuPermission> = {
       TECHNICIAN: 'none',
       END_USER: 'none',
       READ_ONLY: 'none',
+      MONITOR: 'none',
     },
   },
   '/dashboard/sla-defense': {
@@ -256,6 +273,7 @@ export const menuPermissions: Record<string, MenuPermission> = {
       TECHNICIAN: 'none',
       END_USER: 'none',
       READ_ONLY: 'none',
+      MONITOR: 'none',
     },
   },
 }

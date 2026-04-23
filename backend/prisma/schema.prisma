@@ -512,6 +512,7 @@ enum UserRole {
   TECHNICIAN
   END_USER
   READ_ONLY
+  MONITOR
 }
 
 enum UserStatus {
