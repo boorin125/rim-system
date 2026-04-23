@@ -443,7 +443,8 @@ export default function PerformancePage() {
   const hasHigherRole = userRoles.some(r => higherRoles.includes(r))
   const isTechnician = userRoles.includes('TECHNICIAN') && !hasHigherRole
   const accessLevel = getAccessLevel(currentUser, '/dashboard/performance')
-  const isManager = accessLevel === 'full'
+  const isManager = accessLevel === 'full' || accessLevel === 'view'
+  const canCalculate = accessLevel === 'full'
   const isSelfOnly = accessLevel === 'self' && !hasHigherRole
 
   const loadData = useCallback(async () => {
@@ -659,7 +660,7 @@ export default function PerformancePage() {
             onChange={(e) => setPeriod(e.target.value)}
             className="px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-          {isManager && (
+          {canCalculate && (
             <button
               onClick={handleCalculate}
               disabled={isCalculating}
