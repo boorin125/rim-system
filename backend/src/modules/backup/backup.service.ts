@@ -190,7 +190,7 @@ export class BackupService {
    */
   private generateJobCode(prefix: string): string {
     const now = new Date();
-    const timestamp = now.toISOString().replace(/[-:T.Z]/g, '').slice(0, 14);
+    const timestamp = now.toISOString().replace(/[-:T.Z]/g, '').slice(0, 12);
     return `${prefix}-${timestamp}`;
   }
 
@@ -232,7 +232,8 @@ export class BackupService {
       );
     }
 
-    const jobCode = this.generateJobCode('BKP');
+    const bkpPrefix = dto.backupType === 'DIFFERENTIAL' ? 'BKP-D' : 'BKP-F';
+    const jobCode = this.generateJobCode(bkpPrefix);
     const scope = dto.scope || 'ALL';
     const tables = scope === 'SELECTIVE'
       ? dto.scopeDetails || []
@@ -1554,7 +1555,7 @@ export class BackupService {
    * Called by the scheduler service when a schedule is due
    */
   async executeScheduledBackup(schedule: any) {
-    const jobCode = this.generateJobCode('BKP');
+    const jobCode = this.generateJobCode('BKP-F');
     const scope = schedule.scope || 'ALL';
     const tables = scope === 'SELECTIVE'
       ? schedule.scopeDetails || []
@@ -1608,7 +1609,7 @@ export class BackupService {
    * Execute a scheduled Differential backup (triggered by diffIntervalMinutes)
    */
   async executeScheduledDiffBackup(schedule: any) {
-    const jobCode = this.generateJobCode('BKP');
+    const jobCode = this.generateJobCode('BKP-D');
     const scope = schedule.scope || 'ALL';
     const tables = scope === 'SELECTIVE'
       ? schedule.scopeDetails || []
