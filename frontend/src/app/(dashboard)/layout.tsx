@@ -31,6 +31,7 @@ import toast from 'react-hot-toast'
 import axios from 'axios'
 import NotificationBell from '@/components/NotificationBell'
 import SupervisorPendingAlert from '@/components/SupervisorPendingAlert'
+import HelpdeskResolvedAlert from '@/components/HelpdeskResolvedAlert'
 import SingleTabGuard from '@/components/SingleTabGuard'
 import PwaInstallPrompt from '@/components/PwaInstallPrompt'
 import { hasMenuAccess, getUserRoles, getHighestRole } from '@/config/permissions'
@@ -111,6 +112,7 @@ export default function DashboardLayout({
     return null
   })
   const [showPendingAlert, setShowPendingAlert] = useState(false)
+  const [showHelpdeskAlert, setShowHelpdeskAlert] = useState(false)
   const [profileIncompleteFields, setProfileIncompleteFields] = useState<string[]>([])
   const [themeStyle, setThemeStyle] = useState<{ bgStart: string; bgEnd: string } | null>(() => {
     if (typeof window !== 'undefined') {
@@ -393,6 +395,27 @@ export default function DashboardLayout({
     checkAndShow()
 
     // Re-check every minute (shows when 1h has elapsed)
+    const interval = setInterval(checkAndShow, 60 * 1000)
+    return () => clearInterval(interval)
+  }, [user])
+
+  // HelpDesk: show resolved incidents alert on login and every hour
+  useEffect(() => {
+    if (!user) return
+    const roles: string[] = getUserRoles(user)
+    if (!roles.includes('HELP_DESK')) return
+
+    const HOUR_MS = 60 * 60 * 1000
+    const storageKey = `helpdeskAlertLastShown_${user.id}`
+
+    const checkAndShow = () => {
+      const lastShown = localStorage.getItem(storageKey)
+      if (!lastShown || Date.now() - parseInt(lastShown) >= HOUR_MS) {
+        setShowHelpdeskAlert(true)
+      }
+    }
+
+    checkAndShow()
     const interval = setInterval(checkAndShow, 60 * 1000)
     return () => clearInterval(interval)
   }, [user])
@@ -829,6 +852,14 @@ export default function DashboardLayout({
         <SupervisorPendingAlert
           userId={user.id}
           onDismiss={() => setShowPendingAlert(false)}
+        />
+      )}
+
+      {/* HelpDesk Resolved Incidents Alert */}
+      {showHelpdeskAlert && user && (
+        <HelpdeskResolvedAlert
+          userId={user.id}
+          onDismiss={() => setShowHelpdeskAlert(false)}
         />
       )}
     </div>
