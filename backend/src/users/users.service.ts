@@ -334,22 +334,96 @@ export class UsersService {
   }
 
   /**
-   * Delete user
+   * Schedule user for deletion after 7-day grace period
    */
-  async remove(id: number) {
-    // Check if user exists
+  async scheduleDelete(id: number, requestedById: number) {
     await this.findOne(id);
+    await this.checkProtectedUser(id, 'schedule delete');
 
-    // Check if user is protected
-    await this.checkProtectedUser(id, 'delete');
-
-    await this.prisma.user.delete({
+    const user = await this.prisma.user.findUnique({
       where: { id },
+      select: { status: true },
     });
 
-    return {
-      message: 'User deleted successfully',
-    };
+    if (user!.status === UserStatus.PENDING_DELETION) {
+      throw new BadRequestException('User is already scheduled for deletion');
+    }
+
+    const scheduledDeleteAt = new Date();
+    scheduledDeleteAt.setDate(scheduledDeleteAt.getDate() + 7);
+
+    await this.prisma.user.update({
+      where: { id },
+      data: {
+        statusBeforeDeletion: user!.status,
+        status: UserStatus.PENDING_DELETION,
+        scheduledDeleteAt,
+        deleteRequestedAt: new Date(),
+        deleteRequestedBy: requestedById,
+      },
+    });
+
+    return { message: 'User scheduled for deletion in 7 days', scheduledDeleteAt };
+  }
+
+  /**
+   * Cancel scheduled deletion — restore previous status
+   */
+  async cancelDelete(id: number) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: { status: true, statusBeforeDeletion: true },
+    });
+
+    if (!user) throw new NotFoundException(`User with ID ${id} not found`);
+
+    if (user.status !== UserStatus.PENDING_DELETION) {
+      throw new BadRequestException('User is not scheduled for deletion');
+    }
+
+    await this.prisma.user.update({
+      where: { id },
+      data: {
+        status: user.statusBeforeDeletion ?? UserStatus.ACTIVE,
+        statusBeforeDeletion: null,
+        scheduledDeleteAt: null,
+        deleteRequestedAt: null,
+        deleteRequestedBy: null,
+      },
+    });
+
+    return { message: 'Deletion cancelled successfully' };
+  }
+
+  /**
+   * Permanently delete all users whose grace period has expired (called by scheduler)
+   */
+  async purgeExpiredDeletions() {
+    const users = await this.prisma.user.findMany({
+      where: {
+        status: UserStatus.PENDING_DELETION,
+        scheduledDeleteAt: { lte: new Date() },
+      },
+      select: { id: true, email: true },
+    });
+
+    for (const user of users) {
+      await this.prisma.user.delete({ where: { id: user.id } });
+    }
+
+    return users.length;
+  }
+
+  /**
+   * Delete user (immediate — used by purge scheduler)
+   */
+  async remove(id: number) {
+    await this.findOne(id);
+    await this.checkProtectedUser(id, 'delete');
+
+    await this.prisma.user.delete({ where: { id } });
+
+    return { message: 'User deleted successfully' };
   }
 
   /**

@@ -170,6 +170,20 @@ export class UsersController {
     return this.usersService.savePushToken(req.user.id, pushTokenDto.token);
   }
 
+  @Patch(':id/schedule-delete')
+  @Roles('SUPER_ADMIN')
+  @UseGuards(RolesGuard)
+  scheduleDelete(@Param('id', ParseIntPipe) id: number, @Request() req) {
+    return this.usersService.scheduleDelete(id, req.user.id);
+  }
+
+  @Patch(':id/cancel-delete')
+  @Roles('SUPER_ADMIN')
+  @UseGuards(RolesGuard)
+  cancelDelete(@Param('id', ParseIntPipe) id: number) {
+    return this.usersService.cancelDelete(id);
+  }
+
   @Delete(':id')
   @Roles('SUPER_ADMIN')
   @UseGuards(RolesGuard)

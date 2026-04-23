@@ -167,6 +167,11 @@ export class AuthService {
       throw new UnauthorizedException('Account is pending approval. Please wait for IT Manager to approve your registration.');
     }
 
+    // Check if account is pending deletion
+    if (user.status === UserStatus.PENDING_DELETION) {
+      throw new UnauthorizedException('บัญชีนี้กำลังรอลบถาวร กรุณาติดต่อ Administrator เพื่อยกเลิกการลบ');
+    }
+
     // Check if account is inactive or suspended
     if (user.status === UserStatus.INACTIVE) {
       throw new UnauthorizedException('Account is inactive');

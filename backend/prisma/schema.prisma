@@ -41,6 +41,10 @@ model User {
   isOnline                    Boolean                      @default(false) @map("is_online")
   firstLoginTodayAt           DateTime?                    @map("first_login_today_at")
   lastPasswordChange          DateTime?                    @map("last_password_change")
+  scheduledDeleteAt           DateTime?                    @map("scheduled_delete_at")
+  deleteRequestedAt           DateTime?                    @map("delete_requested_at")
+  deleteRequestedBy           Int?                         @map("delete_requested_by")
+  statusBeforeDeletion        UserStatus?                  @map("status_before_deletion")
   createdAt                   DateTime                     @default(now()) @map("created_at")
   updatedAt                   DateTime                     @updatedAt @map("updated_at")
   createdBy                   Int?                         @map("created_by")
@@ -521,6 +525,7 @@ enum UserStatus {
   INACTIVE
   SUSPENDED
   LOCKED
+  PENDING_DELETION
 }
 
 enum TechnicianType {

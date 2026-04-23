@@ -19,6 +19,9 @@ import {
   Wrench,
   MapPin,
   CheckCircle2,
+  Trash2,
+  AlertTriangle,
+  RotateCcw,
 } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
@@ -42,6 +45,8 @@ interface UserDetail {
   status: string
   twoFactorEnabled: boolean
   lastLogin?: string
+  scheduledDeleteAt?: string
+  deleteRequestedAt?: string
   createdAt: string
   updatedAt: string
   _count?: {
@@ -59,6 +64,7 @@ export default function UserDetailPage() {
   const [user, setUser] = useState<UserDetail | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [currentUser, setCurrentUser] = useState<any>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const themeHighlight = useThemeHighlight()
 
   const roles: Record<string, { label: string; color: string }> = {
@@ -78,6 +84,8 @@ export default function UserDetailPage() {
     INACTIVE: { label: 'Inactive', color: 'bg-gray-500/20 text-gray-400 border-gray-500/30' },
     SUSPENDED: { label: 'Suspended', color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' },
     LOCKED: { label: 'Locked', color: 'bg-red-500/20 text-red-400 border-red-500/30' },
+    PENDING: { label: 'Pending Approval', color: 'bg-orange-500/20 text-orange-400 border-orange-500/30' },
+    PENDING_DELETION: { label: 'รอลบถาวร', color: 'bg-red-600/30 text-red-300 border-red-500/50' },
   }
 
   useEffect(() => {
@@ -140,6 +148,43 @@ export default function UserDetailPage() {
     }
   }
 
+  const handleScheduleDelete = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      await axios.patch(
+        `${process.env.NEXT_PUBLIC_API_URL}/users/${userId}/schedule-delete`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      toast.success('กำหนดลบบัญชีใน 7 วันแล้ว')
+      setShowDeleteConfirm(false)
+      fetchUserData()
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'เกิดข้อผิดพลาด')
+    }
+  }
+
+  const handleCancelDelete = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      await axios.patch(
+        `${process.env.NEXT_PUBLIC_API_URL}/users/${userId}/cancel-delete`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      toast.success('ยกเลิกการลบบัญชีสำเร็จ')
+      fetchUserData()
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'เกิดข้อผิดพลาด')
+    }
+  }
+
+  const getDaysUntilDeletion = (scheduledDeleteAt?: string) => {
+    if (!scheduledDeleteAt) return 0
+    const diff = new Date(scheduledDeleteAt).getTime() - Date.now()
+    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)))
+  }
+
   const formatDate = (dateString: string | undefined) => {
     if (!dateString) return '-'
     return new Date(dateString).toLocaleDateString('th-TH', {
@@ -199,6 +244,56 @@ export default function UserDetailPage() {
         <h1 className="text-2xl font-bold text-white">User Details</h1>
         <p className="text-gray-400 mt-1">View and manage user information</p>
       </div>
+
+      {/* Pending Deletion Warning Banner */}
+      {user.status === 'PENDING_DELETION' && (
+        <div className="flex items-start gap-3 p-4 bg-red-600/20 border border-red-500/50 rounded-xl">
+          <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-red-300 font-semibold">บัญชีนี้กำหนดลบถาวรใน {getDaysUntilDeletion(user.scheduledDeleteAt)} วัน</p>
+            <p className="text-red-400/80 text-sm mt-0.5">
+              กำหนดลบ: {formatDate(user.scheduledDeleteAt)} — ผู้ใช้ไม่สามารถ Login ได้ในระหว่างนี้
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-800 border border-slate-600 rounded-2xl p-6 max-w-md w-full shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-red-500/20 rounded-xl">
+                <Trash2 className="w-6 h-6 text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">ยืนยันการลบบัญชี</h3>
+                <p className="text-sm text-gray-400">บัญชีจะถูกลบถาวรหลังจาก 7 วัน</p>
+              </div>
+            </div>
+            <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl mb-5 space-y-1.5">
+              <p className="text-sm text-red-300 font-medium">⚠️ สิ่งที่จะเกิดขึ้น:</p>
+              <p className="text-sm text-gray-300">• ผู้ใช้ <strong className="text-white">{user.firstName} {user.lastName}</strong> จะ Login ไม่ได้ทันที</p>
+              <p className="text-sm text-gray-300">• บัญชีจะถูกลบถาวรหลัง <strong className="text-white">7 วัน</strong></p>
+              <p className="text-sm text-gray-300">• สามารถยกเลิกได้ภายใน 7 วัน โดย SUPER_ADMIN</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl transition-colors"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={handleScheduleDelete}
+                className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl transition-colors font-medium"
+              >
+                ยืนยัน ลบบัญชี
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Info Card */}
@@ -430,6 +525,28 @@ export default function UserDetailPage() {
                   >
                     <UserX className="w-5 h-5" />
                     Disable User
+                  </button>
+                )}
+
+                {/* Cancel Deletion — SUPER_ADMIN เท่านั้น */}
+                {user.status === 'PENDING_DELETION' && userRoles.includes('SUPER_ADMIN') && (
+                  <button
+                    onClick={handleCancelDelete}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-colors"
+                  >
+                    <RotateCcw className="w-5 h-5" />
+                    ยกเลิกการลบ
+                  </button>
+                )}
+
+                {/* Schedule Delete — SUPER_ADMIN เท่านั้น ไม่แสดงสำหรับตัวเอง */}
+                {user.status !== 'PENDING_DELETION' && user.id !== currentUser?.id && userRoles.includes('SUPER_ADMIN') && (
+                  <button
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-600/20 hover:bg-red-600/40 text-red-400 border border-red-500/30 rounded-xl transition-colors"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                    ลบบัญชี
                   </button>
                 )}
               </div>

@@ -154,11 +154,13 @@ export default function UsersPage() {
       INACTIVE: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
       SUSPENDED: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
       LOCKED: 'bg-red-500/20 text-red-400 border-red-500/30',
+      PENDING_DELETION: 'bg-red-600/30 text-red-300 border-red-500/50',
     }
     return badges[status] || 'bg-gray-500/20 text-gray-400 border-gray-500/30'
   }
 
   const getStatusLabel = (status: string) => {
+    if (status === 'PENDING_DELETION') return 'รอลบถาวร'
     const found = statuses.find(s => s.value === status)
     return found ? found.label : status
   }

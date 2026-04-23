@@ -2,6 +2,7 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { Cron } from '@nestjs/schedule'
 import { PrismaService } from '../prisma/prisma.service'
+import { UserStatus } from '@prisma/client'
 
 @Injectable()
 export class AuthSchedulerService {
@@ -21,5 +22,26 @@ export class AuthSchedulerService {
     await this.prisma.refreshToken.deleteMany({})
 
     this.logger.log(`Auto-logout at 22:00: set ${result.count} users offline`)
+  }
+
+  // Runs daily at 01:00 UTC (08:00 Thailand time) — purge expired scheduled deletions
+  @Cron('0 1 * * *', { timeZone: 'UTC' })
+  async purgeScheduledDeletions() {
+    const users = await this.prisma.user.findMany({
+      where: {
+        status: UserStatus.PENDING_DELETION,
+        scheduledDeleteAt: { lte: new Date() },
+      },
+      select: { id: true, email: true },
+    })
+
+    for (const user of users) {
+      await this.prisma.user.delete({ where: { id: user.id } })
+      this.logger.log(`Permanently deleted user ${user.email} (7-day grace period expired)`)
+    }
+
+    if (users.length > 0) {
+      this.logger.log(`Purge: permanently deleted ${users.length} user(s)`)
+    }
   }
 }
