@@ -156,7 +156,7 @@ export class IncidentsAnalyticsController {
    * Get check-in locations for map display
    */
   @Get('map-checkins')
-  @Roles(UserRole.IT_MANAGER)
+  @Roles(UserRole.IT_MANAGER, UserRole.MONITOR)
   async getMapCheckins(
     @Request() req,
     @Query('from') from?: string,
