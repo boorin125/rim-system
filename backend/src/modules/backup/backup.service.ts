@@ -667,7 +667,8 @@ export class BackupService {
       data: { baseBackupId: null },
     });
 
-    return this.prisma.backupJob.delete({ where: { id } });
+    await this.prisma.backupJob.delete({ where: { id } });
+    return { id, deleted: true };
   }
 
   /**
