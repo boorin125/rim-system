@@ -371,6 +371,7 @@ export default function SettingsPage() {
   const [backupPassword, setBackupPassword] = useState('')
   const [backupPasswordConfirm, setBackupPasswordConfirm] = useState('')
   const [backupTypeSelection, setBackupTypeSelection] = useState<'FULL' | 'DIFFERENTIAL'>('FULL')
+  const [includeUploads, setIncludeUploads] = useState(false)
 
   // Backup group selection (all checked by default = Full backup)
   const BACKUP_GROUPS = [
@@ -1169,7 +1170,9 @@ export default function SettingsPage() {
       const payload: any = { backupType: backupTypeSelection }
       if (password) payload.password = password
       if (backupCustomName.trim()) payload.customName = backupCustomName.trim()
-      if (isAll) {
+      if (includeUploads) {
+        payload.scope = 'FULL_SYSTEM'
+      } else if (isAll) {
         payload.scope = 'ALL'
       } else {
         payload.scope = 'SELECTIVE'
@@ -1189,6 +1192,7 @@ export default function SettingsPage() {
       setBackupCustomName(genBackupName())
       setSelectedBackupGroups(ALL_GROUP_IDS)
       setBackupTypeSelection('FULL')
+      setIncludeUploads(false)
 
       // Poll until the backup job reaches a terminal state
       const poll = async () => {
@@ -3956,12 +3960,36 @@ export default function SettingsPage() {
                       )
                     })}
                   </div>
-                  {selectedBackupGroups.length === 0 && (
+                  {selectedBackupGroups.length === 0 && !includeUploads && (
                     <p className="text-xs text-red-400 mt-1">กรุณาเลือกอย่างน้อย 1 หัวข้อ</p>
                   )}
-                  {selectedBackupGroups.length === BACKUP_GROUPS.length && (
+                  {selectedBackupGroups.length === BACKUP_GROUPS.length && !includeUploads && (
                     <p className="text-xs text-green-400 mt-1">Full Backup — ครอบคลุมทุกตาราง</p>
                   )}
+
+                  {/* Full System option */}
+                  <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition mt-3 ${
+                    includeUploads
+                      ? 'bg-orange-500/10 border-orange-500/40'
+                      : 'bg-slate-700/30 border-slate-600/50 hover:bg-slate-700/50'
+                  }`}>
+                    <input
+                      type="checkbox"
+                      checked={includeUploads}
+                      onChange={(e) => {
+                        setIncludeUploads(e.target.checked)
+                        if (e.target.checked) {
+                          setSelectedBackupGroups(ALL_GROUP_IDS)
+                          setBackupTypeSelection('FULL')
+                        }
+                      }}
+                      className="mt-0.5 accent-orange-500"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-white">รวม uploads/ <span className="text-orange-400 text-xs font-normal">(Full System — 100%)</span></p>
+                      <p className="text-xs text-gray-500 mt-0.5">รวมไฟล์รูปภาพ / เอกสารทั้งหมด — ไฟล์ Backup จะใหญ่ขึ้นมาก</p>
+                    </div>
+                  </label>
                 </div>
 
                 {/* Password */}
@@ -4007,6 +4035,7 @@ export default function SettingsPage() {
                     setBackupPasswordConfirm('')
                     setBackupCustomName(genBackupName())
                     setSelectedBackupGroups(ALL_GROUP_IDS)
+                    setIncludeUploads(false)
                   }}
                   className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition"
                 >ยกเลิก</button>
@@ -4014,7 +4043,7 @@ export default function SettingsPage() {
                   onClick={() => handleCreateBackup(backupPassword || undefined)}
                   disabled={
                     isCreatingBackup ||
-                    selectedBackupGroups.length === 0 ||
+                    (!includeUploads && selectedBackupGroups.length === 0) ||
                     (!!backupPassword && backupPassword !== backupPasswordConfirm) ||
                     (!!externalCopyPath && !backupPassword)
                   }

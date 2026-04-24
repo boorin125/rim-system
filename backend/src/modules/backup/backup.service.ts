@@ -18,7 +18,7 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 import * as zlib from 'zlib';
-import { exec } from 'child_process';
+import { exec, execSync } from 'child_process';
 
 // Default backup directory
 const DEFAULT_BACKUP_DIR = process.env.BACKUP_DIR || './Backup';
@@ -37,6 +37,8 @@ export interface BackupConfig {
   externalCopyPath?: string;
   smb?: SmbConfig | null;
 }
+
+const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
 
 // Tables by scope
 // NOTE: licenses + license_activation_logs are intentionally EXCLUDED from all scopes.
@@ -68,6 +70,22 @@ const SCOPE_TABLES = {
     // Performance scores
     'technician_performance_scores',
     // Audit trail
+    'audit_logs',
+  ],
+  // Full system — same tables as ALL (uploads/ handled separately in executeBackup)
+  FULL_SYSTEM: [
+    'system_configs', 'sla_configs', 'incident_categories', 'job_types',
+    'users', 'user_role_assignments',
+    'stores', 'equipment',
+    'store_delete_requests', 'equipment_retirement_requests',
+    'knowledge_categories', 'knowledge_articles',
+    'knowledge_article_feedbacks', 'knowledge_article_usages',
+    'incidents', 'incident_assignees', 'incident_reassignments', 'incident_ratings',
+    'sla_defenses', 'comments', 'spare_parts', 'incident_history', 'notifications',
+    'outsource_jobs', 'outsource_bids',
+    'pm_records', 'pm_equipment_records',
+    'equipment_logs',
+    'technician_performance_scores',
     'audit_logs',
   ],
   // Master data only — for migrating to a new/production server without test transactions
@@ -378,10 +396,11 @@ export class BackupService {
         backup.schedule?.externalPath,
       );
 
-      // Create backup file — use customName as-is if provided, else fall back to jobCode
-      const fileName = backup.customName
-        ? backup.customName.replace(/[\s/\\:*?"<>|]/g, '_') + '.bkp'
-        : `${backup.jobCode}.bkp`;
+      const isFullSystem = backup.scope === 'FULL_SYSTEM';
+      const baseName = backup.customName
+        ? backup.customName.replace(/[\s/\\:*?"<>|]/g, '_')
+        : backup.jobCode;
+      const fileName = baseName + (isFullSystem ? '.tar' : '.bkp');
       const filePath = path.join(backupDir, fileName);
 
       const passwordHash = preHashedPassword || (password ? await bcrypt.hash(password, 10) : undefined);
@@ -403,7 +422,32 @@ export class BackupService {
         data: backupData,
       });
 
-      fs.writeFileSync(filePath, zlib.gzipSync(Buffer.from(backupContent, 'utf-8')));
+      if (isFullSystem) {
+        // Bundle db.bkp + uploads.tar.gz into a single .tar
+        const tempDir = path.join(DEFAULT_BACKUP_DIR, `tmp-fullsys-${backupId}`);
+        fs.mkdirSync(tempDir, { recursive: true });
+        try {
+          // Write DB dump
+          const dbBkpPath = path.join(tempDir, 'db.bkp');
+          fs.writeFileSync(dbBkpPath, zlib.gzipSync(Buffer.from(backupContent, 'utf-8')));
+
+          // Archive uploads/ directory
+          const uploadsTarPath = path.join(tempDir, 'uploads.tar.gz');
+          if (fs.existsSync(UPLOADS_DIR)) {
+            execSync(`tar -czf "${uploadsTarPath}" -C "${path.dirname(UPLOADS_DIR)}" uploads`, { timeout: 600000 });
+          } else {
+            // Create empty placeholder
+            execSync(`tar -czf "${uploadsTarPath}" -T /dev/null`, { timeout: 10000 });
+          }
+
+          // Bundle both into outer .tar
+          execSync(`tar -cf "${filePath}" -C "${tempDir}" db.bkp uploads.tar.gz`, { timeout: 60000 });
+        } finally {
+          try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch { /* ignore */ }
+        }
+      } else {
+        fs.writeFileSync(filePath, zlib.gzipSync(Buffer.from(backupContent, 'utf-8')));
+      }
 
       // Copy to external path / SMB if configured (always save locally first)
       const bkConfig = this.getBackupConfig();
@@ -1029,21 +1073,86 @@ export class BackupService {
    * Upload restore from disk path (multer diskStorage) — reads metadata lazily without full JSON.parse
    * File is already on disk; we extract only the leading chunk to get metadata + table keys.
    */
-  async uploadRestoreTempFromDisk(filePath: string): Promise<{ tempId: string; metadata: any; tables: string[] }> {
+  async uploadRestoreTempFromDisk(filePath: string): Promise<{ tempId: string; metadata: any; tables: string[]; isFullSystem?: boolean }> {
     await this.checkBackupFeatureAllowed();
 
     if (!fs.existsSync(filePath)) throw new BadRequestException('Uploaded file not found');
 
-    // Detect gzip by magic bytes
-    const magic = Buffer.alloc(2);
-    const fdMagic = fs.openSync(filePath, 'r');
-    fs.readSync(fdMagic, magic, 0, 2, 0);
-    fs.closeSync(fdMagic);
-    const isGzip = magic[0] === 0x1f && magic[1] === 0x8b;
+    // Detect file format by magic bytes
+    const header = Buffer.alloc(512);
+    const fdH = fs.openSync(filePath, 'r');
+    fs.readSync(fdH, header, 0, 512, 0);
+    fs.closeSync(fdH);
+
+    const isTar = header.slice(257, 262).toString('ascii') === 'ustar';
+    const isGzip = header[0] === 0x1f && header[1] === 0x8b;
+
+    const baseName = path.basename(filePath).replace(/^upload-/, '').replace(/\.(json|bkp|tmp|tar)$/, '');
+    const tempId = baseName;
+    const destDir = path.join(DEFAULT_BACKUP_DIR, 'restore-temp');
+    if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
+
+    if (isTar) {
+      // Full System backup — extract tar to a directory
+      const extractDir = path.join(destDir, `${tempId}-fullsys`);
+      if (fs.existsSync(extractDir)) fs.rmSync(extractDir, { recursive: true, force: true });
+      fs.mkdirSync(extractDir, { recursive: true });
+      try {
+        execSync(`tar -xf "${filePath}" -C "${extractDir}"`, { timeout: 120000 });
+      } catch {
+        fs.unlinkSync(filePath);
+        fs.rmSync(extractDir, { recursive: true, force: true });
+        throw new BadRequestException('Invalid backup file — failed to extract tar');
+      }
+      fs.unlinkSync(filePath);
+
+      // Read db.bkp from extracted contents
+      const dbBkpPath = path.join(extractDir, 'db.bkp');
+      if (!fs.existsSync(dbBkpPath)) {
+        fs.rmSync(extractDir, { recursive: true, force: true });
+        throw new BadRequestException('Invalid Full System backup — db.bkp not found inside tar');
+      }
+
+      let head: string;
+      try {
+        head = zlib.gunzipSync(fs.readFileSync(dbBkpPath)).toString('utf-8');
+      } catch {
+        fs.rmSync(extractDir, { recursive: true, force: true });
+        throw new BadRequestException('Invalid backup file — failed to decompress db.bkp');
+      }
+
+      const metaMatch = head.match(/"metadata"\s*:\s*(\{[\s\S]*?\})\s*,\s*"data"/);
+      if (!metaMatch) {
+        fs.rmSync(extractDir, { recursive: true, force: true });
+        throw new BadRequestException('Invalid backup file format — metadata not found');
+      }
+      let metadata: any;
+      try { metadata = JSON.parse(metaMatch[1]); } catch {
+        fs.rmSync(extractDir, { recursive: true, force: true });
+        throw new BadRequestException('Invalid backup metadata');
+      }
+
+      const tablesFromHead: string[] = [];
+      const dataIdx = head.indexOf('"data"');
+      if (dataIdx !== -1) {
+        const dataChunk = head.slice(dataIdx + 6).trimStart().replace(/^:/, '').trimStart();
+        const keyRe = /"(\w+)"\s*:/g;
+        let m: RegExpExecArray | null;
+        while ((m = keyRe.exec(dataChunk)) !== null) tablesFromHead.push(m[1]);
+      }
+
+      setTimeout(() => { try { fs.rmSync(extractDir, { recursive: true, force: true }); } catch { /* ignore */ } }, 30 * 60 * 1000);
+
+      return {
+        tempId,
+        metadata: { ...metadata, passwordHash: undefined, isEncrypted: !!metadata.passwordHash },
+        tables: tablesFromHead.length > 0 ? tablesFromHead : [],
+        isFullSystem: true,
+      };
+    }
 
     let head: string;
     if (isGzip) {
-      // Gzip: decompress entire file (much smaller after compression) then extract metadata
       try {
         head = zlib.gunzipSync(fs.readFileSync(filePath)).toString('utf-8');
       } catch {
@@ -1051,7 +1160,6 @@ export class BackupService {
         throw new BadRequestException('Invalid backup file — failed to decompress');
       }
     } else {
-      // Plain JSON: read only first 64 KB to extract metadata without loading full file into RAM
       const CHUNK = 64 * 1024;
       const fd = fs.openSync(filePath, 'r');
       const buf = Buffer.alloc(CHUNK);
@@ -1060,7 +1168,6 @@ export class BackupService {
       head = buf.slice(0, bytesRead).toString('utf-8');
     }
 
-    // Extract metadata block via regex
     const metaMatch = head.match(/"metadata"\s*:\s*(\{[\s\S]*?\})\s*,\s*"data"/);
     if (!metaMatch) {
       fs.unlinkSync(filePath);
@@ -1074,7 +1181,6 @@ export class BackupService {
       throw new BadRequestException('Invalid backup metadata');
     }
 
-    // Extract table keys from "data" section
     const dataIdx = head.indexOf('"data"');
     const tablesFromHead: string[] = [];
     if (dataIdx !== -1) {
@@ -1084,11 +1190,6 @@ export class BackupService {
       while ((m = keyRe.exec(dataChunk)) !== null) tablesFromHead.push(m[1]);
     }
 
-    // Move file to restore-temp with correct extension
-    const baseName = path.basename(filePath).replace(/^upload-/, '').replace(/\.(json|bkp|tmp)$/, '');
-    const tempId = baseName;
-    const destDir = path.join(DEFAULT_BACKUP_DIR, 'restore-temp');
-    if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
     const destExt = isGzip ? '.bkp' : '.json';
     const destPath = path.join(destDir, `${tempId}${destExt}`);
     fs.renameSync(filePath, destPath);
@@ -1106,9 +1207,37 @@ export class BackupService {
    * Step 2: Restore from temp file using tempId
    */
   async restoreFromTempFile(userId: number, tempId: string, password?: string, selectedTables?: string[]) {
-    // Support both .bkp (gzip) and legacy .json
-    const bkpPath = path.join(DEFAULT_BACKUP_DIR, 'restore-temp', `${tempId}.bkp`);
-    const jsonPath = path.join(DEFAULT_BACKUP_DIR, 'restore-temp', `${tempId}.json`);
+    const restoreDir = path.join(DEFAULT_BACKUP_DIR, 'restore-temp');
+
+    // Full System restore — extracted directory exists
+    const extractDir = path.join(restoreDir, `${tempId}-fullsys`);
+    if (fs.existsSync(extractDir)) {
+      const dbBkpPath = path.join(extractDir, 'db.bkp');
+      const uploadsTarPath = path.join(extractDir, 'uploads.tar.gz');
+
+      if (!fs.existsSync(dbBkpPath)) throw new BadRequestException('Full System backup is corrupted — db.bkp missing');
+
+      const content = this.readBackupContent(dbBkpPath);
+      const result = await this.restoreFromFile(userId, content, password, selectedTables);
+
+      // Restore uploads/ volume
+      if (fs.existsSync(uploadsTarPath)) {
+        const uploadsParent = path.dirname(UPLOADS_DIR);
+        try {
+          execSync(`tar -xzf "${uploadsTarPath}" -C "${uploadsParent}"`, { timeout: 600000 });
+          (result as any).uploadsRestored = true;
+        } catch (err: any) {
+          (result as any).uploadsError = `uploads restore failed: ${err.message}`;
+        }
+      }
+
+      try { fs.rmSync(extractDir, { recursive: true, force: true }); } catch { /* ignore */ }
+      return result;
+    }
+
+    // Normal DB-only restore — support both .bkp (gzip) and legacy .json
+    const bkpPath = path.join(restoreDir, `${tempId}.bkp`);
+    const jsonPath = path.join(restoreDir, `${tempId}.json`);
     const tempPath = fs.existsSync(bkpPath) ? bkpPath : jsonPath;
     if (!fs.existsSync(tempPath)) throw new BadRequestException('Temp file not found or expired. Please re-upload the backup file.');
     const content = this.readBackupContent(tempPath);
