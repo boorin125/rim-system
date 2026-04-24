@@ -52,6 +52,7 @@ services:
       VAPID_EMAIL: ${VAPID_EMAIL:-mailto:admin@rim-system.com}
     volumes:
       - rim_uploads:/app/uploads
+      - rim_backups:/app/Backup
     networks:
       - rim_network
 
@@ -93,6 +94,7 @@ services:
 volumes:
   rim_db_data:
   rim_uploads:
+  rim_backups:
   rim_ssl:
   rim_ssl_www:
 
