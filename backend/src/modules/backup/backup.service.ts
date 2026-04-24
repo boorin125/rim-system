@@ -652,7 +652,6 @@ export class BackupService {
     });
 
     if (!backup) {
-      // Already deleted or never existed — treat as success (idempotent)
       return { id, deleted: true };
     }
 
@@ -661,9 +660,14 @@ export class BackupService {
       fs.unlinkSync(backup.filePath);
     }
 
-    return this.prisma.backupJob.delete({
-      where: { id },
+    // Remove FK references before deleting
+    await this.prisma.restoreJob.deleteMany({ where: { backupId: id } });
+    await this.prisma.backupJob.updateMany({
+      where: { baseBackupId: id },
+      data: { baseBackupId: null },
     });
+
+    return this.prisma.backupJob.delete({ where: { id } });
   }
 
   /**
