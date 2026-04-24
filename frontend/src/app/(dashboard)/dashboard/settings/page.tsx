@@ -1177,24 +1177,48 @@ export default function SettingsPage() {
           .filter(g => selectedBackupGroups.includes(g.id))
           .flatMap(g => g.tables)
       }
-      await axios.post(
+      const res = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/settings/backups`,
         payload,
         { headers: { Authorization: `Bearer ${token}` } }
       )
-      toast.success('สร้าง Backup สำเร็จ')
-      fetchData()
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to create backup')
-    } finally {
-      setIsCreatingBackup(false)
+      const jobId = res.data?.id
       setShowBackupPasswordModal(false)
       setBackupPassword('')
       setBackupPasswordConfirm('')
       setBackupCustomName(genBackupName())
       setSelectedBackupGroups(ALL_GROUP_IDS)
       setBackupTypeSelection('FULL')
+
+      // Poll until the backup job reaches a terminal state
+      const poll = async () => {
+        for (let i = 0; i < 60; i++) {
+          await new Promise(r => setTimeout(r, 2000))
+          try {
+            const check = await axios.get(
+              `${process.env.NEXT_PUBLIC_API_URL}/settings/backups`,
+              { headers: { Authorization: `Bearer ${token}` } }
+            )
+            const list = check.data || []
+            setBackups(list)
+            const job = jobId ? list.find((b: any) => b.id === jobId) : null
+            if (job?.status === 'COMPLETED') {
+              toast.success('สร้าง Backup สำเร็จ')
+              return
+            }
+            if (job?.status === 'FAILED') {
+              toast.error(`Backup ล้มเหลว: ${job.errorMessage || 'Unknown error'}`)
+              return
+            }
+          } catch { /* ignore transient errors */ }
+        }
+      }
+      poll().finally(() => setIsCreatingBackup(false))
+      return
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to create backup')
     }
+    setIsCreatingBackup(false)
   }
 
   const handleSelectRestoreFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
