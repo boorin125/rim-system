@@ -21,6 +21,7 @@ export enum BackupType {
 
 export enum BackupScope {
   ALL = 'ALL',
+  MASTER = 'MASTER',
   CORE = 'CORE',
   TRANSACTIONS = 'TRANSACTIONS',
   CONFIG = 'CONFIG',

@@ -69,6 +69,13 @@ const SCOPE_TABLES = {
     // Audit trail
     'audit_logs',
   ],
+  // Master data only — for migrating to a new/production server without test transactions
+  MASTER: [
+    'system_configs', 'sla_configs', 'incident_categories', 'job_types',
+    'users', 'user_role_assignments',
+    'stores', 'equipment',
+    'knowledge_categories', 'knowledge_articles',
+  ],
   CORE: ['users', 'user_role_assignments', 'stores', 'incidents', 'equipment'],
   TRANSACTIONS: ['incidents', 'comments', 'incident_history', 'notifications', 'spare_parts'],
   CONFIG: ['system_configs', 'sla_configs', 'incident_categories', 'job_types'],
