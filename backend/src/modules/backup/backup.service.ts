@@ -975,11 +975,67 @@ export class BackupService {
     const tempPath = path.join(tempDir, `${tempId}.json`);
     fs.writeFileSync(tempPath, buffer);
 
-    // Auto-delete after 30 minutes
     setTimeout(() => { try { fs.unlinkSync(tempPath); } catch { /* ignore */ } }, 30 * 60 * 1000);
 
     const tables = Object.keys(data).filter(k => Array.isArray(data[k]) && data[k].length > 0);
     return { tempId, metadata: { ...metadata, passwordHash: undefined, isEncrypted: !!metadata.passwordHash }, tables };
+  }
+
+  /**
+   * Upload restore from disk path (multer diskStorage) — reads metadata lazily without full JSON.parse
+   * File is already on disk; we extract only the leading chunk to get metadata + table keys.
+   */
+  async uploadRestoreTempFromDisk(filePath: string): Promise<{ tempId: string; metadata: any; tables: string[] }> {
+    await this.checkBackupFeatureAllowed();
+
+    if (!fs.existsSync(filePath)) throw new BadRequestException('Uploaded file not found');
+
+    // Read only first 64 KB to extract metadata without loading the full file into RAM
+    const CHUNK = 64 * 1024;
+    const fd = fs.openSync(filePath, 'r');
+    const buf = Buffer.alloc(CHUNK);
+    const bytesRead = fs.readSync(fd, buf, 0, CHUNK, 0);
+    fs.closeSync(fd);
+    const head = buf.slice(0, bytesRead).toString('utf-8');
+
+    // Extract metadata block via regex — works as long as metadata fits in first 64 KB
+    const metaMatch = head.match(/"metadata"\s*:\s*(\{[\s\S]*?\})\s*,\s*"data"/);
+    if (!metaMatch) {
+      fs.unlinkSync(filePath);
+      throw new BadRequestException('Invalid backup file format — metadata not found');
+    }
+    let metadata: any;
+    try {
+      metadata = JSON.parse(metaMatch[1]);
+    } catch {
+      fs.unlinkSync(filePath);
+      throw new BadRequestException('Invalid backup metadata');
+    }
+
+    // Extract table keys from "data" section without full parse — scan for top-level keys
+    const dataIdx = head.indexOf('"data"');
+    const tablesFromHead: string[] = [];
+    if (dataIdx !== -1) {
+      const dataChunk = head.slice(dataIdx + 6).trimStart().replace(/^:/, '').trimStart();
+      const keyRe = /"(\w+)"\s*:/g;
+      let m: RegExpExecArray | null;
+      while ((m = keyRe.exec(dataChunk)) !== null) tablesFromHead.push(m[1]);
+    }
+
+    // Move the already-uploaded temp file to the standard restore-temp naming convention
+    const tempId = path.basename(filePath, '.json').replace(/^upload-/, '');
+    const destDir = path.join(DEFAULT_BACKUP_DIR, 'restore-temp');
+    if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
+    const destPath = path.join(destDir, `${tempId}.json`);
+    fs.renameSync(filePath, destPath);
+
+    setTimeout(() => { try { fs.unlinkSync(destPath); } catch { /* ignore */ } }, 30 * 60 * 1000);
+
+    return {
+      tempId,
+      metadata: { ...metadata, passwordHash: undefined, isEncrypted: !!metadata.passwordHash },
+      tables: tablesFromHead.length > 0 ? tablesFromHead : [],
+    };
   }
 
   /**

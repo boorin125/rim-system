@@ -445,13 +445,26 @@ export class SettingsController {
 
   /**
    * Step 1: Upload backup file as multipart → returns metadata + tempId
+   * Uses disk storage to avoid loading large files into RAM
    */
   @Post('backups/upload-restore')
   @Roles(UserRole.SUPER_ADMIN)
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', {
+    storage: diskStorage({
+      destination: (req, file, cb) => {
+        const dir = path.join(process.cwd(), 'Backup', 'restore-temp');
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        cb(null, dir);
+      },
+      filename: (req, file, cb) => {
+        cb(null, `upload-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.json`);
+      },
+    }),
+    limits: { fileSize: 2 * 1024 * 1024 * 1024 }, // 2 GB max
+  }))
   async uploadRestoreFile(@UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException('No file uploaded');
-    return this.backupService.uploadRestoreTemp(file.buffer);
+    return this.backupService.uploadRestoreTempFromDisk(file.path);
   }
 
   /**
