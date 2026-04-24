@@ -444,6 +444,26 @@ export class BackupService {
           expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
         },
       });
+
+      // After a Full backup completes, purge all older Differential backups —
+      // the Full supersedes them and they waste disk space.
+      if (backup.backupType === 'FULL') {
+        const oldDiffs = await this.prisma.backupJob.findMany({
+          where: { backupType: 'DIFFERENTIAL', id: { not: backupId } },
+          select: { id: true, filePath: true },
+        });
+        for (const diff of oldDiffs) {
+          if (diff.filePath) {
+            try { fs.unlinkSync(diff.filePath); } catch { /* file may already be gone */ }
+          }
+        }
+        if (oldDiffs.length > 0) {
+          await this.prisma.backupJob.deleteMany({
+            where: { id: { in: oldDiffs.map(d => d.id) } },
+          });
+          console.log(`[Backup] Purged ${oldDiffs.length} old Differential backup(s) after Full backup ${jobCode}`);
+        }
+      }
     } catch (error: any) {
       // Update as failed
       await this.prisma.backupJob.update({
