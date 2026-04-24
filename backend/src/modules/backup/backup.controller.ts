@@ -124,7 +124,7 @@ export class BackupController {
     const file = fs.createReadStream(filePath);
 
     res.set({
-      'Content-Type': 'application/json',
+      'Content-Type': 'application/octet-stream',
       'Content-Disposition': `attachment; filename="${fileName}"`,
     });
 

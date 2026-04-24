@@ -17,6 +17,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
+import * as zlib from 'zlib';
 import { exec } from 'child_process';
 
 // Default backup directory
@@ -226,6 +227,17 @@ export class BackupService {
   }
 
   /**
+   * Read backup file content — handles both gzip (.bkp) and plain JSON (.json)
+   */
+  private readBackupContent(filePath: string): string {
+    const buf = fs.readFileSync(filePath);
+    if (buf[0] === 0x1f && buf[1] === 0x8b) {
+      return zlib.gunzipSync(buf).toString('utf-8');
+    }
+    return buf.toString('utf-8');
+  }
+
+  /**
    * Create new backup job
    */
   async createBackup(userId: number, dto: CreateBackupDto) {
@@ -368,8 +380,8 @@ export class BackupService {
 
       // Create backup file — use customName as-is if provided, else fall back to jobCode
       const fileName = backup.customName
-        ? backup.customName.replace(/[\s/\\:*?"<>|]/g, '_') + '.json'
-        : `${backup.jobCode}.json`;
+        ? backup.customName.replace(/[\s/\\:*?"<>|]/g, '_') + '.bkp'
+        : `${backup.jobCode}.bkp`;
       const filePath = path.join(backupDir, fileName);
 
       const passwordHash = preHashedPassword || (password ? await bcrypt.hash(password, 10) : undefined);
@@ -389,9 +401,9 @@ export class BackupService {
           ...(Object.keys(logoBackups).length > 0 && { logos: logoBackups }),
         },
         data: backupData,
-      }, null, 2);
+      });
 
-      fs.writeFileSync(filePath, backupContent);
+      fs.writeFileSync(filePath, zlib.gzipSync(Buffer.from(backupContent, 'utf-8')));
 
       // Copy to external path / SMB if configured (always save locally first)
       const bkConfig = this.getBackupConfig();
@@ -997,15 +1009,33 @@ export class BackupService {
 
     if (!fs.existsSync(filePath)) throw new BadRequestException('Uploaded file not found');
 
-    // Read only first 64 KB to extract metadata without loading the full file into RAM
-    const CHUNK = 64 * 1024;
-    const fd = fs.openSync(filePath, 'r');
-    const buf = Buffer.alloc(CHUNK);
-    const bytesRead = fs.readSync(fd, buf, 0, CHUNK, 0);
-    fs.closeSync(fd);
-    const head = buf.slice(0, bytesRead).toString('utf-8');
+    // Detect gzip by magic bytes
+    const magic = Buffer.alloc(2);
+    const fdMagic = fs.openSync(filePath, 'r');
+    fs.readSync(fdMagic, magic, 0, 2, 0);
+    fs.closeSync(fdMagic);
+    const isGzip = magic[0] === 0x1f && magic[1] === 0x8b;
 
-    // Extract metadata block via regex — works as long as metadata fits in first 64 KB
+    let head: string;
+    if (isGzip) {
+      // Gzip: decompress entire file (much smaller after compression) then extract metadata
+      try {
+        head = zlib.gunzipSync(fs.readFileSync(filePath)).toString('utf-8');
+      } catch {
+        fs.unlinkSync(filePath);
+        throw new BadRequestException('Invalid backup file — failed to decompress');
+      }
+    } else {
+      // Plain JSON: read only first 64 KB to extract metadata without loading full file into RAM
+      const CHUNK = 64 * 1024;
+      const fd = fs.openSync(filePath, 'r');
+      const buf = Buffer.alloc(CHUNK);
+      const bytesRead = fs.readSync(fd, buf, 0, CHUNK, 0);
+      fs.closeSync(fd);
+      head = buf.slice(0, bytesRead).toString('utf-8');
+    }
+
+    // Extract metadata block via regex
     const metaMatch = head.match(/"metadata"\s*:\s*(\{[\s\S]*?\})\s*,\s*"data"/);
     if (!metaMatch) {
       fs.unlinkSync(filePath);
@@ -1019,7 +1049,7 @@ export class BackupService {
       throw new BadRequestException('Invalid backup metadata');
     }
 
-    // Extract table keys from "data" section without full parse — scan for top-level keys
+    // Extract table keys from "data" section
     const dataIdx = head.indexOf('"data"');
     const tablesFromHead: string[] = [];
     if (dataIdx !== -1) {
@@ -1029,11 +1059,13 @@ export class BackupService {
       while ((m = keyRe.exec(dataChunk)) !== null) tablesFromHead.push(m[1]);
     }
 
-    // Move the already-uploaded temp file to the standard restore-temp naming convention
-    const tempId = path.basename(filePath, '.json').replace(/^upload-/, '');
+    // Move file to restore-temp with correct extension
+    const baseName = path.basename(filePath).replace(/^upload-/, '').replace(/\.(json|bkp|tmp)$/, '');
+    const tempId = baseName;
     const destDir = path.join(DEFAULT_BACKUP_DIR, 'restore-temp');
     if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
-    const destPath = path.join(destDir, `${tempId}.json`);
+    const destExt = isGzip ? '.bkp' : '.json';
+    const destPath = path.join(destDir, `${tempId}${destExt}`);
     fs.renameSync(filePath, destPath);
 
     setTimeout(() => { try { fs.unlinkSync(destPath); } catch { /* ignore */ } }, 30 * 60 * 1000);
@@ -1049,9 +1081,12 @@ export class BackupService {
    * Step 2: Restore from temp file using tempId
    */
   async restoreFromTempFile(userId: number, tempId: string, password?: string, selectedTables?: string[]) {
-    const tempPath = path.join(DEFAULT_BACKUP_DIR, 'restore-temp', `${tempId}.json`);
+    // Support both .bkp (gzip) and legacy .json
+    const bkpPath = path.join(DEFAULT_BACKUP_DIR, 'restore-temp', `${tempId}.bkp`);
+    const jsonPath = path.join(DEFAULT_BACKUP_DIR, 'restore-temp', `${tempId}.json`);
+    const tempPath = fs.existsSync(bkpPath) ? bkpPath : jsonPath;
     if (!fs.existsSync(tempPath)) throw new BadRequestException('Temp file not found or expired. Please re-upload the backup file.');
-    const content = fs.readFileSync(tempPath, 'utf-8');
+    const content = this.readBackupContent(tempPath);
     try { fs.unlinkSync(tempPath); } catch { /* ignore */ }
     return this.restoreFromFile(userId, content, password, selectedTables);
   }
@@ -1078,11 +1113,11 @@ export class BackupService {
     if (!fullJob) throw new BadRequestException('Linked Full backup record not found');
     if (!fullJob.filePath || !fs.existsSync(fullJob.filePath)) throw new BadRequestException('Linked Full backup file not found on server');
 
-    // Parse both files
+    // Parse both files — supports gzip (.bkp) and legacy plain JSON (.json)
     let fullData: any, diffData: any;
     try {
-      fullData = JSON.parse(fs.readFileSync(fullJob.filePath, 'utf-8'));
-      diffData = JSON.parse(fs.readFileSync(diffJob.filePath, 'utf-8'));
+      fullData = JSON.parse(this.readBackupContent(fullJob.filePath));
+      diffData = JSON.parse(this.readBackupContent(diffJob.filePath));
     } catch {
       throw new BadRequestException('Failed to read backup files');
     }

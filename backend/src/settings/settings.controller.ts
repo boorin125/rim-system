@@ -457,7 +457,7 @@ export class SettingsController {
         cb(null, dir);
       },
       filename: (req, file, cb) => {
-        cb(null, `upload-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.json`);
+        cb(null, `upload-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.tmp`);
       },
     }),
     limits: { fileSize: 2 * 1024 * 1024 * 1024 }, // 2 GB max
