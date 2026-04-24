@@ -4431,8 +4431,10 @@ export default function SettingsPage() {
                           : `${(v / 1_048_576).toFixed(1)} MB`
                         const sysBytes = diskInfo.systemUsed ?? 0
                         const bakBytes = diskInfo.backupUsed ?? 0
-                        const sysPct = diskInfo.total > 0 ? (sysBytes / diskInfo.total) * 100 : 0
-                        const bakPct = diskInfo.total > 0 ? (bakBytes / diskInfo.total) * 100 : 0
+                        const otherBytes = Math.max(0, diskInfo.used - sysBytes - bakBytes)
+                        const sysPct   = diskInfo.total > 0 ? (sysBytes   / diskInfo.total) * 100 : 0
+                        const bakPct   = diskInfo.total > 0 ? (bakBytes   / diskInfo.total) * 100 : 0
+                        const otherPct = diskInfo.total > 0 ? (otherBytes / diskInfo.total) * 100 : 0
                         return (
                           <>
                             {/* System (uploads) */}
@@ -4463,6 +4465,22 @@ export default function SettingsPage() {
                                   style={{ width: `${Math.min(bakPct, 100)}%` }} />
                               </div>
                             </div>
+                            {/* Other (OS / Docker) */}
+                            {otherBytes > 0 && (
+                              <div>
+                                <div className="flex justify-between text-xs mb-1">
+                                  <span className="text-slate-300 flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-slate-400 inline-block" />
+                                    อื่นๆ (OS / Docker)
+                                  </span>
+                                  <span className="text-slate-300 font-medium">{fmt(otherBytes)} ({otherPct.toFixed(1)}%)</span>
+                                </div>
+                                <div className="w-full h-2 bg-slate-700 rounded-full overflow-hidden">
+                                  <div className="h-full bg-slate-400 rounded-full transition-all duration-500"
+                                    style={{ width: `${Math.min(otherPct, 100)}%` }} />
+                                </div>
+                              </div>
+                            )}
                           </>
                         )
                       })()}
@@ -4492,7 +4510,7 @@ export default function SettingsPage() {
                       <button
                         onClick={handleSaveDiskAlert}
                         disabled={isSavingDiskAlert || diskAlertInput === diskAlertThreshold}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:text-gray-500 text-white rounded-lg text-sm transition-colors"
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg text-sm transition-colors"
                       >
                         {isSavingDiskAlert ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                         บันทึก
@@ -4515,7 +4533,7 @@ export default function SettingsPage() {
                       <button
                         onClick={handleSaveDiskEmail}
                         disabled={isSavingDiskEmail || diskAlertEmailInput === diskAlertEmail}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:text-gray-500 text-white rounded-lg text-sm transition-colors"
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg text-sm transition-colors"
                       >
                         {isSavingDiskEmail ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                         บันทึก
