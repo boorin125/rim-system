@@ -1450,6 +1450,7 @@ enum BackupType {
 
 enum BackupScope {
   ALL // ทุกตาราง
+  MASTER // Master data เท่านั้น (Users, Stores, Equipment, Config, KB) ไม่มี Incidents/PM/Outsource
   CORE // เฉพาะข้อมูลหลัก (Users, Incidents, Stores)
   TRANSACTIONS // เฉพาะ Transactions (Incidents, Comments, History)
   CONFIG // เฉพาะ Config (SLA, Categories, Roles)
