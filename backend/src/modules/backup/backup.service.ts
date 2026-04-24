@@ -461,7 +461,7 @@ export class BackupService {
           await this.prisma.backupJob.deleteMany({
             where: { id: { in: oldDiffs.map(d => d.id) } },
           });
-          console.log(`[Backup] Purged ${oldDiffs.length} old Differential backup(s) after Full backup ${jobCode}`);
+          console.log(`[Backup] Purged ${oldDiffs.length} old Differential backup(s) after Full backup ${backupId}`);
         }
       }
     } catch (error: any) {
