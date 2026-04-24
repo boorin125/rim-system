@@ -46,8 +46,13 @@ export default function ForgotPasswordPage() {
       })
       setIsSuccess(true)
     } catch (err: any) {
-      // Always show success message to prevent email enumeration
-      setIsSuccess(true)
+      const msg = err.response?.data?.message
+      // Only show real errors (SMTP failure etc) — not 404/not-found (prevents email enumeration)
+      if (err.response?.status === 500 && msg) {
+        setError(msg)
+      } else {
+        setIsSuccess(true)
+      }
     } finally {
       setIsLoading(false)
     }

@@ -218,13 +218,16 @@ function LoginContent() {
         setForgotEmail('')
       }, 2000)
     } catch (error: any) {
-      // Always show success to prevent email enumeration
-      toast.success('หากอีเมลนี้มีในระบบ คุณจะได้รับลิงก์รีเซ็ตรหัสผ่านทางอีเมล')
-
-      setTimeout(() => {
-        setShowForgot(false)
-        setForgotEmail('')
-      }, 2000)
+      const msg = error.response?.data?.message
+      if (error.response?.status === 500 && msg) {
+        toast.error(msg)
+      } else {
+        toast.success('หากอีเมลนี้มีในระบบ คุณจะได้รับลิงก์รีเซ็ตรหัสผ่านทางอีเมล')
+        setTimeout(() => {
+          setShowForgot(false)
+          setForgotEmail('')
+        }, 2000)
+      }
     } finally {
       setIsLoading(false)
     }

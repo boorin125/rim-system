@@ -763,6 +763,7 @@ export class EmailService {
       console.log('Password reset email sent:', info.messageId);
     } catch (error) {
       console.error('Error sending password reset email:', error);
+      throw error;
     }
   }
 

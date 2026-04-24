@@ -1,5 +1,5 @@
 // src/auth/auth.service.ts
-import { Injectable, UnauthorizedException, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, NotFoundException, InternalServerErrorException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
@@ -767,11 +767,17 @@ export class AuthService {
     });
 
     // Send email with reset link
-    await this.emailService.sendPasswordResetEmail({
-      to: user.email,
-      userName: `${user.firstName} ${user.lastName}`,
-      resetToken: token,
-    });
+    try {
+      await this.emailService.sendPasswordResetEmail({
+        to: user.email,
+        userName: `${user.firstName} ${user.lastName}`,
+        resetToken: token,
+      });
+    } catch {
+      throw new InternalServerErrorException(
+        'ไม่สามารถส่ง Email ได้ กรุณาตรวจสอบการตั้งค่า SMTP ในระบบ (Settings → Email)'
+      );
+    }
 
     console.log(`Password reset token for ${user.email}: ${token}`);
 
