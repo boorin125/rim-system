@@ -11,6 +11,7 @@ FROM node:20-alpine AS production
 
 ARG GIT_COMMIT=unknown
 ARG BUILD_DATE=unknown
+ARG APP_VERSION=1.0.0
 
 RUN apk add --no-cache curl samba-client
 
@@ -27,6 +28,7 @@ RUN chmod +x ./entrypoint.sh
 
 ENV GIT_COMMIT=${GIT_COMMIT}
 ENV BUILD_DATE=${BUILD_DATE}
+ENV APP_VERSION=${APP_VERSION}
 
 EXPOSE 3000
 ENTRYPOINT ["./entrypoint.sh"]

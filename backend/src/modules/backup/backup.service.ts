@@ -1353,9 +1353,54 @@ export class BackupService {
    * Uses updateOrCreate pattern per record to overwrite existing data
    */
   private async restoreTableUpsert(table: string, data: any[]): Promise<{ restored: number }> {
-    // For most tables, just use createMany skipDuplicates (new records only in diff)
-    // The Full restore already has existing records; diff only has newer/changed records
     return this.restoreTableFromFile(table, data);
+  }
+
+  // Generic UPSERT via raw SQL — safe for tables with scalar fields only (no arrays, no Json)
+  private async upsertRaw(table: string, data: any[]): Promise<{ count: number }> {
+    if (!data.length) return { count: 0 };
+    const columns = Object.keys(data[0]);
+    const colSql = columns.map(c => `"${c}"`).join(', ');
+    const updateCols = columns.filter(c => c !== 'id');
+    if (!updateCols.length) return { count: 0 };
+    const updateSql = updateCols.map(c => `"${c}" = EXCLUDED."${c}"`).join(', ');
+
+    const BATCH = 50;
+    for (let i = 0; i < data.length; i += BATCH) {
+      const batch = data.slice(i, i + BATCH);
+      const vals = batch.map((_, ri) =>
+        `(${columns.map((_, ci) => `$${ri * columns.length + ci + 1}`).join(', ')})`
+      ).join(', ');
+      const params = batch.flatMap(row => columns.map(c => row[c] ?? null));
+      await this.prisma.$executeRawUnsafe(
+        `INSERT INTO "${table}" (${colSql}) VALUES ${vals} ON CONFLICT (id) DO UPDATE SET ${updateSql}`,
+        ...params
+      );
+    }
+    return { count: data.length };
+  }
+
+  // UPSERT for tables with array/Json fields — uses Prisma model methods
+  private async upsertWithArrayFields<T extends { id: any }>(
+    findFn: (ids: any[]) => Promise<{ id: any }[]>,
+    updateFn: (id: any, data: any) => Promise<any>,
+    createFn: (data: any[]) => Promise<{ count: number }>,
+    data: T[],
+  ): Promise<{ count: number }> {
+    if (!data.length) return { count: 0 };
+    const existingIds = new Set(
+      (await findFn(data.map(r => r.id))).map(r => r.id)
+    );
+    const existing = data.filter(r => existingIds.has(r.id));
+    const newRows = data.filter(r => !existingIds.has(r.id));
+    const BATCH = 20;
+    for (let i = 0; i < existing.length; i += BATCH) {
+      await Promise.all(
+        existing.slice(i, i + BATCH).map(row => updateFn(row.id, row).catch(() => {}))
+      );
+    }
+    if (newRows.length > 0) await createFn(newRows);
+    return { count: data.length };
   }
 
   /**
@@ -1428,93 +1473,154 @@ export class BackupService {
         }
         return { count: d.length };
       },
-      sla_configs: (d) => this.prisma.slaConfig.createMany({ data: d, skipDuplicates: true }),
-      incident_categories: (d) => this.prisma.incidentCategory.createMany({ data: d, skipDuplicates: true }),
-      job_types: (d) => this.prisma.jobType.createMany({ data: d, skipDuplicates: true }),
-      // licenses — intentionally excluded from backup/restore (must be activated via key)
+      // Scalar-only tables: UPSERT via raw SQL (overwrite existing, insert new)
+      sla_configs: (d) => this.upsertRaw('sla_configs', d),
+      incident_categories: (d) => this.upsertRaw('incident_categories', d),
+      job_types: (d) => this.upsertRaw('job_types', d),
+      // licenses — always skipped (server-specific, must be activated via key)
 
-      // Users (restore with default password since we don't back up hashed passwords)
-      users: (d) => this.prisma.user.createMany({
-        data: d.map(u => ({
-          id: u.id,
-          username: u.username,
-          email: u.email,
-          password: defaultPasswordHash,
-          firstName: u.firstName || null,
-          lastName: u.lastName || null,
-          firstNameEn: u.firstNameEn || null,
-          lastNameEn: u.lastNameEn || null,
-          phone: u.phone || null,
-          department: u.department || null,
-          technicianType: u.technicianType || null,
-          serviceCenter: u.serviceCenter || null,
-          responsibleProvinces: u.responsibleProvinces || [],
-          address: u.address || null,
-          subDistrict: u.subDistrict || null,
-          district: u.district || null,
-          province: u.province || null,
-          cumulativeRating: u.cumulativeRating ?? 5.0,
-          status: u.status || 'ACTIVE',
-          isProtected: false,
-          createdAt: u.createdAt ? new Date(u.createdAt) : new Date(),
-          updatedAt: u.updatedAt ? new Date(u.updatedAt) : new Date(),
-          createdBy: u.createdBy || null,
-        })),
-        skipDuplicates: true,
-      }),
+      // Users — upsert: update all fields except password for existing users
+      users: async (d) => {
+        const existingIds = new Set(
+          (await this.prisma.user.findMany({
+            where: { id: { in: d.map((u: any) => u.id) } },
+            select: { id: true },
+          })).map(u => u.id)
+        );
+        const existing = d.filter((u: any) => existingIds.has(u.id));
+        const newRows = d.filter((u: any) => !existingIds.has(u.id));
+        const BATCH = 20;
+        for (let i = 0; i < existing.length; i += BATCH) {
+          await Promise.all(existing.slice(i, i + BATCH).map((u: any) =>
+            this.prisma.user.update({
+              where: { id: u.id },
+              data: {
+                username: u.username, email: u.email,
+                firstName: u.firstName ?? null, lastName: u.lastName ?? null,
+                firstNameEn: u.firstNameEn ?? null, lastNameEn: u.lastNameEn ?? null,
+                phone: u.phone ?? null, department: u.department ?? null,
+                technicianType: u.technicianType ?? null, serviceCenter: u.serviceCenter ?? null,
+                responsibleProvinces: u.responsibleProvinces ?? [],
+                address: u.address ?? null, subDistrict: u.subDistrict ?? null,
+                district: u.district ?? null, province: u.province ?? null,
+                cumulativeRating: u.cumulativeRating ?? 5.0,
+                status: u.status ?? 'ACTIVE',
+                updatedAt: u.updatedAt ? new Date(u.updatedAt) : new Date(),
+              },
+            }).catch(() => {})
+          ));
+        }
+        if (newRows.length > 0) {
+          await this.prisma.user.createMany({
+            data: newRows.map((u: any) => ({
+              id: u.id, username: u.username, email: u.email,
+              password: defaultPasswordHash,
+              firstName: u.firstName ?? null, lastName: u.lastName ?? null,
+              firstNameEn: u.firstNameEn ?? null, lastNameEn: u.lastNameEn ?? null,
+              phone: u.phone ?? null, department: u.department ?? null,
+              technicianType: u.technicianType ?? null, serviceCenter: u.serviceCenter ?? null,
+              responsibleProvinces: u.responsibleProvinces ?? [],
+              address: u.address ?? null, subDistrict: u.subDistrict ?? null,
+              district: u.district ?? null, province: u.province ?? null,
+              cumulativeRating: u.cumulativeRating ?? 5.0,
+              status: u.status ?? 'ACTIVE', isProtected: false,
+              createdAt: u.createdAt ? new Date(u.createdAt) : new Date(),
+              updatedAt: u.updatedAt ? new Date(u.updatedAt) : new Date(),
+              createdBy: u.createdBy ?? null,
+            })),
+            skipDuplicates: true,
+          });
+        }
+        return { count: d.length };
+      },
       user_role_assignments: async (d) => {
-        // Filter out assignments where userId doesn't exist (user may have been skipped due to duplicate email)
         const existingUsers = await this.prisma.user.findMany({
           where: { id: { in: d.map((r: any) => r.userId) } },
           select: { id: true },
         });
-        const validIds = new Set(existingUsers.map((u) => u.id));
+        const validIds = new Set(existingUsers.map(u => u.id));
         const valid = d.filter((r: any) => validIds.has(r.userId));
-        if (valid.length === 0) return { count: 0 };
-        return this.prisma.userRoleAssignment.createMany({ data: valid, skipDuplicates: true });
+        if (!valid.length) return { count: 0 };
+        return this.upsertRaw('user_role_assignments', valid);
       },
 
       // Stores & equipment
-      stores: (d) => this.prisma.store.createMany({ data: d, skipDuplicates: true }),
-      equipment: (d) => this.prisma.equipment.createMany({ data: d, skipDuplicates: true }),
-      equipment_logs: (d) => this.prisma.equipmentLog.createMany({ data: d, skipDuplicates: true }),
-      store_delete_requests: (d) => this.prisma.storeDeleteRequest.createMany({ data: d, skipDuplicates: true }),
-      equipment_retirement_requests: (d) => this.prisma.equipmentRetirementRequest.createMany({ data: d, skipDuplicates: true }),
+      stores: (d) => this.upsertRaw('stores', d),
+      equipment: (d) => this.upsertRaw('equipment', d),
+      // equipment_logs has Json fields — use Prisma upsert
+      equipment_logs: (d) => this.upsertWithArrayFields(
+        (ids) => this.prisma.equipmentLog.findMany({ where: { id: { in: ids } }, select: { id: true } }),
+        (id, data) => this.prisma.equipmentLog.update({ where: { id }, data: data as any }),
+        (data) => this.prisma.equipmentLog.createMany({ data: data as any[], skipDuplicates: true }),
+        d,
+      ),
+      store_delete_requests: (d) => this.upsertRaw('store_delete_requests', d),
+      equipment_retirement_requests: (d) => this.upsertRaw('equipment_retirement_requests', d),
 
-      // Knowledge base (self-referential categories: restore root nodes first, then children)
+      // Knowledge base — self-referential categories: roots first, then children
       knowledge_categories: async (d) => {
-        const roots = d.filter(c => !c.parentId);
-        const children = d.filter(c => !!c.parentId);
-        const r1 = await this.prisma.knowledgeCategory.createMany({ data: roots, skipDuplicates: true });
-        const r2 = await this.prisma.knowledgeCategory.createMany({ data: children, skipDuplicates: true });
+        const roots = d.filter((c: any) => !c.parentId);
+        const children = d.filter((c: any) => !!c.parentId);
+        const r1 = await this.upsertRaw('knowledge_categories', roots);
+        const r2 = await this.upsertRaw('knowledge_categories', children);
         return { count: r1.count + r2.count };
       },
-      knowledge_articles: (d) => this.prisma.knowledgeArticle.createMany({ data: d, skipDuplicates: true }),
-      knowledge_article_feedbacks: (d) => this.prisma.knowledgeArticleFeedback.createMany({ data: d, skipDuplicates: true }),
-      knowledge_article_usages: (d) => this.prisma.knowledgeArticleUsage.createMany({ data: d, skipDuplicates: true }),
+      // knowledge_articles has array fields
+      knowledge_articles: (d) => this.upsertWithArrayFields(
+        (ids) => this.prisma.knowledgeArticle.findMany({ where: { id: { in: ids } }, select: { id: true } }),
+        (id, data) => this.prisma.knowledgeArticle.update({ where: { id }, data: data as any }),
+        (data) => this.prisma.knowledgeArticle.createMany({ data: data as any[], skipDuplicates: true }),
+        d,
+      ),
+      knowledge_article_feedbacks: (d) => this.upsertRaw('knowledge_article_feedbacks', d),
+      knowledge_article_usages: (d) => this.upsertRaw('knowledge_article_usages', d),
 
-      // Incidents & related
-      incidents: (d) => this.prisma.incident.createMany({ data: d, skipDuplicates: true }),
-      incident_assignees: (d) => this.prisma.incidentAssignee.createMany({ data: d, skipDuplicates: true }),
-      incident_reassignments: (d) => this.prisma.incidentReassignment.createMany({ data: d, skipDuplicates: true }),
-      incident_ratings: (d) => this.prisma.incidentRating.createMany({ data: d, skipDuplicates: true }),
-      sla_defenses: (d) => this.prisma.slaDefense.createMany({ data: d, skipDuplicates: true }),
-      comments: (d) => this.prisma.comment.createMany({ data: d, skipDuplicates: true }),
-      spare_parts: (d) => this.prisma.sparePart.createMany({ data: d, skipDuplicates: true }),
-      incident_history: (d) => this.prisma.incidentHistory.createMany({ data: d, skipDuplicates: true }),
-      notifications: (d) => this.prisma.notification.createMany({ data: d, skipDuplicates: true }),
+      // Incidents (array fields: beforePhotos, afterPhotos, signedReportPhotos)
+      incidents: (d) => this.upsertWithArrayFields(
+        (ids) => this.prisma.incident.findMany({ where: { id: { in: ids } }, select: { id: true } }),
+        (id, data) => this.prisma.incident.update({ where: { id }, data: data as any }),
+        (data) => this.prisma.incident.createMany({ data: data as any[], skipDuplicates: true }),
+        d,
+      ),
+      incident_assignees: (d) => this.upsertRaw('incident_assignees', d),
+      incident_reassignments: (d) => this.upsertRaw('incident_reassignments', d),
+      incident_ratings: (d) => this.upsertRaw('incident_ratings', d),
+      sla_defenses: (d) => this.upsertRaw('sla_defenses', d),
+      // comments has array field: attachments
+      comments: (d) => this.upsertWithArrayFields(
+        (ids) => this.prisma.comment.findMany({ where: { id: { in: ids } }, select: { id: true } }),
+        (id, data) => this.prisma.comment.update({ where: { id }, data: data as any }),
+        (data) => this.prisma.comment.createMany({ data: data as any[], skipDuplicates: true }),
+        d,
+      ),
+      spare_parts: (d) => this.upsertRaw('spare_parts', d),
+      incident_history: (d) => this.upsertRaw('incident_history', d),
+      notifications: (d) => this.upsertRaw('notifications', d),
 
-      // Outsource
-      outsource_jobs: (d) => this.prisma.outsourceJob.createMany({ data: d, skipDuplicates: true }),
-      outsource_bids: (d) => this.prisma.outsourceBid.createMany({ data: d, skipDuplicates: true }),
+      // Outsource — outsource_jobs has array + Json fields
+      outsource_jobs: (d) => this.upsertWithArrayFields(
+        (ids) => this.prisma.outsourceJob.findMany({ where: { id: { in: ids } }, select: { id: true } }),
+        (id, data) => this.prisma.outsourceJob.update({ where: { id }, data: data as any }),
+        (data) => this.prisma.outsourceJob.createMany({ data: data as any[], skipDuplicates: true }),
+        d,
+      ),
+      outsource_bids: (d) => this.upsertRaw('outsource_bids', d),
 
-      // PM
-      pm_records: (d) => this.prisma.pmRecord.createMany({ data: d, skipDuplicates: true }),
-      pm_equipment_records: (d) => this.prisma.pmEquipmentRecord.createMany({ data: d, skipDuplicates: true }),
-      // Performance scores
-      technician_performance_scores: (d) => this.prisma.technicianPerformanceScore.createMany({ data: d, skipDuplicates: true }),
-      // Audit trail
-      audit_logs: (d) => this.prisma.auditLog.createMany({ data: d, skipDuplicates: true }),
+      // PM — both tables have array fields
+      pm_records: (d) => this.upsertWithArrayFields(
+        (ids) => this.prisma.pmRecord.findMany({ where: { id: { in: ids } }, select: { id: true } }),
+        (id, data) => this.prisma.pmRecord.update({ where: { id }, data: data as any }),
+        (data) => this.prisma.pmRecord.createMany({ data: data as any[], skipDuplicates: true }),
+        d,
+      ),
+      pm_equipment_records: (d) => this.upsertWithArrayFields(
+        (ids) => this.prisma.pmEquipmentRecord.findMany({ where: { id: { in: ids } }, select: { id: true } }),
+        (id, data) => this.prisma.pmEquipmentRecord.update({ where: { id }, data: data as any }),
+        (data) => this.prisma.pmEquipmentRecord.createMany({ data: data as any[], skipDuplicates: true }),
+        d,
+      ),
+      technician_performance_scores: (d) => this.upsertRaw('technician_performance_scores', d),
+      audit_logs: (d) => this.upsertRaw('audit_logs', d),
     };
 
     const fn = tableMap[table];

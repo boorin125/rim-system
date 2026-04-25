@@ -304,8 +304,8 @@ export class SettingsService {
     } catch { /* ignore */ }
 
     return {
-      version: '1.0.0',
-      buildDate: '2024-01-15',
+      version: process.env.APP_VERSION || '1.0.0',
+      buildDate: process.env.BUILD_DATE || 'unknown',
       developer: 'Rub-jobb Development Team',
       website: 'https://rub-jobb.com',
       email: 'support@rub-jobb.com',
