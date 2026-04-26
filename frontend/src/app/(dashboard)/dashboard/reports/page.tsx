@@ -126,6 +126,31 @@ const SLA_DEFENSE_FILTERS = [
 
 const RATING_COLORS: Record<string, string> = { '5': '#22c55e', '4': '#84cc16', '3': '#facc15', '2': '#f97316', '1': '#ef4444' }
 
+const INCIDENT_COLUMNS = [
+  { key: 'idx',              label: '#',                   width: 2  },
+  { key: 'status',           label: 'Status',              width: 6  },
+  { key: 'ticketNo',         label: 'Ticket No.',          width: 7  },
+  { key: 'storeId',          label: 'Store ID',            width: 4  },
+  { key: 'storeName',        label: 'Store Name',          width: 9  },
+  { key: 'title',            label: 'Title',               width: 14 },
+  { key: 'category',         label: 'Category',            width: 6  },
+  { key: 'priority',         label: 'Priority',            width: 5  },
+  { key: 'jobType',          label: 'Job Type',            width: 6  },
+  { key: 'incidentDate',     label: 'Incident Date',       width: 9  },
+  { key: 'createDate',       label: 'Create Date',         width: 9  },
+  { key: 'assignDate',       label: 'Assign Date',         width: 9  },
+  { key: 'checkinDate',      label: 'Checkin Date',        width: 9  },
+  { key: 'reassignDate',     label: 'Reassign Date',       width: 9  },
+  { key: 'closedDate',       label: 'Closed Date',         width: 9  },
+  { key: 'technician',       label: 'Technician',          width: 10 },
+  { key: 'resolutionNote',   label: 'Resolution Note',     width: 14 },
+  { key: 'slaDefense',       label: 'SLA Defense',         width: 6  },
+  { key: 'slaDefenseReason', label: 'เหตุผล Defense SLA', width: 10 },
+] as const
+
+type IncidentColKey = typeof INCIDENT_COLUMNS[number]['key']
+const ALL_INCIDENT_COL_KEYS = INCIDENT_COLUMNS.map(c => c.key) as IncidentColKey[]
+
 const tooltipStyle = {
   contentStyle: { backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px', color: '#e2e8f0', fontSize: '12px' },
 }
@@ -164,6 +189,42 @@ export default function ReportsPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isGenerated, setIsGenerated] = useState(false)
   const [organizationName, setOrganizationName] = useState('')
+
+  // Incident column picker
+  const [selectedIncidentCols, setSelectedIncidentCols] = useState<Set<IncidentColKey>>(() => {
+    if (typeof window === 'undefined') return new Set(ALL_INCIDENT_COL_KEYS)
+    try {
+      const saved = localStorage.getItem('rim_incident_cols')
+      if (saved) {
+        const keys = JSON.parse(saved) as IncidentColKey[]
+        const valid = keys.filter(k => ALL_INCIDENT_COL_KEYS.includes(k))
+        if (valid.length > 0) return new Set(valid)
+      }
+    } catch {}
+    return new Set(ALL_INCIDENT_COL_KEYS)
+  })
+
+  const toggleIncidentCol = (key: IncidentColKey) => {
+    setSelectedIncidentCols(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) {
+        if (next.size <= 1) return prev
+        next.delete(key)
+      } else {
+        next.add(key)
+      }
+      localStorage.setItem('rim_incident_cols', JSON.stringify([...next]))
+      return next
+    })
+    setIsGenerated(false)
+  }
+
+  const setAllIncidentCols = (all: boolean) => {
+    const next = all ? new Set(ALL_INCIDENT_COL_KEYS) : new Set<IncidentColKey>([ALL_INCIDENT_COL_KEYS[0]])
+    setSelectedIncidentCols(next)
+    localStorage.setItem('rim_incident_cols', JSON.stringify([...next]))
+    setIsGenerated(false)
+  }
 
   // Technician detail report states
   const [technicianList, setTechnicianList] = useState<any[]>([])
@@ -384,8 +445,8 @@ export default function ReportsPage() {
             })
           }
 
-          const getSlaDefenseLabel = (i: any) => {
-            const defense = i.slaDefenses?.[0]
+          const getSlaDefenseLabel = (inc: any) => {
+            const defense = inc.slaDefenses?.[0]
             if (!defense) return '-'
             if (defense.status === 'APPROVED') return 'Approved'
             if (defense.status === 'REJECTED') return 'Rejected'
@@ -393,36 +454,38 @@ export default function ReportsPage() {
             return defense.status
           }
 
-          const h = ['#', 'Status', 'Ticket No.', 'Store ID', 'Store Name', 'Title', 'Category', 'Priority', 'Job Type', 'Incident Date', 'Create Date', 'Assign Date', 'Checkin Date', 'Reassign Date', 'Closed Date', 'Technician', 'Resolution Note', 'SLA Defense', 'เหตุผล Defense SLA']
-          const rows = items.map((i: any, idx: number) => {
-            const techName = i.assignees?.length > 0
-              ? i.assignees.map((a: any) => `${a.user.firstName} ${a.user.lastName}`).join(', ')
+          const activeCols = INCIDENT_COLUMNS.filter(c => selectedIncidentCols.has(c.key))
+          const h = activeCols.map(c => c.label)
+          const rows = items.map((inc: any, idx: number) => {
+            const techName = inc.assignees?.length > 0
+              ? inc.assignees.map((a: any) => `${a.user.firstName} ${a.user.lastName}`).join(', ')
               : 'Unassigned'
-            const firstAssign = i.assignees?.find((a: any) => a.assignedAt)
-            const firstCheckin = i.assignees?.find((a: any) => a.checkedInAt)
-            const lastReassign = i.reassignments?.[0]
-            const closedDate = i.resolvedAt
-            return [
-              idx + 1,
-              i.status || '',
-              i.ticketNumber || `#${i.id}`,
-              i.store?.storeCode ?? '',
-              i.store?.name || 'N/A',
-              i.title || '',
-              i.category || 'N/A',
-              getPriority(i.priority || ''),
-              i.jobType || '',
-              i.incidentDate ? new Date(i.incidentDate).toLocaleString('th-TH') : '',
-              i.createdAt ? new Date(i.createdAt).toLocaleString('th-TH') : '',
-              firstAssign?.assignedAt ? new Date(firstAssign.assignedAt).toLocaleString('th-TH') : '',
-              firstCheckin?.checkedInAt ? new Date(firstCheckin.checkedInAt).toLocaleString('th-TH') : '',
-              lastReassign?.reassignedAt ? new Date(lastReassign.reassignedAt).toLocaleString('th-TH') : '',
-              closedDate ? new Date(closedDate).toLocaleString('th-TH') : '',
-              techName,
-              i.resolutionNote || '',
-              getSlaDefenseLabel(i),
-              i.slaDefenses?.[0]?.reason || '-',
-            ]
+            const firstAssign = inc.assignees?.find((a: any) => a.assignedAt)
+            const firstCheckin = inc.assignees?.find((a: any) => a.checkedInAt)
+            const lastReassign = inc.reassignments?.[0]
+            const closedDate = inc.resolvedAt
+            const allData: Record<IncidentColKey, string | number> = {
+              idx:              idx + 1,
+              status:           inc.status || '',
+              ticketNo:         inc.ticketNumber || `#${inc.id}`,
+              storeId:          inc.store?.storeCode ?? '',
+              storeName:        inc.store?.name || 'N/A',
+              title:            inc.title || '',
+              category:         inc.category || 'N/A',
+              priority:         getPriority(inc.priority || ''),
+              jobType:          inc.jobType || '',
+              incidentDate:     inc.incidentDate ? new Date(inc.incidentDate).toLocaleString('th-TH') : '',
+              createDate:       inc.createdAt ? new Date(inc.createdAt).toLocaleString('th-TH') : '',
+              assignDate:       firstAssign?.assignedAt ? new Date(firstAssign.assignedAt).toLocaleString('th-TH') : '',
+              checkinDate:      firstCheckin?.checkedInAt ? new Date(firstCheckin.checkedInAt).toLocaleString('th-TH') : '',
+              reassignDate:     lastReassign?.reassignedAt ? new Date(lastReassign.reassignedAt).toLocaleString('th-TH') : '',
+              closedDate:       closedDate ? new Date(closedDate).toLocaleString('th-TH') : '',
+              technician:       techName,
+              resolutionNote:   inc.resolutionNote || '',
+              slaDefense:       getSlaDefenseLabel(inc),
+              slaDefenseReason: inc.slaDefenses?.[0]?.reason || '-',
+            }
+            return activeCols.map(c => allData[c.key])
           })
           setPreviewHeaders(h)
           setPreviewRows(rows)
@@ -481,7 +544,7 @@ export default function ReportsPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [selectedReport, dateFrom, dateTo, filterCategory, filterPriority, filterStatus, filterSlaDefense, inventorySubType, inventoryStoreId, inventoryCategory, inventoryStatus, selectedTechnicianId, techDetailPeriod])
+  }, [selectedReport, dateFrom, dateTo, filterCategory, filterPriority, filterStatus, filterSlaDefense, inventorySubType, inventoryStoreId, inventoryCategory, inventoryStatus, selectedTechnicianId, techDetailPeriod, selectedIncidentCols])
 
   // ==================== EXPORT HANDLERS ====================
 
@@ -543,7 +606,7 @@ export default function ReportsPage() {
       columnWidths: selectedReport === 'customer-ratings'
         ? [4, 7, 30, 8, 14, 10, 27]
         : selectedReport === 'incident-list'
-        ? [2, 5, 7, 4, 8, 13, 5, 5, 6, 9, 9, 9, 9, 9, 9, 9, 13, 5, 10]
+        ? INCIDENT_COLUMNS.filter(c => selectedIncidentCols.has(c.key)).map(c => c.width)
         : selectedReport === 'technician-detail'
         ? [3, 9, 8, 8, 10, 10, 10, 8, 8, 8, 8]
         : undefined,
@@ -776,6 +839,56 @@ export default function ReportsPage() {
               </div>
             )}
           </div>
+
+          {/* Column Picker — Incident List */}
+          {selectedReport === 'incident-list' && (
+            <div className="mt-5 pt-5 border-t border-slate-700/50">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <ListFilter className="w-4 h-4 text-cyan-400" />
+                  <span className="text-sm font-medium text-white">เลือกคอลัมน์</span>
+                  <span className="text-xs text-gray-500">({selectedIncidentCols.size} / {INCIDENT_COLUMNS.length})</span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setAllIncidentCols(true)}
+                    className="text-xs px-2.5 py-1 rounded-lg bg-slate-700 hover:bg-slate-600 text-gray-300 transition-colors"
+                  >
+                    Select All
+                  </button>
+                  <button
+                    onClick={() => setAllIncidentCols(false)}
+                    className="text-xs px-2.5 py-1 rounded-lg bg-slate-700 hover:bg-slate-600 text-gray-300 transition-colors"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {INCIDENT_COLUMNS.map((col) => {
+                  const checked = selectedIncidentCols.has(col.key)
+                  return (
+                    <button
+                      key={col.key}
+                      onClick={() => toggleIncidentCol(col.key)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                        checked
+                          ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300'
+                          : 'bg-slate-800 border-slate-600 text-gray-500 hover:border-slate-500 hover:text-gray-400'
+                      }`}
+                    >
+                      <span className={`w-3 h-3 rounded-sm border flex items-center justify-center shrink-0 ${
+                        checked ? 'bg-cyan-500 border-cyan-500' : 'border-slate-500'
+                      }`}>
+                        {checked && <span className="text-white text-[8px] leading-none">✓</span>}
+                      </span>
+                      {col.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Generate button */}
           <div className="mt-5">
