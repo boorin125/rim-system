@@ -861,6 +861,7 @@ export class BackupService {
    */
   async restoreFromFile(userId: number, content: string, password?: string, selectedTables?: string[]) {
     await this.checkBackupFeatureAllowed();
+    this._tableColumnCache.clear();
     let backupData: any;
     try {
       backupData = JSON.parse(content);
@@ -1356,10 +1357,26 @@ export class BackupService {
     return this.restoreTableFromFile(table, data);
   }
 
-  // Generic UPSERT via raw SQL — safe for tables with scalar fields only (no arrays, no Json)
+  // Cache of table columns to avoid repeated DB queries within one restore
+  private _tableColumnCache: Map<string, Set<string>> = new Map();
+
+  private async getTableColumns(table: string): Promise<Set<string>> {
+    if (this._tableColumnCache.has(table)) return this._tableColumnCache.get(table)!;
+    const rows = await this.prisma.$queryRawUnsafe<{ column_name: string }[]>(
+      `SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1`,
+      table,
+    );
+    const cols = new Set(rows.map(r => r.column_name));
+    this._tableColumnCache.set(table, cols);
+    return cols;
+  }
+
+  // Generic UPSERT via raw SQL — filters columns to only those that exist in target DB
   private async upsertRaw(table: string, data: any[]): Promise<{ count: number }> {
     if (!data.length) return { count: 0 };
-    const columns = Object.keys(data[0]);
+    const existingCols = await this.getTableColumns(table);
+    const columns = Object.keys(data[0]).filter(c => existingCols.has(c));
+    if (!columns.length) return { count: 0 };
     const colSql = columns.map(c => `"${c}"`).join(', ');
     const updateCols = columns.filter(c => c !== 'id');
     if (!updateCols.length) return { count: 0 };
