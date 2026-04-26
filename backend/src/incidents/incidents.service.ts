@@ -1032,6 +1032,11 @@ export class IncidentsService {
             },
             orderBy: { assignedAt: 'asc' as const },
           },
+          reassignments: {
+            select: { reassignedAt: true },
+            orderBy: { reassignedAt: 'desc' as const },
+            take: 1,
+          },
           slaDefenses: {
             select: { id: true, status: true, reason: true },
             orderBy: { createdAt: 'desc' as const },
