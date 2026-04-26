@@ -383,13 +383,14 @@ export default function ReportsPage() {
             return defense.status
           }
 
-          const h = ['#', 'Status', 'Ticket No.', 'Store ID', 'Store Name', 'Title', 'Category', 'Priority', 'Job Type', 'Incident Date', 'Create Date', 'Closed Date', 'Technician', 'Resolution Note', 'SLA Defense', 'เหตุผล Defense SLA']
+          const h = ['#', 'Status', 'Ticket No.', 'Store ID', 'Store Name', 'Title', 'Category', 'Priority', 'Job Type', 'Incident Date', 'Create Date', 'Assign Date', 'Checkin Date', 'Closed Date', 'Technician', 'Resolution Note', 'SLA Defense', 'เหตุผล Defense SLA']
           const rows = items.map((i: any, idx: number) => {
             const techName = i.assignees?.length > 0
               ? i.assignees.map((a: any) => `${a.user.firstName} ${a.user.lastName}`).join(', ')
               : 'Unassigned'
+            const firstAssign = i.assignees?.find((a: any) => a.assignedAt)
+            const firstCheckin = i.assignees?.find((a: any) => a.checkedInAt)
             const closedDate = i.resolvedAt
-            const fmtDate = (d: string) => { const dt = new Date(d); return `${dt.getDate()}/${dt.getMonth()+1}/${dt.getFullYear()}` }
             return [
               idx + 1,
               i.status || '',
@@ -402,6 +403,8 @@ export default function ReportsPage() {
               i.jobType || '',
               i.incidentDate ? new Date(i.incidentDate).toLocaleString('th-TH') : '',
               i.createdAt ? new Date(i.createdAt).toLocaleString('th-TH') : '',
+              firstAssign?.assignedAt ? new Date(firstAssign.assignedAt).toLocaleString('th-TH') : '',
+              firstCheckin?.checkedInAt ? new Date(firstCheckin.checkedInAt).toLocaleString('th-TH') : '',
               closedDate ? new Date(closedDate).toLocaleString('th-TH') : '',
               techName,
               i.resolutionNote || '',
@@ -528,7 +531,7 @@ export default function ReportsPage() {
       columnWidths: selectedReport === 'customer-ratings'
         ? [4, 7, 30, 8, 14, 10, 27]
         : selectedReport === 'incident-list'
-        ? [2, 6, 7, 4, 9, 16, 6, 5, 7, 9, 10, 10, 11, 16, 7, 14]
+        ? [2, 6, 7, 4, 9, 14, 6, 5, 7, 9, 9, 9, 9, 9, 10, 14, 6, 12]
         : selectedReport === 'technician-detail'
         ? [3, 9, 8, 8, 10, 10, 10, 8, 8, 8, 8]
         : undefined,

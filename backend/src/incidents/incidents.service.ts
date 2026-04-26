@@ -1025,7 +1025,7 @@ export class IncidentsService {
           },
           assignees: {
             select: {
-              userId: true, assignedAt: true,
+              userId: true, assignedAt: true, checkedInAt: true,
               user: {
                 select: { id: true, firstName: true, lastName: true },
               },
