@@ -359,6 +359,7 @@ export default function SettingsPage() {
   const [restoreFileNeedsPassword, setRestoreFileNeedsPassword] = useState(false)
   const [isRestoringFile, setIsRestoringFile] = useState(false)
   const [isUploadingRestoreFile, setIsUploadingRestoreFile] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
   const [restoreFileIsDiff, setRestoreFileIsDiff] = useState(false)
   const [restoreFileBaseJobCode, setRestoreFileBaseJobCode] = useState<string | null>(null)
   // which groups are IN the backup file (parsed from metadata.tables)
@@ -1228,16 +1229,31 @@ export default function SettingsPage() {
     e.target.value = ''
 
     setIsUploadingRestoreFile(true)
+    setUploadProgress(0)
     try {
       const token = localStorage.getItem('token')
       const formData = new FormData()
       formData.append('file', file)
-      const res = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/settings/backups/upload-restore`,
-        formData,
-        { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' } }
-      )
-      const { tempId, metadata, tables } = res.data
+
+      const resData = await new Promise<any>((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+        xhr.open('POST', `${process.env.NEXT_PUBLIC_API_URL}/settings/backups/upload-restore`)
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) setUploadProgress(Math.round((e.loaded / e.total) * 100))
+        }
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try { resolve(JSON.parse(xhr.responseText)) } catch { reject(new Error('Invalid response')) }
+          } else {
+            try { reject(new Error(JSON.parse(xhr.responseText)?.message || 'Upload failed')) } catch { reject(new Error('Upload failed')) }
+          }
+        }
+        xhr.onerror = () => reject(new Error('Network error'))
+        xhr.send(formData)
+      })
+
+      const { tempId, metadata, tables } = resData
       setRestoreTempId(tempId)
       setRestoreFileNeedsPassword(!!metadata?.isEncrypted)
       setRestoreFilePassword('')
@@ -1250,9 +1266,10 @@ export default function SettingsPage() {
       setRestoreSelectedGroups(availableGroups)
       setShowRestoreFileModal(true)
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'ไม่สามารถอ่านไฟล์ Backup ได้')
+      toast.error(error?.message || 'ไม่สามารถอ่านไฟล์ Backup ได้')
     } finally {
       setIsUploadingRestoreFile(false)
+      setUploadProgress(0)
     }
   }
 
@@ -3155,14 +3172,32 @@ export default function SettingsPage() {
                     className="hidden"
                     onChange={handleSelectRestoreFile}
                   />
-                  <button
-                    onClick={() => restoreFileRef.current?.click()}
-                    disabled={licenseInfo?.license?.licenseType === 'TRIAL' || isUploadingRestoreFile}
-                    className="flex items-center gap-2 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed text-sm"
-                  >
-                    {isUploadingRestoreFile ? <Loader2 className="w-4 h-4 animate-spin" /> : <FolderOpen className="w-4 h-4 flex-shrink-0" />}
-                    <span>{isUploadingRestoreFile ? 'Uploading...' : 'Restore'}</span>
-                  </button>
+                  {isUploadingRestoreFile ? (
+                    <div className="flex items-center gap-2 px-3 py-2 bg-emerald-700 text-white rounded-lg text-sm min-w-[140px]">
+                      <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
+                      <div className="flex-1">
+                        <div className="flex justify-between text-xs mb-0.5">
+                          <span>Uploading...</span>
+                          <span>{uploadProgress}%</span>
+                        </div>
+                        <div className="w-full bg-emerald-900 rounded-full h-1.5">
+                          <div
+                            className="bg-emerald-300 h-1.5 rounded-full transition-all duration-200"
+                            style={{ width: `${uploadProgress}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => restoreFileRef.current?.click()}
+                      disabled={licenseInfo?.license?.licenseType === 'TRIAL'}
+                      className="flex items-center gap-2 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed text-sm"
+                    >
+                      <FolderOpen className="w-4 h-4 flex-shrink-0" />
+                      <span>Restore</span>
+                    </button>
+                  )}
                   {/* Create Backup */}
                   <button
                     onClick={() => setShowBackupPasswordModal(true)}
