@@ -308,7 +308,7 @@ export async function exportPDF(config: ReportConfig) {
   doc.line(margin, yPos + 1, pageWidth - margin, yPos + 1)
 
   // ── Column widths ────────────────────────────────────────
-  const columnStyles: Record<number, { cellWidth: number; overflow: string }> = {}
+  const columnStyles: Record<number, { cellWidth: number; overflow: 'ellipsize' }> = {}
   if (config.columnWidths && config.columnWidths.length === colCount) {
     const totalRatio = config.columnWidths.reduce((a, b) => a + b, 0)
     config.columnWidths.forEach((ratio, i) => {
