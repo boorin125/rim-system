@@ -59,6 +59,7 @@ export class VersionService {
     const base = current ?? { version: '1.0.0', status: 'CURRENT', releaseNotes: null, changes: [], appliedAt: null, appliedBy: null };
     return {
       ...base,
+      version: process.env.APP_VERSION || base.version,
       gitCommit: process.env.GIT_COMMIT || 'unknown',
       buildDate: process.env.BUILD_DATE || null,
     };
