@@ -64,7 +64,8 @@ echo ""
 echo -e "${YELLOW}→ Build ใหม่...${NC}"
 export GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')
 export BUILD_DATE=$(date +%Y-%m-%d)
-echo -e "   Commit: ${YELLOW}${GIT_COMMIT}${NC} | Date: ${YELLOW}${BUILD_DATE}${NC}"
+export APP_VERSION=$(grep '"version"' backend/package.json 2>/dev/null | head -1 | sed 's/.*"version": *"\([^"]*\)".*/\1/' || echo '1.0.0')
+echo -e "   Commit: ${YELLOW}${GIT_COMMIT}${NC} | Date: ${YELLOW}${BUILD_DATE}${NC} | Version: ${YELLOW}${APP_VERSION}${NC}"
 if ! $COMPOSE_CMD build --parallel --no-cache; then
   echo ""
   echo -e "\033[0;31m❌ Build ล้มเหลว! กำลัง Restore ฐานข้อมูล...${NC}"
