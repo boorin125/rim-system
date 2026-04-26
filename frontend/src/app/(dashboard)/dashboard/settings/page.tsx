@@ -1251,26 +1251,39 @@ export default function SettingsPage() {
     setUploadProgress(0)
     try {
       const token = localStorage.getItem('token')
-      const formData = new FormData()
-      formData.append('file', file)
+      const CHUNK_SIZE = 5 * 1024 * 1024 // 5 MB per chunk
+      const totalChunks = Math.ceil(file.size / CHUNK_SIZE)
+      const uploadId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
-      const resData = await new Promise<any>((resolve, reject) => {
-        const xhr = new XMLHttpRequest()
-        xhr.open('POST', `${process.env.NEXT_PUBLIC_API_URL}/settings/backups/upload-restore`)
-        xhr.setRequestHeader('Authorization', `Bearer ${token}`)
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable) setUploadProgress(Math.round((e.loaded / e.total) * 100))
+      for (let i = 0; i < totalChunks; i++) {
+        const chunk = file.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE)
+        const form = new FormData()
+        form.append('uploadId', uploadId)
+        form.append('chunkIndex', String(i))
+        form.append('totalChunks', String(totalChunks))
+        form.append('chunk', chunk)
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/settings/backups/upload-chunk`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: form,
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          throw new Error(err?.message || `Chunk ${i + 1} upload failed`)
         }
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            try { resolve(JSON.parse(xhr.responseText)) } catch { reject(new Error('Invalid response')) }
-          } else {
-            try { reject(new Error(JSON.parse(xhr.responseText)?.message || 'Upload failed')) } catch { reject(new Error('Upload failed')) }
-          }
-        }
-        xhr.onerror = () => reject(new Error('Network error'))
-        xhr.send(formData)
+        setUploadProgress(Math.round(((i + 1) / totalChunks) * 100))
+      }
+
+      const finalRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/settings/backups/finalize-upload`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uploadId, fileName: file.name }),
       })
+      if (!finalRes.ok) {
+        const err = await finalRes.json().catch(() => ({}))
+        throw new Error(err?.message || 'Finalize upload failed')
+      }
+      const resData = await finalRes.json()
 
       const { tempId, metadata, tables } = resData
       const availableGroups = BACKUP_GROUPS

@@ -444,6 +444,77 @@ export class SettingsController {
   }
 
   /**
+   * Chunked upload — Step A: receive one chunk
+   * Body: multipart with fields: uploadId, chunkIndex, totalChunks, chunk (binary)
+   */
+  @Post('backups/upload-chunk')
+  @Roles(UserRole.SUPER_ADMIN)
+  @UseInterceptors(FileInterceptor('chunk', {
+    storage: diskStorage({
+      destination: (req: any, _file, cb) => {
+        const uploadId = req.body?.uploadId || 'unknown';
+        const dir = path.join(process.cwd(), 'Backup', 'chunks', uploadId);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        cb(null, dir);
+      },
+      filename: (req: any, _file, cb) => {
+        const idx = req.body?.chunkIndex ?? 0;
+        cb(null, `chunk-${String(idx).padStart(6, '0')}`);
+      },
+    }),
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB per chunk
+  }))
+  async uploadChunk(
+    @UploadedFile() file: Express.Multer.File,
+    @Body() body: { uploadId: string; chunkIndex: string; totalChunks: string },
+  ) {
+    if (!file) throw new BadRequestException('No chunk data');
+    return { received: true, chunkIndex: Number(body.chunkIndex) };
+  }
+
+  /**
+   * Chunked upload — Step B: assemble all chunks → return tempId + metadata
+   */
+  @Post('backups/finalize-upload')
+  @Roles(UserRole.SUPER_ADMIN)
+  async finalizeUpload(@Body() body: { uploadId: string; fileName: string }) {
+    const { uploadId, fileName } = body;
+    if (!uploadId) throw new BadRequestException('uploadId required');
+
+    const chunksDir = path.join(process.cwd(), 'Backup', 'chunks', uploadId);
+    if (!fs.existsSync(chunksDir)) throw new BadRequestException('No chunks found for this uploadId');
+
+    const chunkFiles = fs.readdirSync(chunksDir)
+      .filter(f => f.startsWith('chunk-'))
+      .sort();
+
+    if (chunkFiles.length === 0) throw new BadRequestException('No chunks found');
+
+    const destDir = path.join(process.cwd(), 'Backup', 'restore-temp');
+    if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
+
+    const ext = (fileName || '').endsWith('.tar') ? '.tar' : (fileName || '').endsWith('.bkp') ? '.bkp' : '.tmp';
+    const destFile = path.join(destDir, `upload-${uploadId}${ext}`);
+
+    const writeStream = fs.createWriteStream(destFile);
+    for (const chunkFile of chunkFiles) {
+      const chunkPath = path.join(chunksDir, chunkFile);
+      const data = fs.readFileSync(chunkPath);
+      writeStream.write(data);
+    }
+    await new Promise<void>((resolve, reject) => {
+      writeStream.end();
+      writeStream.on('finish', resolve);
+      writeStream.on('error', reject);
+    });
+
+    // Cleanup chunks
+    try { fs.rmSync(chunksDir, { recursive: true, force: true }); } catch { /* ignore */ }
+
+    return this.backupService.uploadRestoreTempFromDisk(destFile);
+  }
+
+  /**
    * Step 1: Upload backup file as multipart → returns metadata + tempId
    * Uses disk storage to avoid loading large files into RAM
    */
