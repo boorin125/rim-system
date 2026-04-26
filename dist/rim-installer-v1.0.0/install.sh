@@ -7,7 +7,7 @@
 
 set -e
 
-RIM_VERSION="1.0.0"
+RIM_VERSION="1.0.4"
 
 BLUE='\033[0;34m'
 GREEN='\033[0;32m'
@@ -163,6 +163,20 @@ EOF
 echo -e "${GREEN}✅ สร้างไฟล์ .env เรียบร้อย${NC}"
 echo ""
 
+# ── SSL Certificate ───────────────────────────
+SSL_DIR="./docker/nginx/ssl"
+mkdir -p "$SSL_DIR"
+if [ ! -f "$SSL_DIR/cert.pem" ] || [ ! -f "$SSL_DIR/key.pem" ]; then
+  echo -e "${YELLOW}→ สร้าง SSL Certificate (Self-signed 10 ปี)...${NC}"
+  openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+    -keyout "$SSL_DIR/key.pem" \
+    -out "$SSL_DIR/cert.pem" \
+    -subj "/C=TH/ST=Bangkok/O=RIM System/CN=localhost" 2>/dev/null
+  echo -e "${GREEN}✅ SSL Certificate พร้อม${NC}"
+  echo -e "   (ใช้ Self-signed — หากมี domain จริง ให้แทนที่ cert.pem/key.pem ภายหลัง)"
+fi
+echo ""
+
 # ── Pull & Start ──────────────────────────────
 echo -e "${YELLOW}[4/6] ดาวน์โหลด Docker images และเริ่มต้นระบบ...${NC}"
 echo ""
@@ -223,6 +237,7 @@ async function main() {
         email, password: hash,
         firstName: first, lastName: last, username,
         status: 'ACTIVE',
+        isProtected: true,
         roles: { create: { role: 'SUPER_ADMIN' } },
       },
     });

@@ -173,6 +173,20 @@ EOF
 echo -e "${GREEN}✅ สร้างไฟล์ .env เรียบร้อย${NC}"
 echo ""
 
+# ── SSL Certificate ───────────────────────────
+SSL_DIR="./docker/nginx/ssl"
+mkdir -p "$SSL_DIR"
+if [ ! -f "$SSL_DIR/cert.pem" ] || [ ! -f "$SSL_DIR/key.pem" ]; then
+  echo -e "${YELLOW}→ สร้าง SSL Certificate (Self-signed 10 ปี)...${NC}"
+  openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+    -keyout "$SSL_DIR/key.pem" \
+    -out "$SSL_DIR/cert.pem" \
+    -subj "/C=TH/ST=Bangkok/O=RIM System/CN=localhost" 2>/dev/null
+  echo -e "${GREEN}✅ SSL Certificate พร้อม${NC}"
+  echo -e "   (ใช้ Self-signed — หากมี domain จริง ให้แทนที่ cert.pem/key.pem ภายหลัง)"
+fi
+echo ""
+
 # ── Build & Start ─────────────────────────────
 echo -e "${YELLOW}[4/5] Build และเริ่มต้นระบบ (อาจใช้เวลา 5-15 นาที)...${NC}"
 echo ""
@@ -220,6 +234,7 @@ async function main() {
         email, password: hash,
         firstName: first, lastName: last, username,
         status: 'ACTIVE',
+        isProtected: true,
         roles: { create: { role: 'SUPER_ADMIN' } },
       },
     });
