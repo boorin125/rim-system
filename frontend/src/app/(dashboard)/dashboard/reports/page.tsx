@@ -161,7 +161,6 @@ export default function ReportsPage() {
   const [inventoryCategory, setInventoryCategory] = useState('All')
   const [inventoryStatus, setInventoryStatus] = useState('All')
   const [storeList, setStoreList] = useState<any[]>([])
-  const [slaConfigs, setSlaConfigs] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isGenerated, setIsGenerated] = useState(false)
   const [organizationName, setOrganizationName] = useState('')
@@ -198,10 +197,6 @@ export default function ReportsPage() {
         setTechnicianList(users)
       })
       .catch(() => {})
-    axios
-      .get(`${process.env.NEXT_PUBLIC_API_URL}/sla`, { headers })
-      .then((res) => setSlaConfigs(Array.isArray(res.data) ? res.data : []))
-      .catch(() => {})
   }, [])
 
   // Data states
@@ -217,11 +212,6 @@ export default function ReportsPage() {
   const getHeaders = () => {
     const token = localStorage.getItem('token')
     return { Authorization: `Bearer ${token}` }
-  }
-
-  const getPriorityLabel = (priority: string) => {
-    const cfg = slaConfigs.find((c: any) => c.priority === priority)
-    return cfg?.name || priority
   }
 
   const handleGenerate = useCallback(async () => {
@@ -369,8 +359,18 @@ export default function ReportsPage() {
         }
 
         case 'incident-list': {
-          const r = await axios.get(`${API}/incidents`, { headers, params: { ...params, limit: 1000 } })
-          let items: any[] = Array.isArray(r.data) ? r.data : (r.data.data || [])
+          const [r, slaRes] = await Promise.allSettled([
+            axios.get(`${API}/incidents`, { headers, params: { ...params, limit: 1000 } }),
+            axios.get(`${API}/sla`, { headers }),
+          ])
+          if (r.status === 'rejected') throw r.reason
+          let items: any[] = Array.isArray(r.value.data) ? r.value.data : (r.value.data.data || [])
+          const priorityMap = new Map<string, string>()
+          if (slaRes.status === 'fulfilled') {
+            const configs = Array.isArray(slaRes.value.data) ? slaRes.value.data : []
+            configs.forEach((c: any) => { if (c.priority && c.name) priorityMap.set(c.priority, c.name) })
+          }
+          const getPriority = (p: string) => priorityMap.get(p) || p
 
           // Apply local filters
           if (filterCategory !== 'All') items = items.filter((i: any) => i.category === filterCategory)
@@ -410,7 +410,7 @@ export default function ReportsPage() {
               i.store?.name || 'N/A',
               i.title || '',
               i.category || 'N/A',
-              getPriorityLabel(i.priority || ''),
+              getPriority(i.priority || ''),
               i.jobType || '',
               i.incidentDate ? new Date(i.incidentDate).toLocaleString('th-TH') : '',
               i.createdAt ? new Date(i.createdAt).toLocaleString('th-TH') : '',
@@ -481,7 +481,7 @@ export default function ReportsPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [selectedReport, dateFrom, dateTo, filterCategory, filterPriority, filterStatus, filterSlaDefense, inventorySubType, inventoryStoreId, inventoryCategory, inventoryStatus, selectedTechnicianId, techDetailPeriod, slaConfigs])
+  }, [selectedReport, dateFrom, dateTo, filterCategory, filterPriority, filterStatus, filterSlaDefense, inventorySubType, inventoryStoreId, inventoryCategory, inventoryStatus, selectedTechnicianId, techDetailPeriod])
 
   // ==================== EXPORT HANDLERS ====================
 
