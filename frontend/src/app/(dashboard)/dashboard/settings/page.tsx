@@ -202,6 +202,24 @@ function MobileAppTab() {
     }
   }, [])
 
+  // Restore pending upload state from sessionStorage (survives page navigation within same tab)
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('rim_restore_pending')
+      if (!raw) return
+      const saved = JSON.parse(raw)
+      const ageMs = Date.now() - (saved.savedAt || 0)
+      if (ageMs > 28 * 60 * 1000) { sessionStorage.removeItem('rim_restore_pending'); return }
+      setRestoreTempId(saved.tempId)
+      setRestoreFileName(saved.fileName || '')
+      setRestoreFileNeedsPassword(!!saved.isEncrypted)
+      setRestoreFileIsDiff(saved.isDiff || false)
+      setRestoreFileBaseJobCode(saved.baseJobCode || null)
+      setRestoreAvailableGroups(saved.availableGroups || [])
+      setRestoreSelectedGroups(saved.availableGroups || [])
+    } catch { sessionStorage.removeItem('rim_restore_pending') }
+  }, [])
+
   function copyUrl() {
     navigator.clipboard.writeText(serverUrl)
     setCopied(true)
@@ -351,6 +369,7 @@ export default function SettingsPage() {
   const [isTestingSmb, setIsTestingSmb] = useState(false)
 
   // Restore from file state
+  const RESTORE_SESSION_KEY = 'rim_restore_pending'
   const restoreFileRef = useRef<HTMLInputElement>(null)
   const [restoreTempId, setRestoreTempId] = useState<string | null>(null)
   const [restoreFileName, setRestoreFileName] = useState('')
@@ -1254,17 +1273,25 @@ export default function SettingsPage() {
       })
 
       const { tempId, metadata, tables } = resData
+      const availableGroups = BACKUP_GROUPS
+        .filter(g => g.tables.some((t: string) => (tables as string[]).includes(t)))
+        .map(g => g.id)
       setRestoreTempId(tempId)
       setRestoreFileNeedsPassword(!!metadata?.isEncrypted)
       setRestoreFilePassword('')
       setRestoreFileIsDiff(metadata?.backupType === 'DIFFERENTIAL')
       setRestoreFileBaseJobCode(metadata?.baseJobCode ?? null)
-      const availableGroups = BACKUP_GROUPS
-        .filter(g => g.tables.some((t: string) => (tables as string[]).includes(t)))
-        .map(g => g.id)
       setRestoreAvailableGroups(availableGroups)
       setRestoreSelectedGroups(availableGroups)
-      setShowRestoreFileModal(true)
+      // Save to sessionStorage so user can navigate away and return within 28 min
+      sessionStorage.setItem('rim_restore_pending', JSON.stringify({
+        tempId, fileName: file.name,
+        isEncrypted: !!metadata?.isEncrypted,
+        isDiff: metadata?.backupType === 'DIFFERENTIAL',
+        baseJobCode: metadata?.baseJobCode ?? null,
+        availableGroups,
+        savedAt: Date.now(),
+      }))
     } catch (error: any) {
       toast.error(error?.message || 'ไม่สามารถอ่านไฟล์ Backup ได้')
     } finally {
@@ -1311,7 +1338,9 @@ export default function SettingsPage() {
       }
       setShowRestoreFileModal(false)
       setRestoreTempId(null)
+      setRestoreFileName('')
       setRestoreFilePassword('')
+      sessionStorage.removeItem('rim_restore_pending')
       setTimeout(() => window.location.reload(), 1000)
     } catch (error: any) {
       const msg = error.response?.data?.message
@@ -3173,7 +3202,7 @@ export default function SettingsPage() {
                     onChange={handleSelectRestoreFile}
                   />
                   {isUploadingRestoreFile ? (
-                    <div className="flex items-center gap-2 px-3 py-2 bg-emerald-700 text-white rounded-lg text-sm min-w-[140px]">
+                    <div className="flex items-center gap-2 px-3 py-2 bg-emerald-700 text-white rounded-lg text-sm min-w-[160px]">
                       <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
                       <div className="flex-1">
                         <div className="flex justify-between text-xs mb-0.5">
@@ -3187,6 +3216,22 @@ export default function SettingsPage() {
                           />
                         </div>
                       </div>
+                    </div>
+                  ) : restoreTempId ? (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => { setRestoreSelectedGroups(restoreAvailableGroups); setShowRestoreFileModal(true) }}
+                        disabled={licenseInfo?.license?.licenseType === 'TRIAL'}
+                        className="flex items-center gap-2 px-3 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed text-sm max-w-[200px]"
+                      >
+                        <RotateCcw className="w-4 h-4 flex-shrink-0" />
+                        <span className="truncate">{restoreFileName || 'Restore'}</span>
+                      </button>
+                      <button
+                        onClick={() => { setRestoreTempId(null); setRestoreFileName(''); sessionStorage.removeItem('rim_restore_pending') }}
+                        className="p-1.5 text-gray-400 hover:text-white hover:bg-slate-600 rounded transition"
+                        title="ยกเลิก"
+                      ><X className="w-4 h-4" /></button>
                     </div>
                   ) : (
                     <button
@@ -3872,7 +3917,7 @@ export default function SettingsPage() {
 
               <div className="flex gap-3">
                 <button
-                  onClick={() => { setShowRestoreFileModal(false); setRestoreTempId(null); setRestoreFilePassword(''); setRestoreSelectedGroups([]); setRestoreAvailableGroups([]) }}
+                  onClick={() => { setShowRestoreFileModal(false); setRestoreFilePassword('') }}
                   className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition"
                 >ยกเลิก</button>
                 <button
