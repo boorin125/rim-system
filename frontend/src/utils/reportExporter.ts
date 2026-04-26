@@ -243,102 +243,126 @@ async function loadThaiFont(doc: jsPDF) {
 
 export async function exportPDF(config: ReportConfig) {
   const headerLines = buildHeaderLines(config)
-  const isWide = config.headers.length > 5
+  const colCount = config.headers.length
+  const isWide = colCount > 5
+  const isVeryWide = colCount > 12
+
   const doc = new jsPDF({
     orientation: isWide ? 'landscape' : 'portrait',
     unit: 'mm',
     format: 'a4',
   })
 
-  // Load Thai font
   const hasThai = await loadThaiFont(doc)
   const fontFamily = hasThai ? 'Sarabun' : 'helvetica'
-
   const pageWidth = doc.internal.pageSize.getWidth()
+  const pageHeight = doc.internal.pageSize.getHeight()
+  const margin = isVeryWide ? 8 : 14
+  const tableWidth = pageWidth - margin * 2
 
-  // Header
+  // Truncate long cell text for very wide tables (PDF is summary view)
+  const maxCellLen = isVeryWide ? 55 : isWide ? 80 : 200
+  const truncate = (s: string) => s.length > maxCellLen ? s.slice(0, maxCellLen - 1) + '…' : s
+  const bodyRows = config.rows.map((row) =>
+    row.map((val) => truncate(String(val ?? '')))
+  )
+
+  // Font sizes based on width
+  const titleSize = isVeryWide ? 13 : 16
+  const subtitleSize = isVeryWide ? 10 : 13
+  const metaSize = isVeryWide ? 7.5 : 9
+  const metaStep = isVeryWide ? 4 : 5
+  const headFontSize = isVeryWide ? 6.5 : 8
+  const bodyFontSize = isVeryWide ? 6.5 : 7.5
+  const cellPad = isVeryWide ? 1.2 : 2
+
+  // ── Document header ──────────────────────────────────────
   doc.setFont(fontFamily, 'bold')
-  doc.setFontSize(16)
-  doc.setTextColor(30, 64, 175) // blue
-  doc.text(getSystemTitle(config), 14, 18)
+  doc.setFontSize(titleSize)
+  doc.setTextColor(30, 64, 175)
+  doc.text(getSystemTitle(config), margin, isVeryWide ? 13 : 18)
 
-  doc.setFontSize(13)
-  doc.setTextColor(55, 65, 81) // gray-700
-  doc.text(config.reportType, 14, 26)
+  doc.setFontSize(subtitleSize)
+  doc.setTextColor(55, 65, 81)
+  doc.text(config.reportType, margin, isVeryWide ? 19 : 26)
 
   doc.setFont(fontFamily, 'normal')
-  doc.setFontSize(9)
-  doc.setTextColor(107, 114, 128) // gray-500
-  let yPos = 33
+  doc.setFontSize(metaSize)
+  doc.setTextColor(107, 114, 128)
+  let yPos = isVeryWide ? 24 : 33
   headerLines.slice(2).forEach((line) => {
-    doc.text(line, 14, yPos)
-    yPos += 5
+    doc.text(line, margin, yPos)
+    yPos += metaStep
   })
 
-  // Summary line on the right, aligned with Generated line
   if (config.summaryLine) {
-    const generatedY = 33 + (headerLines.slice(2).indexOf(`Generated: ${config.generatedAt}`) * 5)
+    const summaryY = isVeryWide ? 24 : 33
     doc.setFont(fontFamily, 'bold')
-    doc.setFontSize(12)
-    doc.setTextColor(245, 158, 11) // amber
-    doc.text(config.summaryLine, pageWidth - 14, generatedY, { align: 'right' })
+    doc.setFontSize(isVeryWide ? 10 : 12)
+    doc.setTextColor(245, 158, 11)
+    doc.text(config.summaryLine, pageWidth - margin, summaryY, { align: 'right' })
   }
 
-  // Line separator
   doc.setDrawColor(59, 130, 246)
   doc.setLineWidth(0.5)
-  doc.line(14, yPos + 1, pageWidth - 14, yPos + 1)
+  doc.line(margin, yPos + 1, pageWidth - margin, yPos + 1)
 
-  // Build column styles from width ratios
-  const columnStyles: Record<number, { cellWidth: number }> = {}
-  if (config.columnWidths && config.columnWidths.length === config.headers.length) {
-    const tableWidth = pageWidth - 28 // 14mm margin each side
+  // ── Column widths ────────────────────────────────────────
+  const columnStyles: Record<number, { cellWidth: number; overflow: string }> = {}
+  if (config.columnWidths && config.columnWidths.length === colCount) {
     const totalRatio = config.columnWidths.reduce((a, b) => a + b, 0)
     config.columnWidths.forEach((ratio, i) => {
-      columnStyles[i] = { cellWidth: (ratio / totalRatio) * tableWidth }
+      columnStyles[i] = {
+        cellWidth: (ratio / totalRatio) * tableWidth,
+        overflow: 'ellipsize',
+      }
     })
   }
 
-  // Table
+  // ── Table ────────────────────────────────────────────────
   autoTable(doc, {
     head: [config.headers],
-    body: config.rows.map((row) => row.map((val) => String(val ?? ''))),
-    startY: yPos + 5,
+    body: bodyRows,
+    startY: yPos + 4,
     theme: 'grid',
     columnStyles: Object.keys(columnStyles).length > 0 ? columnStyles : undefined,
     headStyles: {
       fillColor: [30, 64, 175],
       textColor: 255,
       fontStyle: 'bold',
-      fontSize: 8,
+      fontSize: headFontSize,
       halign: 'left',
       font: fontFamily,
+      cellPadding: cellPad,
+      minCellHeight: 0,
     },
     bodyStyles: {
-      fontSize: 7.5,
+      fontSize: bodyFontSize,
       textColor: [30, 41, 59],
       font: fontFamily,
+      minCellHeight: 0,
+      overflow: 'ellipsize',
     },
     alternateRowStyles: {
       fillColor: [241, 245, 249],
     },
     styles: {
-      cellPadding: 2,
+      cellPadding: cellPad,
       lineColor: [226, 232, 240],
       lineWidth: 0.2,
       font: fontFamily,
+      overflow: 'ellipsize',
     },
-    margin: { left: 14, right: 14 },
+    margin: { left: margin, right: margin },
     didDrawPage: (data: any) => {
-      // Footer on every page
       const pageCount = (doc as any).getNumberOfPages()
       doc.setFont(fontFamily, 'normal')
-      doc.setFontSize(8)
+      doc.setFontSize(7)
       doc.setTextColor(156, 163, 175)
       doc.text(
         `Generated by ${config.organizationName?.trim() || 'System'} | ${config.generatedAt} | Page ${data.pageNumber} of ${pageCount}`,
-        14,
-        doc.internal.pageSize.getHeight() - 8
+        margin,
+        pageHeight - 5
       )
     },
   })

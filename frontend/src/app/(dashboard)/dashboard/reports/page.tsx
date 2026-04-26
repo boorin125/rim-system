@@ -533,7 +533,7 @@ export default function ReportsPage() {
       columnWidths: selectedReport === 'customer-ratings'
         ? [4, 7, 30, 8, 14, 10, 27]
         : selectedReport === 'incident-list'
-        ? [2, 6, 7, 4, 9, 14, 6, 5, 7, 9, 9, 9, 9, 9, 9, 10, 14, 6, 12]
+        ? [2, 5, 7, 4, 8, 13, 5, 5, 6, 9, 9, 9, 9, 9, 9, 9, 13, 5, 10]
         : selectedReport === 'technician-detail'
         ? [3, 9, 8, 8, 10, 10, 10, 8, 8, 8, 8]
         : undefined,
