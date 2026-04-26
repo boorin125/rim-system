@@ -202,24 +202,6 @@ function MobileAppTab() {
     }
   }, [])
 
-  // Restore pending upload state from sessionStorage (survives page navigation within same tab)
-  useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem('rim_restore_pending')
-      if (!raw) return
-      const saved = JSON.parse(raw)
-      const ageMs = Date.now() - (saved.savedAt || 0)
-      if (ageMs > 28 * 60 * 1000) { sessionStorage.removeItem('rim_restore_pending'); return }
-      setRestoreTempId(saved.tempId)
-      setRestoreFileName(saved.fileName || '')
-      setRestoreFileNeedsPassword(!!saved.isEncrypted)
-      setRestoreFileIsDiff(saved.isDiff || false)
-      setRestoreFileBaseJobCode(saved.baseJobCode || null)
-      setRestoreAvailableGroups(saved.availableGroups || [])
-      setRestoreSelectedGroups(saved.availableGroups || [])
-    } catch { sessionStorage.removeItem('rim_restore_pending') }
-  }, [])
-
   function copyUrl() {
     navigator.clipboard.writeText(serverUrl)
     setCopied(true)
@@ -573,6 +555,24 @@ export default function SettingsPage() {
       setUserRoles(roles)
     }
     fetchData()
+  }, [])
+
+  // Restore pending upload state from sessionStorage (survives page navigation within same tab)
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('rim_restore_pending')
+      if (!raw) return
+      const saved = JSON.parse(raw)
+      const ageMs = Date.now() - (saved.savedAt || 0)
+      if (ageMs > 28 * 60 * 1000) { sessionStorage.removeItem('rim_restore_pending'); return }
+      setRestoreTempId(saved.tempId)
+      setRestoreFileName(saved.fileName || '')
+      setRestoreFileNeedsPassword(!!saved.isEncrypted)
+      setRestoreFileIsDiff(saved.isDiff || false)
+      setRestoreFileBaseJobCode(saved.baseJobCode || null)
+      setRestoreAvailableGroups(saved.availableGroups || [])
+      setRestoreSelectedGroups(saved.availableGroups || [])
+    } catch { sessionStorage.removeItem('rim_restore_pending') }
   }, [])
 
   // Auto-check for online update once roles are resolved
