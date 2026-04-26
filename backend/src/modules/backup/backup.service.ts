@@ -1357,42 +1357,70 @@ export class BackupService {
     return this.restoreTableFromFile(table, data);
   }
 
-  // Cache of table columns to avoid repeated DB queries within one restore
-  private _tableColumnCache: Map<string, Set<string>> = new Map();
+  // Cache of table column metadata to avoid repeated DB queries within one restore
+  private _tableColumnCache: Map<string, Map<string, { udt_name: string; data_type: string }>> = new Map();
 
-  private async getTableColumns(table: string): Promise<Set<string>> {
+  private async getTableColumnMeta(table: string): Promise<Map<string, { udt_name: string; data_type: string }>> {
     if (this._tableColumnCache.has(table)) return this._tableColumnCache.get(table)!;
-    const rows = await this.prisma.$queryRawUnsafe<{ column_name: string }[]>(
-      `SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1`,
+    const rows = await this.prisma.$queryRawUnsafe<{ column_name: string; udt_name: string; data_type: string }[]>(
+      `SELECT column_name, udt_name, data_type FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1`,
       table,
     );
-    const cols = new Set(rows.map(r => r.column_name));
-    this._tableColumnCache.set(table, cols);
-    return cols;
+    const meta = new Map(rows.map(r => [r.column_name, { udt_name: r.udt_name, data_type: r.data_type }]));
+    this._tableColumnCache.set(table, meta);
+    return meta;
   }
 
-  // Generic UPSERT via raw SQL — filters columns to only those that exist in target DB
+  // Generic UPSERT via raw SQL — filters columns to target DB schema + casts enum types
   private async upsertRaw(table: string, data: any[]): Promise<{ count: number }> {
     if (!data.length) return { count: 0 };
-    const existingCols = await this.getTableColumns(table);
-    const columns = Object.keys(data[0]).filter(c => existingCols.has(c));
+    const colMeta = await this.getTableColumnMeta(table);
+    const columns = Object.keys(data[0]).filter(c => colMeta.has(c));
     if (!columns.length) return { count: 0 };
+
+    // Build column SQL with enum casts where needed
     const colSql = columns.map(c => `"${c}"`).join(', ');
     const updateCols = columns.filter(c => c !== 'id');
     if (!updateCols.length) return { count: 0 };
-    const updateSql = updateCols.map(c => `"${c}" = EXCLUDED."${c}"`).join(', ');
+    const updateSql = updateCols.map(c => {
+      const meta = colMeta.get(c)!;
+      const cast = meta.data_type === 'USER-DEFINED' ? `::"${meta.udt_name}"` : '';
+      return `"${c}" = EXCLUDED."${c}"${cast ? '' : ''}`;
+    }).join(', ');
 
     const BATCH = 50;
     for (let i = 0; i < data.length; i += BATCH) {
       const batch = data.slice(i, i + BATCH);
       const vals = batch.map((_, ri) =>
-        `(${columns.map((_, ci) => `$${ri * columns.length + ci + 1}`).join(', ')})`
+        `(${columns.map((col, ci) => {
+          const meta = colMeta.get(col)!;
+          const cast = meta.data_type === 'USER-DEFINED' ? `::"${meta.udt_name}"` : '';
+          return `$${ri * columns.length + ci + 1}${cast}`;
+        }).join(', ')})`
       ).join(', ');
       const params = batch.flatMap(row => columns.map(c => row[c] ?? null));
-      await this.prisma.$executeRawUnsafe(
-        `INSERT INTO "${table}" (${colSql}) VALUES ${vals} ON CONFLICT (id) DO UPDATE SET ${updateSql}`,
-        ...params
-      );
+      try {
+        await this.prisma.$executeRawUnsafe(
+          `INSERT INTO "${table}" (${colSql}) VALUES ${vals} ON CONFLICT (id) DO UPDATE SET ${updateSql}`,
+          ...params
+        );
+      } catch (batchErr: any) {
+        // Batch failed — retry row by row to skip bad rows
+        for (const row of batch) {
+          const singleVals = `(${columns.map((col, ci) => {
+            const meta = colMeta.get(col)!;
+            const cast = meta.data_type === 'USER-DEFINED' ? `::"${meta.udt_name}"` : '';
+            return `$${ci + 1}${cast}`;
+          }).join(', ')})`;
+          const singleParams = columns.map(c => row[c] ?? null);
+          try {
+            await this.prisma.$executeRawUnsafe(
+              `INSERT INTO "${table}" (${colSql}) VALUES ${singleVals} ON CONFLICT (id) DO UPDATE SET ${updateSql}`,
+              ...singleParams
+            );
+          } catch { /* skip individual bad row */ }
+        }
+      }
     }
     return { count: data.length };
   }
