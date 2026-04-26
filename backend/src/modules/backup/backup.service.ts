@@ -891,6 +891,22 @@ export class BackupService {
     const errors: Record<string, string> = {};
     let totalRestored = 0;
 
+    // Save current Super Admin passwords — restored after upsert so restore never changes them
+    const savedSuperAdminPasswords = new Map<number, string>();
+    try {
+      const saRoles = await this.prisma.userRoleAssignment.findMany({
+        where: { role: 'SUPER_ADMIN' as any },
+        select: { userId: true },
+      });
+      if (saRoles.length > 0) {
+        const saUsers = await this.prisma.user.findMany({
+          where: { id: { in: saRoles.map(r => r.userId) } },
+          select: { id: true, password: true },
+        });
+        for (const u of saUsers) savedSuperAdminPasswords.set(u.id, u.password);
+      }
+    } catch { /* ignore */ }
+
     // Restore order respects foreign key dependencies
     const restoreOrder = [
       // No-FK config first
@@ -942,6 +958,22 @@ export class BackupService {
       const backupTs = new Date(metadata.createdAt);
       const cleanupTables = selectedTables && selectedTables.length > 0 ? selectedTables : undefined;
       await this.cleanupPostRestore(backupTs, cleanupTables);
+    }
+
+    // Restore Super Admin passwords (preserved before restore — never overwritten by backup data)
+    if (savedSuperAdminPasswords.size > 0) {
+      try {
+        const saRolesAfter = await this.prisma.userRoleAssignment.findMany({
+          where: { role: 'SUPER_ADMIN' as any },
+          select: { userId: true },
+        });
+        for (const { userId } of saRolesAfter) {
+          const savedPw = savedSuperAdminPasswords.get(userId);
+          if (savedPw) {
+            await this.prisma.user.update({ where: { id: userId }, data: { password: savedPw } });
+          }
+        }
+      } catch { /* ignore */ }
     }
 
     // Restore logo files from base64 in metadata
