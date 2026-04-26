@@ -51,6 +51,9 @@ services:
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
       VAPID_EMAIL: ${VAPID_EMAIL:-mailto:admin@rim-system.com}
+      APP_VERSION: ${APP_VERSION:-1.0.0}
+      BUILD_DATE: ${BUILD_DATE:-unknown}
+      GIT_COMMIT: ${GIT_COMMIT:-unknown}
     volumes:
       - rim_uploads:/app/uploads
       - rim_backups:/app/Backup
