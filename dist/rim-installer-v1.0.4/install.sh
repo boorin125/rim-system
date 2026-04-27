@@ -1,4 +1,4 @@
-#!/bin/bash
+﻿#!/bin/bash
 # ════════════════════════════════════════════════════════════
 #  RIM System — One-Click Installer (Pre-built Docker Images)
 #  สำหรับ server ที่ใช้ Docker Hub images (dist package)
@@ -187,19 +187,18 @@ $COMPOSE_CMD up -d
 
 echo ""
 
-# ── รอ Backend พร้อม (ไม่มี timeout — หยุดเมื่อ crash-loop) ──────────────────
-echo -e "${YELLOW}→ รอ Backend พร้อม (อาจใช้เวลา 3-5 นาทีในครั้งแรก)...${NC}"
+# ── รอ Backend พร้อม (max 60s — crash-loop detection) ──────────────────
+echo -e "${YELLOW}→ รอ Backend พร้อม...${NC}"
 ELAPSED=0
 BACKEND_READY=false
-while true; do
-  # API ตอบสนองแล้ว → สำเร็จ
+MAX_WAIT=60
+while [ $ELAPSED -lt $MAX_WAIT ]; do
   if $COMPOSE_CMD exec -T backend curl -sf http://localhost:3000/api/version &>/dev/null; then
     BACKEND_READY=true
     echo -e "${GREEN}✅ Backend พร้อม (ใช้เวลา ${ELAPSED}s)${NC}"
     break
   fi
 
-  # Crash-loop detection: restart ≥ 3 ครั้งหลังผ่าน 30s = มีปัญหาจริง ไม่ต้องรอต่อ
   if [ $ELAPSED -ge 30 ]; then
     RESTART_COUNT=$(docker inspect -f '{{.RestartCount}}' rim-backend 2>/dev/null || echo "0")
     if [ "$RESTART_COUNT" -ge 3 ]; then
@@ -211,11 +210,12 @@ while true; do
 
   sleep 3
   ELAPSED=$((ELAPSED + 3))
-  # แสดงความคืบหน้าทุก 30s (ไม่ spam ทุก 3s)
-  if [ $((ELAPSED % 30)) -eq 0 ]; then
-    echo -e "   รอ... (${ELAPSED}s)"
-  fi
 done
+
+if [ "$BACKEND_READY" = "false" ]; then
+  echo -e "${YELLOW}→ Backend ยังเริ่มต้นอยู่ (ปกติในครั้งแรก อาจใช้เวลา 3-5 นาที)${NC}"
+  echo -e "   รอสักครู่แล้วเปิด Browser ได้เลย${NC}"
+fi
 
 # ── Install Update Watchdog (systemd) ─────────
 echo ""
