@@ -1,5 +1,3 @@
-version: '3.8'
-
 # ════════════════════════════════════════════════════════════
 #  RIM System — Docker Compose (Installer / Production)
 #  ใช้ pre-built images จาก Docker Hub

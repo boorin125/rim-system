@@ -1,0 +1,202 @@
+# RIM System — คู่มือติดตั้งและแก้ปัญหา
+
+## ข้อกำหนดก่อนติดตั้ง
+
+### Server Requirements
+- OS: Ubuntu 20.04+ หรือ Debian 11+
+- RAM: 2 GB ขึ้นไป
+- Disk: 20 GB ขึ้นไป
+- Port ที่ต้องเปิด: **80** และ **443**
+
+### ติดตั้ง Prerequisites
+```bash
+# อัพเดต package list
+apt-get update
+
+# ติดตั้ง packages ที่จำเป็น
+apt-get install -y unzip curl openssl
+
+# ติดตั้ง Docker (ถ้ายังไม่มี)
+bash setup-docker.sh
+```
+
+---
+
+## ขั้นตอนติดตั้ง
+
+```bash
+# 1. อัพโหลดไฟล์ installer ไปที่ server
+scp rim-installer-v1.0.4.zip root@YOUR_SERVER_IP:~/
+
+# 2. SSH เข้า server
+ssh root@YOUR_SERVER_IP
+
+# 3. แตกไฟล์
+unzip rim-installer-v1.0.4.zip
+cd rim-system
+
+# 4. รัน installer
+bash install.sh
+```
+
+---
+
+## การตั้งค่า Cloudflare (ถ้าใช้)
+
+1. เพิ่ม DNS A record: `ws` → `YOUR_SERVER_IP` (Proxied = Orange Cloud)
+2. ไปที่ **SSL/TLS → Overview** → เลือก **Full**
+3. รอ DNS propagate 1-5 นาที
+
+---
+
+## แก้ปัญหาที่พบบ่อย
+
+### Backend ไม่ start — VAPID key error
+```
+Error: Vapid public key should be 65 bytes long when decoded.
+```
+**สาเหตุ**: VAPID keys ใน .env ไม่ถูกต้อง (installer เวอร์ชั่นเก่า)
+
+**แก้ไข**:
+```bash
+cd /root/rim-system
+
+# Generate VAPID keys ใหม่
+VAPID=$(docker run --rm --entrypoint node rubjobb/rim-backend:1.0.4 \
+  -e "const wp=require('web-push');const k=wp.generateVAPIDKeys();process.stdout.write(k.publicKey+'|||'+k.privateKey);")
+
+VAPID_PUB=$(echo "$VAPID" | cut -d'|' -f1)
+VAPID_PRIV=$(echo "$VAPID" | cut -d'|' -f4)
+
+sed -i "s|VAPID_PUBLIC_KEY=.*|VAPID_PUBLIC_KEY=${VAPID_PUB}|" .env
+sed -i "s|VAPID_PRIVATE_KEY=.*|VAPID_PRIVATE_KEY=${VAPID_PRIV}|" .env
+
+# Recreate container (restart ไม่พอ ต้อง up -d)
+docker compose up -d --force-recreate backend
+sleep 10
+docker logs rim-backend --tail 15
+```
+
+---
+
+### Cloudflare Error 522 — Connection timed out
+**สาเหตุ**: Cloudflare เชื่อมต่อ origin (port 443) ไม่ได้
+
+**ตรวจสอบ**:
+```bash
+# ดูว่า containers ขึ้นครบมั้ย
+docker ps
+
+# ทดสอบ HTTPS local
+curl -k https://localhost -o /dev/null -w "%{http_code}"
+
+# ดู nginx logs
+docker logs rim-nginx --tail 20
+```
+
+**แก้ไข**: ตรวจสอบว่า nginx config มี `listen 443 ssl;` — ถ้าไม่มีให้ update nginx config
+```bash
+docker compose restart nginx
+```
+
+---
+
+### `docker compose restart` แล้ว config ไม่อัพเดต
+`restart` ไม่ re-read ค่าจาก `.env` ต้องใช้:
+```bash
+docker compose up -d --force-recreate backend
+```
+
+---
+
+### ดู logs ทุก service
+```bash
+docker logs rim-backend --tail 50
+docker logs rim-frontend --tail 50
+docker logs rim-nginx --tail 50
+docker logs rim-db --tail 20
+```
+
+---
+
+### สร้าง Super Admin ด้วยตนเอง (กรณี install ล้มเหลวตอน step 5)
+```bash
+cat > /tmp/create_admin.js << 'JSEOF'
+const { PrismaClient } = require('@prisma/client');
+const bcrypt = require('bcrypt');
+const prisma = new PrismaClient();
+async function main() {
+  const email    = process.env.A_EMAIL;
+  const pass     = process.env.A_PASS;
+  const first    = process.env.A_FIRST;
+  const last     = process.env.A_LAST;
+  const username = process.env.A_USERNAME;
+  const hash = await bcrypt.hash(pass, 12);
+  const existing = await prisma.user.findFirst({ where: { OR: [{ email }, { username }] } });
+  if (!existing) {
+    await prisma.user.create({
+      data: { email, password: hash, firstName: first, lastName: last, username,
+              status: 'ACTIVE', isProtected: true,
+              roles: { create: { role: 'SUPER_ADMIN' } } },
+    });
+    console.log('✅ สร้าง Super Admin สำเร็จ:', email);
+  } else {
+    console.log('ℹ️  มีอยู่แล้ว:', email);
+  }
+  await prisma.$disconnect();
+}
+main().catch(e => { console.error('❌', e.message); process.exit(1); });
+JSEOF
+
+docker cp /tmp/create_admin.js rim-backend:/app/create_admin.js
+
+docker exec \
+  -e A_EMAIL="admin@example.com" \
+  -e A_PASS="YourPassword" \
+  -e A_FIRST="Admin" \
+  -e A_LAST="User" \
+  -e A_USERNAME="admin" \
+  rim-backend node /app/create_admin.js
+```
+
+---
+
+### Reset รหัสผ่าน Admin
+```bash
+docker exec rim-backend node -e "
+const {PrismaClient}=require('@prisma/client');
+const bcrypt=require('bcrypt');
+const prisma=new PrismaClient();
+bcrypt.hash('NewPassword123',12).then(h=>
+  prisma.user.updateMany({where:{email:'admin@example.com'},data:{password:h}})
+).then(()=>{console.log('✅ Reset สำเร็จ');prisma.\$disconnect();});
+"
+```
+
+---
+
+## คำสั่งที่ใช้บ่อย
+
+```bash
+# ดู status ทุก container
+docker compose ps
+
+# ดู logs แบบ real-time
+docker compose logs -f
+
+# หยุดระบบ
+docker compose down
+
+# อัพเดตระบบ
+bash update.sh
+
+# Restart เฉพาะ service
+docker compose restart backend
+docker compose restart nginx
+```
+
+---
+
+## ติดต่อ Support
+- Email: support@rub-jobb.com
+- Tel: 061-228-2879
