@@ -8,7 +8,7 @@ export class SetupService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getStatus(): Promise<{ needsSetup: boolean }> {
-    const count = await this.prisma.userRole.count({
+    const count = await this.prisma.userRoleAssignment.count({
       where: { role: 'SUPER_ADMIN' },
     });
     return { needsSetup: count === 0 };
@@ -21,7 +21,7 @@ export class SetupService {
     password: string;
   }) {
     // Guard: only allowed when no SUPER_ADMIN exists
-    const count = await this.prisma.userRole.count({
+    const count = await this.prisma.userRoleAssignment.count({
       where: { role: 'SUPER_ADMIN' },
     });
     if (count > 0) {
