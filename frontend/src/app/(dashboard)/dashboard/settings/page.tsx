@@ -3932,7 +3932,7 @@ export default function SettingsPage() {
               )}
 
               <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg mb-5">
-                <p className="text-xs text-yellow-300">ข้อมูลใหม่จาก Backup จะถูกเพิ่มเข้าระบบ — ข้อมูลที่มีอยู่แล้วจะถูกข้ามไป</p>
+                <p className="text-xs text-yellow-300">ข้อมูลที่เลือกจะถูกเขียนทับด้วยข้อมูลจาก Backup — Password ของผู้ใช้งานและ License ปัจจุบันจะถูกเก็บรักษาไว้</p>
               </div>
 
               <div className="flex gap-3">
