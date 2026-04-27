@@ -27,11 +27,13 @@ import { PmModule } from './modules/pm/pm.module';
 import { VersionModule } from './modules/version/version.module';
 import { AppMobileModule } from './modules/app-mobile/app-mobile.module';
 import { PushModule } from './modules/push/push.module';
+import { SetupModule } from './setup/setup.module';
 
 @Module({
   imports: [
     ScheduleModule.forRoot(),
     PrismaModule,
+    SetupModule,
     AuthModule,
     UsersModule,
     StoresModule,

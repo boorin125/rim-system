@@ -38,7 +38,7 @@ if [ ! -f "docker-compose.yml" ]; then
 fi
 
 # ── Check Prerequisites ───────────────────────
-echo -e "${YELLOW}[1/6] ตรวจสอบ Prerequisites...${NC}"
+echo -e "${YELLOW}[1/4] ตรวจสอบ Prerequisites...${NC}"
 
 # Docker
 if ! command -v docker &>/dev/null; then
@@ -75,7 +75,7 @@ echo -e "${GREEN}✅ Docker พร้อมใช้งาน ($(docker --versio
 echo ""
 
 # ── Collect Configuration ─────────────────────
-echo -e "${YELLOW}[2/6] ตั้งค่าระบบ...${NC}"
+echo -e "${YELLOW}[2/4] ตั้งค่าระบบ...${NC}"
 echo ""
 
 # APP_URL
@@ -102,44 +102,11 @@ while true; do
 done
 
 echo ""
-
-# Admin account
-echo -e "${BOLD}บัญชีผู้ดูแลระบบ (Super Admin):${NC}"
-read -rp "  ชื่อ (First Name): " ADMIN_FIRST
-ADMIN_FIRST="${ADMIN_FIRST:-Admin}"
-read -rp "  นามสกุล (Last Name): " ADMIN_LAST
-ADMIN_LAST="${ADMIN_LAST:-User}"
-read -rp "  Email: " ADMIN_EMAIL
-while true; do
-  read -rsp "  Password: " ADMIN_PASSWORD
-  echo ""
-  read -rsp "  ยืนยัน Password: " ADMIN_PASSWORD2
-  echo ""
-  if [ "$ADMIN_PASSWORD" = "$ADMIN_PASSWORD2" ] && [ ${#ADMIN_PASSWORD} -ge 6 ]; then
-    break
-  fi
-  echo -e "${RED}  รหัสผ่านไม่ตรงกัน หรือสั้นเกินไป${NC}"
-done
-
-echo ""
-
-# License Key
-echo -e "${BOLD}License Key:${NC}"
-echo "  (รูปแบบ XXXX-XXXX-XXXX-XXXX — รับจาก Rubjobb Development Team)"
-while true; do
-  read -rp "  License Key: " LICENSE_KEY
-  if [[ "$LICENSE_KEY" =~ ^[A-Za-z0-9]{4}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4}$ ]]; then
-    break
-  fi
-  echo -e "${RED}  รูปแบบ License Key ไม่ถูกต้อง (ต้องเป็น XXXX-XXXX-XXXX-XXXX)${NC}"
-done
-
-echo ""
 echo -e "${GREEN}✅ รับค่าการตั้งค่าครบแล้ว${NC}"
 echo ""
 
 # ── Pull Images & Generate .env ───────────────
-echo -e "${YELLOW}[3/6] ดาวน์โหลด Docker images และสร้างไฟล์ตั้งค่า...${NC}"
+echo -e "${YELLOW}[3/4] ดาวน์โหลด Docker images และสร้างไฟล์ตั้งค่า...${NC}"
 
 # Pull backend image ก่อน (จำเป็นสำหรับ VAPID key generation)
 echo -e "${YELLOW}→ ดาวน์โหลด backend image...${NC}"
@@ -179,7 +146,7 @@ DB_USER=rimuser
 DB_PASSWORD=${DB_PASSWORD}
 JWT_SECRET=${JWT_SECRET}
 MACHINE_ID=${MACHINE_ID}
-LICENSE_KEY=${LICENSE_KEY}
+LICENSE_KEY=
 CENTRAL_LICENSE_URL=https://rim-license-server-production.up.railway.app
 VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
 VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
@@ -212,7 +179,7 @@ fi
 echo ""
 
 # ── Pull remaining images & Start ────────────
-echo -e "${YELLOW}[4/6] ดาวน์โหลด images ที่เหลือและเริ่มต้นระบบ...${NC}"
+echo -e "${YELLOW}[4/4] ดาวน์โหลด images ที่เหลือและเริ่มต้นระบบ...${NC}"
 echo ""
 
 $COMPOSE_CMD pull
@@ -226,7 +193,7 @@ ELAPSED=0
 BACKEND_READY=false
 while true; do
   # API ตอบสนองแล้ว → สำเร็จ
-  if $COMPOSE_CMD exec -T backend wget -qO- http://localhost:3000/api/version &>/dev/null; then
+  if $COMPOSE_CMD exec -T backend curl -sf http://localhost:3000/api/version &>/dev/null; then
     BACKEND_READY=true
     echo -e "${GREEN}✅ Backend พร้อม (ใช้เวลา ${ELAPSED}s)${NC}"
     break
@@ -250,74 +217,9 @@ while true; do
   fi
 done
 
-# ── Setup Admin ───────────────────────────────
-echo -e "${YELLOW}[5/6] สร้างบัญชี Super Admin...${NC}"
-
-ADMIN_USERNAME=$(echo "$ADMIN_EMAIL" | cut -d'@' -f1 | tr -cd 'a-zA-Z0-9_-')
-
-if [ "$BACKEND_READY" = "true" ]; then
-  cat > /tmp/rim_create_admin.js << 'JSEOF'
-const { PrismaClient } = require('@prisma/client');
-const bcrypt = require('bcrypt');
-const prisma = new PrismaClient();
-async function main() {
-  const email    = process.env.A_EMAIL;
-  const pass     = process.env.A_PASS;
-  const first    = process.env.A_FIRST;
-  const last     = process.env.A_LAST;
-  const username = process.env.A_USERNAME;
-  const hash = await bcrypt.hash(pass, 12);
-  const existing = await prisma.user.findFirst({ where: { OR: [{ email }, { username }] } });
-  if (!existing) {
-    await prisma.user.create({
-      data: {
-        email, password: hash,
-        firstName: first, lastName: last, username,
-        status: 'ACTIVE',
-        isProtected: true,
-        roles: { create: { role: 'SUPER_ADMIN' } },
-      },
-    });
-    console.log('OK:', email);
-  } else {
-    console.log('EXISTS:', email);
-  }
-  await prisma.$disconnect();
-}
-main().catch(e => { console.error('ERR:', e.message); process.exit(1); });
-JSEOF
-
-  sed -i 's/\r//' /tmp/rim_create_admin.js
-
-  if docker cp /tmp/rim_create_admin.js rim-backend:/app/rim_create_admin.js 2>/dev/null; then
-    RESULT=$(docker exec \
-      -e A_EMAIL="$ADMIN_EMAIL" \
-      -e A_PASS="$ADMIN_PASSWORD" \
-      -e A_FIRST="$ADMIN_FIRST" \
-      -e A_LAST="$ADMIN_LAST" \
-      -e A_USERNAME="$ADMIN_USERNAME" \
-      rim-backend node /app/rim_create_admin.js 2>&1) || true
-
-    if echo "$RESULT" | grep -q "^OK:"; then
-      echo -e "${GREEN}✅ สร้างบัญชี Super Admin สำเร็จ: ${ADMIN_EMAIL}${NC}"
-    elif echo "$RESULT" | grep -q "^EXISTS:"; then
-      echo -e "${YELLOW}ℹ️  บัญชีนี้มีอยู่แล้ว: ${ADMIN_EMAIL}${NC}"
-    else
-      echo -e "${YELLOW}⚠️  สร้าง Admin ไม่สำเร็จ — ดูวิธีทำด้วยตนเองใน INSTALL.md${NC}"
-      echo -e "   (หัวข้อ: สร้าง Super Admin ด้วยตนเอง)"
-    fi
-  else
-    echo -e "${YELLOW}⚠️  ไม่สามารถเข้าถึง container — ดูวิธีทำด้วยตนเองใน INSTALL.md${NC}"
-  fi
-else
-  echo -e "${YELLOW}⚠️  Backend ยังไม่พร้อม — ต้องสร้าง Admin ด้วยตนเองหลังระบบ start${NC}"
-  echo -e "   ดูวิธีใน INSTALL.md หัวข้อ 'สร้าง Super Admin ด้วยตนเอง'"
-  echo -e "   หรือรัน: ${YELLOW}docker logs rim-backend --tail 30${NC} เพื่อดูสาเหตุ"
-fi
-
 # ── Install Update Watchdog (systemd) ─────────
 echo ""
-echo -e "${YELLOW}[6/6] ติดตั้ง Update Watchdog service...${NC}"
+echo -e "${YELLOW}→ ติดตั้ง Update Watchdog service...${NC}"
 
 INSTALL_DIR="$(pwd)"
 
@@ -392,14 +294,13 @@ fi
 
 echo ""
 echo -e "  🌐 URL ระบบ   : ${BOLD}${APP_URL}${NC}"
-echo -e "  👤 Admin Email: ${BOLD}${ADMIN_EMAIL}${NC}"
 echo -e "  📦 Version    : ${BOLD}v${RIM_VERSION}${NC}"
 echo ""
 echo -e "  ขั้นตอนต่อไป:"
 echo -e "    1. เปิด ${BOLD}${APP_URL}${NC} ใน Browser"
-echo -e "    2. Login ด้วย Email: ${BOLD}${ADMIN_EMAIL}${NC}"
-echo -e "    3. ไปที่ Settings → License → Activate"
-echo -e "    4. Restore Backup (ถ้ามี)"
+echo -e "    2. ระบบจะพาไปหน้า Setup อัตโนมัติ"
+echo -e "    3. กรอกข้อมูล Super Admin และ License Key"
+echo -e "    4. Restore Backup (ถ้ามี): Settings → Backup → Restore"
 echo ""
 echo -e "  คำสั่งที่ใช้บ่อย:"
 echo -e "    ดู status  : ${YELLOW}${COMPOSE_CMD} ps${NC}"

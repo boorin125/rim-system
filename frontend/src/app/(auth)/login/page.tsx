@@ -34,11 +34,17 @@ function LoginContent() {
   })
 
   useEffect(() => {
+    // Check if first-time setup is needed
+    fetch(`${API_URL}/setup/status`)
+      .then((r) => r.json())
+      .then((data) => { if (data?.needsSetup) router.replace('/setup') })
+      .catch(() => {})
+
     fetch(`${API_URL}/settings/public/branding`)
       .then((r) => r.json())
       .then((data) => { if (data?.theme) setBranding(data) })
       .catch(() => {})
-  }, [])
+  }, [router])
 
   // Derive display values
   const appTitle = branding.organizationName
