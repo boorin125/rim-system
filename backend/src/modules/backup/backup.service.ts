@@ -1672,7 +1672,24 @@ export class BackupService {
         const validIds = new Set(existingUsers.map(u => u.id));
         const valid = d.filter((r: any) => validIds.has(r.userId));
         if (!valid.length) return { count: 0 };
-        return this.upsertRaw('user_role_assignments', valid);
+
+        // Delete existing roles for these users to avoid unique(userId,role) conflicts
+        await this.prisma.userRoleAssignment.deleteMany({
+          where: { userId: { in: [...validIds] } },
+        });
+
+        // Re-insert using Prisma (handles camelCase correctly)
+        await this.prisma.userRoleAssignment.createMany({
+          data: valid.map((r: any) => ({
+            id: r.id,
+            userId: r.userId,
+            role: r.role as any,
+            createdAt: r.createdAt ? new Date(r.createdAt) : new Date(),
+          })),
+          skipDuplicates: true,
+        });
+
+        return { count: valid.length };
       },
 
       // Stores & equipment
