@@ -20,6 +20,8 @@ apt-get install -y unzip curl openssl
 bash setup-docker.sh
 ```
 
+> **ตรวจสอบว่า Docker ติดตั้งสำเร็จ:** `docker --version`
+
 ---
 
 ## ขั้นตอนติดตั้ง
@@ -33,11 +35,32 @@ ssh root@YOUR_SERVER_IP
 
 # 3. แตกไฟล์
 unzip rim-installer-v1.0.4.zip
-cd rim-system
 
-# 4. รัน installer
+# ดูชื่อ folder ที่แตกออกมา แล้ว cd เข้าไป
+ls
+cd rim-system    # หรือตามชื่อ folder ที่เห็น
+
+# 4. รัน installer (ต้องอยู่ในโฟลเดอร์เดียวกับ docker-compose.yml)
 bash install.sh
 ```
+
+Installer จะถามข้อมูลต่อไปนี้ทีละขั้น:
+- **URL หรือ IP ของ Server** (เช่น `https://rim.yourcompany.com` หรือ `http://1.2.3.4`)
+- **รหัสผ่าน Database** (ตั้งเองได้ ควรยาว 12+ ตัว)
+- **บัญชี Super Admin** (ชื่อ, Email, Password)
+- **License Key** (รูปแบบ XXXX-XXXX-XXXX-XXXX)
+
+---
+
+## ขั้นตอนหลังติดตั้ง
+
+1. **เปิด Browser** ไปที่ URL ที่ตั้งไว้ (เช่น `https://rim.yourcompany.com`)
+2. **Login** ด้วย Email และ Password ของ Super Admin ที่ตั้งไว้
+3. **Activate License**: ไปที่ **Settings → License** → กด **Activate License**
+   - ถ้าระบบ Activate อัตโนมัติแล้ว จะเห็นสถานะ Active ✅
+4. **ตั้งค่าองค์กร**: **Settings → ทั่วไป** → ใส่ชื่อองค์กร, โลโก้
+5. **Restore Backup** (ถ้ามีข้อมูลจาก server เดิม): **Settings → Backup → Restore**
+   - ⚠️ ต้อง Activate License ก่อน Restore เสมอ
 
 ---
 
@@ -49,13 +72,34 @@ bash install.sh
 
 ---
 
+## ถอนการติดตั้ง / ติดตั้งใหม่
+
+### หยุดระบบชั่วคราว (เก็บข้อมูลไว้)
+```bash
+cd /root/rim-system
+docker compose down
+```
+
+### ลบทุกอย่างและติดตั้งใหม่ทั้งหมด (ล้าง Database ด้วย)
+```bash
+cd /root/rim-system
+docker compose down -v    # -v ลบ volumes (database + uploads)
+cd ~
+rm -rf rim-system
+# จากนั้น unzip และ install ใหม่
+```
+
+> ⚠️ `docker compose down -v` จะ **ลบข้อมูลทั้งหมดในฐานข้อมูล** ถาวร — ทำ Backup ก่อนถ้าต้องการเก็บข้อมูล
+
+---
+
 ## แก้ปัญหาที่พบบ่อย
 
 ### Backend ไม่ start — VAPID key error
 ```
 Error: Vapid public key should be 65 bytes long when decoded.
 ```
-**สาเหตุ**: VAPID keys ใน .env ไม่ถูกต้อง (installer เวอร์ชั่นเก่า)
+**หมายเหตุ**: Installer v1.0.4 แก้ปัญหานี้แล้ว — จะเกิดก็ต่อเมื่อใช้ installer เวอร์ชั่นเก่า
 
 **แก้ไข**:
 ```bash
@@ -94,8 +138,9 @@ curl -k https://localhost -o /dev/null -w "%{http_code}"
 docker logs rim-nginx --tail 20
 ```
 
-**แก้ไข**: ตรวจสอบว่า nginx config มี `listen 443 ssl;` — ถ้าไม่มีให้ update nginx config
+**แก้ไข**: ตรวจสอบว่า nginx config มี `listen 443 ssl;` และ SSL cert มีอยู่:
 ```bash
+ls docker/nginx/ssl/
 docker compose restart nginx
 ```
 
@@ -184,7 +229,7 @@ docker compose ps
 # ดู logs แบบ real-time
 docker compose logs -f
 
-# หยุดระบบ
+# หยุดระบบ (เก็บข้อมูล)
 docker compose down
 
 # อัพเดตระบบ

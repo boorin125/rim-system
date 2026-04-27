@@ -47,6 +47,9 @@ if ! command -v docker &>/dev/null; then
   exit 1
 fi
 
+# อัปเดต package list ก่อน (เพื่อให้ install ได้)
+apt-get update -qq 2>/dev/null || true
+
 # unzip (ใช้สำหรับ update)
 if ! command -v unzip &>/dev/null; then
   echo -e "${YELLOW}→ ติดตั้ง unzip...${NC}"
@@ -125,7 +128,7 @@ echo -e "${BOLD}License Key:${NC}"
 echo "  (รูปแบบ XXXX-XXXX-XXXX-XXXX — รับจาก Rubjobb Development Team)"
 while true; do
   read -rp "  License Key: " LICENSE_KEY
-  if [[ "$LICENSE_KEY" =~ ^[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}$ ]]; then
+  if [[ "$LICENSE_KEY" =~ ^[A-Za-z0-9]{4}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4}$ ]]; then
     break
   fi
   echo -e "${RED}  รูปแบบ License Key ไม่ถูกต้อง (ต้องเป็น XXXX-XXXX-XXXX-XXXX)${NC}"
