@@ -938,8 +938,28 @@ export class BackupService {
     for (const table of restoreOrder) {
       // Skip tables not selected by user (if selective restore)
       if (selectedTables && selectedTables.length > 0 && !selectedTables.includes(table)) continue;
-      const tableData = data[table];
+      let tableData = data[table];
       if (!Array.isArray(tableData) || tableData.length === 0) continue;
+
+      // Filter equipment_logs to only include records with valid FK references
+      if (table === 'equipment_logs') {
+        const validEquipmentIds = new Set(
+          (await this.prisma.equipment.findMany({ select: { id: true } })).map((e) => e.id),
+        );
+        const validUserIds = new Set(
+          (await this.prisma.user.findMany({ select: { id: true } })).map((u) => u.id),
+        );
+        const before = tableData.length;
+        tableData = tableData.filter(
+          (log: any) => validEquipmentIds.has(log.equipment_id) && validUserIds.has(log.changed_by),
+        );
+        const skipped = before - tableData.length;
+        if (skipped > 0) {
+          console.warn(`equipment_logs: skipped ${skipped} records with missing FK references`);
+        }
+        if (tableData.length === 0) continue;
+      }
+
       try {
         const result = await this.restoreTableFromFile(table, tableData);
         stats[table] = result.restored;
