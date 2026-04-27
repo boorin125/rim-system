@@ -220,25 +220,35 @@ $COMPOSE_CMD up -d
 
 echo ""
 
-# ── รอ Backend พร้อม ──────────────────────────
-echo -e "${YELLOW}→ รอ Backend พร้อม...${NC}"
-MAX_WAIT=240
+# ── รอ Backend พร้อม (ไม่มี timeout — หยุดเมื่อ crash-loop) ──────────────────
+echo -e "${YELLOW}→ รอ Backend พร้อม (อาจใช้เวลา 3-5 นาทีในครั้งแรก)...${NC}"
 ELAPSED=0
 BACKEND_READY=false
-until $COMPOSE_CMD exec -T backend wget -qO- http://localhost:3000/api/version &>/dev/null; do
-  if [ $ELAPSED -ge $MAX_WAIT ]; then
-    echo -e "${RED}⚠️  Backend ไม่ตอบสนองภายใน ${MAX_WAIT}s${NC}"
-    echo -e "${YELLOW}   ดู logs เพื่อตรวจสอบ: docker logs rim-backend --tail 30${NC}"
+while true; do
+  # API ตอบสนองแล้ว → สำเร็จ
+  if $COMPOSE_CMD exec -T backend wget -qO- http://localhost:3000/api/version &>/dev/null; then
+    BACKEND_READY=true
+    echo -e "${GREEN}✅ Backend พร้อม (ใช้เวลา ${ELAPSED}s)${NC}"
     break
   fi
+
+  # Crash-loop detection: restart ≥ 3 ครั้งหลังผ่าน 30s = มีปัญหาจริง ไม่ต้องรอต่อ
+  if [ $ELAPSED -ge 30 ]; then
+    RESTART_COUNT=$(docker inspect -f '{{.RestartCount}}' rim-backend 2>/dev/null || echo "0")
+    if [ "$RESTART_COUNT" -ge 3 ]; then
+      echo -e "${RED}❌ Backend crash-loop (restart ${RESTART_COUNT} ครั้ง) — logs:${NC}"
+      docker logs rim-backend --tail 20
+      break
+    fi
+  fi
+
   sleep 3
   ELAPSED=$((ELAPSED + 3))
-  echo -e "   รอ... (${ELAPSED}s)"
+  # แสดงความคืบหน้าทุก 30s (ไม่ spam ทุก 3s)
+  if [ $((ELAPSED % 30)) -eq 0 ]; then
+    echo -e "   รอ... (${ELAPSED}s)"
+  fi
 done
-if $COMPOSE_CMD exec -T backend wget -qO- http://localhost:3000/api/version &>/dev/null; then
-  BACKEND_READY=true
-  echo -e "${GREEN}✅ Backend พร้อม${NC}"
-fi
 
 # ── Setup Admin ───────────────────────────────
 echo -e "${YELLOW}[5/6] สร้างบัญชี Super Admin...${NC}"
