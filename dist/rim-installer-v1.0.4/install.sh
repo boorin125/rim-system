@@ -219,18 +219,23 @@ echo ""
 
 # ── รอ Backend พร้อม ──────────────────────────
 echo -e "${YELLOW}→ รอ Backend พร้อม...${NC}"
-MAX_WAIT=120
+MAX_WAIT=240
 ELAPSED=0
+BACKEND_READY=false
 until $COMPOSE_CMD exec -T backend wget -qO- http://localhost:3000/api/version &>/dev/null; do
   if [ $ELAPSED -ge $MAX_WAIT ]; then
-    echo -e "${RED}⚠️  Backend ไม่ตอบสนองภายใน ${MAX_WAIT}s — ลองต่อไปเลย${NC}"
+    echo -e "${RED}⚠️  Backend ไม่ตอบสนองภายใน ${MAX_WAIT}s${NC}"
+    echo -e "${YELLOW}   ดู logs เพื่อตรวจสอบ: docker logs rim-backend --tail 30${NC}"
     break
   fi
   sleep 3
   ELAPSED=$((ELAPSED + 3))
   echo -e "   รอ... (${ELAPSED}s)"
 done
-echo -e "${GREEN}✅ Backend พร้อม${NC}"
+if $COMPOSE_CMD exec -T backend wget -qO- http://localhost:3000/api/version &>/dev/null; then
+  BACKEND_READY=true
+  echo -e "${GREEN}✅ Backend พร้อม${NC}"
+fi
 
 # ── Setup Admin ───────────────────────────────
 echo -e "${YELLOW}[5/6] สร้างบัญชี Super Admin...${NC}"
@@ -269,13 +274,26 @@ main().catch(e => { console.error('❌', e.message); process.exit(1); });
 JSEOF
 
 docker cp /tmp/rim_create_admin.js rim-backend:/app/rim_create_admin.js
+
+# รอ container running ก่อน exec
+RETRY=0
+until docker inspect -f '{{.State.Status}}' rim-backend 2>/dev/null | grep -q "^running$"; do
+  if [ $RETRY -ge 60 ]; then
+    echo -e "${RED}❌ Backend container ไม่ได้อยู่ในสถานะ running — ดู: docker logs rim-backend --tail 30${NC}"
+    break
+  fi
+  sleep 3
+  RETRY=$((RETRY + 3))
+done
+
 docker exec \
   -e A_EMAIL="$ADMIN_EMAIL" \
   -e A_PASS="$ADMIN_PASSWORD" \
   -e A_FIRST="$ADMIN_FIRST" \
   -e A_LAST="$ADMIN_LAST" \
   -e A_USERNAME="$ADMIN_USERNAME" \
-  rim-backend node /app/rim_create_admin.js
+  rim-backend node /app/rim_create_admin.js || \
+  echo -e "${YELLOW}⚠️  สร้าง Admin อัตโนมัติไม่สำเร็จ — ทำด้วยตนเองได้ตาม INSTALL.md (สร้าง Super Admin ด้วยตนเอง)${NC}"
 
 # ── Install Update Watchdog (systemd) ─────────
 echo ""
