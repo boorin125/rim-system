@@ -191,6 +191,9 @@ SMTP_PASS=
 SMTP_FROM=
 EOF
 
+# Strip \r (Windows CRLF) ที่อาจติดมากับ heredoc
+sed -i 's/\r//' .env
+
 echo -e "${GREEN}✅ สร้างไฟล์ .env เรียบร้อย${NC}"
 echo ""
 
