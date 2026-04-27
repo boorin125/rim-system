@@ -162,8 +162,8 @@ echo -e "${YELLOW}→ สร้าง VAPID keys...${NC}"
 VAPID_RAW=$(docker run --rm --entrypoint node rubjobb/rim-backend:${RIM_VERSION} \
   -e "const wp=require('web-push');const k=wp.generateVAPIDKeys();process.stdout.write(k.publicKey+'|||'+k.privateKey);" 2>/dev/null || echo "")
 if [ -n "$VAPID_RAW" ] && echo "$VAPID_RAW" | grep -q "|||"; then
-  VAPID_PUBLIC_KEY=$(echo "$VAPID_RAW" | cut -d'|' -f1)
-  VAPID_PRIVATE_KEY=$(echo "$VAPID_RAW" | cut -d'|' -f4)
+  VAPID_PUBLIC_KEY=$(echo "$VAPID_RAW" | cut -d'|' -f1 | tr -d '\r\n')
+  VAPID_PRIVATE_KEY=$(echo "$VAPID_RAW" | cut -d'|' -f4 | tr -d '\r\n')
   echo -e "${GREEN}✅ VAPID keys พร้อม${NC}"
 else
   echo -e "${RED}❌ ไม่สามารถสร้าง VAPID keys ได้ — ตรวจสอบว่า Docker image ดาวน์โหลดสำเร็จ${NC}"
@@ -245,7 +245,8 @@ echo -e "${YELLOW}[5/6] สร้างบัญชี Super Admin...${NC}"
 
 ADMIN_USERNAME=$(echo "$ADMIN_EMAIL" | cut -d'@' -f1 | tr -cd 'a-zA-Z0-9_-')
 
-cat > /tmp/rim_create_admin.js << 'JSEOF'
+if [ "$BACKEND_READY" = "true" ]; then
+  cat > /tmp/rim_create_admin.js << 'JSEOF'
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcrypt');
 const prisma = new PrismaClient();
@@ -267,36 +268,42 @@ async function main() {
         roles: { create: { role: 'SUPER_ADMIN' } },
       },
     });
-    console.log('✅ สร้างบัญชี Super Admin สำเร็จ:', email);
+    console.log('OK:', email);
   } else {
-    console.log('ℹ️  Email หรือ Username นี้มีอยู่แล้ว:', email);
+    console.log('EXISTS:', email);
   }
   await prisma.$disconnect();
 }
-main().catch(e => { console.error('❌', e.message); process.exit(1); });
+main().catch(e => { console.error('ERR:', e.message); process.exit(1); });
 JSEOF
 
-docker cp /tmp/rim_create_admin.js rim-backend:/app/rim_create_admin.js
+  sed -i 's/\r//' /tmp/rim_create_admin.js
 
-# รอ container running ก่อน exec
-RETRY=0
-until docker inspect -f '{{.State.Status}}' rim-backend 2>/dev/null | grep -q "^running$"; do
-  if [ $RETRY -ge 60 ]; then
-    echo -e "${RED}❌ Backend container ไม่ได้อยู่ในสถานะ running — ดู: docker logs rim-backend --tail 30${NC}"
-    break
+  if docker cp /tmp/rim_create_admin.js rim-backend:/app/rim_create_admin.js 2>/dev/null; then
+    RESULT=$(docker exec \
+      -e A_EMAIL="$ADMIN_EMAIL" \
+      -e A_PASS="$ADMIN_PASSWORD" \
+      -e A_FIRST="$ADMIN_FIRST" \
+      -e A_LAST="$ADMIN_LAST" \
+      -e A_USERNAME="$ADMIN_USERNAME" \
+      rim-backend node /app/rim_create_admin.js 2>&1) || true
+
+    if echo "$RESULT" | grep -q "^OK:"; then
+      echo -e "${GREEN}✅ สร้างบัญชี Super Admin สำเร็จ: ${ADMIN_EMAIL}${NC}"
+    elif echo "$RESULT" | grep -q "^EXISTS:"; then
+      echo -e "${YELLOW}ℹ️  บัญชีนี้มีอยู่แล้ว: ${ADMIN_EMAIL}${NC}"
+    else
+      echo -e "${YELLOW}⚠️  สร้าง Admin ไม่สำเร็จ — ดูวิธีทำด้วยตนเองใน INSTALL.md${NC}"
+      echo -e "   (หัวข้อ: สร้าง Super Admin ด้วยตนเอง)"
+    fi
+  else
+    echo -e "${YELLOW}⚠️  ไม่สามารถเข้าถึง container — ดูวิธีทำด้วยตนเองใน INSTALL.md${NC}"
   fi
-  sleep 3
-  RETRY=$((RETRY + 3))
-done
-
-docker exec \
-  -e A_EMAIL="$ADMIN_EMAIL" \
-  -e A_PASS="$ADMIN_PASSWORD" \
-  -e A_FIRST="$ADMIN_FIRST" \
-  -e A_LAST="$ADMIN_LAST" \
-  -e A_USERNAME="$ADMIN_USERNAME" \
-  rim-backend node /app/rim_create_admin.js || \
-  echo -e "${YELLOW}⚠️  สร้าง Admin อัตโนมัติไม่สำเร็จ — ทำด้วยตนเองได้ตาม INSTALL.md (สร้าง Super Admin ด้วยตนเอง)${NC}"
+else
+  echo -e "${YELLOW}⚠️  Backend ยังไม่พร้อม — ต้องสร้าง Admin ด้วยตนเองหลังระบบ start${NC}"
+  echo -e "   ดูวิธีใน INSTALL.md หัวข้อ 'สร้าง Super Admin ด้วยตนเอง'"
+  echo -e "   หรือรัน: ${YELLOW}docker logs rim-backend --tail 30${NC} เพื่อดูสาเหตุ"
+fi
 
 # ── Install Update Watchdog (systemd) ─────────
 echo ""
@@ -321,6 +328,7 @@ fi
 WEOF
 
 if command -v systemctl &>/dev/null && systemctl is-system-running &>/dev/null 2>&1; then
+  sed -i 's/\r//' /tmp/rim-watchdog.sh
   sudo cp /tmp/rim-watchdog.sh /usr/local/bin/rim-watchdog.sh
   sudo chmod +x /usr/local/bin/rim-watchdog.sh
 
@@ -356,19 +364,38 @@ else
 fi
 
 echo ""
-echo -e "${GREEN}════════════════════════════════════════════${NC}"
-echo -e "${GREEN}${BOLD}  ✅ ติดตั้ง RIM System v${RIM_VERSION} สำเร็จ!${NC}"
-echo -e "${GREEN}════════════════════════════════════════════${NC}"
+echo -e "${YELLOW}→ ตรวจสอบสถานะ containers...${NC}"
+$COMPOSE_CMD ps
+echo ""
+
+if [ "$BACKEND_READY" = "true" ]; then
+  echo -e "${GREEN}════════════════════════════════════════════${NC}"
+  echo -e "${GREEN}${BOLD}  ✅ ติดตั้ง RIM System v${RIM_VERSION} สำเร็จ!${NC}"
+  echo -e "${GREEN}════════════════════════════════════════════${NC}"
+else
+  echo -e "${YELLOW}════════════════════════════════════════════${NC}"
+  echo -e "${YELLOW}${BOLD}  ⚠️  ติดตั้งเสร็จ แต่ Backend ยังไม่พร้อม${NC}"
+  echo -e "${YELLOW}════════════════════════════════════════════${NC}"
+  echo -e "  → ดู logs: ${YELLOW}docker logs rim-backend --tail 30${NC}"
+  echo -e "  → รอสักครู่แล้วลอง: ${YELLOW}docker compose ps${NC}"
+fi
+
 echo ""
 echo -e "  🌐 URL ระบบ   : ${BOLD}${APP_URL}${NC}"
 echo -e "  👤 Admin Email: ${BOLD}${ADMIN_EMAIL}${NC}"
 echo -e "  📦 Version    : ${BOLD}v${RIM_VERSION}${NC}"
 echo ""
+echo -e "  ขั้นตอนต่อไป:"
+echo -e "    1. เปิด ${BOLD}${APP_URL}${NC} ใน Browser"
+echo -e "    2. Login ด้วย Email: ${BOLD}${ADMIN_EMAIL}${NC}"
+echo -e "    3. ไปที่ Settings → License → Activate"
+echo -e "    4. Restore Backup (ถ้ามี)"
+echo ""
 echo -e "  คำสั่งที่ใช้บ่อย:"
 echo -e "    ดู status  : ${YELLOW}${COMPOSE_CMD} ps${NC}"
 echo -e "    ดู logs    : ${YELLOW}${COMPOSE_CMD} logs -f${NC}"
 echo -e "    หยุดระบบ   : ${YELLOW}${COMPOSE_CMD} down${NC}"
-echo -e "    อัปเดต     : ${YELLOW}./update.sh${NC}"
+echo -e "    อัปเดต     : ${YELLOW}bash update.sh${NC}"
 echo ""
 echo -e "  📞 support@rub-jobb.com | 061-228-2879"
 echo ""
