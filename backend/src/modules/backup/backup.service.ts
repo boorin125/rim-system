@@ -898,7 +898,7 @@ export class BackupService {
         throw new BadRequestException(
           `LICENSE_LIMIT_EXCEEDED:ไม่สามารถ Restore ได้ — ` +
           `ไฟล์ Backup มีผู้ใช้งาน ${backupUsers} คน ` +
-          `แต่ License ปัจจุบัน (${license.planName ?? license.licenseKey}) ` +
+          `แต่ License ปัจจุบัน (${license.licenseType ?? license.licenseKey}) ` +
           `รองรับสูงสุด ${license.maxUsers} คน ` +
           `กรุณาอัปเกรด License ก่อน Restore`,
         );
@@ -908,7 +908,7 @@ export class BackupService {
         throw new BadRequestException(
           `LICENSE_LIMIT_EXCEEDED:ไม่สามารถ Restore ได้ — ` +
           `ไฟล์ Backup มีร้านค้า ${backupStores} สาขา ` +
-          `แต่ License ปัจจุบัน (${license.planName ?? license.licenseKey}) ` +
+          `แต่ License ปัจจุบัน (${license.licenseType ?? license.licenseKey}) ` +
           `รองรับสูงสุด ${license.maxStores} สาขา ` +
           `กรุณาอัปเกรด License ก่อน Restore`,
         );
