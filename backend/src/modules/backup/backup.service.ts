@@ -887,6 +887,35 @@ export class BackupService {
       }
     }
 
+    // ── License limit check ────────────────────────────────────────────────
+    // Reject restore if backup data exceeds current license limits
+    const license = await this.prisma.license.findFirst({ orderBy: { id: 'desc' } });
+    if (license) {
+      const backupUsers  = Array.isArray(data.users)  ? data.users.length  : 0;
+      const backupStores = Array.isArray(data.stores) ? data.stores.length : 0;
+
+      if (backupUsers > license.maxUsers) {
+        throw new BadRequestException(
+          `LICENSE_LIMIT_EXCEEDED:ไม่สามารถ Restore ได้ — ` +
+          `ไฟล์ Backup มีผู้ใช้งาน ${backupUsers} คน ` +
+          `แต่ License ปัจจุบัน (${license.planName ?? license.licenseKey}) ` +
+          `รองรับสูงสุด ${license.maxUsers} คน ` +
+          `กรุณาอัปเกรด License ก่อน Restore`,
+        );
+      }
+
+      if (backupStores > license.maxStores) {
+        throw new BadRequestException(
+          `LICENSE_LIMIT_EXCEEDED:ไม่สามารถ Restore ได้ — ` +
+          `ไฟล์ Backup มีร้านค้า ${backupStores} สาขา ` +
+          `แต่ License ปัจจุบัน (${license.planName ?? license.licenseKey}) ` +
+          `รองรับสูงสุด ${license.maxStores} สาขา ` +
+          `กรุณาอัปเกรด License ก่อน Restore`,
+        );
+      }
+    }
+    // ── End license limit check ────────────────────────────────────────────
+
     const stats: Record<string, number> = {};
     const errors: Record<string, string> = {};
     let totalRestored = 0;
@@ -938,6 +967,8 @@ export class BackupService {
     for (const table of restoreOrder) {
       // Skip tables not selected by user (if selective restore)
       if (selectedTables && selectedTables.length > 0 && !selectedTables.includes(table)) continue;
+      // Never restore licenses — machine-specific, must be activated per server
+      if (table === 'licenses') continue;
       let tableData = data[table];
       if (!Array.isArray(tableData) || tableData.length === 0) continue;
 

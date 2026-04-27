@@ -1356,10 +1356,17 @@ export default function SettingsPage() {
       sessionStorage.removeItem('rim_restore_pending')
       setTimeout(() => window.location.reload(), 1000)
     } catch (error: any) {
-      const msg = error.response?.data?.message
-      if (msg === 'PASSWORD_REQUIRED') toast.error('Backup นี้มีการป้องกัน Password')
-      else if (msg === 'INVALID_PASSWORD') toast.error('Password ไม่ถูกต้อง')
-      else toast.error(msg || 'Restore ล้มเหลว')
+      const msg: string = error.response?.data?.message || ''
+      if (msg === 'PASSWORD_REQUIRED') {
+        toast.error('Backup นี้มีการป้องกัน Password')
+      } else if (msg === 'INVALID_PASSWORD') {
+        toast.error('Password ไม่ถูกต้อง')
+      } else if (msg.startsWith('LICENSE_LIMIT_EXCEEDED:')) {
+        const detail = msg.replace('LICENSE_LIMIT_EXCEEDED:', '').trim()
+        alert(`⛔ License ไม่เพียงพอ\n\n${detail}`)
+      } else {
+        toast.error(msg || 'Restore ล้มเหลว')
+      }
     } finally {
       setIsRestoringFile(false)
     }
