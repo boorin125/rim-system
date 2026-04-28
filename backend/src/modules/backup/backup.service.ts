@@ -1457,11 +1457,24 @@ export class BackupService {
     return meta;
   }
 
+  // Convert camelCase keys to snake_case so Prisma findMany output matches DB column names
+  private toSnakeCase(data: any[]): any[] {
+    return data.map(row => {
+      const out: any = {};
+      for (const [k, v] of Object.entries(row)) {
+        out[k.replace(/[A-Z]/g, l => `_${l.toLowerCase()}`)] = v;
+      }
+      return out;
+    });
+  }
+
   // Generic UPSERT via raw SQL — filters columns to target DB schema + casts enum types
   private async upsertRaw(table: string, data: any[]): Promise<{ count: number }> {
     if (!data.length) return { count: 0 };
     const colMeta = await this.getTableColumnMeta(table);
-    const columns = Object.keys(data[0]).filter(c => colMeta.has(c));
+    // Normalize camelCase → snake_case so Prisma output matches DB column names
+    const normalized = this.toSnakeCase(data);
+    const columns = Object.keys(normalized[0]).filter(c => colMeta.has(c));
     if (!columns.length) return { count: 0 };
 
     // Build column SQL with enum casts where needed
@@ -1475,8 +1488,8 @@ export class BackupService {
     }).join(', ');
 
     const BATCH = 50;
-    for (let i = 0; i < data.length; i += BATCH) {
-      const batch = data.slice(i, i + BATCH);
+    for (let i = 0; i < normalized.length; i += BATCH) {
+      const batch = normalized.slice(i, i + BATCH);
       const vals = batch.map((_, ri) =>
         `(${columns.map((col, ci) => {
           const meta = colMeta.get(col)!;
