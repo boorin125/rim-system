@@ -65,6 +65,7 @@ export default function UserDetailPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [superAdminCount, setSuperAdminCount] = useState<number>(99)
   const themeHighlight = useThemeHighlight()
 
   const roles: Record<string, { label: string; color: string }> = {
@@ -100,13 +101,17 @@ export default function UserDetailPage() {
     try {
       setIsLoading(true)
       const token = localStorage.getItem('token')
+      const headers = { Authorization: `Bearer ${token}` }
 
-      const userResponse = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/users/${userId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
+      const [userResponse, superAdminRes] = await Promise.all([
+        axios.get(`${process.env.NEXT_PUBLIC_API_URL}/users/${userId}`, { headers }),
+        axios.get(`${process.env.NEXT_PUBLIC_API_URL}/users?role=SUPER_ADMIN&limit=100`, { headers }),
+      ])
 
       setUser(userResponse.data)
+
+      const saUsers: any[] = superAdminRes.data?.data || superAdminRes.data || []
+      setSuperAdminCount(saUsers.filter((u: any) => u.status !== 'PENDING_DELETION').length)
     } catch (error: any) {
       toast.error('Failed to load user data')
       console.error(error)
@@ -540,15 +545,31 @@ export default function UserDetailPage() {
                 )}
 
                 {/* Schedule Delete — SUPER_ADMIN เท่านั้น ไม่แสดงสำหรับตัวเอง */}
-                {user.status !== 'PENDING_DELETION' && user.id !== currentUser?.id && userRoles.includes('SUPER_ADMIN') && (
-                  <button
-                    onClick={() => setShowDeleteConfirm(true)}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-600/20 hover:bg-red-600/40 text-red-400 border border-red-500/30 rounded-xl transition-colors"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                    ลบบัญชี
-                  </button>
-                )}
+                {user.status !== 'PENDING_DELETION' && user.id !== currentUser?.id && userRoles.includes('SUPER_ADMIN') && (() => {
+                  const targetIsSuperAdmin = user.roles.includes('SUPER_ADMIN')
+                  const isLastSuperAdmin = targetIsSuperAdmin && superAdminCount <= 1
+                  return (
+                    <div>
+                      <button
+                        onClick={() => !isLastSuperAdmin && setShowDeleteConfirm(true)}
+                        disabled={isLastSuperAdmin}
+                        className={`w-full flex items-center justify-center gap-2 px-4 py-3 border rounded-xl transition-colors ${
+                          isLastSuperAdmin
+                            ? 'bg-slate-700/30 text-gray-500 border-slate-600/30 cursor-not-allowed'
+                            : 'bg-red-600/20 hover:bg-red-600/40 text-red-400 border-red-500/30 cursor-pointer'
+                        }`}
+                      >
+                        <Trash2 className="w-5 h-5" />
+                        ลบบัญชี
+                      </button>
+                      {isLastSuperAdmin && (
+                        <p className="text-xs text-amber-400/80 mt-1.5 text-center">
+                          ไม่สามารถลบ Super Admin คนสุดท้ายได้
+                        </p>
+                      )}
+                    </div>
+                  )
+                })()}
               </div>
             </div>
           )}

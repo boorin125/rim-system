@@ -342,11 +342,27 @@ export class UsersService {
 
     const user = await this.prisma.user.findUnique({
       where: { id },
-      select: { status: true },
+      select: { status: true, roles: { select: { role: true } } },
     });
 
     if (user!.status === UserStatus.PENDING_DELETION) {
       throw new BadRequestException('User is already scheduled for deletion');
+    }
+
+    // Prevent deleting the last Super Admin
+    const isTargetSuperAdmin = user!.roles.some((r) => r.role === UserRole.SUPER_ADMIN);
+    if (isTargetSuperAdmin) {
+      const superAdminCount = await this.prisma.userRoleAssignment.count({
+        where: {
+          role: UserRole.SUPER_ADMIN,
+          user: { status: { not: UserStatus.PENDING_DELETION } },
+        },
+      });
+      if (superAdminCount <= 1) {
+        throw new ForbiddenException(
+          'ไม่สามารถลบ Super Admin คนสุดท้ายได้ กรุณาเพิ่ม Super Admin อีกคนก่อน',
+        );
+      }
     }
 
     const scheduledDeleteAt = new Date();
