@@ -1282,11 +1282,11 @@ export class StoresService {
 
     for (const row of validRows) {
       try {
-        // Check if store already exists
+        // Check if store already exists (any status except permanently closed)
         const existing = await this.prisma.store.findFirst({
           where: {
             storeCode: row.code,
-            storeStatus: 'ACTIVE',
+            storeStatus: { not: 'PERMANENTLY_CLOSED' },
           },
         });
 
