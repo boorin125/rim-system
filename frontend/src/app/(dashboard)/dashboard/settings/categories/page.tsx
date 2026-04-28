@@ -15,6 +15,8 @@ import {
   Power,
   Sparkles,
   Briefcase,
+  ChevronUp,
+  ChevronDown,
   Monitor,
   Wifi,
   HardDrive,
@@ -228,6 +230,28 @@ export default function CategoriesSettingsPage() {
       toast.error(error.response?.data?.message || 'ไม่สามารถสร้าง Category เริ่มต้นได้')
     } finally {
       setIsSeeding(false)
+    }
+  }
+
+  const handleMove = async (index: number, direction: 'up' | 'down') => {
+    const sorted = [...categories].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, 'th'))
+    const newIndex = direction === 'up' ? index - 1 : index + 1
+    if (newIndex < 0 || newIndex >= sorted.length) return
+    const reordered = [...sorted]
+    ;[reordered[index], reordered[newIndex]] = [reordered[newIndex], reordered[index]]
+    const ids = reordered.map((c) => c.id)
+    // Optimistic update
+    setCategories(reordered.map((c, i) => ({ ...c, sortOrder: i })))
+    try {
+      const token = localStorage.getItem('token')
+      await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/categories/reorder`,
+        { ids },
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+    } catch {
+      toast.error('ไม่สามารถบันทึกลำดับได้')
+      fetchCategories()
     }
   }
 
@@ -512,7 +536,7 @@ export default function CategoriesSettingsPage() {
           </div>
         ) : (
           <div className="divide-y divide-slate-700/50">
-            {[...categories].sort((a, b) => a.name.localeCompare(b.name, 'th')).map((category) => (
+            {[...categories].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, 'th')).map((category, index, arr) => (
               <div
                 key={category.id}
                 className={`p-4 ${!category.isActive ? 'opacity-50' : ''} ${
@@ -537,7 +561,26 @@ export default function CategoriesSettingsPage() {
                   </div>
                 ) : (
                   <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-4 min-w-0">
+                    {/* Move buttons */}
+                    {canManage && (
+                      <div className="flex flex-col gap-0.5 flex-shrink-0">
+                        <button
+                          onClick={() => handleMove(index, 'up')}
+                          disabled={index === 0}
+                          className="p-0.5 text-gray-500 hover:text-gray-200 disabled:opacity-20 disabled:cursor-not-allowed transition"
+                        >
+                          <ChevronUp className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleMove(index, 'down')}
+                          disabled={index === arr.length - 1}
+                          className="p-0.5 text-gray-500 hover:text-gray-200 disabled:opacity-20 disabled:cursor-not-allowed transition"
+                        >
+                          <ChevronDown className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-4 min-w-0 flex-1">
                       <div
                         className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
                         style={{ backgroundColor: `${category.color}20`, color: category.color }}
