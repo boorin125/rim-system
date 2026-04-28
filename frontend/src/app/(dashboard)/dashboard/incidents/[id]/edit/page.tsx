@@ -15,7 +15,7 @@ interface Category {
   name: string
   color: string | null
   isActive: boolean
-  jobTypeId?: number | null
+  jobTypeIds?: number[]
 }
 
 interface JobType {
@@ -301,7 +301,7 @@ export default function EditIncidentPage() {
                 {(() => {
                   const selectedJobType = jobTypes.find(jt => jt.name === formData.jobType)
                   const filteredCategories = selectedJobType
-                    ? categories.filter(cat => cat.jobTypeId === selectedJobType.id)
+                    ? categories.filter(cat => (cat.jobTypeIds ?? []).includes(selectedJobType.id))
                     : []
                   return (
                     <select

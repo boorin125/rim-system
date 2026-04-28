@@ -14,13 +14,22 @@ export class CategoriesService {
   async findAllCategories(includeInactive = false, jobTypeId?: number) {
     const where: any = includeInactive ? {} : { isActive: true };
     if (jobTypeId !== undefined) {
-      where.jobTypeId = jobTypeId;
+      where.jobTypeIds = { has: jobTypeId };
     }
-    return this.prisma.incidentCategory.findMany({
-      where,
-      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
-      include: { jobType: { select: { id: true, name: true, color: true } } },
-    });
+
+    const [categories, allJobTypes] = await Promise.all([
+      this.prisma.incidentCategory.findMany({
+        where,
+        orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+      }),
+      this.prisma.jobType.findMany({ select: { id: true, name: true, color: true } }),
+    ]);
+
+    const jobTypeMap = new Map(allJobTypes.map((jt) => [jt.id, jt]));
+    return categories.map((cat) => ({
+      ...cat,
+      jobTypes: cat.jobTypeIds.map((id) => jobTypeMap.get(id)).filter(Boolean),
+    }));
   }
 
   async findCategoryById(id: number) {
@@ -53,10 +62,8 @@ export class CategoriesService {
         icon: dto.icon,
         isActive: dto.isActive ?? true,
         sortOrder: dto.sortOrder ?? 0,
-        // @Type(() => Number) converts null → 0; treat 0 as no job type
-        jobTypeId: (dto.jobTypeId && dto.jobTypeId > 0) ? dto.jobTypeId : null,
+        jobTypeIds: dto.jobTypeIds ?? [],
       },
-      include: { jobType: { select: { id: true, name: true, color: true } } },
     });
   }
 
@@ -82,12 +89,8 @@ export class CategoriesService {
       where: { id },
       data: {
         ...dto,
-        // @Type(() => Number) converts null → 0; treat 0 as no job type
-        jobTypeId: dto.jobTypeId !== undefined
-          ? (dto.jobTypeId && dto.jobTypeId > 0 ? dto.jobTypeId : null)
-          : undefined,
+        jobTypeIds: dto.jobTypeIds ?? undefined,
       },
-      include: { jobType: { select: { id: true, name: true, color: true } } },
     });
   }
 

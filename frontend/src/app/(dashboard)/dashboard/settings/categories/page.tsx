@@ -68,8 +68,8 @@ interface Category {
   icon?: string
   isActive: boolean
   sortOrder: number
-  jobTypeId?: number | null
-  jobType?: { id: number; name: string; color: string } | null
+  jobTypeIds: number[]
+  jobTypes?: { id: number; name: string; color: string }[]
 }
 
 export default function CategoriesSettingsPage() {
@@ -90,7 +90,7 @@ export default function CategoriesSettingsPage() {
     color: '#3B82F6',
     icon: 'Tags',
     isActive: true,
-    jobTypeId: '' as string, // '' = ไม่ระบุ
+    jobTypeIds: [] as number[],
   })
 
   // Live suggestions: categories matching what user is typing (create form only)
@@ -149,10 +149,7 @@ export default function CategoriesSettingsPage() {
       const token = localStorage.getItem('token')
       await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/categories`,
-        {
-          ...formData,
-          jobTypeId: formData.jobTypeId ? parseInt(formData.jobTypeId) : null,
-        },
+        formData,
         { headers: { Authorization: `Bearer ${token}` } }
       )
       toast.success('เพิ่ม Category สำเร็จ')
@@ -173,10 +170,7 @@ export default function CategoriesSettingsPage() {
       const token = localStorage.getItem('token')
       await axios.put(
         `${process.env.NEXT_PUBLIC_API_URL}/categories/${id}`,
-        {
-          ...formData,
-          jobTypeId: formData.jobTypeId ? parseInt(formData.jobTypeId) : null,
-        },
+        formData,
         { headers: { Authorization: `Bearer ${token}` } }
       )
       toast.success('อัพเดต Category สำเร็จ')
@@ -245,7 +239,7 @@ export default function CategoriesSettingsPage() {
       color: category.color,
       icon: category.icon || 'Tags',
       isActive: category.isActive,
-      jobTypeId: category.jobTypeId?.toString() || '',
+      jobTypeIds: category.jobTypeIds || [],
     })
   }
 
@@ -256,7 +250,7 @@ export default function CategoriesSettingsPage() {
   }
 
   const resetForm = () => {
-    setFormData({ name: '', description: '', color: '#3B82F6', icon: 'Tags', isActive: true, jobTypeId: '' })
+    setFormData({ name: '', description: '', color: '#3B82F6', icon: 'Tags', isActive: true, jobTypeIds: [] })
   }
 
   const colorOptions = [
@@ -349,24 +343,41 @@ export default function CategoriesSettingsPage() {
         />
       </div>
 
-      {/* Job Type selector */}
+      {/* Job Type multi-select */}
       <div className="md:col-span-2">
-        <label className="block text-sm text-gray-400 mb-1 flex items-center gap-1">
-          <Briefcase className="w-3.5 h-3.5" /> อยู่ภายใต้ Job Type
+        <label className="block text-sm text-gray-400 mb-2 flex items-center gap-1">
+          <Briefcase className="w-3.5 h-3.5" /> อยู่ภายใต้ Job Type (เลือกได้หลายรายการ)
         </label>
-        <select
-          value={formData.jobTypeId}
-          onChange={(e) => setFormData({ ...formData, jobTypeId: e.target.value })}
-          className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 [&>option]:bg-slate-800 [&>option]:text-white"
-        >
-          <option value="">ไม่ระบุ (แสดงในทุก Job Type)</option>
-          {jobTypes.map((jt) => (
-            <option key={jt.id} value={jt.id}>
-              {jt.name}
-            </option>
-          ))}
-        </select>
-        <p className="text-xs text-gray-500 mt-0.5">ถ้าระบุ จะแสดง Category นี้เฉพาะเมื่อเลือก Job Type นั้นในหน้า Create Incident</p>
+        <div className="flex flex-wrap gap-2">
+          {jobTypes.map((jt) => {
+            const checked = formData.jobTypeIds.includes(jt.id)
+            return (
+              <button
+                key={jt.id}
+                type="button"
+                onClick={() => {
+                  const next = checked
+                    ? formData.jobTypeIds.filter((id) => id !== jt.id)
+                    : [...formData.jobTypeIds, jt.id]
+                  setFormData({ ...formData, jobTypeIds: next })
+                }}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${
+                  checked
+                    ? 'text-white border-transparent'
+                    : 'text-gray-400 bg-slate-700/50 border-slate-600 hover:border-slate-400'
+                }`}
+                style={checked ? { backgroundColor: jt.color ?? '#3B82F6', borderColor: jt.color ?? '#3B82F6' } : undefined}
+              >
+                {jt.name}
+              </button>
+            )
+          })}
+        </div>
+        <p className="text-xs text-gray-500 mt-1.5">
+          {formData.jobTypeIds.length === 0
+            ? 'ไม่ระบุ — แสดงในทุก Job Type'
+            : `แสดงเฉพาะเมื่อเลือก Job Type ที่เลือกไว้ในหน้า Create Incident`}
+        </p>
       </div>
 
       <div>
@@ -536,14 +547,15 @@ export default function CategoriesSettingsPage() {
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="font-medium text-white">{category.name}</span>
-                          {category.jobType && (
+                          {category.jobTypes?.map((jt) => (
                             <span
+                              key={jt.id}
                               className="px-2 py-0.5 text-xs rounded-full text-white flex-shrink-0"
-                              style={{ backgroundColor: category.jobType.color }}
+                              style={{ backgroundColor: jt.color ?? '#6B7280' }}
                             >
-                              {category.jobType.name}
+                              {jt.name}
                             </span>
-                          )}
+                          ))}
                           {!category.isActive && (
                             <span className="px-2 py-0.5 text-xs bg-gray-500/20 text-gray-400 rounded">ปิดใช้งาน</span>
                           )}
@@ -551,7 +563,7 @@ export default function CategoriesSettingsPage() {
                         {category.description && (
                           <p className="text-sm text-gray-400 truncate">{category.description}</p>
                         )}
-                        {!category.jobTypeId && (
+                        {(!category.jobTypeIds || category.jobTypeIds.length === 0) && (
                           <p className="text-xs text-gray-500">แสดงในทุก Job Type</p>
                         )}
                       </div>

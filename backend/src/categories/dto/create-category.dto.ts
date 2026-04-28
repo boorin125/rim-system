@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsBoolean, IsInt, MinLength, MaxLength, Matches } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsInt, IsArray, MinLength, MaxLength, Matches } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateCategoryDto {
@@ -32,9 +32,10 @@ export class CreateCategoryDto {
   sortOrder?: number;
 
   @IsOptional()
-  @IsInt()
+  @IsArray()
+  @IsInt({ each: true })
   @Type(() => Number)
-  jobTypeId?: number | null;
+  jobTypeIds?: number[];
 }
 
 export class UpdateCategoryDto {
@@ -69,7 +70,8 @@ export class UpdateCategoryDto {
   sortOrder?: number;
 
   @IsOptional()
-  @IsInt()
+  @IsArray()
+  @IsInt({ each: true })
   @Type(() => Number)
-  jobTypeId?: number | null;
+  jobTypeIds?: number[];
 }
