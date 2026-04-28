@@ -268,12 +268,15 @@ export class AuthService {
 
   /**
    * Calculate session expiry based on time-of-day policy:
-   * - Before 22:00 → expire at 22:00 today
-   * - At/after 22:00 → expire in 1 hour
+   * - Before 22:00 Thailand (15:00 UTC) → expire at today's 22:00 Thailand
+   * - At/after 22:00 Thailand → expire in 1 hour (allows immediate re-login after forced logout)
+   *
+   * Uses UTC arithmetic so it is correct regardless of the server's local timezone.
    */
   private calculateSessionExpiry(): Date {
     const now = new Date();
-    const cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 22, 0, 0);
+    // 22:00 Thailand = 15:00 UTC
+    const cutoff = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 15, 0, 0));
     if (now < cutoff) {
       return cutoff;
     }

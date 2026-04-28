@@ -13,13 +13,18 @@ export class AuthSchedulerService {
   // Runs at 22:00 Thailand time (UTC+7 = 15:00 UTC)
   @Cron('0 15 * * *', { timeZone: 'UTC' })
   async autoLogoutAllUsers() {
+    const now = new Date()
+
     const result = await this.prisma.user.updateMany({
       where: { isOnline: true },
       data: { isOnline: false },
     })
 
-    // Also invalidate all refresh tokens so users must re-login tomorrow
-    await this.prisma.refreshToken.deleteMany({})
+    // Only delete tokens that expire at or before the cutoff — this avoids a race
+    // where a user logs in right after the cron fires and their new token gets wiped.
+    await this.prisma.refreshToken.deleteMany({
+      where: { expiresAt: { lte: now } },
+    })
 
     this.logger.log(`Auto-logout at 22:00: set ${result.count} users offline`)
   }
