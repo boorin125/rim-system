@@ -286,6 +286,34 @@ function MobileAppTab() {
   )
 }
 
+const TABLE_LABELS: Record<string, string> = {
+  system_configs: 'ตั้งค่าระบบ',
+  sla_configs: 'ตั้งค่า SLA',
+  incident_categories: 'หมวดหมู่ Incident',
+  job_types: 'ประเภทงาน',
+  licenses: 'License',
+  users: 'ผู้ใช้งาน',
+  user_role_assignments: 'สิทธิ์ผู้ใช้',
+  stores: 'ร้านค้า',
+  equipment: 'อุปกรณ์',
+  equipment_logs: 'ประวัติอุปกรณ์',
+  incidents: 'Incident',
+  incident_assignees: 'ผู้รับงาน',
+  incident_reassignments: 'การโอนงาน',
+  incident_ratings: 'การให้คะแนน',
+  sla_defenses: 'SLA Defense',
+  comments: 'ความคิดเห็น',
+  spare_parts: 'อะไหล่',
+  incident_history: 'ประวัติ Incident',
+  notifications: 'การแจ้งเตือน',
+  outsource_jobs: 'งาน Outsource',
+  outsource_bids: 'การเสนอราคา',
+  pm_records: 'บันทึก PM',
+  pm_equipment_records: 'PM อุปกรณ์',
+  knowledge_categories: 'หมวดหมู่ Knowledge',
+  knowledge_articles: 'บทความ',
+}
+
 export default function SettingsPage() {
   const themeHighlight = useThemeHighlight()
   const [activeTab, setActiveTab] = useTabState<TabType>('organization')
@@ -367,6 +395,7 @@ export default function SettingsPage() {
   const [restoreAvailableGroups, setRestoreAvailableGroups] = useState<string[]>([])
   // which groups the user wants to restore (default = all available)
   const [restoreSelectedGroups, setRestoreSelectedGroups] = useState<string[]>([])
+  const [restoreSummary, setRestoreSummary] = useState<{ stats: Record<string, number>; errors: Record<string, string> } | null>(null)
 
   // Create backup with password state
   const [showBackupPasswordModal, setShowBackupPasswordModal] = useState(false)
@@ -1339,22 +1368,12 @@ export default function SettingsPage() {
         { headers: { Authorization: `Bearer ${token}` } }
       )
       const data = res.data
-      if (data.errors && Object.keys(data.errors).length > 0) {
-        const errorSummary = Object.entries(data.errors)
-          .map(([table, msg]) => `${table}: ${msg}`)
-          .join('\n')
-        toast.success(`Restore บางส่วนสำเร็จ: ${data.message}`)
-        console.error('Restore errors by table:', data.errors)
-        alert(`Restore สำเร็จบางส่วน\n\nข้อผิดพลาด:\n${errorSummary}`)
-      } else {
-        toast.success(`Restore สำเร็จ: ${data.message}`)
-      }
       setShowRestoreFileModal(false)
       setRestoreTempId(null)
       setRestoreFileName('')
       setRestoreFilePassword('')
       sessionStorage.removeItem('rim_restore_pending')
-      setTimeout(() => window.location.reload(), 1000)
+      setRestoreSummary({ stats: data.stats || {}, errors: data.errors || {} })
     } catch (error: any) {
       const msg: string = error.response?.data?.message || ''
       if (msg === 'PASSWORD_REQUIRED') {
@@ -3952,6 +3971,59 @@ export default function SettingsPage() {
                   )}
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Restore Summary Modal ── */}
+        {restoreSummary && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <div className="bg-slate-800 rounded-2xl p-6 w-full max-w-lg border border-slate-600 max-h-[85vh] overflow-y-auto">
+              <div className="flex items-center gap-3 mb-4">
+                {Object.keys(restoreSummary.errors).length === 0
+                  ? <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center"><CheckCircle className="w-5 h-5 text-emerald-400" /></div>
+                  : <div className="w-8 h-8 rounded-full bg-yellow-500/20 flex items-center justify-center"><AlertTriangle className="w-5 h-5 text-yellow-400" /></div>
+                }
+                <h3 className="text-lg font-semibold text-white">ผลการ Restore</h3>
+              </div>
+
+              <div className="space-y-1.5 mb-5">
+                {Object.entries(restoreSummary.stats).map(([table, count]) => {
+                  const hasError = !!restoreSummary.errors[table]
+                  return (
+                    <div key={table} className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm ${hasError ? 'bg-red-500/10 border border-red-500/30' : 'bg-slate-700/50'}`}>
+                      <span className={hasError ? 'text-red-300' : 'text-gray-200'}>
+                        {TABLE_LABELS[table] ?? table}
+                      </span>
+                      {hasError
+                        ? <span className="text-red-400 text-xs">{restoreSummary.errors[table]}</span>
+                        : <span className="text-emerald-400 font-medium">{count} รายการ</span>
+                      }
+                    </div>
+                  )
+                })}
+                {/* Tables that errored but have no stats entry */}
+                {Object.entries(restoreSummary.errors)
+                  .filter(([t]) => !(t in restoreSummary.stats))
+                  .map(([table, msg]) => (
+                    <div key={table} className="flex items-center justify-between px-3 py-2 rounded-lg text-sm bg-red-500/10 border border-red-500/30">
+                      <span className="text-red-300">{TABLE_LABELS[table] ?? table}</span>
+                      <span className="text-red-400 text-xs">{msg}</span>
+                    </div>
+                  ))
+                }
+              </div>
+
+              {Object.keys(restoreSummary.errors).length > 0 && (
+                <p className="text-xs text-yellow-400 mb-4">บางตารางไม่สามารถ Restore ได้ — ข้อมูลที่สำเร็จถูกบันทึกแล้ว</p>
+              )}
+
+              <button
+                onClick={() => { setRestoreSummary(null); window.location.reload() }}
+                className="w-full px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition font-medium"
+              >
+                ตกลง
+              </button>
             </div>
           </div>
         )}
