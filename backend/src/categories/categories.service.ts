@@ -143,8 +143,7 @@ export class CategoriesService {
     return this.prisma.jobType.findMany({
       where,
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
-      include: { _count: { select: { categories: true } } },
-    });
+          });
   }
 
   async findJobTypeById(id: number) {
@@ -179,8 +178,7 @@ export class CategoriesService {
         defaultPriority: dto.defaultPriority ?? null,
         ignoreSla: dto.ignoreSla ?? false,
       },
-      include: { _count: { select: { categories: true } } },
-    });
+          });
   }
 
   async updateJobType(id: number, dto: UpdateJobTypeDto) {
@@ -204,8 +202,7 @@ export class CategoriesService {
     return this.prisma.jobType.update({
       where: { id },
       data: dto,
-      include: { _count: { select: { categories: true } } },
-    });
+          });
   }
 
   async deleteJobType(id: number) {
