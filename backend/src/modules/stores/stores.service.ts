@@ -435,19 +435,28 @@ export class StoresService {
       storeCode: request.store.storeCode,
     };
 
-    // Update request status
-    await this.prisma.storeDeleteRequest.update({
-      where: { id: requestId },
-      data: {
-        status: 'APPROVED',
-        approvedBy,
-        approvalNote: note,
-      },
-    });
+    // PERMANENT DELETE inside a transaction — cascade equipment deps then delete store
+    await this.prisma.$transaction(async (tx) => {
+      const equipments = await tx.equipment.findMany({
+        where: { storeId: request.storeId },
+        select: { id: true },
+      });
+      const equipmentIds = equipments.map((e) => e.id);
 
-    // PERMANENT DELETE: Actually delete the store from database
-    await this.prisma.store.delete({
-      where: { id: request.storeId },
+      if (equipmentIds.length > 0) {
+        await tx.pmEquipmentRecord.deleteMany({ where: { equipmentId: { in: equipmentIds } } });
+        await tx.equipmentRetirementRequest.deleteMany({ where: { equipmentId: { in: equipmentIds } } });
+        await tx.equipmentLog.deleteMany({ where: { equipmentId: { in: equipmentIds } } });
+        await tx.equipment.deleteMany({ where: { storeId: request.storeId } });
+      }
+
+      // Update request status then delete store (both atomic)
+      await tx.storeDeleteRequest.update({
+        where: { id: requestId },
+        data: { status: 'APPROVED', approvedBy, approvalNote: note },
+      });
+
+      await tx.store.delete({ where: { id: request.storeId } });
     });
 
     // Create notification for the requester (Helpdesk)
