@@ -55,6 +55,20 @@ function useThemeHighlight() {
   return color
 }
 
+function useIsDark() {
+  const [isDark, setIsDark] = useState(() =>
+    typeof window === 'undefined' || !document.documentElement.classList.contains('light')
+  )
+  useEffect(() => {
+    const obs = new MutationObserver(() =>
+      setIsDark(!document.documentElement.classList.contains('light'))
+    )
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => obs.disconnect()
+  }, [])
+  return isDark
+}
+
 // ==================== TYPES ====================
 
 interface MetricData {
@@ -276,13 +290,15 @@ interface HistoryEntry {
   grade: string
   ranking: number | null
   totalTechnicians: number | null
+  slaCompliance?: number
+  workVolume?: number
 }
 
 interface ComparisonData {
   type: string
   label: string
-  current: { avgScore: number; count: number; [key: string]: any }
-  lastYear: { avgScore: number; count: number; [key: string]: any }
+  current: { avgScore: number; slaPercent?: number; jobCount?: number; count: number; period?: string; [key: string]: any }
+  lastYear: { avgScore: number; slaPercent?: number; jobCount?: number; count: number; period?: string; [key: string]: any }
   change: number
   changePercent: number
 }
@@ -550,6 +566,21 @@ export default function PerformancePage() {
   }
 
   // Format helpers
+  const fmtPeriodLabel = (p: string) => {
+    if (!p || p === '-') return '-'
+    const [y, m] = p.split('-')
+    const monthNames = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    return `${monthNames[parseInt(m)] ?? m} ${y}`
+  }
+
+  // Compute AVG data from history (up to 12 months with data)
+  const avgHistData = history.length > 0 ? {
+    label: `Last ${history.length} month${history.length > 1 ? 's' : ''}`,
+    score: Math.round((history.reduce((s, h) => s + h.score, 0) / history.length) * 10) / 10,
+    slaPercent: Math.round((history.reduce((s, h) => s + (h.slaCompliance ?? 0), 0) / history.length) * 10) / 10,
+    jobCount: history.reduce((s, h) => s + (h.workVolume ?? 0), 0),
+  } : null
+
   const fmtTime = (v: number, u?: string) => {
     if (!v) return '-'
     if (u === 'hours') return v < 1 ? `${Math.round(v * 60)} นาที` : `${v.toFixed(1)} ชม.`
@@ -675,12 +706,36 @@ export default function PerformancePage() {
         </div>
       </div>
 
-      {/* Previous Month / Current / 12-Month Avg Cards — Score (Technician view) */}
-      {(isTechnician || isSelfOnly) && (ytd || ytm || yty) && (
+      {/* Previous Month / Current / AVG Cards — Score (Technician view) */}
+      {(isTechnician || isSelfOnly) && ytm && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {ytd && <ComparisonCard data={ytd} icon={Calendar} title="Previous Month" variant="previous" />}
-          {ytm && <ComparisonCard data={ytm} icon={Activity} title="Current" variant="current" />}
-          {yty && <ComparisonCard data={yty} icon={BarChart3} title="12-Month Avg" variant="yearly" />}
+          <TechMonthCard
+            icon={Calendar}
+            title="Previous Month"
+            label={fmtPeriodLabel(ytm.lastYear?.period ?? '-')}
+            score={ytm.lastYear?.avgScore ?? 0}
+            slaPercent={ytm.lastYear?.slaPercent ?? 0}
+            jobCount={ytm.lastYear?.jobCount ?? 0}
+            variant="previous"
+          />
+          <TechMonthCard
+            icon={Activity}
+            title="Current"
+            label={fmtPeriodLabel(ytm.current?.period ?? '-')}
+            score={ytm.current?.avgScore ?? 0}
+            slaPercent={ytm.current?.slaPercent ?? 0}
+            jobCount={ytm.current?.jobCount ?? 0}
+            variant="current"
+          />
+          <TechMonthCard
+            icon={BarChart3}
+            title="AVG"
+            label={avgHistData?.label ?? '-'}
+            score={avgHistData?.score ?? 0}
+            slaPercent={avgHistData?.slaPercent ?? 0}
+            jobCount={avgHistData?.jobCount ?? 0}
+            variant="avg"
+          />
         </div>
       )}
 
@@ -2188,9 +2243,9 @@ function gaugeColor(score: number): string {
   return score >= 90 ? '#10b981' : score >= 80 ? '#22c55e' : score >= 70 ? '#eab308' : score >= 60 ? '#f97316' : '#ef4444'
 }
 
-function GaugeArc({ percent, cx, cy, r, strokeWidth = 20, startAngle = -210, sweepAngle = 240, color }: {
+function GaugeArc({ percent, cx, cy, r, strokeWidth = 20, startAngle = -210, sweepAngle = 240, color, trackColor }: {
   percent: number; cx: number; cy: number; r: number; strokeWidth?: number
-  startAngle?: number; sweepAngle?: number; color: string
+  startAngle?: number; sweepAngle?: number; color: string; trackColor?: string
 }) {
   const p = Math.min(Math.max(percent, 0), 100)
   const toRad = (d: number) => (d * Math.PI) / 180
@@ -2202,7 +2257,7 @@ function GaugeArc({ percent, cx, cy, r, strokeWidth = 20, startAngle = -210, swe
   return (
     <g>
       <path d={`M ${s.x} ${s.y} A ${r} ${r} 0 ${tla} 1 ${e.x} ${e.y}`}
-        fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={strokeWidth} strokeLinecap="round" />
+        fill="none" stroke={trackColor ?? 'rgba(255,255,255,0.08)'} strokeWidth={strokeWidth} strokeLinecap="round" />
       {p > 0 && (
         <path d={`M ${s.x} ${s.y} A ${r} ${r} 0 ${la} 1 ${ve.x} ${ve.y}`}
           fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"
@@ -2219,7 +2274,9 @@ function MiniGaugeCard({ label, score, displayValue, weight, icon: Icon, target,
   icon: React.ElementType; target?: string; subtitle?: string; tips?: string[]
 }) {
   const [showTips, setShowTips] = useState(false)
+  const isDark = useIsDark()
   const color = gaugeColor(score)
+  const textFill = isDark ? 'white' : '#0f172a'
   // W=180 H=148: end_y = 90+74*0.5+6.5=133 < 148 ✓  top=90-74=16 ✓
   const W = 180, H = 148, cx = 90, cy = 90, r = 74, sw = 13
   return (
@@ -2243,8 +2300,9 @@ function MiniGaugeCard({ label, score, displayValue, weight, icon: Icon, target,
 
       {/* Gauge */}
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: '120px' }}>
-        <GaugeArc percent={score} cx={cx} cy={cy} r={r} strokeWidth={sw} color={color} />
-        <text x={cx} y={cy - 12} textAnchor="middle" fill="white" fontSize="21" fontWeight="700">{displayValue}</text>
+        <GaugeArc percent={score} cx={cx} cy={cy} r={r} strokeWidth={sw} color={color}
+          trackColor={isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.12)'} />
+        <text x={cx} y={cy - 12} textAnchor="middle" fill={textFill} fontSize="21" fontWeight="700">{displayValue}</text>
         <text x={cx} y={cy + 10} textAnchor="middle" fill={color} fontSize="12" fontWeight="600">{score.toFixed(0)} pts</text>
       </svg>
       <p className="text-xs text-gray-500 mt-0.5">W: {weight}%{target ? ` · ${target}` : ''}</p>
@@ -2341,7 +2399,11 @@ function PerformanceDetail({ data, fmtTime, fmtPct, barColor }: {
   fmtPct: (v: number | null) => string
   barColor: (s: number) => string
 }) {
+  const isDark = useIsDark()
+  const textFill = isDark ? 'white' : '#0f172a'
+  const subFill = isDark ? '#64748b' : '#475569'
   const mainColor = gaugeColor(data.overallScore)
+  const hasIncidents = (data.metrics.workVolume.value ?? 0) > 0
   // Big gauge: W=320 H=268 cx=160 cy=178 r=142 sw=22
   // end_y = 178+142*0.5+11=260 < 268 ✓  top=178-142=36 ✓
   const gW = 320, gH = 268, gcx = 160, gcy = 178, gr = 142, gsw = 22
@@ -2357,7 +2419,8 @@ function PerformanceDetail({ data, fmtTime, fmtPct, barColor }: {
           {/* Big Score Gauge */}
           <div className="w-full md:w-72 flex-shrink-0">
             <svg viewBox={`0 0 ${gW} ${gH}`} className="w-full" style={{ maxHeight: '220px' }}>
-              <GaugeArc percent={data.overallScore} cx={gcx} cy={gcy} r={gr} strokeWidth={gsw} color={mainColor} />
+              <GaugeArc percent={data.overallScore} cx={gcx} cy={gcy} r={gr} strokeWidth={gsw} color={mainColor}
+                trackColor={isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.12)'} />
               {/* Grade-threshold tick marks */}
               {[60, 70, 80, 90].map(v => {
                 const deg = -210 + (240 * v / 100)
@@ -2370,10 +2433,10 @@ function PerformanceDetail({ data, fmtTime, fmtPct, barColor }: {
                 )
               })}
               {/* Score */}
-              <text x={gcx} y={gcy - 22} textAnchor="middle" fill="white" fontSize="54" fontWeight="800" fontFamily="monospace">
+              <text x={gcx} y={gcy - 22} textAnchor="middle" fill={textFill} fontSize="54" fontWeight="800" fontFamily="monospace">
                 {data.overallScore.toFixed(1)}
               </text>
-              <text x={gcx} y={gcy + 6} textAnchor="middle" fill="#64748b" fontSize="15">/ 100 pts</text>
+              <text x={gcx} y={gcy + 6} textAnchor="middle" fill={subFill} fontSize="15">/ 100 pts</text>
               <text x={gcx} y={gcy + 36} textAnchor="middle" fill={mainColor} fontSize="26" fontWeight="900" letterSpacing="3">
                 {data.grade}
               </text>
@@ -2430,8 +2493,8 @@ function PerformanceDetail({ data, fmtTime, fmtPct, barColor }: {
       {/* ── MINI GAUGES: 4 key indicators ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <MiniGaugeCard label="SLA Compliance"
-          score={data.metrics.slaCompliance.score}
-          displayValue={fmtPct(data.metrics.slaCompliance.value)}
+          score={hasIncidents ? data.metrics.slaCompliance.score : 0}
+          displayValue={hasIncidents ? fmtPct(data.metrics.slaCompliance.value) : 'N/A'}
           weight={data.metrics.slaCompliance.weight}
           icon={ShieldCheck} target={`${data.metrics.slaCompliance.target}%`}
           tips={[
@@ -2441,9 +2504,9 @@ function PerformanceDetail({ data, fmtTime, fmtPct, barColor }: {
             'ติดตามงานที่ใกล้ครบ SLA ก่อนจะเกินกำหนด',
           ]} />
         <MiniGaugeCard label="Customer Satisfaction"
-          score={data.metrics.customerSatisfaction.score ?? 0}
+          score={data.metrics.customerSatisfaction.score ?? 100}
           displayValue={data.metrics.customerSatisfaction.rating != null
-            ? `${data.metrics.customerSatisfaction.rating.toFixed(1)}/5` : 'N/A'}
+            ? `${data.metrics.customerSatisfaction.rating.toFixed(1)}/5.0` : '5.0/5.0'}
           weight={data.metrics.customerSatisfaction.weight}
           icon={Star} target="5.0"
           subtitle={`${data.metrics.customerSatisfaction.totalRatings} ratings`}
@@ -2454,8 +2517,8 @@ function PerformanceDetail({ data, fmtTime, fmtPct, barColor }: {
             'ทำความสะอาดและเก็บอุปกรณ์ให้เรียบร้อยหลังงาน',
           ]} />
         <MiniGaugeCard label="First Time Fix"
-          score={data.metrics.firstTimeFix.score}
-          displayValue={fmtPct(data.metrics.firstTimeFix.value)}
+          score={hasIncidents ? data.metrics.firstTimeFix.score : 0}
+          displayValue={hasIncidents ? fmtPct(data.metrics.firstTimeFix.value) : 'N/A'}
           weight={data.metrics.firstTimeFix.weight}
           icon={ThumbsUp} target={`${data.metrics.firstTimeFix.target}%`}
           tips={[
@@ -2465,8 +2528,8 @@ function PerformanceDetail({ data, fmtTime, fmtPct, barColor }: {
             'ทดสอบระบบอย่างละเอียดก่อนปิดงานทุกครั้ง',
           ]} />
         <MiniGaugeCard label="Reopen Rate"
-          score={data.metrics.reopenRate.score}
-          displayValue={fmtPct(data.metrics.reopenRate.value)}
+          score={hasIncidents ? data.metrics.reopenRate.score : 0}
+          displayValue={hasIncidents ? fmtPct(data.metrics.reopenRate.value) : 'N/A'}
           weight={data.metrics.reopenRate.weight}
           icon={RotateCcw} target={`≤${data.metrics.reopenRate.target}%`}
           tips={[
@@ -2494,8 +2557,8 @@ function PerformanceDetail({ data, fmtTime, fmtPct, barColor }: {
               'ประสานงานกับลูกค้าล่วงหน้าเพื่อลดเวลารอหน้างาน',
             ]} />
           <MetricRow icon={Timer} label="Resolution Time"
-            value={fmtTime(data.metrics.resolutionTime.value, data.metrics.resolutionTime.unit)}
-            score={data.metrics.resolutionTime.score} weight={data.metrics.resolutionTime.weight}
+            value={hasIncidents ? fmtTime(data.metrics.resolutionTime.value, data.metrics.resolutionTime.unit) : 'N/A'}
+            score={hasIncidents ? data.metrics.resolutionTime.score : 0} weight={data.metrics.resolutionTime.weight}
             target={fmtTime(data.metrics.resolutionTime.standard, data.metrics.resolutionTime.unit)}
             color="indigo" barColor={barColor}
             tips={[
@@ -2505,8 +2568,8 @@ function PerformanceDetail({ data, fmtTime, fmtPct, barColor }: {
               'หลีกเลี่ยงการเดินทางกลับมาขออะไหล่เพิ่ม',
             ]} />
           <MetricRow icon={Zap} label="Response Time"
-            value={fmtTime(data.metrics.responseTime.value, data.metrics.responseTime.unit)}
-            score={data.metrics.responseTime.score} weight={data.metrics.responseTime.weight}
+            value={hasIncidents ? fmtTime(data.metrics.responseTime.value, data.metrics.responseTime.unit) : 'N/A'}
+            score={hasIncidents ? data.metrics.responseTime.score : 0} weight={data.metrics.responseTime.weight}
             target={fmtTime(data.metrics.responseTime.standard, data.metrics.responseTime.unit)}
             color="purple" barColor={barColor}
             tips={[
@@ -2562,9 +2625,9 @@ function SlaGaugeCard({ percent, pass, total }: { percent: number; pass: number;
   }, [])
 
   const p = Math.min(Math.max(percent, 0), 100)
-  const color = p >= 95 ? '#10b981' : p >= 80 ? '#f59e0b' : '#ef4444'
-  const glowColor = p >= 95 ? 'rgba(16,185,129,0.25)' : p >= 80 ? 'rgba(245,158,11,0.25)' : 'rgba(239,68,68,0.25)'
-  const label = p >= 95 ? 'Excellent' : p >= 80 ? 'Good' : p >= 60 ? 'Fair' : 'Poor'
+  const color = p >= 90 ? '#10b981' : p >= 80 ? '#f59e0b' : '#ef4444'
+  const glowColor = p >= 90 ? 'rgba(16,185,129,0.25)' : p >= 80 ? 'rgba(245,158,11,0.25)' : 'rgba(239,68,68,0.25)'
+  const label = p >= 90 ? 'Excellent' : p >= 80 ? 'Good' : p >= 60 ? 'Fair' : 'Poor'
 
   // SVG arc — fill card width
   const size = 340
@@ -2629,6 +2692,51 @@ function SlaGaugeCard({ percent, pass, total }: { percent: number; pass: number;
             <p className="text-3xl font-bold text-gray-400">{total}</p>
             <p className="text-xs text-gray-500 uppercase tracking-wider">Total</p>
           </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function TechMonthCard({
+  icon: Icon,
+  title,
+  label,
+  score,
+  slaPercent,
+  jobCount,
+  variant,
+}: {
+  icon: React.ElementType
+  title: string
+  label: string
+  score: number
+  slaPercent: number
+  jobCount: number
+  variant: 'previous' | 'current' | 'avg'
+}) {
+  const scoreColor = score >= 90 ? 'text-emerald-400' : score >= 80 ? 'text-green-400' : score >= 70 ? 'text-yellow-400' : score >= 60 ? 'text-orange-400' : 'text-red-400'
+  const slaColor = slaPercent >= 90 ? 'text-emerald-400' : slaPercent >= 80 ? 'text-yellow-400' : 'text-red-400'
+  const isCurrent = variant === 'current'
+  return (
+    <div className={`glass-card p-4 rounded-xl ${isCurrent ? 'border border-blue-500/20' : ''}`}>
+      <div className="flex items-center gap-2 mb-1">
+        <Icon className={`w-4 h-4 ${isCurrent ? 'text-blue-400' : variant === 'avg' ? 'text-purple-400' : 'text-gray-400'}`} />
+        <span className={`text-sm font-semibold ${isCurrent ? 'text-white' : 'text-gray-300'}`}>{title}</span>
+      </div>
+      <p className="text-xs text-gray-500 mb-3">{label}</p>
+      <div className="grid grid-cols-3 gap-2">
+        <div className="text-center">
+          <p className={`text-2xl font-bold ${scoreColor}`}>{score.toFixed(1)}</p>
+          <p className="text-[10px] text-gray-500 mt-0.5">Score</p>
+        </div>
+        <div className="text-center">
+          <p className={`text-2xl font-bold ${slaColor}`}>{slaPercent.toFixed(1)}%</p>
+          <p className="text-[10px] text-gray-500 mt-0.5">SLA</p>
+        </div>
+        <div className="text-center">
+          <p className="text-2xl font-bold text-gray-300">{jobCount}</p>
+          <p className="text-[10px] text-gray-500 mt-0.5">Jobs</p>
         </div>
       </div>
     </div>

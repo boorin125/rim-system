@@ -206,11 +206,11 @@ export class PerformanceService {
       ? this.calculateTimeScore(avgResolutionTime, TARGETS.resolutionTime)
       : 100;
 
-    // 4. Average Response Time (in minutes) - time from creation to check-in
-    const withResponse = incidents.filter((i) => i.checkInAt);
+    // 4. Average Response Time (in minutes) - time from assignment to technician response
+    const withResponse = incidents.filter((i) => i.respondedAt);
     const avgResponseTime = withResponse.length > 0
       ? withResponse.reduce((sum, i) => {
-          const diff = (i.checkInAt!.getTime() - i.createdAt.getTime()) / (1000 * 60);
+          const diff = (i.respondedAt!.getTime() - i.createdAt.getTime()) / (1000 * 60);
           return sum + diff;
         }, 0) / withResponse.length
       : 0;
@@ -225,10 +225,11 @@ export class PerformanceService {
       : 100;
     const firstTimeFixScore = this.calculatePercentageScore(firstTimeFixRate, TARGETS.firstTimeFix);
 
-    // 6. Reopen Rate
+    // 6. Reopen Rate — denominator is incidents that received a response (respondedAt or checkInAt)
+    const respondedIncidents = incidents.filter((i) => i.respondedAt || i.checkInAt);
     const reopenedIncidents = incidents.filter((i) => i.reopenCount > 0);
-    const reopenRate = totalIncidents > 0
-      ? (reopenedIncidents.length / totalIncidents) * 100
+    const reopenRate = respondedIncidents.length > 0
+      ? (reopenedIncidents.length / respondedIncidents.length) * 100
       : 0;
     const reopenScore = this.calculatePercentageScore(reopenRate, TARGETS.reopenRate, true);
 
@@ -495,6 +496,8 @@ export class PerformanceService {
       grade: s.grade,
       ranking: s.teamRanking,
       totalTechnicians: s.totalTechnicians,
+      slaCompliance: Number(s.slaCompliance) || 0,
+      workVolume: Number(s.workVolume) || 0,
     }));
   }
 
@@ -824,8 +827,20 @@ export class PerformanceService {
       label: prevPeriod
         ? `${fmtPeriodLabel(currentPeriod)} vs ${fmtPeriodLabel(prevPeriod)}`
         : fmtPeriodLabel(currentPeriod),
-      current: { period: currentPeriod, avgScore: currentAvg, count: currentScores.length },
-      lastYear: { period: prevPeriod ?? '-', avgScore: prevAvg, count: prevScores.length },
+      current: {
+        period: currentPeriod,
+        avgScore: currentAvg,
+        slaPercent: this.avgSla(currentScores),
+        jobCount: this.sumJobs(currentScores),
+        count: currentScores.length,
+      },
+      lastYear: {
+        period: prevPeriod ?? '-',
+        avgScore: prevAvg,
+        slaPercent: this.avgSla(prevScores),
+        jobCount: this.sumJobs(prevScores),
+        count: prevScores.length,
+      },
       change: currentAvg - prevAvg,
       changePercent: prevAvg > 0 ? ((currentAvg - prevAvg) / prevAvg) * 100 : 0,
     };
@@ -1579,6 +1594,18 @@ export class PerformanceService {
     if (scores.length === 0) return 0;
     const sum = scores.reduce((s, r) => s + (Number(r.totalScore) || 0), 0);
     return Math.round((sum / scores.length) * 100) / 100;
+  }
+
+  // Helper: average SLA compliance from an array of performance records
+  private avgSla(scores: any[]): number {
+    const valid = scores.filter(s => s.slaCompliance != null);
+    if (!valid.length) return 0;
+    return Math.round((valid.reduce((s, r) => s + Number(r.slaCompliance), 0) / valid.length) * 100) / 100;
+  }
+
+  // Helper: total job count from an array of performance records
+  private sumJobs(scores: any[]): number {
+    return scores.reduce((s, r) => s + (Number(r.workVolume) || 0), 0);
   }
 
   // Helper: group scores by technician and compute avg
