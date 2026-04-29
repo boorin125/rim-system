@@ -572,7 +572,7 @@ export default function IncidentsPage() {
                   <th className="hidden lg:table-cell text-left py-3 px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">Job Type</th>
                   <th className="hidden sm:table-cell text-left py-3 px-3 md:px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">Priority</th>
                   <th className="hidden md:table-cell text-left py-3 px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">SLA Result</th>
-                  <th className="hidden md:table-cell text-left py-3 px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">Aging (Days)</th>
+                  <th className="hidden md:table-cell text-left py-3 px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">Aging</th>
                 </tr>
               </thead>
               <tbody>
@@ -580,9 +580,13 @@ export default function IncidentsPage() {
                   const statusBadge = getStatusBadge(incident.status)
 
                   const calculateAging = () => {
-                    if (incident.status === 'CLOSED' || incident.status === 'CANCELLED') return '-'
-                    const diffMs = Math.abs(new Date().getTime() - new Date(incident.createdAt).getTime())
-                    return Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+                    if (incident.status === 'CLOSED' || incident.status === 'CANCELLED') return null
+                    const diffMs = new Date().getTime() - new Date(incident.createdAt).getTime()
+                    const totalMinutes = Math.max(0, Math.floor(diffMs / 60000))
+                    const days = Math.floor(totalMinutes / 1440)
+                    const hours = Math.floor((totalMinutes % 1440) / 60)
+                    const minutes = totalMinutes % 60
+                    return { days, hours, minutes, totalDays: diffMs / 86400000 }
                   }
 
                   const aging = calculateAging()
@@ -666,15 +670,15 @@ export default function IncidentsPage() {
                         })()}
                       </td>
                       <td className="hidden md:table-cell py-4 px-6">
-                        {aging === '-' ? (
+                        {!aging ? (
                           <span className="text-sm text-gray-500">-</span>
                         ) : (
-                          <span className={`text-sm font-semibold ${
-                            (aging as number) > 7 ? 'text-red-400'
-                            : (aging as number) > 3 ? 'text-yellow-400'
+                          <span className={`text-sm font-semibold tabular-nums ${
+                            aging.totalDays > 7 ? 'text-red-400'
+                            : aging.totalDays > 3 ? 'text-yellow-400'
                             : 'text-green-400'
                           }`}>
-                            {aging} {aging === 1 ? 'day' : 'days'}
+                            {aging.days} {aging.days === 1 ? 'Day' : 'Days'} {String(aging.hours).padStart(2, '0')}:{String(aging.minutes).padStart(2, '0')} Hrs.
                           </span>
                         )}
                       </td>
