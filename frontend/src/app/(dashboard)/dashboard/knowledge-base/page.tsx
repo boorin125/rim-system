@@ -226,6 +226,8 @@ export default function KnowledgeBasePage() {
   const [uploadFile, setUploadFile] = useState<File | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+  const [categorySearch, setCategorySearch] = useState('')
+  const [showCatSuggestions, setShowCatSuggestions] = useState(false)
 
   // Feedback state
   const [feedbackComment, setFeedbackComment] = useState('')
@@ -452,6 +454,8 @@ export default function KnowledgeBasePage() {
       setShowUploadModal(false)
       setUploadFile(null)
       setUploadData({ title: '', categoryId: 0, keywords: '', visibleToRoles: [], isPublished: false })
+      setCategorySearch('')
+      setShowCatSuggestions(false)
       fetchArticles()
       fetchStats()
     } catch (err: any) {
@@ -1101,21 +1105,55 @@ export default function KnowledgeBasePage() {
                 />
               </div>
 
-              {/* Category */}
-              <div>
+              {/* Category — live search */}
+              <div className="relative">
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   หมวดหมู่ <span className="text-red-400">*</span>
                 </label>
-                <select
-                  value={uploadData.categoryId}
-                  onChange={(e) => setUploadData(prev => ({ ...prev, categoryId: parseInt(e.target.value) }))}
-                  className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 [&>option]:bg-slate-800 [&>option]:text-white"
-                >
-                  <option value={0}>เลือกหมวดหมู่</option>
-                  {categories.flat.map(cat => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
-                  ))}
-                </select>
+                <input
+                  type="text"
+                  value={categorySearch}
+                  onChange={(e) => {
+                    setCategorySearch(e.target.value)
+                    setUploadData(prev => ({ ...prev, categoryId: 0 }))
+                    setShowCatSuggestions(true)
+                  }}
+                  onFocus={() => setShowCatSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowCatSuggestions(false), 150)}
+                  placeholder="พิมพ์เพื่อค้นหาหมวดหมู่..."
+                  className={`w-full px-4 py-2 bg-slate-800 border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${uploadData.categoryId ? 'border-blue-500' : 'border-slate-600'}`}
+                />
+                {uploadData.categoryId > 0 && (
+                  <span className="absolute right-3 top-[38px] text-xs text-blue-400">✓ เลือกแล้ว</span>
+                )}
+                {showCatSuggestions && (
+                  <div className="absolute z-50 w-full mt-1 bg-slate-800 border border-slate-600 rounded-xl shadow-2xl max-h-48 overflow-y-auto">
+                    {(categorySearch
+                      ? categories.flat.filter(c => c.name.toLowerCase().includes(categorySearch.toLowerCase()))
+                      : categories.flat
+                    ).length > 0 ? (
+                      (categorySearch
+                        ? categories.flat.filter(c => c.name.toLowerCase().includes(categorySearch.toLowerCase()))
+                        : categories.flat
+                      ).map(cat => (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          onMouseDown={() => {
+                            setUploadData(prev => ({ ...prev, categoryId: cat.id }))
+                            setCategorySearch(cat.name)
+                            setShowCatSuggestions(false)
+                          }}
+                          className="w-full text-left px-4 py-2.5 hover:bg-slate-700 text-white text-sm first:rounded-t-xl last:rounded-b-xl transition-colors"
+                        >
+                          {cat.name}
+                        </button>
+                      ))
+                    ) : (
+                      <p className="px-4 py-3 text-sm text-gray-500">ไม่พบหมวดหมู่</p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Keywords */}
