@@ -71,8 +71,9 @@ export class UsersController {
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateUserDto: UpdateUserDto,
+    @Request() req,
   ) {
-    return this.usersService.update(id, updateUserDto);
+    return this.usersService.update(id, updateUserDto, req.user);
   }
 
   @Post(':id/change-password')
@@ -102,8 +103,9 @@ export class UsersController {
   updateStatus(
     @Param('id', ParseIntPipe) id: number,
     @Body('status') status: UserStatus,
+    @Request() req,
   ) {
-    return this.usersService.updateStatus(id, status);
+    return this.usersService.updateStatus(id, status, req.user);
   }
 
   @Post(':id/update-roles')

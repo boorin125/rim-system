@@ -45,6 +45,27 @@ export class UsersService {
   }
 
   /**
+   * IT_MANAGER cannot modify another IT_MANAGER (or SUPER_ADMIN).
+   * SUPER_ADMIN has no such restriction.
+   */
+  private async checkNotPeerManager(targetId: number, currentUserRoles: string[]) {
+    if (currentUserRoles.includes('SUPER_ADMIN')) return;
+
+    const targetRoles = await this.prisma.userRoleAssignment.findMany({
+      where: { userId: targetId },
+      select: { role: true },
+    });
+    const hasManagerRole = targetRoles.some(
+      (r) => r.role === UserRole.IT_MANAGER || r.role === UserRole.SUPER_ADMIN,
+    );
+    if (hasManagerRole) {
+      throw new ForbiddenException(
+        'IT Manager ไม่มีสิทธิ์แก้ไขหรือเปลี่ยนสถานะ IT Manager / Super Admin คนอื่น',
+      );
+    }
+  }
+
+  /**
    * Create a new user (from registration)
    */
   async create(dto: CreateUserDto) {
@@ -218,12 +239,20 @@ export class UsersService {
   /**
    * Update user basic info (not roles)
    */
-  async update(id: number, dto: UpdateUserDto) {
+  async update(id: number, dto: UpdateUserDto, currentUser?: any) {
     // Check if user exists
     await this.findOne(id);
 
     // Check if user is protected
     await this.checkProtectedUser(id, 'update');
+
+    // IT_MANAGER cannot edit another IT_MANAGER / SUPER_ADMIN
+    if (currentUser) {
+      const currentUserRoles: string[] = Array.isArray(currentUser.roles)
+        ? currentUser.roles
+        : [currentUser.role];
+      await this.checkNotPeerManager(id, currentUserRoles);
+    }
 
     // If email is being updated, check if it's already taken
     if (dto.email) {
@@ -301,10 +330,16 @@ export class UsersService {
       : [currentUser.role];
     const isSuperAdmin = currentUserRoles.includes('SUPER_ADMIN');
 
+    // IT_MANAGER cannot edit another IT_MANAGER / SUPER_ADMIN
+    await this.checkNotPeerManager(id, currentUserRoles);
+
     // IT_MANAGER cannot assign SUPER_ADMIN role
     if (!isSuperAdmin && dto.roles.includes('SUPER_ADMIN')) {
       throw new BadRequestException('You do not have permission to assign Super Admin role');
     }
+
+    // Deduplicate roles to prevent unique-constraint 500 errors
+    const uniqueRoles = [...new Set(dto.roles)];
 
     // Delete all existing roles and create new ones, also activate user
     await this.prisma.$transaction(async (tx) => {
@@ -315,7 +350,7 @@ export class UsersService {
 
       // Create new roles
       await tx.userRoleAssignment.createMany({
-        data: dto.roles.map((role) => ({
+        data: uniqueRoles.map((role) => ({
           userId: id,
           role: role as UserRole,
         })),
@@ -481,11 +516,19 @@ export class UsersService {
   /**
    * Update user status
    */
-  async updateStatus(id: number, status: UserStatus) {
+  async updateStatus(id: number, status: UserStatus, currentUser?: any) {
     await this.findOne(id);
 
     // Check if user is protected
     await this.checkProtectedUser(id, 'change status of');
+
+    // IT_MANAGER cannot change status of another IT_MANAGER / SUPER_ADMIN
+    if (currentUser) {
+      const currentUserRoles: string[] = Array.isArray(currentUser.roles)
+        ? currentUser.roles
+        : [currentUser.role];
+      await this.checkNotPeerManager(id, currentUserRoles);
+    }
 
     const user = await this.prisma.user.update({
       where: { id },

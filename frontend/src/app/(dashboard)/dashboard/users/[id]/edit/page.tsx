@@ -108,6 +108,18 @@ const [allProvinces, setAllProvinces] = useState<string[]>([])
     fetchProvinces()
   }, [userId, router])
 
+  // After fetching target user — block IT_MANAGER from editing another IT_MANAGER / SUPER_ADMIN
+  useEffect(() => {
+    if (!userData || !currentUser) return
+    const myRoles = Array.isArray(currentUser.roles) ? currentUser.roles : [currentUser.role]
+    if (myRoles.includes('SUPER_ADMIN')) return
+    const targetRoles = Array.isArray(userData.roles) ? userData.roles : []
+    if (targetRoles.some((r: string) => ['IT_MANAGER', 'SUPER_ADMIN'].includes(r))) {
+      toast.error('IT Manager ไม่มีสิทธิ์แก้ไข IT Manager / Super Admin คนอื่น')
+      router.push(`/dashboard/users/${userId}`)
+    }
+  }, [userData, currentUser, userId, router])
+
   const fetchProvinces = async () => {
     try {
       const token = localStorage.getItem('token')

@@ -203,7 +203,11 @@ export default function UserDetailPage() {
 
   // Support both single role and multi-roles
   const userRoles = Array.isArray(currentUser?.roles) ? currentUser.roles : [currentUser?.role]
+  const isSuperAdmin = userRoles.includes('SUPER_ADMIN')
   const canManageUsers = userRoles.some((r: string) => ['SUPER_ADMIN', 'IT_MANAGER'].includes(r))
+  // IT_MANAGER cannot edit/change-status of another IT_MANAGER or SUPER_ADMIN
+  const targetHasManagerRole = user?.roles?.some((r: string) => ['IT_MANAGER', 'SUPER_ADMIN'].includes(r))
+  const canModifyTarget = isSuperAdmin || !targetHasManagerRole
 
   if (isLoading) {
     return (
@@ -477,18 +481,20 @@ export default function UserDetailPage() {
             <div className="glass-card p-6 rounded-2xl">
               <h3 className="text-lg font-semibold text-white mb-4">Quick Actions</h3>
               <div className="space-y-3">
-                {/* Edit User — always first */}
-                <button
-                  onClick={() => router.push(`/dashboard/users/${userId}/edit`)}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 hover:brightness-110 text-white rounded-xl transition-colors"
-                  style={{ backgroundColor: themeHighlight }}
-                >
-                  <Edit className="w-5 h-5" />
-                  Edit User
-                </button>
+                {/* Edit User */}
+                {canModifyTarget && (
+                  <button
+                    onClick={() => router.push(`/dashboard/users/${userId}/edit`)}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 hover:brightness-110 text-white rounded-xl transition-colors"
+                    style={{ backgroundColor: themeHighlight }}
+                  >
+                    <Edit className="w-5 h-5" />
+                    Edit User
+                  </button>
+                )}
 
                 {/* Approve User - for PENDING status */}
-                {user.status === 'PENDING' && (
+                {canModifyTarget && user.status === 'PENDING' && (
                   <button
                     onClick={() => handleUpdateStatus('ACTIVE')}
                     className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-colors"
@@ -497,7 +503,7 @@ export default function UserDetailPage() {
                     Approve User
                   </button>
                 )}
-                {user.status === 'LOCKED' && (
+                {canModifyTarget && user.status === 'LOCKED' && (
                   <button
                     onClick={handleUnlockAccount}
                     className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl transition-colors"
@@ -506,7 +512,7 @@ export default function UserDetailPage() {
                     Unlock Account
                   </button>
                 )}
-                {(user.status === 'SUSPENDED' || user.status === 'INACTIVE') && (
+                {canModifyTarget && (user.status === 'SUSPENDED' || user.status === 'INACTIVE') && (
                   <button
                     onClick={() => {
                       if (confirm(`ต้องการเปิดใช้งาน Account ของ "${user.firstName} ${user.lastName}" หรือไม่?`))
@@ -519,8 +525,8 @@ export default function UserDetailPage() {
                   </button>
                 )}
 
-                {/* Disable User — last, grey */}
-                {user.status === 'ACTIVE' && user.id !== currentUser?.id && (
+                {/* Disable User */}
+                {canModifyTarget && user.status === 'ACTIVE' && user.id !== currentUser?.id && (
                   <button
                     onClick={() => {
                       if (confirm(`ต้องการปิดใช้งาน Account ของ "${user.firstName} ${user.lastName}" หรือไม่?`))
