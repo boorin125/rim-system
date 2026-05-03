@@ -373,20 +373,37 @@ export default function UpdateResolveModal({
 
       for (let i = 0; i < spareParts.length; i++) {
         const part = spareParts[i];
-        if (!part.oldDeviceName?.trim()) {
-          return `Spare part #${i + 1}: Old Device Name is required`;
-        }
-        if (!part.oldSerialNo?.trim()) {
-          return `Spare part #${i + 1}: Old Serial Number is required`;
-        }
-        if (!part.newDeviceName?.trim()) {
-          return `Spare part #${i + 1}: New Device Name is required`;
-        }
-        if (!part.newSerialNo?.trim()) {
-          return `Spare part #${i + 1}: New Serial Number is required`;
-        }
-        if (!part.replacementType) {
-          return `Spare part #${i + 1}: Replacement Type is required`;
+        const n = i + 1;
+
+        if (part.repairType === 'COMPONENT_REPLACEMENT') {
+          if (!part.parentEquipmentName?.trim()) {
+            return `Spare part #${n}: Parent Equipment (อุปกรณ์หลัก) is required`;
+          }
+          if (!part.componentName?.trim()) {
+            return `Spare part #${n}: ชื่อชิ้นส่วน is required`;
+          }
+          if (!part.oldComponentSerial?.trim()) {
+            return `Spare part #${n}: Serial เดิม is required`;
+          }
+          if (!part.newComponentSerial?.trim()) {
+            return `Spare part #${n}: Serial ใหม่ is required`;
+          }
+        } else {
+          if (!part.oldDeviceName?.trim()) {
+            return `Spare part #${n}: Old Device Name is required`;
+          }
+          if (!part.oldSerialNo?.trim()) {
+            return `Spare part #${n}: Old Serial Number is required`;
+          }
+          if (!part.newDeviceName?.trim()) {
+            return `Spare part #${n}: New Device Name is required`;
+          }
+          if (!part.newSerialNo?.trim()) {
+            return `Spare part #${n}: New Serial Number is required`;
+          }
+          if (!part.replacementType) {
+            return `Spare part #${n}: Replacement Type is required`;
+          }
         }
       }
     }
