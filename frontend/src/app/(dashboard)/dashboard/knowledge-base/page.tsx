@@ -228,6 +228,7 @@ export default function KnowledgeBasePage() {
   const [isUploading, setIsUploading] = useState(false)
   const [categorySearch, setCategorySearch] = useState('')
   const [showCatSuggestions, setShowCatSuggestions] = useState(false)
+  const [maCategories, setMaCategories] = useState<string[]>([])
 
   // Feedback state
   const [feedbackComment, setFeedbackComment] = useState('')
@@ -307,6 +308,29 @@ export default function KnowledgeBasePage() {
       setPopularArticles(res.data)
     } catch (err) {
       console.error('Error fetching popular articles:', err)
+    }
+  }, [])
+
+  // Fetch MA job type categories for upload modal live search
+  const fetchMaCategories = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const jobTypesRes = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/categories/job-types/all`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      const maJobType = jobTypesRes.data.find(
+        (jt: any) => jt.name?.toLowerCase().includes('ma') || jt.name?.toLowerCase().includes('maintenance')
+      )
+      if (!maJobType) return
+      const catRes = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/categories?jobTypeId=${maJobType.id}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      const catList: any[] = Array.isArray(catRes.data) ? catRes.data : catRes.data?.data ?? []
+      setMaCategories(catList.map((c: any) => c.name).filter(Boolean))
+    } catch (err) {
+      console.error('Error fetching MA categories:', err)
     }
   }, [])
 
@@ -432,7 +456,7 @@ export default function KnowledgeBasePage() {
   const handleUploadDocument = async () => {
     if (!uploadFile) { toast.error('กรุณาเลือกไฟล์'); return }
     if (!uploadData.title.trim()) { toast.error('กรุณาระบุชื่อเอกสาร'); return }
-    if (!uploadData.categoryId) { toast.error('กรุณาเลือกหมวดหมู่'); return }
+    if (!categorySearch.trim()) { toast.error('กรุณาระบุหมวดหมู่'); return }
 
     setIsUploading(true)
     try {
@@ -440,7 +464,7 @@ export default function KnowledgeBasePage() {
       const form = new FormData()
       form.append('file', uploadFile)
       form.append('title', uploadData.title.trim())
-      form.append('categoryId', String(uploadData.categoryId))
+      form.append('categoryName', categorySearch.trim())
       form.append('keywords', uploadData.keywords)
       form.append('isPublished', String(uploadData.isPublished))
       uploadData.visibleToRoles.forEach(r => form.append('visibleToRoles', r))
@@ -456,6 +480,7 @@ export default function KnowledgeBasePage() {
       setUploadData({ title: '', categoryId: 0, keywords: '', visibleToRoles: [], isPublished: false })
       setCategorySearch('')
       setShowCatSuggestions(false)
+      setMaCategories([])
       fetchArticles()
       fetchStats()
     } catch (err: any) {
@@ -595,7 +620,7 @@ export default function KnowledgeBasePage() {
           )}
           {canCreate && (
             <button
-              onClick={() => setShowUploadModal(true)}
+              onClick={() => { setShowUploadModal(true); fetchMaCategories() }}
               className="flex items-center gap-2 px-4 py-2 text-white rounded-lg transition-colors hover:brightness-110"
               style={{ backgroundColor: themeHighlight }}
             >
@@ -1105,7 +1130,7 @@ export default function KnowledgeBasePage() {
                 />
               </div>
 
-              {/* Category — live search */}
+              {/* Category — live search from MA categories */}
               <div className="relative">
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   หมวดหมู่ <span className="text-red-400">*</span>
@@ -1115,43 +1140,31 @@ export default function KnowledgeBasePage() {
                   value={categorySearch}
                   onChange={(e) => {
                     setCategorySearch(e.target.value)
-                    setUploadData(prev => ({ ...prev, categoryId: 0 }))
                     setShowCatSuggestions(true)
                   }}
                   onFocus={() => setShowCatSuggestions(true)}
                   onBlur={() => setTimeout(() => setShowCatSuggestions(false), 150)}
-                  placeholder="พิมพ์เพื่อค้นหาหมวดหมู่..."
-                  className={`w-full px-4 py-2 bg-slate-800 border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${uploadData.categoryId ? 'border-blue-500' : 'border-slate-600'}`}
+                  placeholder="พิมพ์หมวดหมู่..."
+                  className={`w-full px-4 py-2 bg-slate-800 border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${categorySearch.trim() ? 'border-blue-500' : 'border-slate-600'}`}
                 />
-                {uploadData.categoryId > 0 && (
-                  <span className="absolute right-3 top-[38px] text-xs text-blue-400">✓ เลือกแล้ว</span>
-                )}
-                {showCatSuggestions && (
+                {showCatSuggestions && maCategories.length > 0 && (
                   <div className="absolute z-50 w-full mt-1 bg-slate-800 border border-slate-600 rounded-xl shadow-2xl max-h-48 overflow-y-auto">
                     {(categorySearch
-                      ? categories.flat.filter(c => c.name.toLowerCase().includes(categorySearch.toLowerCase()))
-                      : categories.flat
-                    ).length > 0 ? (
-                      (categorySearch
-                        ? categories.flat.filter(c => c.name.toLowerCase().includes(categorySearch.toLowerCase()))
-                        : categories.flat
-                      ).map(cat => (
-                        <button
-                          key={cat.id}
-                          type="button"
-                          onMouseDown={() => {
-                            setUploadData(prev => ({ ...prev, categoryId: cat.id }))
-                            setCategorySearch(cat.name)
-                            setShowCatSuggestions(false)
-                          }}
-                          className="w-full text-left px-4 py-2.5 hover:bg-slate-700 text-white text-sm first:rounded-t-xl last:rounded-b-xl transition-colors"
-                        >
-                          {cat.name}
-                        </button>
-                      ))
-                    ) : (
-                      <p className="px-4 py-3 text-sm text-gray-500">ไม่พบหมวดหมู่</p>
-                    )}
+                      ? maCategories.filter(n => n.toLowerCase().includes(categorySearch.toLowerCase()))
+                      : maCategories
+                    ).map(name => (
+                      <button
+                        key={name}
+                        type="button"
+                        onMouseDown={() => {
+                          setCategorySearch(name)
+                          setShowCatSuggestions(false)
+                        }}
+                        className="w-full text-left px-4 py-2.5 hover:bg-slate-700 text-white text-sm first:rounded-t-xl last:rounded-b-xl transition-colors"
+                      >
+                        {name}
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>

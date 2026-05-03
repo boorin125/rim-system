@@ -321,13 +321,14 @@ export class KnowledgeBaseController {
     @UploadedFile() file: Express.Multer.File,
     @Body('title') title: string,
     @Body('categoryId') categoryId: string,
+    @Body('categoryName') categoryName: string,
     @Body('keywords') keywords: string,
     @Body('visibleToRoles') visibleToRoles: string | string[],
     @Body('isPublished') isPublished: string,
   ) {
     if (!file) throw new BadRequestException('ไม่พบไฟล์ที่อัพโหลด');
     if (!title?.trim()) throw new BadRequestException('กรุณาระบุชื่อเอกสาร');
-    if (!categoryId) throw new BadRequestException('กรุณาเลือกหมวดหมู่');
+    if (!categoryId && !categoryName?.trim()) throw new BadRequestException('กรุณาเลือกหมวดหมู่');
 
     const fileType = ALLOWED_MIME[file.mimetype];
     const filePath = `kb/${file.filename}`;
@@ -347,7 +348,8 @@ export class KnowledgeBaseController {
     return this.kbService.createDocument(req.user.id, {
       title: title.trim(),
       slug,
-      categoryId: parseInt(categoryId, 10),
+      categoryId: categoryId ? parseInt(categoryId, 10) : 0,
+      categoryName: categoryName?.trim(),
       keywords: keywordList,
       visibleToRoles: roles,
       isPublished: isPublished === 'true',

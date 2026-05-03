@@ -580,6 +580,7 @@ export class KnowledgeBaseService {
       title: string;
       slug: string;
       categoryId: number;
+      categoryName?: string;
       keywords: string[];
       visibleToRoles: UserRole[];
       isPublished: boolean;
@@ -593,14 +594,30 @@ export class KnowledgeBaseService {
     const existing = await this.prisma.knowledgeArticle.findUnique({ where: { slug } });
     if (existing) slug = `${slug}-${Date.now()}`;
 
-    const category = await this.prisma.knowledgeCategory.findUnique({
-      where: { id: data.categoryId },
-    });
-    if (!category) throw new NotFoundException(`Category not found: ${data.categoryId}`);
+    let resolvedCategoryId = data.categoryId;
+
+    if (data.categoryName && (!data.categoryId || data.categoryId === 0)) {
+      // Find or create KB category by name
+      let cat = await this.prisma.knowledgeCategory.findFirst({
+        where: { name: { equals: data.categoryName, mode: 'insensitive' } },
+      });
+      if (!cat) {
+        const catSlug = this.generateSlug(data.categoryName) + '-' + Date.now();
+        cat = await this.prisma.knowledgeCategory.create({
+          data: { name: data.categoryName, slug: catSlug, isActive: true, sortOrder: 0 },
+        });
+      }
+      resolvedCategoryId = cat.id;
+    } else {
+      const category = await this.prisma.knowledgeCategory.findUnique({
+        where: { id: data.categoryId },
+      });
+      if (!category) throw new NotFoundException(`Category not found: ${data.categoryId}`);
+    }
 
     return this.prisma.knowledgeArticle.create({
       data: {
-        categoryId: data.categoryId,
+        categoryId: resolvedCategoryId,
         title: data.title,
         slug,
         content: null,

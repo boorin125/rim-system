@@ -1686,6 +1686,38 @@ SLA Breach Time: ${slaBreachText}`
             )}
           </div>
 
+          {/* Row 6: Devices */}
+          {incident.equipmentList?.length > 0 && (
+            <div className="pb-6 border-b border-gray-700/50">
+              <p className="text-sm text-gray-400 mb-2">
+                อุปกรณ์ที่เกี่ยวข้อง
+                {incident.equipmentList.length > 1 && (
+                  <span className="ml-2 text-xs bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded-full">
+                    {incident.equipmentList.length} รายการ
+                  </span>
+                )}
+              </p>
+              <div className="flex flex-col gap-2">
+                {incident.equipmentList.map((eq: any) => (
+                  <div
+                    key={eq.id}
+                    className="flex items-center gap-3 px-3 py-2 bg-slate-700/30 border border-slate-600/40 rounded-lg"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-medium text-sm truncate">{eq.name}</p>
+                      <p className="text-gray-400 text-xs mt-0.5">
+                        {[eq.category, eq.brand, eq.model].filter(Boolean).join(' · ')}
+                        {eq.serialNumber && (
+                          <span className="ml-2 font-mono text-gray-500">S/N: {eq.serialNumber}</span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Row 7: Incident Date + Created Date + SLA Breach Time + Last Updated */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Incident Date - วันที่ลูกค้าแจ้ง */}

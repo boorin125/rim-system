@@ -40,11 +40,13 @@ export default function NotificationBell() {
   });
   const prevUnreadRef = useRef<number | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const hasUserInteracted = useRef(false);
 
-  const playNotificationSound = () => {
+  const playNotificationSound = async () => {
     try {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       const ctx = new AudioCtx();
+      await ctx.resume();
       [0, 0.15, 0.3].forEach((t, i) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
@@ -71,8 +73,7 @@ export default function NotificationBell() {
 
   const vibrateDevice = () => {
     try {
-      if ('vibrate' in navigator) {
-        // Double-pulse pattern: vibrate 200ms, pause 100ms, vibrate 200ms
+      if (hasUserInteracted.current && 'vibrate' in navigator) {
         navigator.vibrate([200, 100, 200]);
       }
     } catch { /* browser blocked vibration */ }
@@ -86,6 +87,18 @@ export default function NotificationBell() {
       return next;
     });
   };
+
+  useEffect(() => {
+    const setInteracted = () => { hasUserInteracted.current = true; };
+    window.addEventListener('click', setInteracted, { once: true });
+    window.addEventListener('keydown', setInteracted, { once: true });
+    window.addEventListener('touchstart', setInteracted, { once: true });
+    return () => {
+      window.removeEventListener('click', setInteracted);
+      window.removeEventListener('keydown', setInteracted);
+      window.removeEventListener('touchstart', setInteracted);
+    };
+  }, []);
 
   useEffect(() => {
     fetchUnreadCount();

@@ -1213,13 +1213,30 @@ export class IncidentsService {
     if (this.hasOnlyRole(user, UserRole.TECHNICIAN)) {
       const isAssigned = incident.assignees?.some(a => a.user.id === user.id) || incident.assigneeId === user.id;
       if (!isAssigned) {
-        throw new ForbiddenException(
-          'คุณสามารถดูได้เฉพาะ Incident ที่ได้รับมอบหมายเท่านั้น',
-        );
+        throw new ForbiddenException('คุณสามารถดูได้เฉพาะ Incident ที่ได้รับมอบหมายเท่านั้น');
       }
     }
 
-    return incident;
+    // Resolve equipmentIds to full equipment objects
+    let equipmentList: any[] = [];
+    if (incident.equipmentIds?.length > 0) {
+      equipmentList = await this.prisma.equipment.findMany({
+        where: { id: { in: incident.equipmentIds } },
+        select: { id: true, name: true, serialNumber: true, category: true, brand: true, model: true },
+        orderBy: { name: 'asc' },
+      });
+    } else if (incident.equipment) {
+      equipmentList = [{
+        id: incident.equipment.id,
+        name: incident.equipment.name,
+        serialNumber: incident.equipment.serialNumber,
+        category: incident.equipment.category,
+        brand: incident.equipment.brand,
+        model: incident.equipment.model,
+      }];
+    }
+
+    return { ...incident, equipmentList };
   }
 
   /**
