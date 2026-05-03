@@ -562,9 +562,9 @@ export class BackupService {
       knowledge_article_usages: () => this.prisma.knowledgeArticleUsage.findMany(wc()),
       // Incidents & related (createdAt + updatedAt)
       incidents: () => this.prisma.incident.findMany(w()),
-      incident_assignees: () => this.prisma.incidentAssignee.findMany(
-        s ? { where: { assignedAt: { gt: s } } } : {},
-      ),
+      incident_assignees: () => this.prisma.incidentAssignee.findMany({
+        where: s ? { assignedAt: { gt: s } } : undefined,
+      }),
       incident_reassignments: () => this.prisma.incidentReassignment.findMany(wc()),
       incident_ratings: () => this.prisma.incidentRating.findMany(w()),
       sla_defenses: () => this.prisma.slaDefense.findMany(wc()),
