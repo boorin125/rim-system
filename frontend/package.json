@@ -1,6 +1,6 @@
 {
   "name": "rim-frontend",
-  "version": "1.0.0",
+  "version": "1.0.5",
   "description": "RIM System - Rubjobb Incident Management Frontend",
   "private": true,
   "scripts": {
