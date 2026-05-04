@@ -198,12 +198,14 @@ export default function IncidentDetailPage() {
   }, [])
 
 
-  // Fetch KB articles when incident loads
+  // Fetch KB articles when incident loads — use incident.category, fallback to first equipment category
   useEffect(() => {
-    if (incident?.category) {
-      fetchKbArticles(incident.category, incident.title || '')
+    const cat = incident?.category ||
+      (incident?.equipmentList?.length > 0 ? incident.equipmentList[0].category : null)
+    if (cat) {
+      fetchKbArticles(cat, incident.title || '')
     }
-  }, [incident?.id, incident?.category])
+  }, [incident?.id, incident?.category, incident?.equipmentList])
 
   const fetchIncident = async () => {
     try {
@@ -243,7 +245,8 @@ export default function IncidentDetailPage() {
   const buildKbFileUrl = (filePath: string) =>
     `${(process.env.NEXT_PUBLIC_API_URL || '').replace(/\/api$/, '')}/uploads/${filePath}`
 
-  const fetchKbArticles = async (incidentCategory: string, incidentTitle: string) => {
+  const fetchKbArticles = async (incidentCategory: string | null | undefined, incidentTitle: string) => {
+    if (!incidentCategory) { setKbArticles([]); return }
     try {
       setKbLoading(true)
       const token = localStorage.getItem('token')
@@ -1787,7 +1790,7 @@ SLA Breach Time: ${slaBreachText}`
           )}
 
           {/* Row 6b: Related Knowledge Base */}
-          {incident.category && (kbLoading || kbArticles.length > 0) && (
+          {(kbLoading || kbArticles.length > 0) && (
             <div className="pb-6 border-b border-gray-700/50">
               <div className="flex items-center gap-2 mb-2">
                 <BookOpen className="w-4 h-4 text-blue-400" />
