@@ -1086,34 +1086,92 @@ export default function KnowledgeBasePage() {
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
+              <div className="divide-y divide-slate-700/50">
                 {articles.map((article) => (
                   <div
                     key={article.id}
                     onClick={() => article.fileType ? openFileViewer(article) : viewArticle(article)}
-                    className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 hover:border-blue-500/50 transition-colors group flex flex-col cursor-pointer"
+                    className="flex items-center gap-4 px-4 py-3 hover:bg-slate-700/30 transition-colors group cursor-pointer"
                   >
-                    {/* Top row: category + file type badge + draft + actions */}
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded-full">
-                          {article.category.name}
-                        </span>
-                        {article.fileType && (() => {
-                          const { label, color, bg, Icon } = getFileTypeInfo(article.fileType)
-                          return (
-                            <span className={`flex items-center gap-1 px-2 py-0.5 border rounded-full text-xs ${color} ${bg}`}>
-                              <Icon className="w-3 h-3" />
-                              {label}
-                            </span>
-                          )
-                        })()}
-                        {!article.isPublished && (
-                          <span className="px-2 py-0.5 bg-yellow-500/20 text-yellow-400 text-xs rounded-full">
-                            Draft
+                    {/* Left: title + subtitle */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-medium truncate">{article.title}</p>
+                      <p className="text-xs text-gray-500 truncate mt-0.5">
+                        {article.fileType ? formatFileSize(article.fileSize) : (article.summary || '')}
+                      </p>
+                    </div>
+
+                    {/* Right: badges + buttons + date */}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {/* Category + type badges */}
+                      <span className="hidden sm:inline px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded-full">
+                        {article.category.name}
+                      </span>
+                      {article.fileType && (() => {
+                        const { label, color, bg, Icon } = getFileTypeInfo(article.fileType)
+                        return (
+                          <span className={`hidden sm:flex items-center gap-1 px-2 py-0.5 border rounded-full text-xs ${color} ${bg}`}>
+                            <Icon className="w-3 h-3" />
+                            {label}
                           </span>
-                        )}
-                      </div>
+                        )
+                      })()}
+                      {!article.isPublished && (
+                        <span className="px-2 py-0.5 bg-yellow-500/20 text-yellow-400 text-xs rounded-full">
+                          Draft
+                        </span>
+                      )}
+
+                      {/* Action buttons */}
+                      {article.fileType ? (
+                        <>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); openFileViewer(article) }}
+                            className="flex items-center gap-1 px-2.5 py-1 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30 transition-colors text-xs"
+                          >
+                            <Eye className="w-3 h-3" />
+                            เปิดดู
+                          </button>
+                          <a
+                            href={article.filePath ? buildFileUrl(article.filePath) : '#'}
+                            download
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex items-center gap-1 px-2.5 py-1 bg-slate-700/50 text-gray-300 rounded-lg hover:bg-slate-700 transition-colors text-xs"
+                          >
+                            <Download className="w-3 h-3" />
+                            ดาวน์โหลด
+                          </a>
+                        </>
+                      ) : (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); viewArticle(article) }}
+                          className="flex items-center gap-1 px-2.5 py-1 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30 transition-colors text-xs"
+                        >
+                          <Eye className="w-3 h-3" />
+                          อ่าน
+                        </button>
+                      )}
+                      {canEdit && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleTogglePublish(article) }}
+                          className={`hidden sm:block px-2.5 py-1 rounded-lg text-xs transition-colors ${
+                            article.isPublished
+                              ? 'bg-green-500/20 text-green-400 hover:bg-red-500/20 hover:text-red-400'
+                              : 'bg-yellow-500/20 text-yellow-400 hover:bg-green-500/20 hover:text-green-400'
+                          }`}
+                          title={article.isPublished ? 'คลิกเพื่อยกเลิกเผยแพร่' : 'คลิกเพื่อเผยแพร่'}
+                        >
+                          {article.isPublished ? 'เผยแพร่แล้ว' : 'Draft'}
+                        </button>
+                      )}
+
+                      {/* Date */}
+                      <span className="hidden md:flex items-center gap-1 text-xs text-gray-500 w-24 justify-end">
+                        <Clock className="w-3 h-3 flex-shrink-0" />
+                        {formatDate(article.publishedAt || article.createdAt)}
+                      </span>
+
+                      {/* Edit / Delete icons */}
                       {(canEdit || canDelete) && (
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           {canEdit && (
@@ -1136,69 +1194,6 @@ export default function KnowledgeBasePage() {
                           )}
                         </div>
                       )}
-                    </div>
-
-                    {/* Title */}
-                    <h3 className="text-white font-semibold mb-2 line-clamp-2 flex-1">
-                      {article.title}
-                    </h3>
-
-                    {/* File size or summary */}
-                    {article.fileType ? (
-                      <p className="text-xs text-gray-500 mb-3">{formatFileSize(article.fileSize)}</p>
-                    ) : article.summary ? (
-                      <p className="text-sm text-gray-400 line-clamp-2 mb-3">{article.summary}</p>
-                    ) : null}
-
-                    {/* Actions row */}
-                    <div className="flex items-center justify-between text-xs text-gray-500 mt-auto">
-                      <div className="flex items-center gap-2">
-                        {article.fileType ? (
-                          <>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); openFileViewer(article) }}
-                              className="flex items-center gap-1 px-2.5 py-1 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30 transition-colors"
-                            >
-                              <Eye className="w-3 h-3" />
-                              เปิดดู
-                            </button>
-                            <a
-                              href={article.filePath ? buildFileUrl(article.filePath) : '#'}
-                              download
-                              onClick={(e) => e.stopPropagation()}
-                              className="flex items-center gap-1 px-2.5 py-1 bg-slate-700/50 text-gray-300 rounded-lg hover:bg-slate-700 transition-colors"
-                            >
-                              <Download className="w-3 h-3" />
-                              ดาวน์โหลด
-                            </a>
-                          </>
-                        ) : (
-                          <button
-                            onClick={() => viewArticle(article)}
-                            className="flex items-center gap-1 px-2.5 py-1 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30 transition-colors"
-                          >
-                            <Eye className="w-3 h-3" />
-                            อ่านบทความ
-                          </button>
-                        )}
-                        {canEdit && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleTogglePublish(article) }}
-                            className={`px-2.5 py-1 rounded-lg text-xs transition-colors ${
-                              article.isPublished
-                                ? 'bg-green-500/20 text-green-400 hover:bg-red-500/20 hover:text-red-400'
-                                : 'bg-yellow-500/20 text-yellow-400 hover:bg-green-500/20 hover:text-green-400'
-                            }`}
-                            title={article.isPublished ? 'คลิกเพื่อยกเลิกเผยแพร่' : 'คลิกเพื่อเผยแพร่'}
-                          >
-                            {article.isPublished ? 'เผยแพร่แล้ว' : 'Draft'}
-                          </button>
-                        )}
-                      </div>
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {formatDate(article.publishedAt || article.createdAt)}
-                      </span>
                     </div>
                   </div>
                 ))}
