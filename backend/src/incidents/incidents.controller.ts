@@ -12,6 +12,7 @@ import {
   UseGuards,
   Request,
   Query,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { IncidentsService } from './incidents.service';
 import { CreateIncidentDto } from './dto/create-incident.dto';
@@ -304,6 +305,22 @@ export class IncidentsController {
     @Request() req,
   ) {
     return this.incidentsService.addBeforePhotos(id, beforePhotos, req.user.id);
+  }
+
+  /**
+   * Delete a single before photo by index
+   * Access: TECHNICIAN (assigned), IT_MANAGER, SUPERVISOR
+   * Allowed while not CONFIRMED / CLOSED / CANCELLED
+   */
+  @Delete(':id/before-photos/:photoIndex')
+  @Roles(UserRole.TECHNICIAN, UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK)
+  deleteBeforePhoto(
+    @Param('id') id: string,
+    @Param('photoIndex', ParseIntPipe) photoIndex: number,
+    @Request() req,
+  ) {
+    const userRole = (Array.isArray(req.user.roles) ? req.user.roles[0] : req.user.role) as UserRole;
+    return this.incidentsService.deleteBeforePhoto(id, photoIndex, req.user.id, userRole);
   }
 
   /**

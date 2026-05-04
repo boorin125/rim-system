@@ -18,6 +18,7 @@ import {
   Tag,
   UserPlus,
   Camera,
+  Trash2,
   CheckCircle,
   Edit3,
   MapPin,
@@ -390,7 +391,7 @@ export default function IncidentDetailPage() {
 
   /**
    * Handle Add More Before Photos
-   * Only when IN_PROGRESS and photos < 5
+   * IN_PROGRESS or RESOLVED, photos < 5
    */
   const handleAddBeforePhotos = async (photos: string[]) => {
     try {
@@ -405,11 +406,28 @@ export default function IncidentDetailPage() {
       )
 
       toast.success(`เพิ่มรูปก่อนทำสำเร็จ ${photos.length} รูป`)
-      await fetchIncident() // Refresh incident data
+      await fetchIncident()
       setTimeout(() => photosRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'ไม่สามารถเพิ่มรูปได้')
       throw error
+    }
+  }
+
+  /**
+   * Handle Delete Before Photo by index
+   */
+  const handleDeleteBeforePhoto = async (photoIndex: number) => {
+    try {
+      const token = localStorage.getItem('token')
+      await axios.delete(
+        `${process.env.NEXT_PUBLIC_API_URL}/incidents/${params.id}/before-photos/${photoIndex}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      toast.success('ลบรูปก่อนทำสำเร็จ')
+      await fetchIncident()
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'ไม่สามารถลบรูปได้')
     }
   }
 
@@ -1013,13 +1031,18 @@ SLA Breach Time: ${slaBreachText}`
     isAssignedToMe &&
     (!isPmIncident || (!!pmPerformedAt && pmSigned))  // PM: must Submit PM + sign/upload doc
 
-  // Add Before Photos - TECHNICIAN ที่ถูก assign, สถานะ IN_PROGRESS, รูปยังไม่ครบ 5
+  // Add Before Photos - TECHNICIAN ที่ถูก assign, สถานะ IN_PROGRESS หรือ RESOLVED, รูปยังไม่ครบ 5
   const currentBeforePhotosCount = incident?.beforePhotos?.length || 0
   const canAddBeforePhotos =
-    incident?.status === 'IN_PROGRESS' &&
+    (incident?.status === 'IN_PROGRESS' || incident?.status === 'RESOLVED') &&
     hasTechnicianRole &&
     isAssignedToMe &&
     currentBeforePhotosCount < 5
+
+  // Edit/Delete Before Photos - ก่อน CLOSED/CANCELLED
+  const canEditBeforePhotos =
+    !['CLOSED', 'CANCELLED'].includes(incident?.status) &&
+    ((hasTechnicianRole && isAssignedToMe) || isITManager || isSupervisor)
 
   // Update Resolution - TECHNICIAN ที่ถูก assign (รวม IT_MANAGER+TECH)
   const canUpdate =
@@ -1956,13 +1979,14 @@ SLA Breach Time: ${slaBreachText}`
               <div>
                 <div className="flex items-center gap-2 mb-4">
                   <div className="px-3 py-1 bg-blue-500/20 border border-blue-500/30 rounded-lg">
-                    <span className="text-sm font-semibold text-blue-400">
-                      BEFORE
-                    </span>
+                    <span className="text-sm font-semibold text-blue-400">BEFORE</span>
                   </div>
                   <span className="text-sm text-gray-400">
                     ({incident.beforePhotos.length} {incident.beforePhotos.length === 1 ? 'photo' : 'photos'})
                   </span>
+                  {canEditBeforePhotos && (
+                    <span className="text-xs text-yellow-400/70 ml-1">• กดไอคอนถังขยะเพื่อลบรูป</span>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
@@ -1976,12 +2000,26 @@ SLA Breach Time: ${slaBreachText}`
                         src={getPhotoUrl(photo)}
                         alt={`Before ${index + 1}`}
                         loading="eager"
-                        className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                        className="w-full h-full object-cover transition-transform group-hover:scale-105"
                       />
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
                       <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/60 rounded text-xs text-white">
                         {index + 1}
                       </div>
+                      {canEditBeforePhotos && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (window.confirm(`ลบรูปก่อนทำ #${index + 1} ใช่หรือไม่?`)) {
+                              handleDeleteBeforePhoto(index)
+                            }
+                          }}
+                          className="absolute top-1.5 left-1.5 p-1.5 bg-red-600/80 hover:bg-red-600 rounded-lg sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                          title="ลบรูปนี้"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 text-white" />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>

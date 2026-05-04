@@ -2263,7 +2263,7 @@ export class IncidentsService {
   /**
    * Add more before photos after check-in
    * Only assigned technician can add
-   * Status: Must be IN_PROGRESS
+   * Status: Must be IN_PROGRESS or RESOLVED (before confirmation)
    * Max total: 5 photos
    */
   async addBeforePhotos(id: string, newPhotos: string[], userId: number) {
@@ -2282,10 +2282,11 @@ export class IncidentsService {
       throw new ForbiddenException('เฉพาะช่างเทคนิคที่ได้รับมอบหมายเท่านั้นที่สามารถเพิ่มรูปได้');
     }
 
-    // Must be in IN_PROGRESS status
-    if (incident.status !== IncidentStatus.IN_PROGRESS) {
+    // Must be IN_PROGRESS or RESOLVED (can still edit before confirmation)
+    const editableStatuses: IncidentStatus[] = [IncidentStatus.IN_PROGRESS, IncidentStatus.RESOLVED];
+    if (!editableStatuses.includes(incident.status as IncidentStatus)) {
       throw new BadRequestException(
-        `Incident ต้องอยู่ในสถานะ "กำลังดำเนินการ" เพื่อเพิ่มรูป สถานะปัจจุบัน: ${incident.status}`,
+        `ไม่สามารถเพิ่มรูปได้ในสถานะปัจจุบัน (${incident.status})`,
       );
     }
 
@@ -2351,6 +2352,61 @@ export class IncidentsService {
     );
 
     return updated;
+  }
+
+  /**
+   * Delete a single before photo by index
+   * Allowed while status is not CONFIRMED / CLOSED / CANCELLED
+   * TECHNICIAN: must be assigned; IT_MANAGER / SUPERVISOR can always edit
+   */
+  async deleteBeforePhoto(id: string, photoIndex: number, userId: number, userRole: UserRole) {
+    const incident = await this.prisma.incident.findFirst({
+      where: { id },
+      include: { assignees: true },
+    });
+
+    if (!incident) throw new NotFoundException(`ไม่พบ Incident ${id}`);
+
+    const lockedStatuses: IncidentStatus[] = [IncidentStatus.CLOSED, IncidentStatus.CANCELLED];
+    if (lockedStatuses.includes(incident.status as IncidentStatus)) {
+      throw new BadRequestException('ไม่สามารถแก้ไขรูปได้หลังจากปิดงานแล้ว');
+    }
+
+    if (userRole === UserRole.TECHNICIAN) {
+      const isAssigned =
+        (incident.assignees as any[])?.some((a) => a.userId === userId) ||
+        (incident as any).assigneeId === userId;
+      if (!isAssigned) {
+        throw new ForbiddenException('คุณไม่มีสิทธิ์แก้ไขรูปของ Incident นี้');
+      }
+    }
+
+    const currentPhotos = (incident.beforePhotos || []) as string[];
+    if (photoIndex < 0 || photoIndex >= currentPhotos.length) {
+      throw new BadRequestException('ไม่พบรูปที่ต้องการลบ');
+    }
+
+    const photoPath = currentPhotos[photoIndex];
+    if (photoPath && !photoPath.startsWith('data:')) {
+      const fullPath = path.join(process.cwd(), 'uploads', photoPath);
+      try { await fs.unlink(fullPath); } catch { /* ignore if already gone */ }
+    }
+
+    const newPhotos = currentPhotos.filter((_, i) => i !== photoIndex);
+
+    await this.historyService.createHistory(
+      id,
+      IncidentAction.UPDATED,
+      userId,
+      incident.status as IncidentStatus,
+      incident.status as IncidentStatus,
+      `Deleted 1 before photo. Remaining: ${newPhotos.length}`,
+    );
+
+    return this.prisma.incident.update({
+      where: { id },
+      data: { beforePhotos: newPhotos, updatedAt: new Date() },
+    });
   }
 
   /**
