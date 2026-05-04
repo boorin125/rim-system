@@ -711,16 +711,17 @@ export class PerformanceService {
             ) / 100
           : null;
 
+        const resolvedCount = completed.length;
         return {
           technicianId: s.technicianId,
           technicianName: `${s.technician.firstName} ${s.technician.lastName}`,
           technicianType: s.technician.technicianType,
-          score: Number(s.totalScore),
-          grade: s.grade,
-          gradeDescription: s.gradeDescription,
-          workVolume: totalJobs,
-          slaPercent,
-          avgResolutionTimeHours,
+          score: resolvedCount === 0 ? 0 : Number(s.totalScore),
+          grade: resolvedCount === 0 ? 'F' : s.grade,
+          gradeDescription: resolvedCount === 0 ? 'NEEDS IMPROVEMENT' : s.gradeDescription,
+          workVolume: resolvedCount,
+          slaPercent: resolvedCount === 0 ? 0 : slaPercent,
+          avgResolutionTimeHours: resolvedCount === 0 ? null : avgResolutionTimeHours,
         };
       })
     );
@@ -1531,7 +1532,7 @@ export class PerformanceService {
     const avg = (arr: number[]) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
     const round2 = (v: number | null) => v !== null ? Math.round(v * 100) / 100 : null;
 
-    const results = Array.from(map.values()).map(hd => {
+    const results = Array.from(map.values()).filter(hd => hd.totalCreated > 0 || hd.totalConfirmed > 0).map(hd => {
       const responseAvg = round2(avg(hd.responseTimes));
       const confirmAvg = round2(avg(hd.confirmTimes));
       const score = this.calcHelpdeskScore(responseAvg, confirmAvg);

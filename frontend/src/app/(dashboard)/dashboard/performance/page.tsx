@@ -1184,8 +1184,8 @@ export default function PerformancePage() {
 
           {/* Leaderboard */}
           {(() => {
-            // Multi-level rank: workVolume → score → slaPercent → original rank (tiebreaker = first in)
-            const ranked = [...leaderboard.filter(e => e.workVolume > 0)]
+            // Resolved-only ranking
+            const withResolved = [...leaderboard.filter(e => e.workVolume > 0)]
               .sort((a, b) => {
                 if (b.workVolume !== a.workVolume) return b.workVolume - a.workVolume
                 if (b.score !== a.score) return b.score - a.score
@@ -1194,17 +1194,23 @@ export default function PerformancePage() {
               })
               .map((e, i) => ({ ...e, rank: i + 1 }))
 
-            // Apply type filter
-            const typeFiltered = techTypeFilter === 'all'
-              ? ranked
-              : ranked.filter(e => (e.technicianType ?? 'INSOURCE') === techTypeFilter)
+            // Zero resolved — always shown at bottom with 0 points
+            const zeroResolved = leaderboard.filter(e => e.workVolume === 0)
 
-            // Display order (user can re-sort the view but ranks stay fixed)
-            const displayed = [...typeFiltered].sort((a, b) => {
+            const typeFilterFn = (e: LeaderboardEntry) =>
+              techTypeFilter === 'all' || (e.technicianType ?? 'INSOURCE') === techTypeFilter
+
+            const filteredResolved = withResolved.filter(typeFilterFn)
+            const filteredZero = zeroResolved.filter(typeFilterFn)
+
+            // Sort resolved group for display; zero always at bottom
+            const displayedResolved = [...filteredResolved].sort((a, b) => {
               if (sortBy === 'sla') return b.slaPercent - a.slaPercent
               if (sortBy === 'score') return b.score - a.score
-              return a.rank - b.rank // default: by rank (= workVolume-first)
+              return a.rank - b.rank
             })
+            const displayed = [...displayedResolved, ...filteredZero]
+            const ranked = withResolved // kept for empty-state check
 
             return (
               <div className="glass-card rounded-2xl overflow-hidden">
@@ -1280,10 +1286,14 @@ export default function PerformancePage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {displayed.map((e) => (
-                          <tr key={e.technicianId} onClick={() => viewDetail(e.technicianId)} className="border-b border-slate-700/50 hover:bg-slate-800/30 transition-colors cursor-pointer">
+                        {displayed.map((e) => {
+                          const isZero = e.workVolume === 0
+                          return (
+                          <tr key={e.technicianId} onClick={() => viewDetail(e.technicianId)} className={`border-b border-slate-700/50 hover:bg-slate-800/30 transition-colors cursor-pointer ${isZero ? 'opacity-50' : ''}`}>
                             <td className="py-4 px-4">
-                              {e.rank <= 3 ? (
+                              {isZero ? (
+                                <span className="text-gray-600 font-medium pl-1">-</span>
+                              ) : e.rank <= 3 ? (
                                 <div className="flex items-center gap-1">
                                   <Trophy className={`w-5 h-5 ${e.rank === 1 ? 'text-yellow-400' : e.rank === 2 ? 'text-gray-400' : 'text-amber-600'}`} />
                                   <span className="text-xs text-gray-500">{e.rank}</span>
@@ -1301,15 +1311,19 @@ export default function PerformancePage() {
                               <span className="text-gray-500 text-xs ml-1">งาน</span>
                             </td>
                             <td className="py-4 px-4 text-center">
-                              <span className={`font-semibold ${e.slaPercent >= 95 ? 'text-emerald-400' : e.slaPercent >= 80 ? 'text-yellow-400' : 'text-red-400'}`}>
-                                {e.slaPercent}%
-                              </span>
+                              {isZero ? (
+                                <span className="text-gray-600">-</span>
+                              ) : (
+                                <span className={`font-semibold ${e.slaPercent >= 95 ? 'text-emerald-400' : e.slaPercent >= 80 ? 'text-yellow-400' : 'text-red-400'}`}>
+                                  {e.slaPercent}%
+                                </span>
+                              )}
                             </td>
                             <td className="py-4 px-4 text-center">
-                              <span className={`text-lg font-semibold ${scoreColor(e.score)}`}>{e.score.toFixed(1)}</span>
+                              <span className={`text-lg font-semibold ${isZero ? 'text-gray-600' : scoreColor(e.score)}`}>{e.score.toFixed(1)}</span>
                             </td>
                             <td className="py-4 px-4 text-center">
-                              {e.avgResolutionTimeHours !== null && e.avgResolutionTimeHours !== undefined ? (
+                              {!isZero && e.avgResolutionTimeHours !== null && e.avgResolutionTimeHours !== undefined ? (
                                 <span className={`text-sm font-medium ${e.avgResolutionTimeHours <= 4 ? 'text-emerald-400' : e.avgResolutionTimeHours <= 8 ? 'text-yellow-400' : 'text-red-400'}`}>
                                   {fmtHours(e.avgResolutionTimeHours)}
                                 </span>
@@ -1318,12 +1332,13 @@ export default function PerformancePage() {
                               )}
                             </td>
                             <td className="py-4 px-4 text-center">
-                              <span className={`inline-flex px-3 py-1 text-sm font-bold rounded-full border ${GRADE_COLORS[e.grade] || 'bg-gray-500/20 text-gray-400'}`}>
-                                {e.grade}
+                              <span className={`inline-flex px-3 py-1 text-sm font-bold rounded-full border ${isZero ? 'bg-gray-500/10 text-gray-600 border-gray-700' : GRADE_COLORS[e.grade] || 'bg-gray-500/20 text-gray-400'}`}>
+                                {isZero ? '-' : e.grade}
                               </span>
                             </td>
                           </tr>
-                        ))}
+                          )
+                        })}
                       </tbody>
                     </table>
                   </div>
