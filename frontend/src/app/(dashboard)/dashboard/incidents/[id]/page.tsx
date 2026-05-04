@@ -240,17 +240,52 @@ export default function IncidentDetailPage() {
     }
   }
 
-  const fetchKbArticles = async (category: string, title: string) => {
+  const buildKbFileUrl = (filePath: string) =>
+    `${(process.env.NEXT_PUBLIC_API_URL || '').replace(/\/api$/, '')}/uploads/${filePath}`
+
+  const fetchKbArticles = async (incidentCategory: string, incidentTitle: string) => {
     try {
       setKbLoading(true)
       const token = localStorage.getItem('token')
-      const params = new URLSearchParams({ category })
-      if (title) params.set('keywords', title)
-      const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/kb/articles/suggested?${params.toString()}`,
+
+      // 1. Find KB category matching incident category name
+      const catRes = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/kb/categories`,
         { headers: { Authorization: `Bearer ${token}` } }
       )
-      setKbArticles(Array.isArray(res.data) ? res.data : res.data?.articles || [])
+      const allCats: any[] = catRes.data?.flat || catRes.data || []
+      const catNameLower = incidentCategory.toLowerCase()
+      const matchedCat = allCats.find((c: any) =>
+        c.name.toLowerCase().includes(catNameLower) ||
+        catNameLower.includes(c.name.toLowerCase())
+      )
+      if (!matchedCat) { setKbArticles([]); return }
+
+      // 2. Fetch all published articles in that KB category
+      const artRes = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/kb/articles?isPublished=true&categoryId=${matchedCat.id}&limit=30`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      const articles: any[] = artRes.data?.data || []
+
+      // 3. Score by keyword match against incident title
+      const titleWords = incidentTitle.toLowerCase()
+        .split(/[\s,./\\()\[\]-]+/)
+        .filter((w: string) => w.length >= 2)
+
+      const scored = articles.map((article: any) => {
+        const artTitle = article.title.toLowerCase()
+        const artKW = (article.keywords || []).map((k: string) => k.toLowerCase())
+        const score = titleWords.reduce((s: number, word: string) => {
+          if (artTitle.includes(word)) s += 2
+          if (artKW.some((k: string) => k.includes(word) || word.includes(k))) s += 1
+          return s
+        }, 0)
+        return { ...article, _score: score }
+      })
+
+      scored.sort((a: any, b: any) => b._score - a._score)
+      setKbArticles(scored)
     } catch {
       // silently fail — KB is optional context
     } finally {
@@ -258,7 +293,17 @@ export default function IncidentDetailPage() {
     }
   }
 
-  const openKbArticle = async (articleId: number) => {
+  const openKbArticle = async (articleId: number, article?: any) => {
+    // For file-based articles, open file directly without extra fetch
+    if (article?.fileType && article?.filePath) {
+      setSelectedKbArticle(article)
+      setShowKbArticleModal(true)
+      // Still increment view in background
+      const token = localStorage.getItem('token')
+      axios.get(`${process.env.NEXT_PUBLIC_API_URL}/kb/articles/${articleId}?incrementView=true`,
+        { headers: { Authorization: `Bearer ${token}` } }).catch(() => {})
+      return
+    }
     try {
       const token = localStorage.getItem('token')
       const res = await axios.get(
@@ -1741,6 +1786,50 @@ SLA Breach Time: ${slaBreachText}`
             </div>
           )}
 
+          {/* Row 6b: Related Knowledge Base */}
+          {incident.category && (kbLoading || kbArticles.length > 0) && (
+            <div className="pb-6 border-b border-gray-700/50">
+              <div className="flex items-center gap-2 mb-2">
+                <BookOpen className="w-4 h-4 text-blue-400" />
+                <p className="text-sm text-gray-400">Knowledge Base ที่เกี่ยวข้อง</p>
+                {!kbLoading && kbArticles.length > 0 && (
+                  <span className="text-xs bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded-full">
+                    {kbArticles.length} บทความ
+                  </span>
+                )}
+              </div>
+              {kbLoading ? (
+                <p className="text-xs text-gray-500 pl-6">กำลังโหลด...</p>
+              ) : (
+                <div className="flex flex-col">
+                  {kbArticles.map((article: any) => (
+                    <button
+                      key={article.id}
+                      onClick={() => openKbArticle(article.id, article)}
+                      className="flex items-center gap-2 py-1.5 pl-6 pr-2 text-left hover:bg-slate-700/30 rounded-lg transition-colors group"
+                    >
+                      {article.fileType ? (
+                        <span className="text-[10px] px-1.5 py-0.5 bg-red-500/20 text-red-400 rounded font-medium flex-shrink-0">
+                          {article.fileType}
+                        </span>
+                      ) : (
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-500 group-hover:bg-blue-400 flex-shrink-0 transition-colors" />
+                      )}
+                      <span className="text-sm text-gray-300 group-hover:text-blue-400 truncate transition-colors">
+                        {article.title}
+                      </span>
+                      {article._score > 0 && (
+                        <span className="text-[10px] text-gray-600 flex-shrink-0 ml-auto">
+                          {article._score}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Row 7: Incident Date + Created Date + SLA Breach Time + Last Updated */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Incident Date - วันที่ลูกค้าแจ้ง */}
@@ -2106,44 +2195,6 @@ SLA Breach Time: ${slaBreachText}`
       <ReassignmentHistory incidentId={incident.id} />
 
 
-      {/* Knowledge Base — Related Articles */}
-      {incident.category && (kbLoading || kbArticles.length > 0) && (
-        <div className="glass-card p-6 rounded-2xl">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 rounded-xl bg-blue-500/20">
-              <BookOpen className="w-5 h-5 text-blue-400" />
-            </div>
-            <div>
-              <h2 className="text-base font-semibold text-white">บทความที่เกี่ยวข้อง</h2>
-              <p className="text-xs text-gray-400">หมวด: {incident.category}</p>
-            </div>
-          </div>
-          {kbLoading ? (
-            <p className="text-sm text-gray-400">กำลังโหลด...</p>
-          ) : (
-            <ul className="divide-y divide-slate-700/50">
-              {kbArticles.map((article: any) => (
-                <li key={article.id}>
-                  <button
-                    onClick={() => openKbArticle(article.id)}
-                    className="w-full flex items-center justify-between py-3 text-left hover:text-blue-400 transition-colors group"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white group-hover:text-blue-400 truncate">
-                        {article.title}
-                      </p>
-                      {article.summary && (
-                        <p className="text-xs text-gray-400 mt-0.5 truncate">{article.summary}</p>
-                      )}
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-gray-500 group-hover:text-blue-400 flex-shrink-0 ml-2" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
 
       {/* Comment Section */}
       <CommentSection incidentId={incident.id} currentUser={currentUser} />
@@ -2335,14 +2386,11 @@ SLA Breach Time: ${slaBreachText}`
       {/* KB Article Modal */}
       {showKbArticleModal && selectedKbArticle && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-          <div className="glass-card rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col">
-            <div className="flex items-start justify-between p-6 border-b border-slate-700">
+          <div className="glass-card rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            <div className="flex items-start justify-between p-4 border-b border-slate-700">
               <div className="flex-1 min-w-0 pr-4">
                 <span className="text-xs text-blue-400 font-medium">{selectedKbArticle.category?.name}</span>
-                <h3 className="text-lg font-semibold text-white mt-1">{selectedKbArticle.title}</h3>
-                {selectedKbArticle.summary && (
-                  <p className="text-sm text-gray-400 mt-1">{selectedKbArticle.summary}</p>
-                )}
+                <h3 className="text-base font-semibold text-white mt-0.5">{selectedKbArticle.title}</h3>
               </div>
               <button
                 onClick={() => { setShowKbArticleModal(false); setSelectedKbArticle(null) }}
@@ -2351,14 +2399,42 @@ SLA Breach Time: ${slaBreachText}`
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto p-6">
-              <div className="prose prose-invert prose-sm max-w-none">
-                <pre className="whitespace-pre-wrap text-sm text-gray-200 font-sans leading-relaxed">
-                  {selectedKbArticle.content}
-                </pre>
-              </div>
+            <div className="flex-1 overflow-hidden min-h-0">
+              {selectedKbArticle.fileType === 'PDF' && selectedKbArticle.filePath ? (
+                <iframe
+                  src={buildKbFileUrl(selectedKbArticle.filePath)}
+                  className="w-full h-full"
+                  style={{ minHeight: '60vh' }}
+                  title={selectedKbArticle.title}
+                />
+              ) : selectedKbArticle.fileType === 'IMAGE' && selectedKbArticle.filePath ? (
+                <div className="flex items-center justify-center p-4 h-full" style={{ minHeight: '60vh' }}>
+                  <img
+                    src={buildKbFileUrl(selectedKbArticle.filePath)}
+                    alt={selectedKbArticle.title}
+                    className="max-w-full max-h-[70vh] object-contain rounded-xl"
+                  />
+                </div>
+              ) : selectedKbArticle.fileType && selectedKbArticle.filePath ? (
+                <div className="flex flex-col items-center justify-center gap-4 p-8" style={{ minHeight: '40vh' }}>
+                  <p className="text-gray-400">ไม่สามารถแสดงตัวอย่างได้ กรุณาดาวน์โหลด</p>
+                  <a
+                    href={buildKbFileUrl(selectedKbArticle.filePath)}
+                    download
+                    className="flex items-center gap-2 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition-colors"
+                  >
+                    ดาวน์โหลดไฟล์
+                  </a>
+                </div>
+              ) : (
+                <div className="overflow-y-auto p-6 h-full">
+                  <pre className="whitespace-pre-wrap text-sm text-gray-200 font-sans leading-relaxed">
+                    {selectedKbArticle.content}
+                  </pre>
+                </div>
+              )}
             </div>
-            <div className="px-6 py-4 border-t border-slate-700 flex items-center justify-between">
+            <div className="px-4 py-3 border-t border-slate-700 flex items-center justify-between">
               <span className="text-xs text-gray-500">
                 เปิดดูแล้ว {selectedKbArticle.viewCount?.toLocaleString()} ครั้ง
               </span>
