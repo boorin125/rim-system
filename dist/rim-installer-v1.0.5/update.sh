@@ -1,4 +1,4 @@
-﻿#!/bin/bash
+#!/bin/bash
 # ════════════════════════════════════════════════════════════
 #  RIM System — Update Script (Pre-built Docker Images)
 #  ใช้อัปเดตระบบเมื่อมีเวอร์ชั่นใหม่จาก Docker Hub
@@ -75,16 +75,39 @@ fi
 $COMPOSE_CMD pull
 echo ""
 
-# ── Restart services ──────────────────────────
-echo -e "${YELLOW}→ อัปเดต Backend...${NC}"
-$COMPOSE_CMD up -d --no-deps backend
+# ── บันทึก version ใหม่ใน .env ก่อน start backend ─────
+if [ "$TARGET_VERSION" != "latest" ]; then
+  if grep -q '^RIM_VERSION=' .env; then
+    sed -i "s|^RIM_VERSION=.*|RIM_VERSION=${TARGET_VERSION}|" .env
+  else
+    echo "RIM_VERSION=${TARGET_VERSION}" >> .env
+  fi
+  echo -e "${GREEN}✅ อัปเดต RIM_VERSION=${TARGET_VERSION} ใน .env แล้ว${NC}"
+fi
 
-# รอ backend พร้อม
+# ── Restart backend ───────────────────────────
+echo -e "${YELLOW}→ อัปเดต Backend...${NC}"
+$COMPOSE_CMD up -d --no-deps --force-recreate backend
+
+# รอ backend พร้อม — ใช้ Docker HEALTHCHECK status
 echo -e "${YELLOW}→ รอ Backend พร้อม...${NC}"
-MAX_WAIT=90
+MAX_WAIT=120
 ELAPSED=0
-until docker exec rim-backend curl -sf http://localhost:3000/api/version &>/dev/null; do
-  if [ $ELAPSED -ge $MAX_WAIT ]; then
+while [ $ELAPSED -lt $MAX_WAIT ]; do
+  STATUS=$(docker inspect --format='{{.State.Health.Status}}' rim-backend 2>/dev/null || echo "none")
+  if [ "$STATUS" = "healthy" ]; then
+    echo -e "${GREEN}✅ Backend พร้อม (ใช้เวลา ${ELAPSED}s)${NC}"
+    break
+  fi
+  # fallback: ถ้าไม่มี healthcheck ให้ลอง curl ตรง
+  if [ "$STATUS" = "none" ] || [ "$STATUS" = "" ]; then
+    if curl -sf --max-time 3 http://127.0.0.1/api/version &>/dev/null 2>&1 || \
+       docker exec rim-backend curl -sf --max-time 3 http://127.0.0.1:3000/api/version &>/dev/null 2>&1; then
+      echo -e "${GREEN}✅ Backend พร้อม (ใช้เวลา ${ELAPSED}s)${NC}"
+      break
+    fi
+  fi
+  if [ $ELAPSED -ge $((MAX_WAIT - 3)) ]; then
     echo -e "${RED}⚠️  Backend ไม่ตอบสนองภายใน ${MAX_WAIT}s${NC}"
     echo -e "${RED}   กำลัง Restore จาก backup...${NC}"
     zcat "$BACKUP_FILE" | $COMPOSE_CMD exec -T postgres psql -U rimuser --single-transaction rimdb &>/dev/null || true
@@ -93,9 +116,8 @@ until docker exec rim-backend curl -sf http://localhost:3000/api/version &>/dev/
   fi
   sleep 3
   ELAPSED=$((ELAPSED + 3))
-  echo -e "   รอ... (${ELAPSED}s)"
+  echo -e "   รอ... (${ELAPSED}s) [${STATUS}]"
 done
-echo -e "${GREEN}✅ Backend พร้อม${NC}"
 
 # ── Apply DB migrations ───────────────────────
 echo -e "${YELLOW}→ อัปเดต Database Schema...${NC}"
@@ -110,16 +132,6 @@ sleep 3
 
 echo -e "${YELLOW}→ อัปเดต Nginx...${NC}"
 $COMPOSE_CMD up -d --no-deps nginx
-
-# ── บันทึก version ใหม่ใน .env ───────────────
-if [ "$TARGET_VERSION" != "latest" ]; then
-  if grep -q '^RIM_VERSION=' .env; then
-    sed -i "s|^RIM_VERSION=.*|RIM_VERSION=${TARGET_VERSION}|" .env
-  else
-    echo "RIM_VERSION=${TARGET_VERSION}" >> .env
-  fi
-  echo -e "${GREEN}✅ อัปเดต RIM_VERSION=${TARGET_VERSION} ใน .env แล้ว${NC}"
-fi
 
 echo ""
 echo -e "${GREEN}════════════════════════════════════${NC}"

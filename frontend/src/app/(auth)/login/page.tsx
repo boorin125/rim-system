@@ -32,6 +32,7 @@ function LoginContent() {
     logoPath: '',
     theme: { bgStart: '#0f172a', bgEnd: '#1e293b' },
   })
+  const [brandingLoaded, setBrandingLoaded] = useState(false)
 
   useEffect(() => {
     // Check if first-time setup is needed
@@ -44,6 +45,7 @@ function LoginContent() {
       .then((r) => r.json())
       .then((data) => { if (data?.theme) setBranding(data) })
       .catch(() => {})
+      .finally(() => setBrandingLoaded(true))
   }, [router])
 
   // Derive display values
@@ -320,11 +322,11 @@ function LoginContent() {
         
         {/* Logo & Header */}
         <div className="text-center mb-3">
-          <div className="mb-2">
+          <div className="mb-2 h-20 flex items-center justify-center">
             <img
               src={logoUrl || '/logo.png'}
               alt="Organization Logo"
-              className="h-20 w-auto mx-auto object-contain rounded-xl"
+              className={`h-20 w-auto mx-auto object-contain rounded-xl transition-opacity duration-300 ${brandingLoaded ? 'opacity-100' : 'opacity-0'}`}
             />
           </div>
           <p className={`text-lg font-light ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{appTitle}</p>
