@@ -314,12 +314,11 @@ export class KnowledgeBaseService {
 
     const where: any = { AND: [visibilityFilter(userRole)] };
 
-    // Role filter: 'ALL' = articles for everyone; '<ROLE>' = articles tagged for that role
-    if (query?.roleFilter === 'ALL') {
-      where.AND.push({ visibleToRoles: { isEmpty: true } });
-    } else if (query?.roleFilter) {
+    // Role filter: 'ALL' = show all accessible articles; '<ROLE>' = articles tagged for that role only
+    if (query?.roleFilter && query.roleFilter !== 'ALL') {
       where.AND.push({ visibleToRoles: { has: query.roleFilter as UserRole } });
     }
+    // When 'ALL': no extra filter — visibilityFilter above already restricts to accessible articles
 
     if (query?.categoryId) {
       where.AND.push({ categoryId: query.categoryId });
