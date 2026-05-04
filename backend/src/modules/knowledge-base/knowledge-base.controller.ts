@@ -364,12 +364,77 @@ export class KnowledgeBaseController {
   }
 
   /**
-   * Delete document file when article is deleted
+   * Delete document file when article is deleted — now goes through change request flow
    */
   @Delete('articles/:id')
-  @Roles(UserRole.IT_MANAGER, UserRole.HELP_DESK)
-  async deleteArticle(@Param('id', ParseIntPipe) id: number) {
-    return this.kbService.deleteArticle(id);
+  @Roles(UserRole.IT_MANAGER, UserRole.HELP_DESK, UserRole.SUPERVISOR, UserRole.TECHNICIAN)
+  async deleteArticle(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req,
+    @Body('reason') reason?: string,
+  ) {
+    if (!reason?.trim()) {
+      throw new BadRequestException('กรุณาระบุเหตุผลในการลบบทความ');
+    }
+    const userRole = (Array.isArray(req.user.roles) ? req.user.roles[0] : req.user.role) as UserRole;
+    return this.kbService.createChangeRequest(id, req.user.id, userRole, 'DELETE', reason.trim());
+  }
+
+  // ==========================================
+  // CHANGE REQUESTS
+  // ==========================================
+
+  /** Submit edit/delete change request */
+  @Post('articles/:id/change-request')
+  @Roles(UserRole.IT_MANAGER, UserRole.HELP_DESK, UserRole.SUPERVISOR, UserRole.TECHNICIAN)
+  @HttpCode(HttpStatus.CREATED)
+  async submitChangeRequest(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req,
+    @Body() body: { type: 'EDIT' | 'DELETE'; reason: string; proposedData?: Record<string, any> },
+  ) {
+    if (!body.reason?.trim()) throw new BadRequestException('กรุณาระบุเหตุผล');
+    const userRole = (Array.isArray(req.user.roles) ? req.user.roles[0] : req.user.role) as UserRole;
+    return this.kbService.createChangeRequest(id, req.user.id, userRole, body.type, body.reason.trim(), body.proposedData);
+  }
+
+  /** Get change requests (IT Manager: all pending; others: their own) */
+  @Get('change-requests')
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPER_ADMIN, UserRole.HELP_DESK, UserRole.SUPERVISOR, UserRole.TECHNICIAN)
+  async getChangeRequests(@Query('status') status?: string) {
+    return this.kbService.getPendingChangeRequests(status);
+  }
+
+  /** Count pending change requests (for badge) */
+  @Get('change-requests/count')
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPER_ADMIN)
+  async countPendingChangeRequests() {
+    return { count: await this.kbService.countPendingChangeRequests() };
+  }
+
+  /** Approve a change request */
+  @Post('change-requests/:id/approve')
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPER_ADMIN)
+  @HttpCode(HttpStatus.OK)
+  async approveChangeRequest(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req,
+    @Body('reviewNote') reviewNote?: string,
+  ) {
+    return this.kbService.approveChangeRequest(id, req.user.id, reviewNote);
+  }
+
+  /** Reject a change request */
+  @Post('change-requests/:id/reject')
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPER_ADMIN)
+  @HttpCode(HttpStatus.OK)
+  async rejectChangeRequest(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req,
+    @Body('reviewNote') reviewNote: string,
+  ) {
+    if (!reviewNote?.trim()) throw new BadRequestException('กรุณาระบุเหตุผลการปฏิเสธ');
+    return this.kbService.rejectChangeRequest(id, req.user.id, reviewNote.trim());
   }
 
   // ==========================================

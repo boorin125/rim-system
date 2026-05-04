@@ -95,10 +95,12 @@ model User {
   outsourceBids                    OutsourceBid[] @relation("OutsourceBidTechnician")
 
   // Knowledge Base relations
-  kbArticlesAuthored KnowledgeArticle[]         @relation("ArticleAuthor")
-  kbArticlesEdited   KnowledgeArticle[]         @relation("ArticleLastEditor")
-  kbArticleFeedbacks KnowledgeArticleFeedback[]
-  kbArticleUsages    KnowledgeArticleUsage[]
+  kbArticlesAuthored       KnowledgeArticle[]         @relation("ArticleAuthor")
+  kbArticlesEdited         KnowledgeArticle[]         @relation("ArticleLastEditor")
+  kbArticleFeedbacks       KnowledgeArticleFeedback[]
+  kbArticleUsages          KnowledgeArticleUsage[]
+  kbChangeRequestsSubmitted KnowledgeChangeRequest[]  @relation("KBChangeRequester")
+  kbChangeRequestsReviewed  KnowledgeChangeRequest[]  @relation("KBChangeReviewer")
 
   // Backup & Restore relations
   backupJobsCreated      BackupJob[]      @relation("BackupCreatedBy")
@@ -1225,8 +1227,9 @@ model KnowledgeArticle {
   category     KnowledgeCategory          @relation(fields: [categoryId], references: [id])
   author       User                       @relation("ArticleAuthor", fields: [authorId], references: [id])
   lastEditedBy User?                      @relation("ArticleLastEditor", fields: [lastEditedById], references: [id])
-  feedbacks    KnowledgeArticleFeedback[]
-  usageHistory KnowledgeArticleUsage[]
+  feedbacks      KnowledgeArticleFeedback[]
+  usageHistory   KnowledgeArticleUsage[]
+  changeRequests KnowledgeChangeRequest[]
 
   @@index([categoryId])
   @@index([authorId])
@@ -1278,6 +1281,30 @@ enum KBUsageType {
   APPLIED // นำไปใช้แก้ปัญหา
   SHARED // แชร์ให้ผู้อื่น
   REFERENCED // อ้างอิงใน Incident
+}
+
+model KnowledgeChangeRequest {
+  id           Int       @id @default(autoincrement())
+  articleId    Int       @map("article_id")
+  requesterId  Int       @map("requester_id")
+  type         String    // "EDIT" | "DELETE"
+  reason       String    @db.Text
+  proposedData Json?     @map("proposed_data") // proposed edits (null for DELETE)
+  status       String    @default("PENDING")   // "PENDING" | "APPROVED" | "REJECTED"
+  reviewerId   Int?      @map("reviewer_id")
+  reviewNote   String?   @db.Text @map("review_note")
+  reviewedAt   DateTime? @map("reviewed_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  article   KnowledgeArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  requester User             @relation("KBChangeRequester", fields: [requesterId], references: [id])
+  reviewer  User?            @relation("KBChangeReviewer", fields: [reviewerId], references: [id])
+
+  @@index([articleId])
+  @@index([requesterId])
+  @@index([status])
+  @@map("knowledge_change_requests")
 }
 
 // ========================================

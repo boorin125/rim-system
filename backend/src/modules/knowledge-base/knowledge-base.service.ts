@@ -5,6 +5,7 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
@@ -361,8 +362,7 @@ export class KnowledgeBaseService {
           },
         },
         orderBy: [
-          { isPublished: 'desc' },
-          { viewCount: 'desc' },
+          { publishedAt: 'desc' },
           { createdAt: 'desc' },
         ],
         skip,
@@ -829,6 +829,162 @@ export class KnowledgeBaseService {
       topArticles,
       topCategories,
     };
+  }
+
+  // ==========================================
+  // CHANGE REQUEST METHODS
+  // ==========================================
+
+  /**
+   * Submit an edit or delete change request.
+   * IT_MANAGER auto-approves; others wait for IT Manager review.
+   */
+  async createChangeRequest(
+    articleId: number,
+    requesterId: number,
+    requesterRole: UserRole,
+    type: 'EDIT' | 'DELETE',
+    reason: string,
+    proposedData?: Record<string, any>,
+  ) {
+    const article = await this.prisma.knowledgeArticle.findUnique({ where: { id: articleId } });
+    if (!article) throw new NotFoundException(`Article not found: ${articleId}`);
+
+    const isItManager = requesterRole === UserRole.IT_MANAGER || requesterRole === UserRole.SUPER_ADMIN;
+
+    if (isItManager) {
+      // Self-approve: apply immediately
+      const request = await this.prisma.knowledgeChangeRequest.create({
+        data: {
+          articleId,
+          requesterId,
+          type,
+          reason,
+          proposedData: proposedData ?? null,
+          status: 'APPROVED',
+          reviewerId: requesterId,
+          reviewedAt: new Date(),
+        },
+      });
+      await this.applyChange(articleId, type, proposedData);
+      return { request, applied: true };
+    }
+
+    // Non-IT-Manager: create PENDING request
+    const request = await this.prisma.knowledgeChangeRequest.create({
+      data: {
+        articleId,
+        requesterId,
+        type,
+        reason,
+        proposedData: proposedData ?? null,
+        status: 'PENDING',
+      },
+      include: {
+        requester: { select: { id: true, firstName: true, lastName: true } },
+        article: { select: { id: true, title: true } },
+      },
+    });
+
+    // Notify all IT Managers
+    await this.notifyItManagers(
+      `คำขอ${type === 'EDIT' ? 'แก้ไข' : 'ลบ'}บทความ: "${article.title}"`,
+      `${(request as any).requester?.firstName} ${(request as any).requester?.lastName} ขอ${type === 'EDIT' ? 'แก้ไข' : 'ลบ'}บทความ "${article.title}" — เหตุผล: ${reason}`,
+    );
+
+    return { request, applied: false };
+  }
+
+  /** Get pending change requests (IT Manager only) */
+  async getPendingChangeRequests(status?: string) {
+    return this.prisma.knowledgeChangeRequest.findMany({
+      where: status ? { status } : { status: 'PENDING' },
+      include: {
+        article: { select: { id: true, title: true, slug: true } },
+        requester: { select: { id: true, firstName: true, lastName: true } },
+        reviewer: { select: { id: true, firstName: true, lastName: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /** Count pending change requests */
+  async countPendingChangeRequests() {
+    return this.prisma.knowledgeChangeRequest.count({ where: { status: 'PENDING' } });
+  }
+
+  /** Approve a change request and apply the change */
+  async approveChangeRequest(id: number, reviewerId: number, reviewNote?: string) {
+    const req = await this.prisma.knowledgeChangeRequest.findUnique({
+      where: { id },
+      include: { article: true },
+    });
+    if (!req) throw new NotFoundException(`Change request not found: ${id}`);
+    if (req.status !== 'PENDING') throw new BadRequestException('Request is no longer pending');
+
+    await this.prisma.knowledgeChangeRequest.update({
+      where: { id },
+      data: { status: 'APPROVED', reviewerId, reviewNote, reviewedAt: new Date() },
+    });
+
+    await this.applyChange(req.articleId, req.type as 'EDIT' | 'DELETE', req.proposedData as any);
+    return { success: true };
+  }
+
+  /** Reject a change request */
+  async rejectChangeRequest(id: number, reviewerId: number, reviewNote: string) {
+    const req = await this.prisma.knowledgeChangeRequest.findUnique({ where: { id } });
+    if (!req) throw new NotFoundException(`Change request not found: ${id}`);
+    if (req.status !== 'PENDING') throw new BadRequestException('Request is no longer pending');
+
+    return this.prisma.knowledgeChangeRequest.update({
+      where: { id },
+      data: { status: 'REJECTED', reviewerId, reviewNote, reviewedAt: new Date() },
+    });
+  }
+
+  /** Apply the actual DB change after approval */
+  private async applyChange(
+    articleId: number,
+    type: 'EDIT' | 'DELETE',
+    proposedData?: Record<string, any>,
+  ) {
+    if (type === 'DELETE') {
+      await this.deleteArticle(articleId);
+    } else if (type === 'EDIT' && proposedData) {
+      const { reason: _r, ...updateFields } = proposedData;
+      const article = await this.prisma.knowledgeArticle.findUnique({ where: { id: articleId } });
+      if (!article) return;
+      const wasPublished = article.isPublished;
+      const nowPublished = updateFields.isPublished ?? wasPublished;
+      await this.prisma.knowledgeArticle.update({
+        where: { id: articleId },
+        data: {
+          ...updateFields,
+          version: { increment: 1 },
+          publishedAt: !wasPublished && nowPublished ? new Date() : article.publishedAt,
+        },
+      });
+    }
+  }
+
+  /** Notify all IT Managers (helper) */
+  private async notifyItManagers(title: string, message: string) {
+    try {
+      const managers = await this.prisma.user.findMany({
+        where: { roles: { some: { role: { in: [UserRole.IT_MANAGER, UserRole.SUPER_ADMIN] } } }, status: 'ACTIVE' },
+        select: { id: true },
+      });
+      await Promise.all(
+        managers.map((m) =>
+          this.prisma.notification.create({
+            data: { userId: m.id, title, message, type: 'SYSTEM_ALERT' },
+          }),
+        ),
+      );
+    } catch {
+      // notification failure should not break the main flow
+    }
   }
 
   /**

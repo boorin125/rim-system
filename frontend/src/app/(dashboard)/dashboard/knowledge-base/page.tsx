@@ -241,6 +241,17 @@ export default function KnowledgeBasePage() {
   const [showFileViewerModal, setShowFileViewerModal] = useState(false)
   const [fileViewerArticle, setFileViewerArticle] = useState<Article | null>(null)
 
+  // Change Request states
+  const [editReason, setEditReason] = useState('')
+  const [showDeleteReqModal, setShowDeleteReqModal] = useState(false)
+  const [deleteReqArticle, setDeleteReqArticle] = useState<Article | null>(null)
+  const [deleteReqReason, setDeleteReqReason] = useState('')
+  const [isSubmittingReq, setIsSubmittingReq] = useState(false)
+  const [pendingRequests, setPendingRequests] = useState<any[]>([])
+  const [showPendingPanel, setShowPendingPanel] = useState(false)
+  const [reviewingId, setReviewingId] = useState<number | null>(null)
+  const [reviewNote, setReviewNote] = useState('')
+
   const buildFileUrl = (filePath: string) =>
     `${(process.env.NEXT_PUBLIC_API_URL || '').replace(/\/api$/, '')}/uploads/${filePath}`
 
@@ -323,6 +334,18 @@ export default function KnowledgeBasePage() {
     }
   }, [])
 
+  // Fetch pending change requests (IT Manager only)
+  const fetchPendingRequests = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const res = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/kb/change-requests?status=PENDING`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      setPendingRequests(res.data)
+    } catch {}
+  }, [])
+
   // Fetch MA job type categories for upload modal live search
   const fetchMaCategories = useCallback(async () => {
     try {
@@ -367,14 +390,17 @@ export default function KnowledgeBasePage() {
 
   useEffect(() => {
     if (currentUser) {
+      const userRoles: string[] = (currentUser as any)?.roles || ((currentUser as any)?.role ? [(currentUser as any).role] : [])
+      const itMgr = userRoles.some(r => ['IT_MANAGER', 'SUPER_ADMIN'].includes(r))
       Promise.all([
         fetchCategories(),
         fetchArticles(),
         fetchPopularArticles(),
         fetchStats(),
+        ...(itMgr ? [fetchPendingRequests()] : []),
       ]).finally(() => setIsLoading(false))
     }
-  }, [currentUser, fetchCategories, fetchArticles, fetchPopularArticles, fetchStats])
+  }, [currentUser, fetchCategories, fetchArticles, fetchPopularArticles, fetchStats, fetchPendingRequests])
 
   // Refetch articles when filters change
   useEffect(() => {
@@ -408,9 +434,13 @@ export default function KnowledgeBasePage() {
       toast.error('กรุณากรอกข้อมูลให้ครบถ้วน')
       return
     }
-
     if (formData.content.length < 50) {
       toast.error('เนื้อหาบทความต้องมีอย่างน้อย 50 ตัวอักษร')
+      return
+    }
+    // Editing requires a reason
+    if (editingArticle && !editReason.trim()) {
+      toast.error('กรุณาระบุเหตุผล / จุดที่แก้ไข')
       return
     }
 
@@ -423,12 +453,17 @@ export default function KnowledgeBasePage() {
       }
 
       if (editingArticle) {
-        await axios.put(
-          `${process.env.NEXT_PUBLIC_API_URL}/kb/articles/${editingArticle.id}`,
-          payload,
+        const res = await axios.post(
+          `${process.env.NEXT_PUBLIC_API_URL}/kb/articles/${editingArticle.id}/change-request`,
+          { type: 'EDIT', reason: editReason.trim(), proposedData: payload },
           { headers: { Authorization: `Bearer ${token}` } }
         )
-        toast.success('อัพเดทบทความสำเร็จ')
+        if (res.data.applied) {
+          toast.success('อัพเดทบทความสำเร็จ')
+        } else {
+          toast.success('ส่งคำขอแก้ไขแล้ว รอ IT Manager อนุมัติ')
+        }
+        fetchPendingRequests()
       } else {
         await axios.post(
           `${process.env.NEXT_PUBLIC_API_URL}/kb/articles`,
@@ -441,6 +476,7 @@ export default function KnowledgeBasePage() {
       setShowCreateModal(false)
       setEditingArticle(null)
       resetForm()
+      setEditReason('')
       fetchArticles()
       fetchStats()
     } catch (err: any) {
@@ -450,21 +486,76 @@ export default function KnowledgeBasePage() {
     }
   }
 
-  // Delete article
-  const handleDeleteArticle = async (article: Article) => {
-    if (!confirm(`ต้องการลบบทความ "${article.title}" ใช่หรือไม่?`)) return
+  // Open delete request modal
+  const handleDeleteArticle = (article: Article) => {
+    setDeleteReqArticle(article)
+    setDeleteReqReason('')
+    setShowDeleteReqModal(true)
+  }
 
+  // Submit delete change request
+  const handleSubmitDeleteRequest = async () => {
+    if (!deleteReqArticle) return
+    if (!deleteReqReason.trim()) { toast.error('กรุณาระบุเหตุผล'); return }
+    setIsSubmittingReq(true)
     try {
       const token = localStorage.getItem('token')
-      await axios.delete(
-        `${process.env.NEXT_PUBLIC_API_URL}/kb/articles/${article.id}`,
+      const res = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/kb/articles/${deleteReqArticle.id}/change-request`,
+        { type: 'DELETE', reason: deleteReqReason.trim() },
         { headers: { Authorization: `Bearer ${token}` } }
       )
-      toast.success('ลบบทความสำเร็จ')
+      if (res.data.applied) {
+        toast.success('ลบบทความสำเร็จ')
+        fetchArticles()
+        fetchStats()
+      } else {
+        toast.success('ส่งคำขอลบแล้ว รอ IT Manager อนุมัติ')
+      }
+      setShowDeleteReqModal(false)
+      setDeleteReqArticle(null)
+      fetchPendingRequests()
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'เกิดข้อผิดพลาด')
+    } finally {
+      setIsSubmittingReq(false)
+    }
+  }
+
+  // Approve change request
+  const handleApproveRequest = async (id: number) => {
+    try {
+      const token = localStorage.getItem('token')
+      await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/kb/change-requests/${id}/approve`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      toast.success('อนุมัติแล้ว')
+      fetchPendingRequests()
       fetchArticles()
       fetchStats()
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'ไม่สามารถลบบทความได้')
+      toast.error(err.response?.data?.message || 'เกิดข้อผิดพลาด')
+    }
+  }
+
+  // Reject change request
+  const handleRejectRequest = async (id: number, note: string) => {
+    if (!note.trim()) { toast.error('กรุณาระบุเหตุผลการปฏิเสธ'); return }
+    try {
+      const token = localStorage.getItem('token')
+      await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/kb/change-requests/${id}/reject`,
+        { reviewNote: note.trim() },
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      toast.success('ปฏิเสธคำขอแล้ว')
+      setReviewingId(null)
+      setReviewNote('')
+      fetchPendingRequests()
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'เกิดข้อผิดพลาด')
     }
   }
 
@@ -569,6 +660,7 @@ export default function KnowledgeBasePage() {
   // Open edit modal
   const openEditModal = (article: Article) => {
     setEditingArticle(article)
+    setEditReason('')
     setFormData({
       categoryId: article.category.id,
       title: article.title,
@@ -597,6 +689,8 @@ export default function KnowledgeBasePage() {
   const canCreate = canPerformAction(currentUser, '/dashboard/knowledge-base', 'create')
   const canEdit = canPerformAction(currentUser, '/dashboard/knowledge-base', 'edit')
   const canDelete = canPerformAction(currentUser, '/dashboard/knowledge-base', 'delete')
+  const _userRoles: string[] = (currentUser as any)?.roles || ((currentUser as any)?.role ? [(currentUser as any).role] : [])
+  const isItManager = _userRoles.some(r => ['IT_MANAGER', 'SUPER_ADMIN'].includes(r))
 
   if (isLoading) {
     return (
@@ -716,6 +810,90 @@ export default function KnowledgeBasePage() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Pending Change Requests Panel (IT Manager only) */}
+      {isItManager && pendingRequests.length > 0 && (
+        <div className="glass-card rounded-xl overflow-hidden border border-amber-500/30">
+          <button
+            onClick={() => setShowPendingPanel(v => !v)}
+            className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-700/30 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-amber-500/20 rounded-lg">
+                <AlertCircle className="w-5 h-5 text-amber-400" />
+              </div>
+              <div>
+                <p className="font-semibold text-white">คำขอรออนุมัติ</p>
+                <p className="text-xs text-gray-400">{pendingRequests.length} รายการรอการตรวจสอบ</p>
+              </div>
+            </div>
+            <ChevronRight className={`w-5 h-5 text-gray-400 transition-transform ${showPendingPanel ? 'rotate-90' : ''}`} />
+          </button>
+
+          {showPendingPanel && (
+            <div className="border-t border-slate-700/50 divide-y divide-slate-700/50">
+              {pendingRequests.map((req: any) => (
+                <div key={req.id} className="p-4">
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          req.type === 'DELETE' ? 'bg-red-500/20 text-red-400' : 'bg-blue-500/20 text-blue-400'
+                        }`}>
+                          {req.type === 'DELETE' ? 'ขอลบ' : 'ขอแก้ไข'}
+                        </span>
+                        <span className="text-sm font-medium text-white truncate">{req.article?.title}</span>
+                      </div>
+                      <p className="text-xs text-gray-400">
+                        โดย {req.requester?.firstName} {req.requester?.lastName} — <span className="text-amber-400/80">{req.reason}</span>
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => handleApproveRequest(req.id)}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-green-600/20 hover:bg-green-600/30 text-green-400 rounded-lg text-xs transition-colors"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        อนุมัติ
+                      </button>
+                      <button
+                        onClick={() => { setReviewingId(req.id); setReviewNote('') }}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg text-xs transition-colors"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        ปฏิเสธ
+                      </button>
+                    </div>
+                  </div>
+                  {reviewingId === req.id && (
+                    <div className="flex gap-2 mt-2">
+                      <input
+                        type="text"
+                        value={reviewNote}
+                        onChange={(e) => setReviewNote(e.target.value)}
+                        placeholder="เหตุผลที่ปฏิเสธ..."
+                        className="flex-1 px-3 py-1.5 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                      />
+                      <button
+                        onClick={() => handleRejectRequest(req.id, reviewNote)}
+                        className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs transition-colors"
+                      >
+                        ยืนยัน
+                      </button>
+                      <button
+                        onClick={() => setReviewingId(null)}
+                        className="px-3 py-1.5 text-gray-400 hover:text-white rounded-lg text-xs transition-colors"
+                      >
+                        ยกเลิก
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -936,14 +1114,27 @@ export default function KnowledgeBasePage() {
                           </span>
                         )}
                       </div>
-                      {canDelete && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleDeleteArticle(article) }}
-                          className="p-1 text-gray-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                          title="ลบ"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                      {(canEdit || canDelete) && (
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {canEdit && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); openEditModal(article) }}
+                              className="p-1 text-gray-400 hover:text-blue-400"
+                              title="ขอแก้ไข"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                          )}
+                          {canDelete && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDeleteArticle(article) }}
+                              className="p-1 text-gray-400 hover:text-red-400"
+                              title="ขอลบ"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
 
@@ -1006,7 +1197,7 @@ export default function KnowledgeBasePage() {
                       </div>
                       <span className="flex items-center gap-1">
                         <Clock className="w-3 h-3" />
-                        {formatDate(article.createdAt)}
+                        {formatDate(article.publishedAt || article.createdAt)}
                       </span>
                     </div>
                   </div>
@@ -1504,12 +1695,33 @@ export default function KnowledgeBasePage() {
               </div>
             </div>
 
+            {/* Reason field — required when editing */}
+            {editingArticle && (
+              <div className="px-6 pb-4 border-t border-slate-700/50 pt-4 bg-amber-500/5">
+                <label className="block text-sm font-medium text-amber-400 mb-2 flex items-center gap-1.5">
+                  <AlertCircle className="w-4 h-4" />
+                  เหตุผล / จุดที่แก้ไข <span className="text-red-400">*</span>
+                </label>
+                <textarea
+                  value={editReason}
+                  onChange={(e) => setEditReason(e.target.value)}
+                  placeholder="ระบุสิ่งที่แก้ไขและเหตุผล เช่น อัพเดตขั้นตอนตามเวอร์ชันใหม่, แก้ข้อมูลผิด"
+                  rows={2}
+                  className="w-full px-4 py-2 bg-slate-700 border border-amber-500/40 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none text-sm"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  {isItManager ? 'IT Manager: การเปลี่ยนแปลงจะมีผลทันที' : 'การแก้ไขจะส่งให้ IT Manager อนุมัติก่อน'}
+                </p>
+              </div>
+            )}
+
             <div className="p-6 border-t border-slate-700/50 flex items-center justify-end gap-3">
               <button
                 onClick={() => {
                   setShowCreateModal(false)
                   setEditingArticle(null)
                   resetForm()
+                  setEditReason('')
                 }}
                 className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
               >
@@ -1529,7 +1741,7 @@ export default function KnowledgeBasePage() {
                 ) : (
                   <>
                     <Check className="w-5 h-5" />
-                    <span>{editingArticle ? 'บันทึก' : 'สร้างบทความ'}</span>
+                    <span>{editingArticle ? 'ส่งคำขอแก้ไข' : 'สร้างบทความ'}</span>
                   </>
                 )}
               </button>
@@ -1818,6 +2030,60 @@ export default function KnowledgeBasePage() {
                   )}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Change Request Confirmation Modal */}
+      {showDeleteReqModal && deleteReqArticle && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[70] p-4">
+          <div className="bg-slate-800 rounded-2xl w-full max-w-md shadow-2xl">
+            <div className="p-6 border-b border-slate-700/50 flex items-center gap-3">
+              <div className="p-2 bg-red-500/20 rounded-lg">
+                <Trash2 className="w-5 h-5 text-red-400" />
+              </div>
+              <h2 className="text-lg font-semibold text-white">ขอลบบทความ</h2>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-gray-300">
+                บทความ: <span className="font-medium text-white">"{deleteReqArticle.title}"</span>
+              </p>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  เหตุผลที่ลบ <span className="text-red-400">*</span>
+                </label>
+                <textarea
+                  value={deleteReqReason}
+                  onChange={(e) => setDeleteReqReason(e.target.value)}
+                  placeholder="ระบุเหตุผลที่ต้องการลบบทความนี้"
+                  rows={3}
+                  className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
+                />
+              </div>
+              <p className="text-xs text-gray-500">
+                {isItManager ? 'IT Manager: บทความจะถูกลบทันทีหลังยืนยัน' : 'คำขอจะถูกส่งให้ IT Manager อนุมัติก่อน'}
+              </p>
+            </div>
+            <div className="p-6 border-t border-slate-700/50 flex items-center justify-end gap-3">
+              <button
+                onClick={() => { setShowDeleteReqModal(false); setDeleteReqArticle(null) }}
+                className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={handleSubmitDeleteRequest}
+                disabled={isSubmittingReq || !deleteReqReason.trim()}
+                className="flex items-center gap-2 px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50"
+              >
+                {isSubmittingReq ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <Trash2 className="w-4 h-4" />
+                )}
+                {isItManager ? 'ลบเลย' : 'ส่งคำขอลบ'}
+              </button>
             </div>
           </div>
         </div>
