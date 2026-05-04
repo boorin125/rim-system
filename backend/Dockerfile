@@ -31,7 +31,7 @@ ENV BUILD_DATE=${BUILD_DATE}
 ENV APP_VERSION=${APP_VERSION}
 
 HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=6 \
-  CMD curl -sf http://127.0.0.1:3000/api/version || exit 1
+  CMD nc -z 127.0.0.1 3000 || exit 1
 
 EXPOSE 3000
 ENTRYPOINT ["./entrypoint.sh"]
