@@ -154,7 +154,8 @@ export class KnowledgeBaseController {
     @Query('authorId') authorId?: string,
     @Query('roleFilter') roleFilter?: string,
   ) {
-    return this.kbService.getArticles(req.user.role, {
+    const userRole = (Array.isArray(req.user.roles) ? req.user.roles[0] : req.user.role) as UserRole;
+    return this.kbService.getArticles(userRole, {
       page: page ? parseInt(page) : 1,
       limit: limit ? parseInt(limit) : 20,
       categoryId: categoryId ? parseInt(categoryId) : undefined,
@@ -174,7 +175,8 @@ export class KnowledgeBaseController {
     @Query('q') query: string,
     @Query('limit') limit?: string,
   ) {
-    return this.kbService.searchArticles(req.user.role, query || '', limit ? parseInt(limit) : 10);
+    const userRole = (Array.isArray(req.user.roles) ? req.user.roles[0] : req.user.role) as UserRole;
+    return this.kbService.searchArticles(userRole, query || '', limit ? parseInt(limit) : 10);
   }
 
   /**
@@ -182,7 +184,8 @@ export class KnowledgeBaseController {
    */
   @Get('articles/popular')
   async getPopularArticles(@Request() req, @Query('limit') limit?: string) {
-    return this.kbService.getPopularArticles(req.user.role, limit ? parseInt(limit) : 10);
+    const userRole = (Array.isArray(req.user.roles) ? req.user.roles[0] : req.user.role) as UserRole;
+    return this.kbService.getPopularArticles(userRole, limit ? parseInt(limit) : 10);
   }
 
   /**
@@ -194,8 +197,9 @@ export class KnowledgeBaseController {
     @Query('category') category: string,
     @Query('keywords') keywords?: string,
   ) {
+    const userRole = (Array.isArray(req.user.roles) ? req.user.roles[0] : req.user.role) as UserRole;
     const keywordList = keywords ? keywords.split(',').map((k) => k.trim()) : [];
-    return this.kbService.getSuggestedArticles(req.user.role, category || '', keywordList);
+    return this.kbService.getSuggestedArticles(userRole, category || '', keywordList);
   }
 
   /**
