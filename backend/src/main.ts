@@ -23,6 +23,12 @@ async function bootstrap() {
   // Serve static files from uploads directory
   app.useStaticAssets(join(process.cwd(), 'uploads'), {
     prefix: '/uploads/',
+    setHeaders: (res: any, filePath: string) => {
+      const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
+      if (['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
+        res.setHeader('Content-Disposition', 'inline');
+      }
+    },
   });
 
   // Raw Express middleware for /health — bypasses NestJS routing and JWT guards

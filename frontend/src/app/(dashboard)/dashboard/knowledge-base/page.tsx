@@ -237,6 +237,18 @@ export default function KnowledgeBasePage() {
   // Lightbox for images in detail view
   const [lightboxImg, setLightboxImg] = useState<string | null>(null)
 
+  // File viewer modal
+  const [showFileViewerModal, setShowFileViewerModal] = useState(false)
+  const [fileViewerArticle, setFileViewerArticle] = useState<Article | null>(null)
+
+  const buildFileUrl = (filePath: string) =>
+    `${(process.env.NEXT_PUBLIC_API_URL || '').replace(/\/api$/, '')}/uploads/${filePath}`
+
+  const openFileViewer = (article: Article) => {
+    setFileViewerArticle(article)
+    setShowFileViewerModal(true)
+  }
+
   // Fetch categories
   const fetchCategories = useCallback(async () => {
     try {
@@ -373,6 +385,10 @@ export default function KnowledgeBasePage() {
 
   // View article detail
   const viewArticle = async (article: Article) => {
+    if (article.fileType && article.filePath) {
+      openFileViewer(article)
+      return
+    }
     try {
       const token = localStorage.getItem('token')
       const res = await axios.get(
@@ -896,7 +912,8 @@ export default function KnowledgeBasePage() {
                 {articles.map((article) => (
                   <div
                     key={article.id}
-                    className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 hover:border-blue-500/50 transition-colors group flex flex-col"
+                    onClick={() => article.fileType ? openFileViewer(article) : viewArticle(article)}
+                    className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 hover:border-blue-500/50 transition-colors group flex flex-col cursor-pointer"
                   >
                     {/* Top row: category + file type badge + draft + actions */}
                     <div className="flex items-start justify-between mb-2">
@@ -947,18 +964,15 @@ export default function KnowledgeBasePage() {
                       <div className="flex items-center gap-2">
                         {article.fileType ? (
                           <>
-                            <a
-                              href={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '')}/uploads/${article.filePath}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); openFileViewer(article) }}
                               className="flex items-center gap-1 px-2.5 py-1 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30 transition-colors"
                             >
-                              <ExternalLink className="w-3 h-3" />
+                              <Eye className="w-3 h-3" />
                               เปิดดู
-                            </a>
+                            </button>
                             <a
-                              href={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '')}/uploads/${article.filePath}`}
+                              href={article.filePath ? buildFileUrl(article.filePath) : '#'}
                               download
                               onClick={(e) => e.stopPropagation()}
                               className="flex items-center gap-1 px-2.5 py-1 bg-slate-700/50 text-gray-300 rounded-lg hover:bg-slate-700 transition-colors"
@@ -1711,6 +1725,99 @@ export default function KnowledgeBasePage() {
                   </>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* File Viewer Modal */}
+      {showFileViewerModal && fileViewerArticle && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4">
+          <div className="bg-slate-800 rounded-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-slate-700/50 flex-shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                {fileViewerArticle.fileType && (() => {
+                  const { Icon, color, label, bg } = getFileTypeInfo(fileViewerArticle.fileType)
+                  return (
+                    <span className={`flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1 border rounded-full text-xs ${color} ${bg}`}>
+                      <Icon className="w-3 h-3" />
+                      {label}
+                    </span>
+                  )
+                })()}
+                <h3 className="text-white font-semibold truncate">{fileViewerArticle.title}</h3>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                {fileViewerArticle.filePath && (
+                  <a
+                    href={buildFileUrl(fileViewerArticle.filePath)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 text-gray-300 rounded-lg hover:bg-slate-600 text-sm transition-colors"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    เปิดในแท็บใหม่
+                  </a>
+                )}
+                {fileViewerArticle.filePath && (
+                  <a
+                    href={buildFileUrl(fileViewerArticle.filePath)}
+                    download
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 text-gray-300 rounded-lg hover:bg-slate-600 text-sm transition-colors"
+                  >
+                    <Download className="w-4 h-4" />
+                    ดาวน์โหลด
+                  </a>
+                )}
+                <button
+                  onClick={() => setShowFileViewerModal(false)}
+                  className="p-2 text-gray-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Viewer Body */}
+            <div className="flex-1 overflow-hidden p-4 min-h-0">
+              {fileViewerArticle.fileType === 'PDF' && fileViewerArticle.filePath ? (
+                <iframe
+                  src={buildFileUrl(fileViewerArticle.filePath)}
+                  className="w-full h-full rounded-lg border border-slate-700/50"
+                  style={{ minHeight: '60vh' }}
+                  title={fileViewerArticle.title}
+                />
+              ) : fileViewerArticle.fileType === 'IMAGE' && fileViewerArticle.filePath ? (
+                <div className="flex items-center justify-center h-full" style={{ minHeight: '60vh' }}>
+                  <img
+                    src={buildFileUrl(fileViewerArticle.filePath)}
+                    alt={fileViewerArticle.title}
+                    className="max-w-full max-h-[70vh] object-contain rounded-xl shadow-2xl"
+                  />
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center gap-5" style={{ minHeight: '60vh' }}>
+                  {fileViewerArticle.fileType && (() => {
+                    const { Icon, color } = getFileTypeInfo(fileViewerArticle.fileType)
+                    return <Icon className={`w-16 h-16 ${color}`} />
+                  })()}
+                  <div className="text-center">
+                    <p className="text-gray-300 font-medium mb-1">ไม่สามารถแสดงตัวอย่างไฟล์นี้ได้</p>
+                    <p className="text-sm text-gray-500">กรุณาดาวน์โหลดเพื่อเปิดในโปรแกรมที่รองรับ</p>
+                  </div>
+                  {fileViewerArticle.filePath && (
+                    <a
+                      href={buildFileUrl(fileViewerArticle.filePath)}
+                      download
+                      className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-colors text-sm"
+                    >
+                      <Download className="w-5 h-5" />
+                      ดาวน์โหลดไฟล์
+                    </a>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
