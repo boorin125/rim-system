@@ -1252,7 +1252,7 @@ export default function PerformancePage() {
                     })}
                     {techTypeFilter !== 'all' && (
                       <span className="text-xs text-gray-500 ml-1">
-                        ({typeFiltered.length} คน)
+                        ({filteredResolved.length + filteredZero.length} คน)
                       </span>
                     )}
                   </div>
