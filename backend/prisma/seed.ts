@@ -10,6 +10,7 @@ async function main() {
   // Clean existing data (order matters due to foreign keys)
   await prisma.incidentHistory.deleteMany({});
   await prisma.comment.deleteMany({});
+  await prisma.outsourceJob.deleteMany({});
   await prisma.incident.deleteMany({});
   await prisma.equipmentLog.deleteMany({});
   await prisma.equipment.deleteMany({});
