@@ -28,17 +28,15 @@ bash setup-docker.sh
 
 ```bash
 # 1. อัพโหลดไฟล์ installer ไปที่ server
-scp rim-installer-v1.0.4.zip root@YOUR_SERVER_IP:~/
+scp rim-installer-v1.0.5.zip root@YOUR_SERVER_IP:~/
 
 # 2. SSH เข้า server
 ssh root@YOUR_SERVER_IP
 
-# 3. แตกไฟล์
-unzip rim-installer-v1.0.4.zip
-
-# ดูชื่อ folder ที่แตกออกมา แล้ว cd เข้าไป
-ls
-cd rim-system    # หรือตามชื่อ folder ที่เห็น
+# 3. แตกไฟล์ไปยังโฟลเดอร์ rim-system
+mkdir -p /root/rim-system
+unzip rim-installer-v1.0.5.zip -d /root/rim-system
+cd /root/rim-system
 
 # 4. รัน installer (ต้องอยู่ในโฟลเดอร์เดียวกับ docker-compose.yml)
 bash install.sh
