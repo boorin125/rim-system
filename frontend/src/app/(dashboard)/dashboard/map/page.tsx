@@ -44,6 +44,7 @@ interface MapCheckin {
   ticketNumber: string
   title: string
   status: string
+  reopenCount?: number
   latitude: number
   longitude: number
   checkInAt: string

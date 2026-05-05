@@ -12,6 +12,7 @@ interface MapCheckin {
   ticketNumber: string
   title: string
   status: string
+  reopenCount?: number
   latitude: number
   longitude: number
   checkInAt: string
@@ -98,6 +99,7 @@ const statusColorMap: Record<string, { hex: string; text: string }> = {
   CLOSED: { hex: '#22c55e', text: '#4ade80' },         // green
   OUTSOURCED: { hex: '#06b6d4', text: '#22d3ee' },    // cyan
   CANCELLED: { hex: '#6b7280', text: '#9ca3af' },     // gray
+  REOPENED: { hex: '#ef4444', text: '#f87171' },      // red
 }
 
 const statusLabelMap: Record<string, string> = {
@@ -378,12 +380,14 @@ export default function MapView({ checkins, technicianLocations = [] }: MapViewP
 
         {/* Check-in markers */}
         {checkins.map((c) => {
-          const color = statusColorMap[c.status] || statusColorMap['PENDING']
+          const isReopened = (c.reopenCount ?? 0) > 0 && c.status !== 'CLOSED' && c.status !== 'CANCELLED'
+          const effectiveStatus = isReopened ? 'REOPENED' : c.status
+          const color = statusColorMap[effectiveStatus] || statusColorMap['PENDING']
           return (
             <Marker
               key={c.id}
               position={[c.latitude, c.longitude]}
-              icon={createPinIcon(c.status, c.technicianInitials, c.technicianAvatar, isMobile)}
+              icon={createPinIcon(effectiveStatus, c.technicianInitials, c.technicianAvatar, isMobile)}
             >
               <Tooltip direction="top" offset={[0, -48]} opacity={0.95}>
                 <div style={{ fontSize: '12px', lineHeight: '1.5' }}>
@@ -404,7 +408,7 @@ export default function MapView({ checkins, technicianLocations = [] }: MapViewP
                     padding: '1px 8px', borderRadius: '9999px',
                     fontSize: '10px', fontWeight: 600, display: 'inline-block', marginBottom: '4px',
                   }}>
-                    {statusLabelMap[c.status] || c.status}
+                    {isReopened ? `เปิดใหม่ (${c.reopenCount}x)` : (statusLabelMap[c.status] || c.status)}
                   </span>
                   <div style={{ fontWeight: 700, fontSize: isMobile ? '12px' : '13px', marginBottom: '4px' }}>
                     {c.storeCode} {c.storeName}
