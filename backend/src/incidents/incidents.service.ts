@@ -2181,6 +2181,7 @@ export class IncidentsService {
       const incData: any = {
         beforePhotos: mergedPhotos,
         updatedAt: now,
+        lastCheckedInById: userId,
       };
       if (isFirstCheckIn) {
         incData.checkInAt = now;

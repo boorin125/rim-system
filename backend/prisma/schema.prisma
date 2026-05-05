@@ -55,6 +55,7 @@ model User {
   techConfirmedIncidents      Incident[]                   @relation("TechConfirmedBy")
   confirmedIncidents          Incident[]                   @relation("ConfirmedBy")
   reopenedIncidents           Incident[]                   @relation("LastReopenedBy")
+  lastCheckedInIncidents      Incident[]                   @relation("LastCheckedInBy")
   respondedIncidents          Incident[]                   @relation("RespondedBy")
   comments                    Comment[]
   incidentHistory             IncidentHistory[]
@@ -330,6 +331,7 @@ model Incident {
   checkInAt             DateTime? @map("check_in_at")
   checkInLatitude       Float?    @map("check_in_latitude") // GPS latitude at check-in
   checkInLongitude      Float?    @map("check_in_longitude") // GPS longitude at check-in
+  lastCheckedInById     Int?      @map("last_checked_in_by_id")
   cancelledAfterCheckin Boolean   @default(false) @map("cancelled_after_checkin")
   beforePhotos          String[]  @default([]) @map("before_photos")
 
@@ -383,6 +385,7 @@ model Incident {
   techConfirmedBy User?                   @relation("TechConfirmedBy", fields: [techConfirmedById], references: [id])
   confirmedBy     User?                   @relation("ConfirmedBy", fields: [confirmedById], references: [id])
   lastReopenedBy  User?                   @relation("LastReopenedBy", fields: [lastReopenedById], references: [id])
+  lastCheckedInBy User?                   @relation("LastCheckedInBy", fields: [lastCheckedInById], references: [id])
   equipment       Equipment?              @relation(fields: [equipmentId], references: [id])
   store           Store                   @relation(fields: [storeId], references: [id])
   relatedIncident Incident?               @relation("RelatedIncidents", fields: [relatedIncidentId], references: [id])

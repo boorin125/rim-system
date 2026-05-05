@@ -468,32 +468,38 @@ export class IncidentsAnalyticsService {
         assignee: {
           select: { id: true, firstName: true, lastName: true, avatarPath: true },
         },
+        lastCheckedInBy: {
+          select: { id: true, firstName: true, lastName: true, avatarPath: true },
+        },
       },
       orderBy: { checkInAt: 'desc' },
     });
 
-    return incidents.map((inc) => ({
-      id: inc.id,
-      ticketNumber: inc.ticketNumber,
-      title: inc.title,
-      status: inc.status,
-      latitude: inc.checkInLatitude,
-      longitude: inc.checkInLongitude,
-      checkInAt: inc.checkInAt,
-      confirmedAt: inc.confirmedAt,
-      resolvedAt: inc.resolvedAt,
-      storeName: inc.store?.name || 'Unknown',
-      storeCode: inc.store?.storeCode || '',
-      technicianName: inc.assignee
-        ? `${inc.assignee.firstName} ${inc.assignee.lastName}`
-        : 'Unassigned',
-      technicianInitials: inc.assignee
-        ? `${(inc.assignee.firstName || '')[0] || ''}${(inc.assignee.lastName || '')[0] || ''}`.toUpperCase()
-        : '??',
-      technicianAvatar: inc.assignee?.avatarPath
-        ? `/uploads/${inc.assignee.avatarPath}`
-        : null,
-    }));
+    return incidents.map((inc) => {
+      const tech = inc.assignee || inc.lastCheckedInBy;
+      return {
+        id: inc.id,
+        ticketNumber: inc.ticketNumber,
+        title: inc.title,
+        status: inc.status,
+        latitude: inc.checkInLatitude,
+        longitude: inc.checkInLongitude,
+        checkInAt: inc.checkInAt,
+        confirmedAt: inc.confirmedAt,
+        resolvedAt: inc.resolvedAt,
+        storeName: inc.store?.name || 'Unknown',
+        storeCode: inc.store?.storeCode || '',
+        technicianName: tech
+          ? `${tech.firstName} ${tech.lastName}`
+          : 'Unassigned',
+        technicianInitials: tech
+          ? `${(tech.firstName || '')[0] || ''}${(tech.lastName || '')[0] || ''}`.toUpperCase()
+          : '??',
+        technicianAvatar: tech?.avatarPath
+          ? `/uploads/${tech.avatarPath}`
+          : null,
+      };
+    });
   }
 
   /**
