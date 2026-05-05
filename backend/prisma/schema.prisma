@@ -56,6 +56,7 @@ model User {
   confirmedIncidents          Incident[]                   @relation("ConfirmedBy")
   reopenedIncidents           Incident[]                   @relation("LastReopenedBy")
   lastCheckedInIncidents      Incident[]                   @relation("LastCheckedInBy")
+  workRounds                  IncidentWorkRound[]          @relation("WorkRoundTechnician")
   respondedIncidents          Incident[]                   @relation("RespondedBy")
   comments                    Comment[]
   incidentHistory             IncidentHistory[]
@@ -401,6 +402,7 @@ model Incident {
   kbArticleUsages KnowledgeArticleUsage[]
   slaDefenses     SlaDefense[]
   pmRecord        PmRecord?
+  workRounds      IncidentWorkRound[]
 
   @@index([ratingToken])
   @@index([status])
@@ -1691,6 +1693,38 @@ model AuditLog {
   @@index([userId])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// Work Round — บันทึกแต่ละรอบการซ่อม (คงอยู่แม้ incident จะถูก Reopen)
+model IncidentWorkRound {
+  id          Int    @id @default(autoincrement())
+  incidentId  String @map("incident_id")
+  roundNumber Int    @map("round_number")
+
+  technicianId Int  @map("technician_id")
+  technician   User @relation("WorkRoundTechnician", fields: [technicianId], references: [id])
+
+  assignedAt       DateTime? @map("assigned_at")
+  checkInAt        DateTime? @map("check_in_at")
+  checkInLatitude  Float?    @map("check_in_latitude")
+  checkInLongitude Float?    @map("check_in_longitude")
+
+  resolvedAt     DateTime? @map("resolved_at")
+  resolutionNote String?   @map("resolution_note")
+  resolutionType String?   @map("resolution_type")
+
+  beforePhotos       String[] @default([]) @map("before_photos")
+  afterPhotos        String[] @default([]) @map("after_photos")
+  signedReportPhotos String[] @default([]) @map("signed_report_photos")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@unique([incidentId, roundNumber])
+  @@index([incidentId])
+  @@index([technicianId])
+  @@map("incident_work_rounds")
 }
 
 // Multi-technician Assignment (Many-to-Many)

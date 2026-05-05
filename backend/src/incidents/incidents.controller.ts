@@ -166,6 +166,18 @@ export class IncidentsController {
    *
    * ⚠️ CRITICAL: TECHNICIAN can only view their assigned incidents
    */
+  @Get(':id/work-rounds')
+  @Roles(
+    UserRole.IT_MANAGER,
+    UserRole.SUPERVISOR,
+    UserRole.HELP_DESK,
+    UserRole.TECHNICIAN,
+    UserRole.READ_ONLY,
+  )
+  getWorkRounds(@Param('id') id: string) {
+    return this.incidentsService.getWorkRounds(id);
+  }
+
   @Get(':id')
   @Roles(
     UserRole.IT_MANAGER,

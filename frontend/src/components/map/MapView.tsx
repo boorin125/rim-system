@@ -111,6 +111,7 @@ const statusLabelMap: Record<string, string> = {
   PENDING: 'รอดำเนินการ',
   OUTSOURCED: 'Outsource',
   CANCELLED: 'ยกเลิก',
+  REOPENED: 'เปิดใหม่',
 }
 
 // Insource = teal, Outsource = purple — online=dark, offline=light
@@ -380,14 +381,12 @@ export default function MapView({ checkins, technicianLocations = [] }: MapViewP
 
         {/* Check-in markers */}
         {checkins.map((c) => {
-          const isReopened = (c.reopenCount ?? 0) > 0 && c.status !== 'CLOSED' && c.status !== 'CANCELLED'
-          const effectiveStatus = isReopened ? 'REOPENED' : c.status
-          const color = statusColorMap[effectiveStatus] || statusColorMap['PENDING']
+          const color = statusColorMap[c.status] || statusColorMap['PENDING']
           return (
             <Marker
               key={c.id}
               position={[c.latitude, c.longitude]}
-              icon={createPinIcon(effectiveStatus, c.technicianInitials, c.technicianAvatar, isMobile)}
+              icon={createPinIcon(c.status, c.technicianInitials, c.technicianAvatar, isMobile)}
             >
               <Tooltip direction="top" offset={[0, -48]} opacity={0.95}>
                 <div style={{ fontSize: '12px', lineHeight: '1.5' }}>
@@ -408,7 +407,7 @@ export default function MapView({ checkins, technicianLocations = [] }: MapViewP
                     padding: '1px 8px', borderRadius: '9999px',
                     fontSize: '10px', fontWeight: 600, display: 'inline-block', marginBottom: '4px',
                   }}>
-                    {isReopened ? `เปิดใหม่ (${c.reopenCount}x)` : (statusLabelMap[c.status] || c.status)}
+                    {c.status === 'REOPENED' ? `เปิดใหม่${(c.reopenCount ?? 0) > 1 ? ` (${c.reopenCount}x)` : ''}` : (statusLabelMap[c.status] || c.status)}
                   </span>
                   <div style={{ fontWeight: 700, fontSize: isMobile ? '12px' : '13px', marginBottom: '4px' }}>
                     {c.storeCode} {c.storeName}

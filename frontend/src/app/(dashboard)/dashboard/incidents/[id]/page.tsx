@@ -66,6 +66,7 @@ export default function IncidentDetailPage() {
   const params = useParams()
   const themeHighlight = useThemeHighlight()
   const [incident, setIncident] = useState<any>(null)
+  const [workRounds, setWorkRounds] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [cancelModalOpen, setCancelModalOpen] = useState(false)
   const [cancellationReason, setCancellationReason] = useState('')
@@ -220,6 +221,15 @@ export default function IncidentDetailPage() {
       )
 
       setIncident(response.data)
+
+      // Fetch work rounds (history per-round)
+      try {
+        const roundsRes = await axios.get(
+          `${process.env.NEXT_PUBLIC_API_URL}/incidents/${params.id}/work-rounds`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        )
+        setWorkRounds(roundsRes.data)
+      } catch { /* not all roles can access, ignore */ }
 
       // Fetch SLA defense status for CLOSED incidents
       if (response.data.status === 'CLOSED') {
@@ -2056,6 +2066,72 @@ SLA Breach Time: ${slaBreachText}`
             setPmSignedDocsCount(signedInventoryPhotosCount)
           }}
         />
+      )}
+
+      {/* Work Rounds History */}
+      {workRounds.length > 0 && (
+        <div className="glass-card p-6 rounded-2xl">
+          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <ChevronRight className="w-5 h-5 text-orange-400" />
+            ประวัติการซ่อม ({workRounds.length} รอบ)
+          </h2>
+          <div className="space-y-4">
+            {workRounds.map((round: any) => {
+              const apiBase = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || ''
+              const techName = round.technician ? `${round.technician.firstName} ${round.technician.lastName}` : 'ไม่ระบุ'
+              const isCompleted = !!round.resolvedAt
+              return (
+                <div key={round.id} className={`rounded-xl border p-4 ${isCompleted ? 'border-green-500/30 bg-green-500/5' : 'border-yellow-500/30 bg-yellow-500/5'}`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className={`text-sm font-bold px-3 py-1 rounded-full ${isCompleted ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                      รอบที่ {round.roundNumber}
+                    </span>
+                    <span className="text-xs text-gray-400">{techName}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm mb-3">
+                    {round.checkInAt && (
+                      <div><span className="text-gray-500">Check-in: </span><span className="text-gray-300">{formatDateTime(round.checkInAt)}</span></div>
+                    )}
+                    {round.resolvedAt && (
+                      <div><span className="text-gray-500">Resolve: </span><span className="text-gray-300">{formatDateTime(round.resolvedAt)}</span></div>
+                    )}
+                    {round.checkInLatitude && (
+                      <div className="col-span-2"><span className="text-gray-500">GPS: </span><span className="text-gray-300">{round.checkInLatitude.toFixed(5)}, {round.checkInLongitude?.toFixed(5)}</span></div>
+                    )}
+                  </div>
+                  {round.resolutionNote && (
+                    <p className="text-sm text-gray-300 bg-slate-800/50 rounded-lg p-3 mb-3 whitespace-pre-wrap">{round.resolutionNote}</p>
+                  )}
+                  {/* Photos per round */}
+                  {(round.beforePhotos?.length > 0 || round.afterPhotos?.length > 0 || round.signedReportPhotos?.length > 0) && (
+                    <div className="space-y-2">
+                      {round.beforePhotos?.length > 0 && (
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">รูปก่อนซ่อม ({round.beforePhotos.length})</p>
+                          <div className="flex flex-wrap gap-2">
+                            {round.beforePhotos.map((p: string, i: number) => (
+                              <img key={i} src={`${apiBase}/${p}`} className="h-16 w-16 object-cover rounded-lg cursor-pointer" onClick={() => openPhotoViewer(round.beforePhotos.map(getPhotoUrl), i, `รอบที่ ${round.roundNumber} — รูปก่อนซ่อม`)} onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {round.afterPhotos?.length > 0 && (
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">รูปหลังซ่อม ({round.afterPhotos.length})</p>
+                          <div className="flex flex-wrap gap-2">
+                            {round.afterPhotos.map((p: string, i: number) => (
+                              <img key={i} src={`${apiBase}/${p}`} className="h-16 w-16 object-cover rounded-lg cursor-pointer" onClick={() => openPhotoViewer(round.afterPhotos.map(getPhotoUrl), i, `รอบที่ ${round.roundNumber} — รูปหลังซ่อม`)} onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
       )}
 
       {/* Photos (if any) */}

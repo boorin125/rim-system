@@ -429,12 +429,12 @@ export class IncidentsAnalyticsService {
       checkInLongitude: { not: null },
     };
 
-    // Role-based filtering
+    // Role-based filtering: technician sees only their own rounds
     if (this.hasOnlyRole(user, UserRole.TECHNICIAN)) {
-      where.assignees = { some: { userId: user.id } };
+      where.technicianId = user.id;
     }
 
-    // Date range on checkInAt
+    // Date range on WorkRound.checkInAt
     if (from || to) {
       where.checkInAt = {};
       if (from) where.checkInAt.gte = new Date(from);
@@ -445,50 +445,62 @@ export class IncidentsAnalyticsService {
       }
     }
 
-    // Status filter
+    // Status filter applies to the parent incident
     if (status) {
-      where.status = status;
+      where.incident = { status };
     }
 
-    const incidents = await this.prisma.incident.findMany({
+    const rounds = await this.prisma.incidentWorkRound.findMany({
       where,
       select: {
         id: true,
-        ticketNumber: true,
-        title: true,
-        status: true,
-        reopenCount: true,
+        roundNumber: true,
         checkInAt: true,
         checkInLatitude: true,
         checkInLongitude: true,
-        confirmedAt: true,
         resolvedAt: true,
-        store: {
-          select: { name: true, storeCode: true },
-        },
-        assignee: {
+        technician: {
           select: { id: true, firstName: true, lastName: true, avatarPath: true },
         },
-        lastCheckedInBy: {
-          select: { id: true, firstName: true, lastName: true, avatarPath: true },
+        incident: {
+          select: {
+            id: true,
+            ticketNumber: true,
+            title: true,
+            status: true,
+            reopenCount: true,
+            confirmedAt: true,
+            resolvedAt: true,
+            store: { select: { name: true, storeCode: true } },
+          },
         },
       },
       orderBy: { checkInAt: 'desc' },
     });
 
-    return incidents.map((inc) => {
-      const tech = inc.assignee || inc.lastCheckedInBy;
+    return rounds.map((round) => {
+      const inc = round.incident;
+      const tech = round.technician;
+      // Old round = resolved but incident was subsequently reopened → red pin
+      const isSuperseded =
+        round.resolvedAt !== null &&
+        inc.status !== 'CLOSED' &&
+        inc.status !== 'CANCELLED';
+      const effectiveStatus = isSuperseded ? 'REOPENED' : inc.status;
+
       return {
-        id: inc.id,
+        id: `round-${round.id}`,
+        incidentId: inc.id,
         ticketNumber: inc.ticketNumber,
         title: inc.title,
-        status: inc.status,
-        reopenCount: (inc as any).reopenCount ?? 0,
-        latitude: inc.checkInLatitude,
-        longitude: inc.checkInLongitude,
-        checkInAt: inc.checkInAt,
+        status: effectiveStatus,
+        roundNumber: round.roundNumber,
+        reopenCount: inc.reopenCount ?? 0,
+        latitude: round.checkInLatitude,
+        longitude: round.checkInLongitude,
+        checkInAt: round.checkInAt,
         confirmedAt: inc.confirmedAt,
-        resolvedAt: inc.resolvedAt,
+        resolvedAt: round.resolvedAt,
         storeName: inc.store?.name || 'Unknown',
         storeCode: inc.store?.storeCode || '',
         technicianName: tech
@@ -497,9 +509,7 @@ export class IncidentsAnalyticsService {
         technicianInitials: tech
           ? `${(tech.firstName || '')[0] || ''}${(tech.lastName || '')[0] || ''}`.toUpperCase()
           : '??',
-        technicianAvatar: tech?.avatarPath
-          ? `/uploads/${tech.avatarPath}`
-          : null,
+        technicianAvatar: tech?.avatarPath ? `/uploads/${tech.avatarPath}` : null,
       };
     });
   }

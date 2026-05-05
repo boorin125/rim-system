@@ -1806,6 +1806,19 @@ export class IncidentsService {
    * Status: CLOSED → IN_PROGRESS
    * Updates reopen tracking fields
    */
+  async getWorkRounds(id: string) {
+    const rounds = await this.prisma.incidentWorkRound.findMany({
+      where: { incidentId: id },
+      orderBy: { roundNumber: 'asc' },
+      include: {
+        technician: {
+          select: { id: true, firstName: true, lastName: true, avatarPath: true, technicianType: true },
+        },
+      },
+    });
+    return rounds;
+  }
+
   async reopen(id: string, reopenReason: string, assignTo: number | undefined, userId: number) {
     const incident = await this.prisma.incident.findFirst({
       where: { id },
@@ -2228,6 +2241,27 @@ export class IncidentsService {
         },
       });
 
+      // Create/update WorkRound — preserves per-round work history across reopens
+      const roundNumber = (incident.reopenCount ?? 0) + 1;
+      await tx.incidentWorkRound.upsert({
+        where: { incidentId_roundNumber: { incidentId: id, roundNumber } },
+        create: {
+          incidentId: id,
+          roundNumber,
+          technicianId: userId,
+          checkInAt: now,
+          checkInLatitude: checkInLatitude ?? null,
+          checkInLongitude: checkInLongitude ?? null,
+          beforePhotos: watermarkedBeforePhotos,
+        },
+        update: {
+          checkInAt: now,
+          checkInLatitude: checkInLatitude ?? null,
+          checkInLongitude: checkInLongitude ?? null,
+          beforePhotos: watermarkedBeforePhotos,
+        },
+      });
+
       return inc;
     });
 
@@ -2603,6 +2637,29 @@ export class IncidentsService {
           // Equipment sync is deferred to confirmClose() when Helpdesk confirms
         }
       }
+
+      // Snapshot resolution data into WorkRound
+      const roundNumber = (incident.reopenCount ?? 0) + 1;
+      await prisma.incidentWorkRound.upsert({
+        where: { incidentId_roundNumber: { incidentId: id, roundNumber } },
+        create: {
+          incidentId: id,
+          roundNumber,
+          technicianId: userId,
+          resolvedAt: new Date(),
+          resolutionNote: dto.resolutionNote ?? null,
+          resolutionType: 'ONSITE',
+          afterPhotos: watermarkedAfterPhotos,
+          signedReportPhotos: signedReportPaths,
+        },
+        update: {
+          resolvedAt: new Date(),
+          resolutionNote: dto.resolutionNote ?? null,
+          resolutionType: 'ONSITE',
+          afterPhotos: watermarkedAfterPhotos,
+          signedReportPhotos: signedReportPaths,
+        },
+      });
 
       // Create history entry
       const sparePartsInfo = dto.usedSpareParts && dto.spareParts && dto.spareParts.length > 0
