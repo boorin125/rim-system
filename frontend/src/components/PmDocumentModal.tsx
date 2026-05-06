@@ -235,7 +235,11 @@ export function PmReportModal({
               <p className="text-xs text-gray-400 mb-3">ลายเซ็นเจ้าหน้าที่สาขา / Store Staff</p>
               <div className="h-14 flex items-end justify-center mb-3">
                 {data.storeSignature && (
-                  <img src={data.storeSignature} alt="Store signature" className="h-12 object-contain" />
+                  <img
+                      src={data.storeSignature.startsWith('data:') || data.storeSignature.startsWith('http') ? data.storeSignature : `${window.location.origin}/uploads/${data.storeSignature.replace(/^\/?(uploads\/)?/, '')}`}
+                      alt="Store signature"
+                      className="h-12 object-contain"
+                    />
                 )}
               </div>
               <div className="border-b-2 border-gray-400 w-44 mx-auto mb-1" />
@@ -429,7 +433,11 @@ export function InventoryListModal({
                   <p className="text-xs text-gray-400 mb-3">ลายเซ็นเจ้าหน้าที่สาขา / Store Staff</p>
                   <div className="h-14 flex items-end justify-center mb-3">
                     {data.storeSignature && (
-                      <img src={data.storeSignature} alt="Store signature" className="h-12 object-contain" />
+                      <img
+                      src={data.storeSignature.startsWith('data:') || data.storeSignature.startsWith('http') ? data.storeSignature : `${window.location.origin}/uploads/${data.storeSignature.replace(/^\/?(uploads\/)?/, '')}`}
+                      alt="Store signature"
+                      className="h-12 object-contain"
+                    />
                     )}
                   </div>
                   <div className="border-b-2 border-gray-400 w-44 mx-auto mb-1" />

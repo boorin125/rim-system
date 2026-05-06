@@ -279,8 +279,13 @@ export async function generatePmReportPDF(data: PmReportData): Promise<void> {
 
       if (hasB) {
         try {
-          const cropped = await cropToSquare(eq.beforePhotos[0])
-          doc.addImage(cropped, 'JPEG', p1x, y, photoSize, photoSize, undefined, 'FAST')
+          const raw = eq.beforePhotos[0]
+          const src = raw.startsWith('data:') ? raw
+            : await loadImageAsDataURL(`/uploads/${raw.replace(/^\/?(uploads\/)?/, '')}`)
+          if (src) {
+            const cropped = await cropToSquare(src)
+            doc.addImage(cropped, 'JPEG', p1x, y, photoSize, photoSize, undefined, 'FAST')
+          }
         } catch {}
       } else {
         doc.setFontSize(7)
@@ -290,8 +295,13 @@ export async function generatePmReportPDF(data: PmReportData): Promise<void> {
 
       if (hasA) {
         try {
-          const cropped = await cropToSquare(eq.afterPhotos[0])
-          doc.addImage(cropped, 'JPEG', p2x, y, photoSize, photoSize, undefined, 'FAST')
+          const raw = eq.afterPhotos[0]
+          const src = raw.startsWith('data:') ? raw
+            : await loadImageAsDataURL(`/uploads/${raw.replace(/^\/?(uploads\/)?/, '')}`)
+          if (src) {
+            const cropped = await cropToSquare(src)
+            doc.addImage(cropped, 'JPEG', p2x, y, photoSize, photoSize, undefined, 'FAST')
+          }
         } catch {}
       } else {
         doc.setFontSize(7)
