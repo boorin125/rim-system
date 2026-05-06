@@ -515,6 +515,7 @@ export class IncidentsAnalyticsService {
         checkInLatitude: true,
         checkInLongitude: true,
         assignee: { select: { id: true, firstName: true, lastName: true, avatarPath: true } },
+        resolvedBy: { select: { id: true, firstName: true, lastName: true, avatarPath: true } },
         assignees: {
           select: { user: { select: { id: true, firstName: true, lastName: true, avatarPath: true } } },
           orderBy: { assignedAt: 'desc' as const },
@@ -561,7 +562,7 @@ export class IncidentsAnalyticsService {
 
     // ── 4. Map legacy Incident pins ───────────────────────────────────────────
     const legacyPins = legacyIncidents.map((inc) => {
-      const tech = inc.assignees[0]?.user ?? inc.assignee ?? null;
+      const tech = inc.assignees[0]?.user ?? inc.assignee ?? inc.resolvedBy ?? null;
 
       return {
         id: `legacy-${inc.id}`,
