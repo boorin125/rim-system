@@ -424,34 +424,32 @@ export class IncidentsAnalyticsService {
    * Get check-in data for map display
    */
   async getMapCheckins(user: any, from?: string, to?: string, status?: string) {
-    const where: any = {
+    // ── 1. WorkRound-based query (new incidents with WorkRound records) ───────
+    const wrWhere: any = {
       checkInLatitude: { not: null },
       checkInLongitude: { not: null },
     };
 
-    // Role-based filtering: technician sees only their own rounds
     if (this.hasOnlyRole(user, UserRole.TECHNICIAN)) {
-      where.technicianId = user.id;
+      wrWhere.technicianId = user.id;
     }
 
-    // Date range on WorkRound.checkInAt
     if (from || to) {
-      where.checkInAt = {};
-      if (from) where.checkInAt.gte = new Date(from);
+      wrWhere.checkInAt = {};
+      if (from) wrWhere.checkInAt.gte = new Date(from);
       if (to) {
         const toDate = new Date(to);
         toDate.setHours(23, 59, 59, 999);
-        where.checkInAt.lte = toDate;
+        wrWhere.checkInAt.lte = toDate;
       }
     }
 
-    // Status filter applies to the parent incident
     if (status) {
-      where.incident = { status };
+      wrWhere.incident = { status };
     }
 
     const rounds = await this.prisma.incidentWorkRound.findMany({
-      where,
+      where: wrWhere,
       select: {
         id: true,
         roundNumber: true,
@@ -478,10 +476,61 @@ export class IncidentsAnalyticsService {
       orderBy: { checkInAt: 'desc' },
     });
 
-    return rounds.map((round) => {
+    // ── 2. Legacy Incident query (old incidents without WorkRound records) ────
+    const legacyWhere: any = {
+      checkInLatitude: { not: null },
+      checkInLongitude: { not: null },
+      workRounds: { none: {} },
+    };
+
+    if (this.hasOnlyRole(user, UserRole.TECHNICIAN)) {
+      legacyWhere.assignees = { some: { userId: user.id } };
+    }
+
+    if (from || to) {
+      legacyWhere.checkInAt = {};
+      if (from) legacyWhere.checkInAt.gte = new Date(from);
+      if (to) {
+        const toDate = new Date(to);
+        toDate.setHours(23, 59, 59, 999);
+        legacyWhere.checkInAt.lte = toDate;
+      }
+    }
+
+    if (status) {
+      legacyWhere.status = status;
+    }
+
+    const legacyIncidents = await this.prisma.incident.findMany({
+      where: legacyWhere,
+      select: {
+        id: true,
+        ticketNumber: true,
+        title: true,
+        status: true,
+        reopenCount: true,
+        confirmedAt: true,
+        resolvedAt: true,
+        checkInAt: true,
+        checkInLatitude: true,
+        checkInLongitude: true,
+        assignees: {
+          select: { user: { select: { id: true, firstName: true, lastName: true, avatarPath: true } } },
+          orderBy: { assignedAt: 'desc' as const },
+          take: 1,
+        },
+        store: { select: { name: true, storeCode: true } },
+      },
+      orderBy: { checkInAt: 'desc' },
+    });
+
+    // ── 3. Map WorkRound pins ─────────────────────────────────────────────────
+    const makeTechInitials = (t: { firstName: string; lastName: string } | null) =>
+      t ? `${(t.firstName || '')[0] || ''}${(t.lastName || '')[0] || ''}`.toUpperCase() : '??';
+
+    const roundPins = rounds.map((round) => {
       const inc = round.incident;
       const tech = round.technician;
-      // Old round = resolved but incident was subsequently reopened → red pin
       const isSuperseded =
         round.resolvedAt !== null &&
         inc.status !== 'CLOSED' &&
@@ -503,15 +552,38 @@ export class IncidentsAnalyticsService {
         resolvedAt: round.resolvedAt,
         storeName: inc.store?.name || 'Unknown',
         storeCode: inc.store?.storeCode || '',
-        technicianName: tech
-          ? `${tech.firstName} ${tech.lastName}`
-          : 'Unassigned',
-        technicianInitials: tech
-          ? `${(tech.firstName || '')[0] || ''}${(tech.lastName || '')[0] || ''}`.toUpperCase()
-          : '??',
+        technicianName: tech ? `${tech.firstName} ${tech.lastName}` : 'Unassigned',
+        technicianInitials: makeTechInitials(tech),
         technicianAvatar: tech?.avatarPath ? `/uploads/${tech.avatarPath}` : null,
       };
     });
+
+    // ── 4. Map legacy Incident pins ───────────────────────────────────────────
+    const legacyPins = legacyIncidents.map((inc) => {
+      const tech = inc.assignees[0]?.user ?? null;
+
+      return {
+        id: `legacy-${inc.id}`,
+        incidentId: inc.id,
+        ticketNumber: inc.ticketNumber,
+        title: inc.title,
+        status: inc.status,
+        roundNumber: 1,
+        reopenCount: inc.reopenCount ?? 0,
+        latitude: inc.checkInLatitude,
+        longitude: inc.checkInLongitude,
+        checkInAt: inc.checkInAt,
+        confirmedAt: inc.confirmedAt,
+        resolvedAt: inc.resolvedAt,
+        storeName: inc.store?.name || 'Unknown',
+        storeCode: inc.store?.storeCode || '',
+        technicianName: tech ? `${tech.firstName} ${tech.lastName}` : 'Unassigned',
+        technicianInitials: makeTechInitials(tech),
+        technicianAvatar: tech?.avatarPath ? `/uploads/${tech.avatarPath}` : null,
+      };
+    });
+
+    return [...roundPins, ...legacyPins];
   }
 
   /**
