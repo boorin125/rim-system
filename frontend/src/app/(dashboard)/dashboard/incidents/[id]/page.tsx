@@ -252,6 +252,38 @@ export default function IncidentDetailPage() {
     }
   }
 
+  // Silent refresh — no loading spinner, used for background polling
+  const silentRefreshIncident = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/incidents/${params.id}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      setIncident((prev: any) => {
+        // Detect when customerSignedAt newly appears → notify
+        if (!prev?.customerSignedAt && response.data?.customerSignedAt) {
+          toast.success('ลูกค้าเซ็น Service Report แล้ว — พร้อมยืนยันปิดงาน ✅', { duration: 5000 })
+        }
+        return response.data
+      })
+    } catch {
+      // silent — don't disturb UX on poll error
+    }
+  }
+
+  // Poll every 10 s while waiting for customer signature on service report
+  useEffect(() => {
+    if (
+      incident?.status !== 'RESOLVED' ||
+      !incident?.serviceReportToken ||
+      incident?.customerSignedAt
+    ) return
+
+    const timer = setInterval(silentRefreshIncident, 10000)
+    return () => clearInterval(timer)
+  }, [incident?.status, incident?.serviceReportToken, incident?.customerSignedAt, params.id])
+
   const buildKbFileUrl = (filePath: string) =>
     `${(process.env.NEXT_PUBLIC_API_URL || '').replace(/\/api$/, '')}/uploads/${filePath}`
 
