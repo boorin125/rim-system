@@ -1806,6 +1806,81 @@ export class IncidentsService {
    * Status: CLOSED → IN_PROGRESS
    * Updates reopen tracking fields
    */
+  async cancelReopen(id: string, userId: number) {
+    const incident = await this.prisma.incident.findFirst({
+      where: { id },
+      include: { store: { select: { slaRegion: true } } },
+    });
+    if (!incident) throw new NotFoundException(`ไม่พบ Incident ${id}`);
+    if (incident.status !== IncidentStatus.OPEN)
+      throw new BadRequestException('ยกเลิก Reopen ได้เฉพาะ Incident ที่สถานะ OPEN เท่านั้น');
+    if ((incident.reopenCount ?? 0) === 0)
+      throw new BadRequestException('Incident นี้ไม่ได้ถูก Reopen');
+
+    // Find the previous resolved WorkRound to restore from
+    const prevRound = await this.prisma.incidentWorkRound.findUnique({
+      where: { incidentId_roundNumber: { incidentId: id, roundNumber: incident.reopenCount } },
+    });
+
+    // Delete the new (empty) WorkRound if it exists and has no check-in
+    const newRound = await this.prisma.incidentWorkRound.findUnique({
+      where: { incidentId_roundNumber: { incidentId: id, roundNumber: incident.reopenCount + 1 } },
+    });
+    if (newRound?.checkInAt) {
+      throw new BadRequestException('ไม่สามารถยกเลิก Reopen ได้ เพราะช่างใหม่ได้ Check-in แล้ว');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      // Restore incident to CLOSED using previous round's data
+      await tx.incident.update({
+        where: { id },
+        data: {
+          status: IncidentStatus.CLOSED,
+          resolvedAt: prevRound?.resolvedAt ?? null,
+          resolvedById: prevRound?.technicianId ?? null,
+          resolutionNote: prevRound?.resolutionNote ?? null,
+          resolutionType: (prevRound?.resolutionType as any) ?? null,
+          reopenCount: { decrement: 1 },
+          reopenReason: null,
+          reopenReportedAt: null,
+          lastReopenedAt: null,
+          lastReopenedById: null,
+          slaDeadline: incident.slaDeadline, // keep original SLA
+          updatedAt: new Date(),
+        },
+      });
+
+      // Delete the new empty WorkRound
+      if (newRound) {
+        await tx.incidentWorkRound.delete({ where: { id: newRound.id } });
+      }
+
+      // Restore IncidentAssignee for previous tech (so they can see it again)
+      if (prevRound?.technicianId) {
+        await tx.incidentAssignee.upsert({
+          where: { incidentId_userId: { incidentId: id, userId: prevRound.technicianId } },
+          create: {
+            incidentId: id,
+            userId: prevRound.technicianId,
+            assignedAt: prevRound.assignedAt ?? new Date(),
+            checkedInAt: prevRound.checkInAt ?? null,
+            checkInLatitude: prevRound.checkInLatitude ?? null,
+            checkInLongitude: prevRound.checkInLongitude ?? null,
+          },
+          update: {},
+        });
+      }
+    });
+
+    await this.historyService.createHistory(
+      id, IncidentAction.UPDATED, userId,
+      IncidentStatus.OPEN, IncidentStatus.CLOSED,
+      'ยกเลิกการ Reopen — คืนสถานะกลับเป็น Closed',
+    );
+
+    return this.prisma.incident.findFirst({ where: { id } });
+  }
+
   async getWorkRounds(id: string) {
     const rounds = await this.prisma.incidentWorkRound.findMany({
       where: { incidentId: id },
@@ -1819,10 +1894,13 @@ export class IncidentsService {
     return rounds;
   }
 
-  async reopen(id: string, reopenReason: string, assignTo: number | undefined, userId: number) {
+  async reopen(id: string, reopenReason: string, assignTo: number | undefined, userId: number, reopenReportedAt?: string) {
     const incident = await this.prisma.incident.findFirst({
       where: { id },
-      include: { assignees: { select: { userId: true } } },
+      include: {
+        assignees: { select: { userId: true } },
+        store: { select: { slaRegion: true } },
+      },
     });
 
     if (!incident) {
@@ -1836,6 +1914,15 @@ export class IncidentsService {
     // Check if this was a direct-closed incident (Phone/Remote Support)
     const wasDirectClosed = (incident as any).resolutionType === 'PHONE_SUPPORT' || (incident as any).resolutionType === 'REMOTE_SUPPORT';
 
+    // Recalculate SLA from reopenReportedAt (or now as fallback)
+    const reportedAt = reopenReportedAt ? new Date(reopenReportedAt) : new Date();
+    const storeRegion = (incident as any).store?.slaRegion as SlaRegion ?? SlaRegion.BANGKOK_METRO;
+    const newSlaDeadline = await this.slaService.calculateSlaDeadline(
+      incident.priority,
+      reportedAt,
+      storeRegion,
+    );
+
     // All reopened incidents go to OPEN status
     // - Direct-closed: resolutionType = null (Helpdesk can choose again)
     // - Onsite: resolutionType = ONSITE (auto Request Onsite → Supervisor reassigns)
@@ -1845,6 +1932,8 @@ export class IncidentsService {
       reopenCount: { increment: 1 },
       lastReopenedAt: new Date(),
       lastReopenedById: userId,
+      reopenReportedAt: reportedAt,
+      slaDeadline: newSlaDeadline,
       assigneeId: null,
       resolvedAt: null,
       resolvedById: null,

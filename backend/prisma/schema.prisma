@@ -351,10 +351,11 @@ model Incident {
   confirmedById Int?      @map("confirmed_by_id")
 
   // Reopen Tracking Fields
-  reopenCount      Int       @default(0) @map("reopen_count")
-  lastReopenedAt   DateTime? @map("last_reopened_at")
-  lastReopenedById Int?      @map("last_reopened_by_id")
-  reopenReason     String?   @map("reopen_reason")
+  reopenCount        Int       @default(0) @map("reopen_count")
+  lastReopenedAt     DateTime? @map("last_reopened_at")
+  lastReopenedById   Int?      @map("last_reopened_by_id")
+  reopenReason       String?   @map("reopen_reason")
+  reopenReportedAt   DateTime? @map("reopen_reported_at")
 
   // Technician Response Fields (before onsite)
   respondedAt          DateTime? @map("responded_at")
@@ -1704,6 +1705,7 @@ model IncidentWorkRound {
   technicianId Int  @map("technician_id")
   technician   User @relation("WorkRoundTechnician", fields: [technicianId], references: [id])
 
+  reportedAt       DateTime? @map("reported_at")
   assignedAt       DateTime? @map("assigned_at")
   checkInAt        DateTime? @map("check_in_at")
   checkInLatitude  Float?    @map("check_in_latitude")
