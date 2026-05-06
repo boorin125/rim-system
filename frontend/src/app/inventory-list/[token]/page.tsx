@@ -75,12 +75,10 @@ export default function InventoryListPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [downloading, setDownloading] = useState(false)
-  const [baseUrl, setBaseUrl] = useState('')
 
   useEffect(() => {
     if (!token) return
     const base = API_URL.replace(/\/api$/, '')
-    setBaseUrl(base)
 
     Promise.all([
       axios.get(`${base}/api/public/pm/report/${token}`),
@@ -233,7 +231,7 @@ export default function InventoryListPage() {
                   <td className="px-2 py-2 border border-gray-200 text-gray-600 align-middle">{serial || '-'}</td>
                   <td className="px-1 py-1 border border-gray-200 text-center align-middle">
                     {photo ? (
-                      <PhotoCell src={photo.startsWith('data:') || photo.startsWith('http') ? photo : `${baseUrl}/uploads/${photo.replace(/^\/?(uploads\/)?/, '')}`} />
+                      <PhotoCell src={photo.startsWith('data:') || photo.startsWith('http') ? photo : `${window.location.origin}/uploads/${photo.replace(/^\/?(uploads\/)?/, '')}`} />
                     ) : (
                       <div className="w-20 h-20 flex items-center justify-center rounded border border-red-200 bg-red-50 mx-auto">
                         <p className="text-xs font-medium text-red-400">No Photo</p>
@@ -271,7 +269,7 @@ export default function InventoryListPage() {
               <div className="h-14 flex items-end justify-center mb-3">
                 {data.storeSignature && (
                   <img
-                    src={data.storeSignature.startsWith('data:') || data.storeSignature.startsWith('http') ? data.storeSignature : `${baseUrl}/uploads/${data.storeSignature.replace(/^\/?(uploads\/)?/, '')}`}
+                    src={data.storeSignature.startsWith('data:') || data.storeSignature.startsWith('http') ? data.storeSignature : `${window.location.origin}/uploads/${data.storeSignature.replace(/^\/?(uploads\/)?/, '')}`}
                     alt="Store signature"
                     className="h-12 object-contain"
                   />
