@@ -592,11 +592,11 @@ export default function IncidentDetailPage() {
    * Handle Reopen Incident
    * CLOSED → IN_PROGRESS
    */
-  const handleReopen = async (data: { reason: string; assignTo?: number }) => {
+  const handleReopen = async (data: { reason: string; assignTo?: number; reopenReportedAt?: string }) => {
     try {
       const token = localStorage.getItem('token')
 
-      const response = await axios.post(
+      await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/incidents/${params.id}/reopen`,
         data,
         {
@@ -605,12 +605,28 @@ export default function IncidentDetailPage() {
       )
 
       toast.success('Incident reopened successfully!')
-      await fetchIncident() // Refresh incident data
+      await fetchIncident()
       setShowReopen(false)
     } catch (error: any) {
       throw new Error(
         error.response?.data?.message || 'Failed to reopen incident'
       )
+    }
+  }
+
+  const handleCancelReopen = async () => {
+    if (!confirm('ยืนยันการยกเลิก Reopen? สถานะงานจะกลับเป็น CLOSED เหมือนเดิม')) return
+    try {
+      const token = localStorage.getItem('token')
+      await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/incidents/${params.id}/cancel-reopen`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      toast.success('ยกเลิก Reopen สำเร็จ งานกลับสู่สถานะ CLOSED แล้ว')
+      await fetchIncident()
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'ไม่สามารถยกเลิก Reopen ได้')
     }
   }
 
@@ -1138,6 +1154,13 @@ SLA Breach Time: ${slaBreachText}`
     incident?.status === 'CLOSED' &&
     isHelpDesk
 
+  // Cancel Reopen - HELP_DESK หรือ IT_MANAGER, status=OPEN, reopenCount>0, ยังไม่มี checkIn ใหม่
+  const canCancelReopen =
+    incident?.status === 'OPEN' &&
+    (incident?.reopenCount ?? 0) > 0 &&
+    !incident?.checkInAt &&
+    (isHelpDesk || isITManager)
+
   // ✅ Helper: Get action guidance message for Technician
   const getTechnicianGuidance = (): { message: string; type: 'info' | 'warning' | 'error' } | null => {
     if (!hasTechnicianRole) return null
@@ -1398,6 +1421,13 @@ SLA Breach Time: ${slaBreachText}`
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
               <span>Reopen Incident</span>
+            </button>
+          )}
+          {canCancelReopen && (
+            <button onClick={handleCancelReopen}
+              className="w-full sm:w-auto sm:min-w-[130px] flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-600 hover:bg-slate-500 text-white rounded-lg transition duration-200 text-sm font-medium">
+              <X className="w-4 h-4 shrink-0" />
+              <span>ยกเลิก Reopen</span>
             </button>
           )}
           {incident?.status === 'CLOSED' && isITManager && (

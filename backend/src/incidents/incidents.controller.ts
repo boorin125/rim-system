@@ -166,6 +166,12 @@ export class IncidentsController {
    *
    * ⚠️ CRITICAL: TECHNICIAN can only view their assigned incidents
    */
+  @Post(':id/cancel-reopen')
+  @Roles(UserRole.IT_MANAGER, UserRole.HELP_DESK)
+  cancelReopen(@Param('id') id: string, @Request() req) {
+    return this.incidentsService.cancelReopen(id, req.user.id);
+  }
+
   @Get(':id/work-rounds')
   @Roles(
     UserRole.IT_MANAGER,
@@ -584,6 +590,7 @@ export class IncidentsController {
       reopenDto.reason,
       reopenDto.assignTo,
       req.user.id,
+      reopenDto.reopenReportedAt,
     );
   }
 

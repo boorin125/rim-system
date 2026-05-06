@@ -1,6 +1,6 @@
 // backend/src/incidents/dto/reopen-incident.dto.ts
 
-import { IsString, IsOptional, MinLength, IsInt } from 'class-validator';
+import { IsString, IsOptional, MinLength, IsInt, IsDateString } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class ReopenIncidentDto {
@@ -16,4 +16,8 @@ export class ReopenIncidentDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @IsOptional()
+  @IsDateString()
+  reopenReportedAt?: string;
 }

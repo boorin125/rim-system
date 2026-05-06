@@ -1,7 +1,7 @@
 // frontend/src/components/ReopenIncidentModal.tsx
 
 import { useState, useEffect } from 'react';
-import { X, RotateCcw, AlertCircle, User, Clock, FileText, MessageSquare } from 'lucide-react';
+import { X, RotateCcw, AlertCircle, User, Clock, FileText, MessageSquare, CalendarClock } from 'lucide-react';
 
 interface ReopenIncidentModalProps {
   isOpen: boolean;
@@ -27,7 +27,7 @@ interface ReopenIncidentModalProps {
     name: string;
     email: string;
   }>;
-  onReopen: (data: { reason: string; assignTo?: number }) => Promise<void>;
+  onReopen: (data: { reason: string; assignTo?: number; reopenReportedAt?: string }) => Promise<void>;
 }
 
 export default function ReopenIncidentModal({
@@ -39,15 +39,21 @@ export default function ReopenIncidentModal({
 }: ReopenIncidentModalProps) {
   const [reason, setReason] = useState('');
   const [assignTo, setAssignTo] = useState<number | undefined>(undefined);
+  const [reopenReportedAt, setReopenReportedAt] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  // Reset form when modal opens
+  // Reset form when modal opens — default reportedAt to now
   useEffect(() => {
     if (isOpen) {
       setReason('');
       setAssignTo(undefined);
       setError('');
+      // Default to current local datetime (datetime-local input format)
+      const now = new Date();
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const localStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+      setReopenReportedAt(localStr);
     }
   }, [isOpen]);
 
@@ -70,6 +76,7 @@ export default function ReopenIncidentModal({
       await onReopen({
         reason: reason.trim(),
         assignTo,
+        reopenReportedAt: reopenReportedAt ? new Date(reopenReportedAt).toISOString() : undefined,
       });
       onClose();
     } catch (err: any) {
@@ -183,6 +190,23 @@ export default function ReopenIncidentModal({
               </div>
             </div>
           )}
+
+          {/* Reported At (for SLA recalculation) */}
+          <div>
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-200 mb-2">
+              <CalendarClock className="w-4 h-4 text-purple-400" />
+              วันเวลาที่แจ้งงาน <span className="text-gray-400 text-xs font-normal">(ใช้คำนวณ SLA ใหม่)</span>
+            </label>
+            <input
+              type="datetime-local"
+              value={reopenReportedAt}
+              onChange={(e) => setReopenReportedAt(e.target.value)}
+              disabled={isSubmitting}
+              max={new Date().toISOString().slice(0, 16)}
+              className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed [color-scheme:dark]"
+            />
+            <p className="text-xs text-gray-400 mt-1">ค่าเริ่มต้นคือเวลาปัจจุบัน แก้ไขได้หากมีการแจ้งก่อนหน้านี้</p>
+          </div>
 
           {/* Reopen Reason */}
           <div>
