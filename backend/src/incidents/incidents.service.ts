@@ -1510,12 +1510,38 @@ export class IncidentsService {
 
     // Transaction: update incident + sync junction table
     const updated = await this.prisma.$transaction(async (tx) => {
+      // Determine new status: always reset to ASSIGNED so new tech can check in fresh
+      const newStatus =
+        incident.status === IncidentStatus.IN_PROGRESS ||
+        incident.status === IncidentStatus.RESOLVED
+          ? IncidentStatus.ASSIGNED
+          : incident.status;
+
       const inc = await tx.incident.update({
         where: { id },
         data: {
-          assigneeId: technicianIds[0], // backward compat
+          assigneeId: technicianIds[0],
+          status: newStatus,
           notes: reassignReason,
           updatedAt: new Date(),
+          // Clear check-in data so new tech can check in fresh
+          checkInAt: null,
+          checkInLatitude: null,
+          checkInLongitude: null,
+          lastCheckedInById: null,
+          beforePhotos: [],
+          afterPhotos: [],
+          // Clear resolution data
+          resolutionNote: null,
+          resolvedById: null,
+          resolvedAt: null,
+          resolutionType: null,
+          techConfirmedAt: null,
+          // Clear response data
+          respondedAt: null,
+          respondedById: null,
+          estimatedArrivalTime: null,
+          responseMessage: null,
         },
         include: {
           store: true,
@@ -1530,6 +1556,12 @@ export class IncidentsService {
             },
           },
         },
+      });
+
+      // Delete incomplete WorkRound (no resolvedAt) so new tech gets a clean round
+      const roundNumber = (incident.reopenCount ?? 0) + 1;
+      await tx.incidentWorkRound.deleteMany({
+        where: { incidentId: id, roundNumber, resolvedAt: null },
       });
 
       // Clear old assignees and create new
