@@ -22,6 +22,7 @@ interface EquipmentItem {
   updatedModel?: string
   updatedSerial?: string
   beforePhotos: string[]
+  afterPhotos: string[]
 }
 
 interface InventoryPublicData {
@@ -149,7 +150,7 @@ export default function InventoryListPage() {
           model: rec.updatedModel || rec.equipment.model,
           condition: rec.condition,
           comment: rec.comment,
-          photo: rec.beforePhotos?.[0],
+          photo: rec.afterPhotos?.[0] ?? rec.beforePhotos?.[0],
         })),
       }
       await generateInventoryListPDF(pdfData)
@@ -218,7 +219,7 @@ export default function InventoryListPage() {
               const brand = rec.updatedBrand || eq.brand
               const model = rec.updatedModel || eq.model
               const serial = rec.updatedSerial || eq.serialNumber
-              const photo = rec.beforePhotos?.[0]
+              const photo = rec.afterPhotos?.[0] ?? rec.beforePhotos?.[0]
               return (
                 <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-purple-50/40'}>
                   <td className="px-2 py-2 border border-gray-200 text-center text-gray-500 align-middle">{idx + 1}</td>
