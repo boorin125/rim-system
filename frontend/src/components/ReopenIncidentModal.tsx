@@ -150,6 +150,25 @@ export default function ReopenIncidentModal({
             )}
           </div>
 
+          {/* Incident Date — FIRST required field */}
+          <div className="bg-purple-900/20 border border-purple-700/50 rounded-lg p-4">
+            <label className="flex items-center gap-2 text-sm font-semibold text-purple-200 mb-2">
+              <CalendarClock className="w-4 h-4 text-purple-400" />
+              วันที่ลูกค้าแจ้งงาน (Incident Date) <span className="text-red-400">*</span>
+            </label>
+            <input
+              type="datetime-local"
+              value={reopenReportedAt}
+              onChange={(e) => setReopenReportedAt(e.target.value)}
+              disabled={isSubmitting}
+              max={new Date().toISOString().slice(0, 16)}
+              className="w-full px-4 py-3 bg-slate-800/50 border border-purple-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed [color-scheme:dark]"
+            />
+            <p className="text-xs text-purple-300/70 mt-1">
+              ใช้เป็นวันที่งานใหม่ + คำนวณ SLA ใหม่ — กรอกเวลาที่ลูกค้าโทรแจ้งจริงๆ
+            </p>
+          </div>
+
           {/* Previous Resolution Info */}
           {incident.resolutionNote && (
             <div>
@@ -190,23 +209,6 @@ export default function ReopenIncidentModal({
               </div>
             </div>
           )}
-
-          {/* Reported At (for SLA recalculation) */}
-          <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-200 mb-2">
-              <CalendarClock className="w-4 h-4 text-purple-400" />
-              วันเวลาที่แจ้งงาน <span className="text-gray-400 text-xs font-normal">(ใช้คำนวณ SLA ใหม่)</span>
-            </label>
-            <input
-              type="datetime-local"
-              value={reopenReportedAt}
-              onChange={(e) => setReopenReportedAt(e.target.value)}
-              disabled={isSubmitting}
-              max={new Date().toISOString().slice(0, 16)}
-              className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed [color-scheme:dark]"
-            />
-            <p className="text-xs text-gray-400 mt-1">ค่าเริ่มต้นคือเวลาปัจจุบัน แก้ไขได้หากมีการแจ้งก่อนหน้านี้</p>
-          </div>
 
           {/* Reopen Reason */}
           <div>
