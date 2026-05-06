@@ -1967,12 +1967,25 @@ export class IncidentsService {
       reopenReportedAt: reportedAt,
       slaDeadline: newSlaDeadline,
       assigneeId: null,
+      // Clear resolution
       resolvedAt: null,
       resolvedById: null,
       techConfirmedAt: null,
       techConfirmedById: null,
       confirmedAt: null,
       confirmedById: null,
+      // Clear check-in data (preserved in WorkRound) so new tech starts fresh
+      checkInAt: null,
+      checkInLatitude: null,
+      checkInLongitude: null,
+      lastCheckedInById: null,
+      beforePhotos: [],
+      afterPhotos: [],
+      // Clear response data
+      respondedAt: null,
+      respondedById: null,
+      estimatedArrivalTime: null,
+      responseMessage: null,
       updatedAt: new Date(),
     };
     if (wasDirectClosed) {
