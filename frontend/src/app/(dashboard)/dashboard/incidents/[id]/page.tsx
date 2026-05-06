@@ -596,37 +596,24 @@ export default function IncidentDetailPage() {
     try {
       const token = localStorage.getItem('token')
 
-      await axios.post(
+      const res = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/incidents/${params.id}/reopen`,
         data,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       )
 
-      toast.success('Incident reopened successfully!')
-      await fetchIncident()
+      const newId = res.data?.newIncidentId
+      toast.success(`สร้างงานใหม่สำเร็จ: ${res.data?.ticketNumber || ''}`)
       setShowReopen(false)
+      if (newId) {
+        router.push(`/dashboard/incidents/${newId}`)
+      } else {
+        await fetchIncident()
+      }
     } catch (error: any) {
       throw new Error(
         error.response?.data?.message || 'Failed to reopen incident'
       )
-    }
-  }
-
-  const handleCancelReopen = async () => {
-    if (!confirm('ยืนยันการยกเลิก Reopen? สถานะงานจะกลับเป็น CLOSED เหมือนเดิม')) return
-    try {
-      const token = localStorage.getItem('token')
-      await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/incidents/${params.id}/cancel-reopen`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
-      toast.success('ยกเลิก Reopen สำเร็จ งานกลับสู่สถานะ CLOSED แล้ว')
-      await fetchIncident()
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'ไม่สามารถยกเลิก Reopen ได้')
     }
   }
 
@@ -1154,13 +1141,6 @@ SLA Breach Time: ${slaBreachText}`
     incident?.status === 'CLOSED' &&
     isHelpDesk
 
-  // Cancel Reopen - HELP_DESK หรือ IT_MANAGER, status=OPEN, reopenCount>0, ยังไม่มี checkIn ใหม่
-  const canCancelReopen =
-    incident?.status === 'OPEN' &&
-    (incident?.reopenCount ?? 0) > 0 &&
-    !incident?.checkInAt &&
-    (isHelpDesk || isITManager)
-
   // ✅ Helper: Get action guidance message for Technician
   const getTechnicianGuidance = (): { message: string; type: 'info' | 'warning' | 'error' } | null => {
     if (!hasTechnicianRole) return null
@@ -1423,13 +1403,6 @@ SLA Breach Time: ${slaBreachText}`
               <span>Reopen Incident</span>
             </button>
           )}
-          {canCancelReopen && (
-            <button onClick={handleCancelReopen}
-              className="w-full sm:w-auto sm:min-w-[130px] flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-600 hover:bg-slate-500 text-white rounded-lg transition duration-200 text-sm font-medium">
-              <X className="w-4 h-4 shrink-0" />
-              <span>ยกเลิก Reopen</span>
-            </button>
-          )}
           {incident?.status === 'CLOSED' && isITManager && (
             <button
               onClick={handleResendCloseEmail}
@@ -1657,6 +1630,66 @@ SLA Breach Time: ${slaBreachText}`
                 </Link>
               )
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Related Incident chain */}
+      {(incident.relatedIncident || (incident.childIncidents && incident.childIncidents.length > 0)) && (
+        <div className="bg-orange-500/10 border border-orange-500/30 rounded-2xl p-5">
+          <h2 className="text-base font-semibold text-orange-300 mb-3 flex items-center gap-2">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            ประวัติ Reopen
+          </h2>
+          <div className="space-y-2">
+            {/* Parent: this incident was reopened from another */}
+            {incident.relatedIncident && (
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-gray-400 w-20 flex-shrink-0">งานต้นฉบับ</span>
+                <Link
+                  href={`/dashboard/incidents/${incident.relatedIncident.id}`}
+                  className="flex items-center gap-2 bg-slate-800/70 border border-slate-700/50 rounded-lg px-3 py-2 hover:bg-slate-700/50 transition flex-1 min-w-0"
+                >
+                  <span className="text-sm font-mono text-orange-300 flex-shrink-0">{incident.relatedIncident.ticketNumber}</span>
+                  <span className="text-sm text-gray-300 truncate">{incident.relatedIncident.title}</span>
+                  <span className={`ml-auto text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${
+                    incident.relatedIncident.status === 'CLOSED' ? 'bg-gray-500/20 text-gray-400' :
+                    incident.relatedIncident.status === 'OPEN' ? 'bg-green-500/20 text-green-400' :
+                    'bg-blue-500/20 text-blue-400'
+                  }`}>{incident.relatedIncident.status}</span>
+                  <ExternalLink className="w-3.5 h-3.5 text-gray-500 flex-shrink-0 ml-1" />
+                </Link>
+              </div>
+            )}
+            {/* Children: this incident has been reopened into new incidents */}
+            {incident.childIncidents && incident.childIncidents.length > 0 && (
+              <div className="flex items-start gap-3">
+                <span className="text-xs text-gray-400 w-20 flex-shrink-0 pt-2">งาน Reopen</span>
+                <div className="space-y-2 flex-1 min-w-0">
+                  {incident.childIncidents.map((child: any) => (
+                    <Link
+                      key={child.id}
+                      href={`/dashboard/incidents/${child.id}`}
+                      className="flex items-center gap-2 bg-slate-800/70 border border-slate-700/50 rounded-lg px-3 py-2 hover:bg-slate-700/50 transition"
+                    >
+                      <span className="text-sm font-mono text-orange-300 flex-shrink-0">{child.ticketNumber}</span>
+                      <span className="text-sm text-gray-300 truncate">{child.title}</span>
+                      <span className={`ml-auto text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${
+                        child.status === 'CLOSED' ? 'bg-gray-500/20 text-gray-400' :
+                        child.status === 'OPEN' ? 'bg-green-500/20 text-green-400' :
+                        child.status === 'ASSIGNED' ? 'bg-blue-500/20 text-blue-400' :
+                        child.status === 'IN_PROGRESS' ? 'bg-indigo-500/20 text-indigo-400' :
+                        child.status === 'RESOLVED' ? 'bg-purple-500/20 text-purple-400' :
+                        'bg-orange-500/20 text-orange-400'
+                      }`}>{child.status}</span>
+                      <ExternalLink className="w-3.5 h-3.5 text-gray-500 flex-shrink-0 ml-1" />
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

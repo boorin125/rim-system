@@ -1202,6 +1202,13 @@ export class IncidentsService {
           },
           orderBy: { postedAt: 'desc' },
         },
+        relatedIncident: {
+          select: { id: true, ticketNumber: true, title: true, status: true },
+        },
+        childIncidents: {
+          select: { id: true, ticketNumber: true, title: true, status: true, createdAt: true },
+          orderBy: { createdAt: 'desc' as const },
+        },
       },
     });
 
@@ -1927,120 +1934,109 @@ export class IncidentsService {
   }
 
   async reopen(id: string, reopenReason: string, assignTo: number | undefined, userId: number, reopenReportedAt?: string) {
-    const incident = await this.prisma.incident.findFirst({
+    const original = await this.prisma.incident.findFirst({
       where: { id },
       include: {
         assignees: { select: { userId: true } },
-        store: { select: { slaRegion: true } },
+        store: { select: { slaRegion: true, name: true, storeCode: true } },
       },
     });
 
-    if (!incident) {
+    if (!original) {
       throw new NotFoundException(`ไม่พบ Incident ${id}`);
     }
 
-    if (incident.status !== IncidentStatus.CLOSED) {
-      throw new BadRequestException('สามารถเปิด Incident ใหม่ได้เฉพาะ Incident ที่ปิดแล้วเท่านั้น');
+    if (original.status !== IncidentStatus.CLOSED) {
+      throw new BadRequestException('สามารถ Reopen ได้เฉพาะ Incident ที่ปิดแล้วเท่านั้น');
     }
 
-    // Check if this was a direct-closed incident (Phone/Remote Support)
-    const wasDirectClosed = (incident as any).resolutionType === 'PHONE_SUPPORT' || (incident as any).resolutionType === 'REMOTE_SUPPORT';
-
-    // Recalculate SLA from reopenReportedAt (or now as fallback)
+    // Calculate SLA for the new incident from reopenReportedAt (or now)
     const reportedAt = reopenReportedAt ? new Date(reopenReportedAt) : new Date();
-    const storeRegion = (incident as any).store?.slaRegion as SlaRegion ?? SlaRegion.BANGKOK_METRO;
+    const storeRegion = (original as any).store?.slaRegion as SlaRegion ?? SlaRegion.BANGKOK_METRO;
     const newSlaDeadline = await this.slaService.calculateSlaDeadline(
-      incident.priority,
+      original.priority,
       reportedAt,
       storeRegion,
     );
 
-    // All reopened incidents go to OPEN status
-    // - Direct-closed: resolutionType = null (Helpdesk can choose again)
-    // - Onsite: resolutionType = ONSITE (auto Request Onsite → Supervisor reassigns)
-    const updateData: any = {
-      status: IncidentStatus.OPEN,
-      reopenReason,
-      reopenCount: { increment: 1 },
-      lastReopenedAt: new Date(),
-      lastReopenedById: userId,
-      reopenReportedAt: reportedAt,
-      slaDeadline: newSlaDeadline,
-      assigneeId: null,
-      // Clear resolution
-      resolvedAt: null,
-      resolvedById: null,
-      techConfirmedAt: null,
-      techConfirmedById: null,
-      confirmedAt: null,
-      confirmedById: null,
-      // Clear check-in data (preserved in WorkRound) so new tech starts fresh
-      checkInAt: null,
-      checkInLatitude: null,
-      checkInLongitude: null,
-      lastCheckedInById: null,
-      beforePhotos: [],
-      afterPhotos: [],
-      // Clear response data
-      respondedAt: null,
-      respondedById: null,
-      estimatedArrivalTime: null,
-      responseMessage: null,
-      updatedAt: new Date(),
-    };
-    if (wasDirectClosed) {
-      updateData.resolutionType = null;
-      updateData.resolutionNote = null;
-    } else {
-      // Onsite: auto Request Onsite so Supervisor can reassign
-      updateData.resolutionType = 'ONSITE';
-      updateData.resolutionNote = null;
-    }
+    // Generate a new ticket number for the new incident
+    const newTicketNumber = await this.generateTicketNumber();
+    const { randomUUID } = await import('crypto');
+    const newId = randomUUID();
 
-    const updated = await this.prisma.$transaction(async (tx) => {
-      const inc = await tx.incident.update({
+    const newIncident = await this.prisma.$transaction(async (tx) => {
+      // Create the new incident copying key fields from original
+      const created = await tx.incident.create({
+        data: {
+          id: newId,
+          ticketNumber: newTicketNumber,
+          title: `[Reopen] ${original.title}`,
+          description: original.description,
+          category: original.category,
+          jobType: original.jobType,
+          priority: original.priority,
+          incidentType: original.incidentType,
+          status: assignTo ? IncidentStatus.ASSIGNED : IncidentStatus.OPEN,
+          resolutionType: 'ONSITE' as any,
+          storeId: original.storeId,
+          storeName: (original as any).store?.name ?? original.storeName,
+          storeCode: (original as any).store?.storeCode ?? original.storeCode,
+          equipmentId: original.equipmentId,
+          equipmentIds: (original as any).equipmentIds ?? [],
+          reportedBy: userId,
+          createdById: userId,
+          assigneeId: assignTo ?? null,
+          relatedIncidentId: id,
+          slaDeadline: newSlaDeadline,
+          reopenReason,
+          reopenReportedAt: reportedAt,
+          incidentDate: reportedAt,
+        },
+        include: { store: true },
+      });
+
+      // If assignTo: create junction table entry
+      if (assignTo) {
+        await tx.incidentAssignee.create({
+          data: {
+            incidentId: newId,
+            userId: assignTo,
+            assignedAt: new Date(),
+          },
+        });
+      }
+
+      // Mark original incident as having been reopened (increment counter only)
+      await tx.incident.update({
         where: { id },
-        data: updateData,
-        include: {
-          store: true,
-          assignee: {
-            select: {
-              id: true,
-              username: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-              roles: { select: { role: true } },
-            },
-          },
-          lastReopenedBy: {
-            select: {
-              id: true,
-              username: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-              roles: { select: { role: true } },
-            },
-          },
+        data: {
+          reopenCount: { increment: 1 },
+          lastReopenedAt: new Date(),
+          lastReopenedById: userId,
         },
       });
-      // Clear assignees from junction table
-      await tx.incidentAssignee.deleteMany({ where: { incidentId: id } });
-      return inc;
+
+      return created;
     });
 
-    // Create history entry
-    const reopenDetail = wasDirectClosed
-      ? 'Incident reopened for re-triage'
-      : 'Incident reopened as Request Onsite (auto)';
+    // History on original incident
     await this.historyService.createHistory(
       id,
       IncidentAction.REOPENED,
       userId,
       IncidentStatus.CLOSED,
-      IncidentStatus.OPEN,
-      `${reopenDetail}. Reason: ${reopenReason}`,
+      IncidentStatus.CLOSED,
+      `Reopened as new incident ${newTicketNumber}. Reason: ${reopenReason}`,
+    );
+
+    // History on new incident
+    await this.historyService.createHistory(
+      newId,
+      IncidentAction.CREATED,
+      userId,
+      undefined,
+      newIncident.status as IncidentStatus,
+      `Created from reopen of ${original.ticketNumber}. Reason: ${reopenReason}`,
     );
 
     // Audit trail
@@ -2050,56 +2046,47 @@ export class IncidentsService {
       entityType: 'Incident',
       entityId: id,
       userId,
-      description: `เปิด Incident ${incident.ticketNumber || id} ใหม่ เหตุผล: ${reopenReason}`,
+      description: `Reopen Incident ${original.ticketNumber} → สร้างงานใหม่ ${newTicketNumber} เหตุผล: ${reopenReason}`,
     });
 
-    if (!wasDirectClosed) {
-      // Onsite reopen: notify all supervisors for reassignment
-      const supervisors = await this.prisma.user.findMany({
-        where: { roles: { some: { role: UserRole.SUPERVISOR } } },
-        select: { id: true },
-      });
-      for (const sup of supervisors) {
-        if (sup.id !== userId) {
-          await this.notificationsService.createNotification(
-            sup.id,
-            'INCIDENT_REOPENED' as any,
-            `Incident ${updated.ticketNumber} ถูกเปิดใหม่และต้องการมอบหมายช่าง Onsite`,
-            `/dashboard/incidents/${id}`,
-          );
-        }
-      }
-
-      // Notify old technicians that incident was reopened
-      const oldAssigneeIds = incident.assignees?.map(a => a.userId) || [];
-      if (oldAssigneeIds.length === 0 && incident.assigneeId) {
-        oldAssigneeIds.push(incident.assigneeId);
-      }
-      for (const oldTechId of oldAssigneeIds) {
-        if (oldTechId !== userId) {
-          await this.notificationsService.notifyIncidentReopened(
-            oldTechId,
-            id,
-            updated.ticketNumber,
-            updated.title,
-            reopenReason,
-          );
-        }
+    // Notify supervisors for reassignment (new incident needs onsite tech)
+    const supervisors = await this.prisma.user.findMany({
+      where: { roles: { some: { role: UserRole.SUPERVISOR } } },
+      select: { id: true },
+    });
+    for (const sup of supervisors) {
+      if (sup.id !== userId) {
+        await this.notificationsService.createNotification(
+          sup.id,
+          'INCIDENT_REOPENED' as any,
+          `Incident ${original.ticketNumber} ถูก Reopen เป็นงานใหม่ ${newTicketNumber} ต้องการมอบหมายช่าง`,
+          `/dashboard/incidents/${newId}`,
+        );
       }
     }
 
-    // Send notification to incident creator
-    if (incident.createdById !== userId) {
+    // Notify assignee if specified
+    if (assignTo && assignTo !== userId) {
+      await this.notificationsService.createNotification(
+        assignTo,
+        'INCIDENT_ASSIGNED' as any,
+        `คุณได้รับมอบหมายงาน Reopen: ${newTicketNumber} - ${newIncident.title}`,
+        `/dashboard/incidents/${newId}`,
+      );
+    }
+
+    // Notify incident creator of original
+    if (original.createdById !== userId) {
       await this.notificationsService.notifyIncidentReopened(
-        incident.createdById,
-        id,
-        updated.ticketNumber,
-        updated.title,
+        original.createdById,
+        newId,
+        newTicketNumber,
+        newIncident.title,
         reopenReason,
       );
     }
 
-    return updated;
+    return { ...newIncident, newIncidentId: newId };
   }
 
   /**
