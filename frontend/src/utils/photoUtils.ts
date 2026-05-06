@@ -23,5 +23,8 @@ export const getPhotoUrl = (photo: string): string => {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || ''
   // Remove /api suffix if present, as uploads are served from root
   const baseUrl = apiUrl.replace(/\/api$/, '')
-  return `${baseUrl}/uploads/${photo}`
+
+  // Normalise: strip any leading /uploads/ prefix to avoid double-prefix
+  const normalised = photo.replace(/^\/?(uploads\/)?/, '')
+  return `${baseUrl}/uploads/${normalised}`
 }

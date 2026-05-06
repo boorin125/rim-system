@@ -5,7 +5,6 @@ import { useParams } from 'next/navigation'
 import { Loader2, AlertCircle, Download } from 'lucide-react'
 import axios from 'axios'
 import { generateInventoryListPDF, InventoryListData } from '@/utils/inventoryListPdf'
-import { getPhotoUrl } from '@/utils/photoUtils'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'
 
@@ -46,6 +45,25 @@ interface InventoryPublicData {
   }
 }
 
+function PhotoCell({ src }: { src: string }) {
+  const [failed, setFailed] = useState(false)
+  if (failed) {
+    return (
+      <div className="w-20 h-20 flex items-center justify-center rounded border border-gray-200 bg-gray-50 mx-auto">
+        <p className="text-[10px] text-gray-400 text-center leading-tight px-1">ไม่มีรูป</p>
+      </div>
+    )
+  }
+  return (
+    <img
+      src={src}
+      alt=""
+      className="w-20 h-20 object-cover rounded border border-gray-200 mx-auto"
+      onError={() => setFailed(true)}
+    />
+  )
+}
+
 export default function InventoryListPage() {
   const params = useParams()
   const token = params?.token as string
@@ -56,10 +74,12 @@ export default function InventoryListPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [downloading, setDownloading] = useState(false)
+  const [baseUrl, setBaseUrl] = useState('')
 
   useEffect(() => {
     if (!token) return
-    const base = API_URL.replace('/api', '')
+    const base = API_URL.replace(/\/api$/, '')
+    setBaseUrl(base)
 
     Promise.all([
       axios.get(`${base}/api/public/pm/report/${token}`),
@@ -70,7 +90,7 @@ export default function InventoryListPage() {
         ? `${pm.technician.firstName} ${pm.technician.lastName}`
         : undefined
       const techSigUrl = pm.technician?.signaturePath
-        ? `${base}/uploads/${pm.technician.signaturePath}`
+        ? `${base}/uploads/${pm.technician.signaturePath.replace(/^\/?(uploads\/)?/, '')}`
         : undefined
       setData({ ...pm, technicianName: techName, technicianSignature: techSigUrl })
 
@@ -212,7 +232,7 @@ export default function InventoryListPage() {
                   <td className="px-2 py-2 border border-gray-200 text-gray-600 align-middle">{serial || '-'}</td>
                   <td className="px-1 py-1 border border-gray-200 text-center align-middle">
                     {photo ? (
-                      <img src={getPhotoUrl(photo)} alt="" className="w-20 h-20 object-cover rounded border border-gray-200 mx-auto" />
+                      <PhotoCell src={photo.startsWith('data:') || photo.startsWith('http') ? photo : `${baseUrl}/uploads/${photo.replace(/^\/?(uploads\/)?/, '')}`} />
                     ) : (
                       <div className="w-20 h-20 flex items-center justify-center rounded border border-red-200 bg-red-50 mx-auto">
                         <p className="text-xs font-medium text-red-400">No Photo</p>
@@ -249,7 +269,11 @@ export default function InventoryListPage() {
               <p className="text-xs text-gray-400 mb-3">ลายเซ็นเจ้าหน้าที่สาขา / Store Staff</p>
               <div className="h-14 flex items-end justify-center mb-3">
                 {data.storeSignature && (
-                  <img src={getPhotoUrl(data.storeSignature)} alt="Store signature" className="h-12 object-contain" />
+                  <img
+                    src={data.storeSignature.startsWith('data:') || data.storeSignature.startsWith('http') ? data.storeSignature : `${baseUrl}/uploads/${data.storeSignature.replace(/^\/?(uploads\/)?/, '')}`}
+                    alt="Store signature"
+                    className="h-12 object-contain"
+                  />
                 )}
               </div>
               <div className="border-b-2 border-gray-400 w-44 mx-auto mb-1" />
