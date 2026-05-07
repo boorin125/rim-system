@@ -362,16 +362,16 @@ export class LicenseService {
         license = await this.prisma.license.create({
           data: {
             licenseKey: dto.licenseKey,
-            licenseType: 'STANDARD',
-            organizationName: dto.organizationName || 'Local License',
-            contactEmail: dto.contactEmail || 'admin@local',
+            licenseType: 'STANDARD' as any,
+            organizationName: 'Local License',
+            contactEmail: 'admin@local',
             maxUsers: 9999,
             maxStores: 9999,
             maxIncidentsMonth: null,
             featuresEnabled: ['all'],
             expiresAt: new Date(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000),
             maxActivations: 1,
-            status: 'INACTIVE',
+            status: 'INACTIVE' as any,
             notes: 'LOCAL_LICENSE_MODE — no central server',
           },
         });
