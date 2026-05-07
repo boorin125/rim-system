@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import { Loader2, AlertCircle, Download } from 'lucide-react'
 import axios from 'axios'
 import { generateInventoryListPDF, InventoryListData } from '@/utils/inventoryListPdf'
+import { getPhotoUrl } from '@/utils/photoUtils'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'
 
@@ -231,7 +232,7 @@ export default function InventoryListPage() {
                   <td className="px-2 py-2 border border-gray-200 text-gray-600 align-middle">{serial || '-'}</td>
                   <td className="px-1 py-1 border border-gray-200 text-center align-middle">
                     {photo ? (
-                      <PhotoCell src={photo.startsWith('data:') || photo.startsWith('http') ? photo : `${window.location.origin}/uploads/${photo.replace(/^\/?(uploads\/)?/, '')}`} />
+                      <PhotoCell src={getPhotoUrl(photo)} />
                     ) : (
                       <div className="w-20 h-20 flex items-center justify-center rounded border border-red-200 bg-red-50 mx-auto">
                         <p className="text-xs font-medium text-red-400">No Photo</p>
@@ -269,7 +270,7 @@ export default function InventoryListPage() {
               <div className="h-14 flex items-end justify-center mb-3">
                 {data.storeSignature && (
                   <img
-                    src={data.storeSignature.startsWith('data:') || data.storeSignature.startsWith('http') ? data.storeSignature : `${window.location.origin}/uploads/${data.storeSignature.replace(/^\/?(uploads\/)?/, '')}`}
+                    src={getPhotoUrl(data.storeSignature)}
                     alt="Store signature"
                     className="h-12 object-contain"
                   />
