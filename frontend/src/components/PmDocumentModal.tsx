@@ -391,7 +391,7 @@ export function InventoryListModal({
                     <td className="px-2 py-2 border border-gray-200 text-gray-600 align-middle">{eq.serialNumber || '-'}</td>
                     <td className="px-1 py-1 border border-gray-200 text-center align-middle">
                       {eq.photo ? (
-                        <img src={eq.photo} alt="" className="w-20 h-20 object-cover rounded border border-gray-200 mx-auto" />
+                        <img src={getPhotoUrl(eq.photo)} alt="" className="w-20 h-20 object-cover rounded border border-gray-200 mx-auto" />
                       ) : (
                         <div className="w-20 h-20 flex items-center justify-center rounded border border-red-200 bg-red-50 mx-auto">
                           <p className="text-xs font-medium text-red-400">No Photo</p>
