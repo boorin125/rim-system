@@ -24,6 +24,8 @@ import * as http from 'http';
 const CENTRAL_LICENSE_URL = process.env.CENTRAL_LICENSE_URL || 'https://rim-license-server-production.up.railway.app';
 // Grace period in ms: allow 3 days offline before blocking
 const GRACE_PERIOD_MS = 3 * 24 * 60 * 60 * 1000;
+// Local mode: skip all central server calls, validate using local DB only
+const LOCAL_LICENSE_MODE = process.env.LOCAL_LICENSE_MODE === 'true';
 
 // Feature limits by license type
 const LICENSE_FEATURES = {
@@ -351,42 +353,63 @@ export class LicenseService {
       where: { licenseKey: dto.licenseKey },
     });
 
-    // ── Key not in local DB → ask Central License Server ──────────────────
+    // ── Key not in local DB → ask Central License Server (or create locally) ───
     if (!license) {
       const machineIdForCheck = dto.machineId || this.getMachineId();
-      const central = await this.callCentralValidate(dto.licenseKey, machineIdForCheck);
 
-      if (!central || !central.valid) {
-        throw new BadRequestException('Invalid license key');
+      if (LOCAL_LICENSE_MODE) {
+        // Local mode: create license in local DB without central validation
+        license = await this.prisma.license.create({
+          data: {
+            licenseKey: dto.licenseKey,
+            licenseType: 'STANDARD',
+            organizationName: dto.organizationName || 'Local License',
+            contactEmail: dto.contactEmail || 'admin@local',
+            maxUsers: 9999,
+            maxStores: 9999,
+            maxIncidentsMonth: null,
+            featuresEnabled: ['all'],
+            expiresAt: new Date(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000),
+            maxActivations: 1,
+            status: 'INACTIVE',
+            notes: 'LOCAL_LICENSE_MODE — no central server',
+          },
+        });
+      } else {
+        const central = await this.callCentralValidate(dto.licenseKey, machineIdForCheck);
+
+        if (!central || !central.valid) {
+          throw new BadRequestException('Invalid license key');
+        }
+
+        // Central confirmed valid — import license details into local DB
+        license = await this.prisma.license.upsert({
+          where: { licenseKey: dto.licenseKey },
+          create: {
+            licenseKey: dto.licenseKey,
+            licenseType: central.licenseType || 'STANDARD',
+            organizationName: central.organizationName || '',
+            contactEmail: central.contactEmail || '',
+            maxUsers: central.maxUsers ?? 50,
+            maxStores: central.maxStores ?? 250,
+            maxIncidentsMonth: null,
+            featuresEnabled: central.featuresEnabled?.length ? central.featuresEnabled : ['all'],
+            expiresAt: new Date(central.expiresAt),
+            maxActivations: 1,
+            status: 'INACTIVE',
+            notes: 'Imported from Central License Server',
+          },
+          update: {
+            licenseType: central.licenseType || 'STANDARD',
+            organizationName: central.organizationName || '',
+            contactEmail: central.contactEmail || '',
+            maxUsers: central.maxUsers ?? 50,
+            maxStores: central.maxStores ?? 250,
+            featuresEnabled: central.featuresEnabled?.length ? central.featuresEnabled : ['all'],
+            expiresAt: new Date(central.expiresAt),
+          },
+        });
       }
-
-      // Central confirmed valid — import license details into local DB
-      license = await this.prisma.license.upsert({
-        where: { licenseKey: dto.licenseKey },
-        create: {
-          licenseKey: dto.licenseKey,
-          licenseType: central.licenseType || 'STANDARD',
-          organizationName: central.organizationName || '',
-          contactEmail: central.contactEmail || '',
-          maxUsers: central.maxUsers ?? 50,
-          maxStores: central.maxStores ?? 250,
-          maxIncidentsMonth: null,
-          featuresEnabled: central.featuresEnabled?.length ? central.featuresEnabled : ['all'],
-          expiresAt: new Date(central.expiresAt),
-          maxActivations: 1,
-          status: 'INACTIVE',
-          notes: 'Imported from Central License Server',
-        },
-        update: {
-          licenseType: central.licenseType || 'STANDARD',
-          organizationName: central.organizationName || '',
-          contactEmail: central.contactEmail || '',
-          maxUsers: central.maxUsers ?? 50,
-          maxStores: central.maxStores ?? 250,
-          featuresEnabled: central.featuresEnabled?.length ? central.featuresEnabled : ['all'],
-          expiresAt: new Date(central.expiresAt),
-        },
-      });
     }
 
     const machineId = dto.machineId || this.getMachineId();
@@ -599,6 +622,20 @@ export class LicenseService {
         daysRemaining: 0,
         message: 'ระยะทดลองใช้งาน 30 วันสิ้นสุดแล้ว กรุณา Activate License เพื่อใช้งานต่อ',
       };
+    }
+
+    // ── Paid license: LOCAL mode — validate from local DB only ──────────
+    if (LOCAL_LICENSE_MODE) {
+      if (license.status === 'ACTIVE' && license.expiresAt > new Date()) {
+        await this.prisma.license.update({ where: { id: license.id }, data: { lastCheckAt: new Date() } }).catch(() => {});
+        return {
+          valid: true,
+          trialPhase: null,
+          license: this.sanitizeLicense(license),
+          daysRemaining: Math.ceil((license.expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)),
+        };
+      }
+      return { valid: false, reason: 'INVALID', message: 'License is not active' };
     }
 
     // ── Paid license: validate with Central License Server ──────────────
