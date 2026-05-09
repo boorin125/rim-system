@@ -111,17 +111,6 @@ while true; do
 done
 echo ""
 
-# License Key
-echo -e "${BOLD}License Key:${NC}"
-echo "  (รูปแบบ XXXX-XXXX-XXXX-XXXX — รับจาก Rubjobb Development Team)"
-while true; do
-  read -rp "  License Key: " LICENSE_KEY
-  if [[ "$LICENSE_KEY" =~ ^[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}$ ]]; then
-    break
-  fi
-  echo -e "${RED}  รูปแบบ License Key ไม่ถูกต้อง (ต้องเป็น XXXX-XXXX-XXXX-XXXX)${NC}"
-done
-
 echo ""
 echo -e "${GREEN}✅ รับค่าการตั้งค่าครบแล้ว${NC}"
 echo ""
@@ -139,6 +128,38 @@ elif command -v uuidgen &>/dev/null; then
 else
   MACHINE_ID=$(LC_ALL=C tr -dc 'a-f0-9' </dev/urandom | head -c 32)
 fi
+
+# ── Auto-register Trial License ────────────────
+echo -e "${YELLOW}→ ขอ Trial License อัตโนมัติ...${NC}"
+LICENSE_KEY=""
+REGISTER_RESPONSE=""
+if command -v curl &>/dev/null; then
+  REGISTER_RESPONSE=$(curl -sf --max-time 15 \
+    -X POST "https://license.rub-jobb.com/api/register" \
+    -H "Content-Type: application/json" \
+    -d "{\"organizationName\":\"$(echo "$ADMIN_EMAIL" | cut -d'@' -f2)\",\"contactEmail\":\"${ADMIN_EMAIL}\",\"machineId\":\"${MACHINE_ID}\",\"product\":\"RIM\"}" \
+    2>/dev/null || echo "")
+  if [ -n "$REGISTER_RESPONSE" ]; then
+    LICENSE_KEY=$(echo "$REGISTER_RESPONSE" | grep -o '"licenseKey":"[^"]*"' | cut -d'"' -f4)
+  fi
+fi
+
+if [ -n "$LICENSE_KEY" ]; then
+  echo -e "${GREEN}✅ ได้รับ Trial License Key: ${BOLD}${LICENSE_KEY}${NC}"
+  TRIAL_DAYS=$(echo "$REGISTER_RESPONSE" | grep -o '"trialDays":[0-9]*' | cut -d':' -f2)
+  echo -e "   (ทดลองใช้ ${TRIAL_DAYS:-30} วัน — ต่ออายุได้ที่ support@rub-jobb.com)"
+else
+  echo -e "${YELLOW}⚠️  ไม่สามารถรับ License อัตโนมัติได้ กรุณาใส่ License Key ด้วยตนเอง${NC}"
+  echo "  (รูปแบบ XXXX-XXXX-XXXX-XXXX — รับจาก Rubjobb Development Team)"
+  while true; do
+    read -rp "  License Key: " LICENSE_KEY
+    if [[ "$LICENSE_KEY" =~ ^[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}$ ]]; then
+      break
+    fi
+    echo -e "${RED}  รูปแบบ License Key ไม่ถูกต้อง (ต้องเป็น XXXX-XXXX-XXXX-XXXX)${NC}"
+  done
+fi
+echo ""
 
 # Generate VAPID keys
 VAPID_PUBLIC_KEY=""
