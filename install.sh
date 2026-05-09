@@ -180,35 +180,32 @@ else
 fi
 echo ""
 
-# Generate VAPID keys
+# Generate VAPID keys — explicit base64url (no = padding, URL-safe)
 VAPID_PUBLIC_KEY=""
 VAPID_PRIVATE_KEY=""
-VAPID_NODE_SCRIPT='
-  const crypto = require("crypto");
-  const { publicKey, privateKey } = crypto.generateKeyPairSync("ec", { namedCurve: "prime256v1" });
-  const pub = publicKey.export({ type: "spki", format: "der" }).slice(-65).toString("base64url");
-  const priv = privateKey.export({ type: "pkcs8", format: "der" }).slice(-32).toString("base64url");
-  console.log(pub + " " + priv);
-'
+# Script ใช้ base64 + replace แทน base64url เพื่อรับประกัน format ถูกต้องทุก Node version
+VAPID_NODE_SCRIPT='const c=require("crypto");const {publicKey,privateKey}=c.generateKeyPairSync("ec",{namedCurve:"prime256v1"});const b64u=b=>b.toString("base64").replace(/\+/g,"-").replace(/\//g,"_").replace(/=/g,"");console.log(b64u(publicKey.export({type:"spki",format:"der"}).slice(-65))+" "+b64u(privateKey.export({type:"pkcs8",format:"der"}).slice(-32)));'
+
+parse_vapid() {
+  local keys="$1"
+  local last_line
+  last_line=$(echo "$keys" | tail -1)
+  VAPID_PUBLIC_KEY=$(echo "$last_line" | awk '{print $1}')
+  VAPID_PRIVATE_KEY=$(echo "$last_line" | awk '{print $2}')
+}
 
 # 1. ลอง node บน host
 if command -v node &>/dev/null; then
   VAPID_KEYS=$(node -e "$VAPID_NODE_SCRIPT" 2>/dev/null || echo "")
-  if [ -n "$VAPID_KEYS" ]; then
-    VAPID_PUBLIC_KEY=$(echo "$VAPID_KEYS" | cut -d' ' -f1)
-    VAPID_PRIVATE_KEY=$(echo "$VAPID_KEYS" | cut -d' ' -f2)
-  fi
+  [ -n "$VAPID_KEYS" ] && parse_vapid "$VAPID_KEYS"
 fi
 
-# 2. Fallback: ใช้ backend Docker image (pull ก่อนถ้ายังไม่มี)
+# 2. Fallback: ใช้ backend Docker image
 if [ -z "$VAPID_PUBLIC_KEY" ]; then
   echo -e "${YELLOW}→ สร้าง VAPID keys ด้วย Docker image...${NC}"
   docker pull rubjobb/rim-backend:latest -q 2>/dev/null || true
   VAPID_KEYS=$(docker run --rm rubjobb/rim-backend:latest node -e "$VAPID_NODE_SCRIPT" 2>/dev/null || echo "")
-  if [ -n "$VAPID_KEYS" ]; then
-    VAPID_PUBLIC_KEY=$(echo "$VAPID_KEYS" | cut -d' ' -f1)
-    VAPID_PRIVATE_KEY=$(echo "$VAPID_KEYS" | cut -d' ' -f2)
-  fi
+  [ -n "$VAPID_KEYS" ] && parse_vapid "$VAPID_KEYS"
 fi
 
 if [ -z "$VAPID_PUBLIC_KEY" ]; then
@@ -302,71 +299,18 @@ BACKEND_HEALTH=$(docker inspect --format='{{.State.Health.Status}}' rim-backend 
 if [ "$BACKEND_HEALTH" = "healthy" ]; then
   echo -e "${GREEN}✅ Backend พร้อม${NC}"
 else
-  echo -e "${RED}⚠️  Backend ยังไม่พร้อม (${BACKEND_HEALTH}) — ข้ามขั้นตอนสร้าง Admin${NC}"
-  echo -e "${YELLOW}   หลัง backend พร้อม ให้รัน: docker logs rim-backend --tail 50${NC}"
-  echo ""
-  echo -e "${GREEN}════════════════════════════════════════════${NC}"
-  echo -e "${GREEN}${BOLD}  ✅ ติดตั้ง RIM System เสร็จแล้ว (รอ backend พร้อมก่อนใช้งาน)${NC}"
-  echo -e "${GREEN}════════════════════════════════════════════${NC}"
-  echo ""
-  echo -e "  🌐 URL ระบบ   : ${BOLD}${APP_URL}${NC}"
-  echo -e "  📞 support@rub-jobb.com | 061-228-2879"
-  echo ""
-  exit 0
+  echo -e "${YELLOW}⚠️  Backend ยังไม่ healthy (${BACKEND_HEALTH}) — ดู logs ด้วย: docker logs rim-backend --tail 30${NC}"
 fi
 
-# ── [5/5] Setup Admin ───────────────────────────
-echo -e "${YELLOW}[5/5] สร้างบัญชี Super Admin...${NC}"
-
-ADMIN_USERNAME=$(echo "$ADMIN_EMAIL" | cut -d'@' -f1 | tr -cd 'a-zA-Z0-9_-')
-
-cat > /tmp/rim_create_admin.js << 'JSEOF'
-const { PrismaClient } = require('@prisma/client');
-const bcrypt = require('bcrypt');
-const prisma = new PrismaClient();
-async function main() {
-  const email    = process.env.A_EMAIL;
-  const pass     = process.env.A_PASS;
-  const first    = process.env.A_FIRST;
-  const last     = process.env.A_LAST;
-  const username = process.env.A_USERNAME;
-  const hash = await bcrypt.hash(pass, 12);
-  const existing = await prisma.user.findFirst({ where: { OR: [{ email }, { username }] } });
-  if (!existing) {
-    await prisma.user.create({
-      data: {
-        email, password: hash,
-        firstName: first, lastName: last, username,
-        status: 'ACTIVE',
-        isProtected: true,
-        roles: { create: { role: 'SUPER_ADMIN' } },
-      },
-    });
-    console.log('✅ สร้างบัญชี Super Admin สำเร็จ:', email);
-  } else {
-    console.log('ℹ️  Email หรือ Username นี้มีอยู่แล้ว:', email);
-  }
-  await prisma.$disconnect();
-}
-main().catch(e => { console.error('❌', e.message); process.exit(1); });
-JSEOF
-
-docker cp /tmp/rim_create_admin.js rim-backend:/app/rim_create_admin.js
-docker exec \
-  -e A_EMAIL="$ADMIN_EMAIL" \
-  -e A_PASS="$ADMIN_PASSWORD" \
-  -e A_FIRST="$ADMIN_FIRST" \
-  -e A_LAST="$ADMIN_LAST" \
-  -e A_USERNAME="$ADMIN_USERNAME" \
-  rim-backend node /app/rim_create_admin.js
-
+# ── [5/5] Done ──────────────────────────────────
 echo ""
 echo -e "${GREEN}════════════════════════════════════════════${NC}"
 echo -e "${GREEN}${BOLD}  ✅ ติดตั้ง RIM System สำเร็จ!${NC}"
 echo -e "${GREEN}════════════════════════════════════════════${NC}"
 echo ""
 echo -e "  🌐 URL ระบบ   : ${BOLD}${APP_URL}${NC}"
-echo -e "  👤 Admin Email: ${BOLD}${ADMIN_EMAIL}${NC}"
+echo ""
+echo -e "  เปิด URL แล้วระบบจะนำทางสร้าง Super Admin อัตโนมัติ"
 echo ""
 echo -e "  คำสั่งที่ใช้บ่อย:"
 echo -e "    ดู status  : ${YELLOW}${COMPOSE_CMD} ps${NC}"
