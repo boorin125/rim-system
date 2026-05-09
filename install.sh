@@ -266,20 +266,37 @@ echo ""
 $COMPOSE_CMD up -d
 echo ""
 
-# ── รอ Backend พร้อม ────────────────────────────
+# ── รอ Backend พร้อม (ใช้ Docker healthcheck status) ────────────────
 echo -e "${YELLOW}→ รอ Backend พร้อม...${NC}"
-MAX_WAIT=120
+MAX_WAIT=180
 ELAPSED=0
-until $COMPOSE_CMD exec -T backend wget -qO- http://localhost:3000/health &>/dev/null; do
+until [ "$(docker inspect --format='{{.State.Health.Status}}' rim-backend 2>/dev/null)" = "healthy" ]; do
   if [ $ELAPSED -ge $MAX_WAIT ]; then
-    echo -e "${RED}⚠️  Backend ไม่ตอบสนองภายใน ${MAX_WAIT}s — ลองต่อไปเลย${NC}"
+    echo -e "${RED}⚠️  Backend ไม่ตอบสนองภายใน ${MAX_WAIT}s${NC}"
+    echo -e "${YELLOW}   ดู logs: docker logs rim-backend --tail 30${NC}"
     break
   fi
-  sleep 3
-  ELAPSED=$((ELAPSED + 3))
-  echo -e "   รอ... (${ELAPSED}s)"
+  sleep 5
+  ELAPSED=$((ELAPSED + 5))
+  STATUS=$(docker inspect --format='{{.State.Status}}' rim-backend 2>/dev/null || echo "unknown")
+  echo -e "   รอ... (${ELAPSED}s) [${STATUS}]"
 done
-echo -e "${GREEN}✅ Backend พร้อม${NC}"
+BACKEND_HEALTH=$(docker inspect --format='{{.State.Health.Status}}' rim-backend 2>/dev/null || echo "unknown")
+if [ "$BACKEND_HEALTH" = "healthy" ]; then
+  echo -e "${GREEN}✅ Backend พร้อม${NC}"
+else
+  echo -e "${RED}⚠️  Backend ยังไม่พร้อม (${BACKEND_HEALTH}) — ข้ามขั้นตอนสร้าง Admin${NC}"
+  echo -e "${YELLOW}   หลัง backend พร้อม ให้รัน: docker logs rim-backend --tail 50${NC}"
+  echo ""
+  echo -e "${GREEN}════════════════════════════════════════════${NC}"
+  echo -e "${GREEN}${BOLD}  ✅ ติดตั้ง RIM System เสร็จแล้ว (รอ backend พร้อมก่อนใช้งาน)${NC}"
+  echo -e "${GREEN}════════════════════════════════════════════${NC}"
+  echo ""
+  echo -e "  🌐 URL ระบบ   : ${BOLD}${APP_URL}${NC}"
+  echo -e "  📞 support@rub-jobb.com | 061-228-2879"
+  echo ""
+  exit 0
+fi
 
 # ── [5/5] Setup Admin ───────────────────────────
 echo -e "${YELLOW}[5/5] สร้างบัญชี Super Admin...${NC}"
