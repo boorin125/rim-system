@@ -29,7 +29,7 @@ echo ""
 echo "════════════════════════════════════════════"
 echo ""
 
-# ── ตรวจสอบ Docker ────────────────────────────
+# ── [1/5] ตรวจสอบ Docker ──────────────────────
 echo -e "${YELLOW}[1/5] ตรวจสอบ Docker...${NC}"
 if ! command -v docker &>/dev/null; then
   echo -e "${RED}❌ ไม่พบ Docker กรุณาติดตั้งก่อน:${NC}"
@@ -49,7 +49,7 @@ fi
 echo -e "${GREEN}✅ Docker พร้อมใช้งาน ($(docker --version | cut -d' ' -f3 | tr -d ','))${NC}"
 echo ""
 
-# ── ตั้งค่าระบบ ────────────────────────────────
+# ── [2/5] ตั้งค่าระบบ ──────────────────────────
 echo -e "${YELLOW}[2/5] ตั้งค่าระบบ...${NC}"
 echo ""
 
@@ -60,6 +60,23 @@ read -rp "  URL: " APP_URL
 APP_URL="${APP_URL:-http://localhost}"
 APP_URL="${APP_URL%/}"
 echo ""
+
+# ตรวจว่าใช้ HTTPS + domain จริงหรือเปล่า
+USE_LETSENCRYPT=false
+LE_EMAIL=""
+DOMAIN="localhost"
+if [[ "$APP_URL" == https://* ]]; then
+  DOMAIN=$(echo "$APP_URL" | sed 's|https://||' | sed 's|/.*||')
+  echo -e "${BOLD}SSL Certificate สำหรับ ${DOMAIN}:${NC}"
+  echo "  1. Self-signed  — ทดสอบได้ทันที (browser จะแสดง security warning)"
+  echo "  2. Let's Encrypt — cert จริง ไม่มี warning (ต้องมี port 80/443 เปิดสู่ internet)"
+  read -rp "  เลือก [1/2]: " SSL_CHOICE
+  if [ "${SSL_CHOICE:-1}" = "2" ]; then
+    USE_LETSENCRYPT=true
+    read -rp "  Email สำหรับ Let's Encrypt notifications: " LE_EMAIL
+  fi
+  echo ""
+fi
 
 # DB Password
 echo -e "${BOLD}รหัสผ่าน Database:${NC}"
@@ -109,8 +126,8 @@ echo ""
 echo -e "${GREEN}✅ รับค่าการตั้งค่าครบแล้ว${NC}"
 echo ""
 
-# ── Generate .env ──────────────────────────────
-echo -e "${YELLOW}[3/5] สร้างไฟล์ตั้งค่า...${NC}"
+# ── [3/5] สร้าง .env + SSL ─────────────────────
+echo -e "${YELLOW}[3/5] สร้างไฟล์ตั้งค่าและ SSL Certificate...${NC}"
 
 JWT_SECRET=$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 64 2>/dev/null || openssl rand -hex 32)
 
@@ -123,7 +140,7 @@ else
   MACHINE_ID=$(LC_ALL=C tr -dc 'a-f0-9' </dev/urandom | head -c 32)
 fi
 
-# Generate VAPID keys via Node.js (ถ้ามี)
+# Generate VAPID keys
 VAPID_PUBLIC_KEY=""
 VAPID_PRIVATE_KEY=""
 if command -v node &>/dev/null; then
@@ -162,23 +179,45 @@ SMTP_FROM=
 EOF
 
 echo -e "${GREEN}✅ สร้างไฟล์ .env เรียบร้อย${NC}"
-echo ""
 
 # ── SSL Certificate ────────────────────────────
 SSL_DIR="./docker/nginx/ssl"
 mkdir -p "$SSL_DIR"
-if [ ! -f "$SSL_DIR/cert.pem" ] || [ ! -f "$SSL_DIR/key.pem" ]; then
-  echo -e "${YELLOW}→ สร้าง SSL Certificate (Self-signed 10 ปี)...${NC}"
+
+if $USE_LETSENCRYPT; then
+  echo -e "${YELLOW}→ ติดตั้ง Certbot...${NC}"
+  if ! command -v certbot &>/dev/null; then
+    snap install certbot --classic 2>/dev/null && ln -sf /snap/bin/certbot /usr/bin/certbot 2>/dev/null || \
+    apt-get install -y certbot 2>/dev/null || {
+      echo -e "${RED}❌ ติดตั้ง certbot ไม่ได้ — ใช้ Self-signed แทน${NC}"
+      USE_LETSENCRYPT=false
+    }
+  fi
+fi
+
+if $USE_LETSENCRYPT && command -v certbot &>/dev/null; then
+  echo -e "${YELLOW}→ ขอ Let's Encrypt Certificate สำหรับ ${DOMAIN}...${NC}"
+  echo -e "   (certbot จะฟัง port 80 ชั่วคราว — ต้องแน่ใจว่าไม่มีอะไรใช้ port 80 อยู่)${NC}"
+  certbot certonly --standalone -d "$DOMAIN" \
+    --email "$LE_EMAIL" --agree-tos --non-interactive --quiet
+  # Copy certs to nginx ssl dir
+  cp /etc/letsencrypt/live/${DOMAIN}/fullchain.pem "$SSL_DIR/cert.pem"
+  cp /etc/letsencrypt/live/${DOMAIN}/privkey.pem  "$SSL_DIR/key.pem"
+  chmod 644 "$SSL_DIR/cert.pem"
+  chmod 600 "$SSL_DIR/key.pem"
+  echo -e "${GREEN}✅ Let's Encrypt Certificate สำเร็จ!${NC}"
+  echo -e "   ต่ออายุ cert (รันทุก 60 วัน): ${YELLOW}certbot renew && docker compose restart nginx${NC}"
+else
+  echo -e "${YELLOW}→ สร้าง Self-signed SSL Certificate...${NC}"
   openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
     -keyout "$SSL_DIR/key.pem" \
     -out "$SSL_DIR/cert.pem" \
-    -subj "/C=TH/ST=Bangkok/O=RIM System/CN=localhost" 2>/dev/null
-  echo -e "${GREEN}✅ SSL Certificate พร้อม${NC}"
-  echo -e "   (ใช้ Self-signed — หากมี domain จริง ให้แทนที่ cert.pem/key.pem ภายหลัง)"
+    -subj "/C=TH/ST=Bangkok/O=RIM System/CN=${DOMAIN}" 2>/dev/null
+  echo -e "${GREEN}✅ SSL Certificate พร้อม (Self-signed)${NC}"
 fi
 echo ""
 
-# ── Pull Images & Start ────────────────────────
+# ── [4/5] Pull Images & Start ──────────────────
 echo -e "${YELLOW}[4/5] Download Docker Images และเริ่มต้นระบบ...${NC}"
 echo ""
 
@@ -202,7 +241,7 @@ until $COMPOSE_CMD exec -T backend wget -qO- http://localhost:3000/health &>/dev
 done
 echo -e "${GREEN}✅ Backend พร้อม${NC}"
 
-# ── Setup Admin ─────────────────────────────────
+# ── [5/5] Setup Admin ───────────────────────────
 echo -e "${YELLOW}[5/5] สร้างบัญชี Super Admin...${NC}"
 
 ADMIN_USERNAME=$(echo "$ADMIN_EMAIL" | cut -d'@' -f1 | tr -cd 'a-zA-Z0-9_-')
