@@ -183,21 +183,38 @@ echo ""
 # Generate VAPID keys
 VAPID_PUBLIC_KEY=""
 VAPID_PRIVATE_KEY=""
+VAPID_NODE_SCRIPT='
+  const crypto = require("crypto");
+  const { publicKey, privateKey } = crypto.generateKeyPairSync("ec", { namedCurve: "prime256v1" });
+  const pub = publicKey.export({ type: "spki", format: "der" }).slice(-65).toString("base64url");
+  const priv = privateKey.export({ type: "pkcs8", format: "der" }).slice(-32).toString("base64url");
+  console.log(pub + " " + priv);
+'
+
+# 1. ลอง node บน host
 if command -v node &>/dev/null; then
-  VAPID_KEYS=$(node -e "
-    const crypto = require('crypto');
-    const { publicKey, privateKey } = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
-    const pub = publicKey.export({ type: 'spki', format: 'der' }).slice(-65).toString('base64url');
-    const priv = privateKey.export({ type: 'pkcs8', format: 'der' }).slice(-32).toString('base64url');
-    console.log(pub + ' ' + priv);
-  " 2>/dev/null || echo "")
+  VAPID_KEYS=$(node -e "$VAPID_NODE_SCRIPT" 2>/dev/null || echo "")
   if [ -n "$VAPID_KEYS" ]; then
     VAPID_PUBLIC_KEY=$(echo "$VAPID_KEYS" | cut -d' ' -f1)
     VAPID_PRIVATE_KEY=$(echo "$VAPID_KEYS" | cut -d' ' -f2)
   fi
 fi
-VAPID_PUBLIC_KEY="${VAPID_PUBLIC_KEY:-REPLACE_WITH_VAPID_PUBLIC_KEY}"
-VAPID_PRIVATE_KEY="${VAPID_PRIVATE_KEY:-REPLACE_WITH_VAPID_PRIVATE_KEY}"
+
+# 2. Fallback: ใช้ backend Docker image (pull ก่อนถ้ายังไม่มี)
+if [ -z "$VAPID_PUBLIC_KEY" ]; then
+  echo -e "${YELLOW}→ สร้าง VAPID keys ด้วย Docker image...${NC}"
+  docker pull rubjobb/rim-backend:latest -q 2>/dev/null || true
+  VAPID_KEYS=$(docker run --rm rubjobb/rim-backend:latest node -e "$VAPID_NODE_SCRIPT" 2>/dev/null || echo "")
+  if [ -n "$VAPID_KEYS" ]; then
+    VAPID_PUBLIC_KEY=$(echo "$VAPID_KEYS" | cut -d' ' -f1)
+    VAPID_PRIVATE_KEY=$(echo "$VAPID_KEYS" | cut -d' ' -f2)
+  fi
+fi
+
+if [ -z "$VAPID_PUBLIC_KEY" ]; then
+  echo -e "${RED}❌ ไม่สามารถสร้าง VAPID keys — กรุณาติดตั้ง Node.js แล้วลองใหม่${NC}"
+  exit 1
+fi
 
 cat > .env << EOF
 APP_URL=${APP_URL}
