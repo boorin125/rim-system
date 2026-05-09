@@ -1,7 +1,7 @@
 #!/bin/bash
 # ════════════════════════════════════════════════════════════
-#  RIM System — One-Click Installer (Source Build)
-#  สำหรับ server ที่ git clone source code มา
+#  RIM System — One-Click Installer (Docker Image)
+#  Pull pre-built images จาก Docker Hub + setup อัตโนมัติ
 #  Rubjobb Development Team — rub-jobb.com
 # ════════════════════════════════════════════════════════════
 
@@ -29,13 +29,7 @@ echo ""
 echo "════════════════════════════════════════════"
 echo ""
 
-# ── ตรวจสอบว่ารันจาก project root ──────────────
-if [ ! -f "docker-compose.yml" ] || [ ! -d "backend" ] || [ ! -d "frontend" ]; then
-  echo -e "${RED}❌ กรุณารันสคริปต์นี้จากโฟลเดอร์ root ของ RIM System${NC}"
-  exit 1
-fi
-
-# ── Check Docker ──────────────────────────────
+# ── ตรวจสอบ Docker ────────────────────────────
 echo -e "${YELLOW}[1/5] ตรวจสอบ Docker...${NC}"
 if ! command -v docker &>/dev/null; then
   echo -e "${RED}❌ ไม่พบ Docker กรุณาติดตั้งก่อน:${NC}"
@@ -55,7 +49,7 @@ fi
 echo -e "${GREEN}✅ Docker พร้อมใช้งาน ($(docker --version | cut -d' ' -f3 | tr -d ','))${NC}"
 echo ""
 
-# ── Collect Configuration ─────────────────────
+# ── ตั้งค่าระบบ ────────────────────────────────
 echo -e "${YELLOW}[2/5] ตั้งค่าระบบ...${NC}"
 echo ""
 
@@ -65,12 +59,11 @@ echo "  (ตัวอย่าง: http://192.168.1.100  หรือ  https://r
 read -rp "  URL: " APP_URL
 APP_URL="${APP_URL:-http://localhost}"
 APP_URL="${APP_URL%/}"
-
 echo ""
 
 # DB Password
 echo -e "${BOLD}รหัสผ่าน Database:${NC}"
-echo "  (ตั้งรหัสผ่านแข็งแรงอย่างน้อย 12 ตัวอักษร)"
+echo "  (ตั้งรหัสผ่านแข็งแรงอย่างน้อย 8 ตัวอักษร)"
 while true; do
   read -rsp "  Password: " DB_PASSWORD
   echo ""
@@ -81,7 +74,6 @@ while true; do
   fi
   echo -e "${RED}  รหัสผ่านไม่ตรงกัน หรือสั้นเกินไป (ต้องมีอย่างน้อย 8 ตัว)${NC}"
 done
-
 echo ""
 
 # Admin account
@@ -100,7 +92,6 @@ while true; do
   fi
   echo -e "${RED}  รหัสผ่านไม่ตรงกัน หรือสั้นเกินไป${NC}"
 done
-
 echo ""
 
 # License Key
@@ -118,7 +109,7 @@ echo ""
 echo -e "${GREEN}✅ รับค่าการตั้งค่าครบแล้ว${NC}"
 echo ""
 
-# ── Generate .env ─────────────────────────────
+# ── Generate .env ──────────────────────────────
 echo -e "${YELLOW}[3/5] สร้างไฟล์ตั้งค่า...${NC}"
 
 JWT_SECRET=$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 64 2>/dev/null || openssl rand -hex 32)
@@ -132,7 +123,7 @@ else
   MACHINE_ID=$(LC_ALL=C tr -dc 'a-f0-9' </dev/urandom | head -c 32)
 fi
 
-# Generate VAPID keys via Node.js (in Docker if local node unavailable)
+# Generate VAPID keys via Node.js (ถ้ามี)
 VAPID_PUBLIC_KEY=""
 VAPID_PRIVATE_KEY=""
 if command -v node &>/dev/null; then
@@ -159,7 +150,7 @@ DB_PASSWORD=${DB_PASSWORD}
 JWT_SECRET=${JWT_SECRET}
 MACHINE_ID=${MACHINE_ID}
 LICENSE_KEY=${LICENSE_KEY}
-CENTRAL_LICENSE_URL=https://rim-license-server-production.up.railway.app
+CENTRAL_LICENSE_URL=https://license.rub-jobb.com
 VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
 VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
 VAPID_EMAIL=mailto:admin@rim-system.com
@@ -173,7 +164,7 @@ EOF
 echo -e "${GREEN}✅ สร้างไฟล์ .env เรียบร้อย${NC}"
 echo ""
 
-# ── SSL Certificate ───────────────────────────
+# ── SSL Certificate ────────────────────────────
 SSL_DIR="./docker/nginx/ssl"
 mkdir -p "$SSL_DIR"
 if [ ! -f "$SSL_DIR/cert.pem" ] || [ ! -f "$SSL_DIR/key.pem" ]; then
@@ -187,15 +178,16 @@ if [ ! -f "$SSL_DIR/cert.pem" ] || [ ! -f "$SSL_DIR/key.pem" ]; then
 fi
 echo ""
 
-# ── Build & Start ─────────────────────────────
-echo -e "${YELLOW}[4/5] Build และเริ่มต้นระบบ (อาจใช้เวลา 5-15 นาที)...${NC}"
+# ── Pull Images & Start ────────────────────────
+echo -e "${YELLOW}[4/5] Download Docker Images และเริ่มต้นระบบ...${NC}"
 echo ""
 
-$COMPOSE_CMD up -d --build
-
+$COMPOSE_CMD pull
+echo ""
+$COMPOSE_CMD up -d
 echo ""
 
-# ── รอ Backend พร้อม ──────────────────────────
+# ── รอ Backend พร้อม ────────────────────────────
 echo -e "${YELLOW}→ รอ Backend พร้อม...${NC}"
 MAX_WAIT=120
 ELAPSED=0
@@ -210,12 +202,11 @@ until $COMPOSE_CMD exec -T backend wget -qO- http://localhost:3000/health &>/dev
 done
 echo -e "${GREEN}✅ Backend พร้อม${NC}"
 
-# ── Setup Admin ───────────────────────────────
+# ── Setup Admin ─────────────────────────────────
 echo -e "${YELLOW}[5/5] สร้างบัญชี Super Admin...${NC}"
 
 ADMIN_USERNAME=$(echo "$ADMIN_EMAIL" | cut -d'@' -f1 | tr -cd 'a-zA-Z0-9_-')
 
-# เขียน script เป็นไฟล์ (หลีกเลี่ยงปัญหา $ escaping ใน node -e "...")
 cat > /tmp/rim_create_admin.js << 'JSEOF'
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcrypt');

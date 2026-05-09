@@ -42,10 +42,9 @@ mkdir -p "$PACKAGE_DIR/docker/nginx"
 # ── Copy Files ────────────────────────────────
 echo -e "${YELLOW}→ Copying files...${NC}"
 
-cp install.sh         "$PACKAGE_DIR/install.sh"
-cp update.sh          "$PACKAGE_DIR/update.sh"
-cp manage.sh          "$PACKAGE_DIR/manage.sh"
-cp .env.example       "$PACKAGE_DIR/.env.example"
+cp install.sh              "$PACKAGE_DIR/install.sh"
+cp update.sh               "$PACKAGE_DIR/update.sh"
+cp .env.example            "$PACKAGE_DIR/.env.example"
 cp docker/nginx/nginx.conf "$PACKAGE_DIR/docker/nginx/nginx.conf"
 
 # Use installer docker-compose (image: instead of build:)
@@ -57,7 +56,6 @@ sed -i "s/RIM_VERSION:-latest/RIM_VERSION:-${VERSION}/g" "$PACKAGE_DIR/docker-co
 # Make scripts executable
 chmod +x "$PACKAGE_DIR/install.sh"
 chmod +x "$PACKAGE_DIR/update.sh"
-chmod +x "$PACKAGE_DIR/manage.sh"
 
 # ── Create ZIP ────────────────────────────────
 echo -e "${YELLOW}→ Creating zip...${NC}"
