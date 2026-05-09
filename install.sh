@@ -53,6 +53,12 @@ echo ""
 echo -e "${YELLOW}[2/5] ตั้งค่าระบบ...${NC}"
 echo ""
 
+# Organization Name
+echo -e "${BOLD}ชื่อบริษัท / Organization Name:${NC}"
+read -rp "  ชื่อ: " ORG_NAME
+ORG_NAME="${ORG_NAME:-My Organization}"
+echo ""
+
 # APP_URL
 echo -e "${BOLD}Server URL หรือ IP Address:${NC}"
 echo "  (ตัวอย่าง: http://192.168.1.100  หรือ  https://rim.yourcompany.com)"
@@ -134,10 +140,11 @@ echo -e "${YELLOW}→ ขอ Trial License อัตโนมัติ...${NC}"
 LICENSE_KEY=""
 REGISTER_RESPONSE=""
 if command -v curl &>/dev/null; then
+  ORG_NAME_SAFE=$(printf '%s' "$ORG_NAME" | sed 's/["\\]/\\&/g')
   REGISTER_RESPONSE=$(curl -sf --max-time 15 \
     -X POST "https://license.rub-jobb.com/api/register" \
     -H "Content-Type: application/json" \
-    -d "{\"organizationName\":\"$(echo "$ADMIN_EMAIL" | cut -d'@' -f2)\",\"contactEmail\":\"${ADMIN_EMAIL}\",\"machineId\":\"${MACHINE_ID}\",\"product\":\"RIM\"}" \
+    -d "{\"organizationName\":\"${ORG_NAME_SAFE}\",\"contactEmail\":\"${ADMIN_EMAIL}\",\"machineId\":\"${MACHINE_ID}\",\"product\":\"RIM\"}" \
     2>/dev/null || echo "")
   if [ -n "$REGISTER_RESPONSE" ]; then
     LICENSE_KEY=$(echo "$REGISTER_RESPONSE" | grep -o '"licenseKey":"[^"]*"' | cut -d'"' -f4)
