@@ -14,6 +14,18 @@ RED='\033[0;31m'
 BOLD='\033[1m'
 NC='\033[0m'
 
+# ── Detect sudo/root ───────────────────────────
+if [ "$EUID" -eq 0 ]; then
+  SUDO=""
+else
+  if ! sudo -n true 2>/dev/null; then
+    echo -e "${YELLOW}Script นี้ต้องการ sudo สำหรับ SSL Certificate${NC}"
+    echo -e "${YELLOW}กรุณาใส่รหัสผ่าน sudo:${NC}"
+    sudo true || { echo -e "${RED}❌ sudo ไม่สำเร็จ${NC}"; exit 1; }
+  fi
+  SUDO="sudo"
+fi
+
 clear
 echo -e "${BLUE}"
 echo "  ██████╗ ██╗███╗   ███╗"
@@ -215,8 +227,8 @@ mkdir -p "$SSL_DIR"
 if $USE_LETSENCRYPT; then
   echo -e "${YELLOW}→ ติดตั้ง Certbot...${NC}"
   if ! command -v certbot &>/dev/null; then
-    sudo snap install certbot --classic 2>/dev/null && sudo ln -sf /snap/bin/certbot /usr/bin/certbot 2>/dev/null || \
-    sudo apt-get install -y certbot 2>/dev/null || {
+    $SUDO snap install certbot --classic 2>/dev/null && $SUDO ln -sf /snap/bin/certbot /usr/bin/certbot 2>/dev/null || \
+    $SUDO apt-get install -y certbot 2>/dev/null || {
       echo -e "${RED}❌ ติดตั้ง certbot ไม่ได้ — ใช้ Self-signed แทน${NC}"
       USE_LETSENCRYPT=false
     }
@@ -226,13 +238,13 @@ fi
 if $USE_LETSENCRYPT && command -v certbot &>/dev/null; then
   echo -e "${YELLOW}→ ขอ Let's Encrypt Certificate สำหรับ ${DOMAIN}...${NC}"
   echo -e "   (certbot จะฟัง port 80 ชั่วคราว — ต้องแน่ใจว่าไม่มีอะไรใช้ port 80 อยู่)${NC}"
-  sudo certbot certonly --standalone -d "$DOMAIN" \
+  $SUDO certbot certonly --standalone -d "$DOMAIN" \
     --email "$LE_EMAIL" --agree-tos --non-interactive --quiet
   # Copy certs to nginx ssl dir
-  sudo cp /etc/letsencrypt/live/${DOMAIN}/fullchain.pem "$SSL_DIR/cert.pem"
-  sudo cp /etc/letsencrypt/live/${DOMAIN}/privkey.pem  "$SSL_DIR/key.pem"
-  sudo chmod 644 "$SSL_DIR/cert.pem"
-  sudo chmod 600 "$SSL_DIR/key.pem"
+  $SUDO cp /etc/letsencrypt/live/${DOMAIN}/fullchain.pem "$SSL_DIR/cert.pem"
+  $SUDO cp /etc/letsencrypt/live/${DOMAIN}/privkey.pem  "$SSL_DIR/key.pem"
+  $SUDO chmod 644 "$SSL_DIR/cert.pem"
+  $SUDO chmod 600 "$SSL_DIR/key.pem"
   echo -e "${GREEN}✅ Let's Encrypt Certificate สำเร็จ!${NC}"
   echo -e "   ต่ออายุ cert (รันทุก 60 วัน): ${YELLOW}sudo certbot renew && docker compose restart nginx${NC}"
 else
