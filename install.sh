@@ -215,8 +215,8 @@ mkdir -p "$SSL_DIR"
 if $USE_LETSENCRYPT; then
   echo -e "${YELLOW}→ ติดตั้ง Certbot...${NC}"
   if ! command -v certbot &>/dev/null; then
-    snap install certbot --classic 2>/dev/null && ln -sf /snap/bin/certbot /usr/bin/certbot 2>/dev/null || \
-    apt-get install -y certbot 2>/dev/null || {
+    sudo snap install certbot --classic 2>/dev/null && sudo ln -sf /snap/bin/certbot /usr/bin/certbot 2>/dev/null || \
+    sudo apt-get install -y certbot 2>/dev/null || {
       echo -e "${RED}❌ ติดตั้ง certbot ไม่ได้ — ใช้ Self-signed แทน${NC}"
       USE_LETSENCRYPT=false
     }
@@ -226,15 +226,15 @@ fi
 if $USE_LETSENCRYPT && command -v certbot &>/dev/null; then
   echo -e "${YELLOW}→ ขอ Let's Encrypt Certificate สำหรับ ${DOMAIN}...${NC}"
   echo -e "   (certbot จะฟัง port 80 ชั่วคราว — ต้องแน่ใจว่าไม่มีอะไรใช้ port 80 อยู่)${NC}"
-  certbot certonly --standalone -d "$DOMAIN" \
+  sudo certbot certonly --standalone -d "$DOMAIN" \
     --email "$LE_EMAIL" --agree-tos --non-interactive --quiet
   # Copy certs to nginx ssl dir
-  cp /etc/letsencrypt/live/${DOMAIN}/fullchain.pem "$SSL_DIR/cert.pem"
-  cp /etc/letsencrypt/live/${DOMAIN}/privkey.pem  "$SSL_DIR/key.pem"
-  chmod 644 "$SSL_DIR/cert.pem"
-  chmod 600 "$SSL_DIR/key.pem"
+  sudo cp /etc/letsencrypt/live/${DOMAIN}/fullchain.pem "$SSL_DIR/cert.pem"
+  sudo cp /etc/letsencrypt/live/${DOMAIN}/privkey.pem  "$SSL_DIR/key.pem"
+  sudo chmod 644 "$SSL_DIR/cert.pem"
+  sudo chmod 600 "$SSL_DIR/key.pem"
   echo -e "${GREEN}✅ Let's Encrypt Certificate สำเร็จ!${NC}"
-  echo -e "   ต่ออายุ cert (รันทุก 60 วัน): ${YELLOW}certbot renew && docker compose restart nginx${NC}"
+  echo -e "   ต่ออายุ cert (รันทุก 60 วัน): ${YELLOW}sudo certbot renew && docker compose restart nginx${NC}"
 else
   echo -e "${YELLOW}→ สร้าง Self-signed SSL Certificate...${NC}"
   openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
