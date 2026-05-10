@@ -27,6 +27,7 @@ const processQueue = (error: AxiosError | null, token: string | null = null) => 
 // Public paths that don't require authentication
 const publicPaths = [
   '/login', '/register', '/forgot-password', '/reset-password',
+  '/setup',           // First-run setup wizard (no token)
   '/rate/',           // Public rating page
   '/service-report/', // Public service report
   '/incident/',       // Public incident view

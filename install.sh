@@ -1,4 +1,4 @@
-#!/bin/bash
+﻿#!/bin/bash
 # ════════════════════════════════════════════════════════════
 #  RIM System — One-Click Installer (Docker Image)
 #  Pull pre-built images จาก Docker Hub + setup อัตโนมัติ
@@ -184,14 +184,12 @@ echo ""
 VAPID_PUBLIC_KEY=""
 VAPID_PRIVATE_KEY=""
 # Script ใช้ base64 + replace แทน base64url เพื่อรับประกัน format ถูกต้องทุก Node version
-VAPID_NODE_SCRIPT='const c=require("crypto");const {publicKey,privateKey}=c.generateKeyPairSync("ec",{namedCurve:"prime256v1"});const b64u=b=>b.toString("base64").replace(/\+/g,"-").replace(/\//g,"_").replace(/=/g,"");console.log(b64u(publicKey.export({type:"spki",format:"der"}).slice(-65))+" "+b64u(privateKey.export({type:"pkcs8",format:"der"}).slice(-32)));'
+VAPID_NODE_SCRIPT='const c=require("crypto");const {publicKey,privateKey}=c.generateKeyPairSync("ec",{namedCurve:"prime256v1"});const b64u=b=>b.toString("base64").replace(/\+/g,"-").replace(/\//g,"_").replace(/=/g,"");console.log("PUB:"+b64u(publicKey.export({type:"spki",format:"der"}).slice(-65)));console.log("PRIV:"+b64u(privateKey.export({type:"pkcs8",format:"der"}).slice(-32)));'
 
 parse_vapid() {
-  local keys="$1"
-  local last_line
-  last_line=$(echo "$keys" | tail -1)
-  VAPID_PUBLIC_KEY=$(echo "$last_line" | awk '{print $1}')
-  VAPID_PRIVATE_KEY=$(echo "$last_line" | awk '{print $2}')
+  local raw="$1"
+  VAPID_PUBLIC_KEY=$(echo "$raw" | grep "^PUB:"  | cut -d: -f2)
+  VAPID_PRIVATE_KEY=$(echo "$raw" | grep "^PRIV:" | cut -d: -f2)
 }
 
 # 1. ลอง node บน host
@@ -200,11 +198,10 @@ if command -v node &>/dev/null; then
   [ -n "$VAPID_KEYS" ] && parse_vapid "$VAPID_KEYS"
 fi
 
-# 2. Fallback: ใช้ backend Docker image
+# 2. Fallback: ใช้ backend Docker image (--entrypoint node bypass entrypoint.sh)
 if [ -z "$VAPID_PUBLIC_KEY" ]; then
   echo -e "${YELLOW}→ สร้าง VAPID keys ด้วย Docker image...${NC}"
-  docker pull rubjobb/rim-backend:latest -q 2>/dev/null || true
-  VAPID_KEYS=$(docker run --rm rubjobb/rim-backend:latest node -e "$VAPID_NODE_SCRIPT" 2>/dev/null || echo "")
+  VAPID_KEYS=$(docker run --rm --entrypoint node rubjobb/rim-backend:latest -e "$VAPID_NODE_SCRIPT" 2>/dev/null || echo "")
   [ -n "$VAPID_KEYS" ] && parse_vapid "$VAPID_KEYS"
 fi
 
