@@ -351,11 +351,17 @@ export default function PerformancePage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isCalculating, setIsCalculating] = useState(false)
 
-  // Period
-  const [period, setPeriod] = useState(() => {
-    const now = new Date()
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-  })
+  // Date range
+  const today = () => {
+    const n = new Date()
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`
+  }
+  const firstOfMonth = () => {
+    const n = new Date()
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-01`
+  }
+  const [dateFrom, setDateFrom] = useState(firstOfMonth)
+  const [dateTo, setDateTo] = useState(today)
 
   // Job Type filter (persisted)
   const [selectedJobTypes, setSelectedJobTypes] = useState<string[]>(() => {
@@ -475,8 +481,9 @@ export default function PerformancePage() {
     try {
       // Technician: own data
       if (isTechnician || isSelfOnly) {
+        const derivedPeriod = dateFrom.substring(0, 7)
         const calls = [
-          axios.get(`${api}/performance/my?period=${period}`, cfg).catch(() => null),
+          axios.get(`${api}/performance/my?period=${derivedPeriod}`, cfg).catch(() => null),
           axios.get(`${api}/performance/my/history?months=12`, cfg).catch(() => null),
           axios.get(`${api}/ratings/my?limit=10`, cfg).catch(() => null),
           axios.get(`${api}/performance/my/ytd`, cfg).catch(() => null),
@@ -495,19 +502,19 @@ export default function PerformancePage() {
       // Manager: team data
       if (isManager) {
         const calls = [
-          axios.get(`${api}/performance/leaderboard?period=${period}&limit=50&sortBy=${sortBy}${jtParam}`, cfg).catch(() => null),
-          axios.get(`${api}/performance/incident-stats?period=${period}${jtParam}`, cfg).catch(() => null),
+          axios.get(`${api}/performance/leaderboard?from=${dateFrom}&to=${dateTo}&limit=50&sortBy=${sortBy}${jtParam}`, cfg).catch(() => null),
+          axios.get(`${api}/performance/incident-stats?from=${dateFrom}&to=${dateTo}${jtParam}`, cfg).catch(() => null),
           axios.get(`${api}/performance/sla-trend?months=12${jtParam}`, cfg).catch(() => null),
           axios.get(`${api}/performance/ytd`, cfg).catch(() => null),
           axios.get(`${api}/performance/ytm`, cfg).catch(() => null),
           axios.get(`${api}/performance/yty`, cfg).catch(() => null),
-          axios.get(`${api}/performance/top-stores?period=${period}&limit=10${jtParam}`, cfg).catch(() => null),
-          axios.get(`${api}/performance/top-equipment?period=${period}&limit=10${jtParam}`, cfg).catch(() => null),
-          axios.get(`${api}/performance/resolution-time?period=${period}${jtParam}`, cfg).catch(() => null),
-          axios.get(`${api}/performance/top-active-equipment?${equipPeriodMode === 'period' ? `period=${period}&` : ''}limit=10${jtParam}`, cfg).catch(() => null),
-          axios.get(`${api}/performance/equipment-repeat?${equipPeriodMode === 'period' ? `period=${period}` : ''}${jtParam}`, cfg).catch(() => null),
-          axios.get(`${api}/performance/helpdesk-stats?period=${period}${jtParam}`, cfg).catch(() => null),
-          axios.get(`${api}/performance/helpdesk-leaderboard?period=${period}${jtParam}`, cfg).catch(() => null),
+          axios.get(`${api}/performance/top-stores?from=${dateFrom}&to=${dateTo}&limit=10${jtParam}`, cfg).catch(() => null),
+          axios.get(`${api}/performance/top-equipment?from=${dateFrom}&to=${dateTo}&limit=10${jtParam}`, cfg).catch(() => null),
+          axios.get(`${api}/performance/resolution-time?from=${dateFrom}&to=${dateTo}${jtParam}`, cfg).catch(() => null),
+          axios.get(`${api}/performance/top-active-equipment?from=${dateFrom}&to=${dateTo}&limit=10${jtParam}`, cfg).catch(() => null),
+          axios.get(`${api}/performance/equipment-repeat?from=${dateFrom}&to=${dateTo}${jtParam}`, cfg).catch(() => null),
+          axios.get(`${api}/performance/helpdesk-stats?from=${dateFrom}&to=${dateTo}${jtParam}`, cfg).catch(() => null),
+          axios.get(`${api}/performance/helpdesk-leaderboard?from=${dateFrom}&to=${dateTo}${jtParam}`, cfg).catch(() => null),
         ]
         const [lbRes, statsRes, trendRes, ytdRes, ytmRes, ytyRes, topStoresRes, topEquipRes, resTimeRes, topActiveEquipRes, repeatEquipRes, hdStatsRes, hdLbRes] = await Promise.all(calls)
         setLeaderboard(lbRes?.data || [])
@@ -529,7 +536,7 @@ export default function PerformancePage() {
     } finally {
       setIsLoading(false)
     }
-  }, [currentUser, period, isTechnician, isSelfOnly, isManager, sortBy, selectedJobTypes, equipPeriodMode])
+  }, [currentUser, dateFrom, dateTo, isTechnician, isSelfOnly, isManager, sortBy, selectedJobTypes, equipPeriodMode])
 
   useEffect(() => {
     if (currentUser) loadData()
@@ -540,8 +547,9 @@ export default function PerformancePage() {
     setIsCalculating(true)
     try {
       const token = localStorage.getItem('token')
+      const derivedPeriod = dateFrom.substring(0, 7)
       const res = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/performance/calculate?period=${period}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/performance/calculate?period=${derivedPeriod}`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       )
@@ -558,8 +566,9 @@ export default function PerformancePage() {
   const viewDetail = async (techId: number) => {
     try {
       const token = localStorage.getItem('token')
+      const derivedPeriod = dateFrom.substring(0, 7)
       const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/performance/technicians/${techId}?period=${period}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/performance/technicians/${techId}?period=${derivedPeriod}`,
         { headers: { Authorization: `Bearer ${token}` } }
       )
       setSelectedPerformance(res.data)
@@ -685,13 +694,24 @@ export default function PerformancePage() {
               )}
             </div>
           )}
-          <input
-            type="month"
-            value={period}
-            max={(() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}` })()}
-            onChange={(e) => setPeriod(e.target.value)}
-            className="px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              value={dateFrom}
+              max={dateTo}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <span className="text-gray-400 text-sm">—</span>
+            <input
+              type="date"
+              value={dateTo}
+              min={dateFrom}
+              max={today()}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
           {canCalculate && (
             <button
               onClick={handleCalculate}
@@ -895,7 +915,7 @@ export default function PerformancePage() {
                         const token = localStorage.getItem('token')
                         const jtParam = selectedJobTypes.length > 0 ? `&jobTypes=${selectedJobTypes.join(',')}` : ''
                         const res = await axios.get(
-                          `${process.env.NEXT_PUBLIC_API_URL}/performance/store-incident-detail/${item.id}?period=${period}${jtParam}`,
+                          `${process.env.NEXT_PUBLIC_API_URL}/performance/store-incident-detail/${item.id}?from=${dateFrom}&to=${dateTo}${jtParam}`,
                           { headers: { Authorization: `Bearer ${token}` } }
                         )
                         setStoreDetail(res.data)
@@ -1074,7 +1094,7 @@ export default function PerformancePage() {
                   <div className="flex items-center justify-between gap-2">
                     <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                       <Clock className="w-5 h-5 text-cyan-400" />
-                      Help Desk Performance — {period}
+                      Help Desk Performance — {dateFrom} — {dateTo}
                     </h3>
                     <button
                       onClick={() => setShowHdCriteria(v => !v)}
@@ -1219,7 +1239,7 @@ export default function PerformancePage() {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                       <Trophy className="w-5 h-5 text-yellow-400" />
-                      Leaderboard - {period}
+                      Leaderboard - {dateFrom} — {dateTo}
                     </h3>
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-gray-400">เรียงตาม:</span>

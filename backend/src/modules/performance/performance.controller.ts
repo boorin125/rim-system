@@ -105,9 +105,11 @@ export class PerformanceController {
   async getIncidentStats(
     @Query('period') period?: string,
     @Query('jobTypes') jobTypes?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ) {
     const parsed = jobTypes ? jobTypes.split(',').map(s => s.trim()).filter(Boolean) : undefined;
-    return this.performanceService.getIncidentStats(period, parsed);
+    return this.performanceService.getIncidentStats(period, parsed, from, to);
   }
 
   /**
@@ -135,6 +137,8 @@ export class PerformanceController {
     @Query('limit') limit?: string,
     @Query('sortBy') sortBy?: string,
     @Query('jobTypes') jobTypes?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ) {
     const parsed = jobTypes ? jobTypes.split(',').map(s => s.trim()).filter(Boolean) : undefined;
     return this.performanceService.getEnhancedLeaderboard(
@@ -142,6 +146,8 @@ export class PerformanceController {
       limit ? parseInt(limit) : 50,
       sortBy || 'score',
       parsed,
+      from,
+      to,
     );
   }
 
@@ -154,9 +160,11 @@ export class PerformanceController {
   async getResolutionTimeStats(
     @Query('period') period?: string,
     @Query('jobTypes') jobTypes?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ) {
     const parsed = jobTypes ? jobTypes.split(',').map(s => s.trim()).filter(Boolean) : undefined;
-    return this.performanceService.getResolutionTimeStats(period, parsed);
+    return this.performanceService.getResolutionTimeStats(period, parsed, from, to);
   }
 
   /**
@@ -169,9 +177,11 @@ export class PerformanceController {
     @Param('storeId', ParseIntPipe) storeId: number,
     @Query('period') period?: string,
     @Query('jobTypes') jobTypes?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ) {
     const parsed = jobTypes ? jobTypes.split(',').map(s => s.trim()).filter(Boolean) : undefined;
-    return this.performanceService.getStoreIncidentDetail(storeId, period, parsed);
+    return this.performanceService.getStoreIncidentDetail(storeId, period, parsed, from, to);
   }
 
   @Get('top-stores')
@@ -180,9 +190,11 @@ export class PerformanceController {
     @Query('period') period?: string,
     @Query('limit') limit?: string,
     @Query('jobTypes') jobTypes?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ) {
     const parsed = jobTypes ? jobTypes.split(',').map(s => s.trim()).filter(Boolean) : undefined;
-    return this.performanceService.getTopStores(period, limit ? parseInt(limit) : 10, parsed);
+    return this.performanceService.getTopStores(period, limit ? parseInt(limit) : 10, parsed, from, to);
   }
 
   /**
@@ -195,9 +207,11 @@ export class PerformanceController {
     @Query('period') period?: string,
     @Query('limit') limit?: string,
     @Query('jobTypes') jobTypes?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ) {
     const parsed = jobTypes ? jobTypes.split(',').map(s => s.trim()).filter(Boolean) : undefined;
-    return this.performanceService.getTopEquipment(period, limit ? parseInt(limit) : 10, parsed);
+    return this.performanceService.getTopEquipment(period, limit ? parseInt(limit) : 10, parsed, from, to);
   }
 
   /**
@@ -314,9 +328,11 @@ export class PerformanceController {
     @Query('period') period?: string,
     @Query('limit') limit?: string,
     @Query('jobTypes') jobTypes?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ) {
     const parsed = jobTypes ? jobTypes.split(',').map(s => s.trim()).filter(Boolean) : undefined;
-    return this.performanceService.getTopActiveEquipment(period, limit ? parseInt(limit) : 10, parsed);
+    return this.performanceService.getTopActiveEquipment(period, limit ? parseInt(limit) : 10, parsed, from, to);
   }
 
   /** Equipment Incident Detail (by equipmentId) */
@@ -332,9 +348,11 @@ export class PerformanceController {
   async getEquipmentRepeatIncidents(
     @Query('period') period?: string,
     @Query('jobTypes') jobTypes?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ) {
     const parsed = jobTypes ? jobTypes.split(',').map(s => s.trim()).filter(Boolean) : undefined;
-    return this.performanceService.getEquipmentRepeatIncidents(period, parsed);
+    return this.performanceService.getEquipmentRepeatIncidents(period, parsed, from, to);
   }
 
   /** Equipment Name+Store incident detail */
@@ -353,9 +371,11 @@ export class PerformanceController {
   async getHelpdeskStats(
     @Query('period') period?: string,
     @Query('jobTypes') jobTypes?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ) {
     const parsed = jobTypes ? jobTypes.split(',').map(s => s.trim()).filter(Boolean) : undefined;
-    return this.performanceService.getHelpdeskStats(period, parsed);
+    return this.performanceService.getHelpdeskStats(period, parsed, from, to);
   }
 
   /** Help Desk Leaderboard */
@@ -364,9 +384,11 @@ export class PerformanceController {
   async getHelpdeskLeaderboard(
     @Query('period') period?: string,
     @Query('jobTypes') jobTypes?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ) {
     const parsed = jobTypes ? jobTypes.split(',').map(s => s.trim()).filter(Boolean) : undefined;
-    return this.performanceService.getHelpdeskLeaderboard(period, parsed);
+    return this.performanceService.getHelpdeskLeaderboard(period, parsed, from, to);
   }
 
   private getCurrentPeriod(): string {

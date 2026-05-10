@@ -532,11 +532,8 @@ export class PerformanceService {
   /**
    * Get Incident Statistics (total, closed, pending, cancelled, SLA pass/fail)
    */
-  async getIncidentStats(period?: string, jobTypes?: string[]) {
-    const targetPeriod = period || this.getCurrentPeriod();
-    const [year, month] = targetPeriod.split('-').map(Number);
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59);
+  async getIncidentStats(period?: string, jobTypes?: string[], from?: string, to?: string) {
+    const { startDate, endDate, targetPeriod } = this.getDateRange(period, from, to);
 
     const incidents = await this.prisma.incident.findMany({
       where: {
@@ -654,11 +651,8 @@ export class PerformanceService {
   /**
    * Get Enhanced Leaderboard with workVolume and SLA%
    */
-  async getEnhancedLeaderboard(period?: string, limit = 50, sortBy = 'score', jobTypes?: string[]) {
-    const targetPeriod = period || this.getCurrentPeriod();
-    const [year, month] = targetPeriod.split('-').map(Number);
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59);
+  async getEnhancedLeaderboard(period?: string, limit = 50, sortBy = 'score', jobTypes?: string[], from?: string, to?: string) {
+    const { startDate, endDate, targetPeriod } = this.getDateRange(period, from, to);
 
     const scores = await this.prisma.technicianPerformanceScore.findMany({
       where: { period: targetPeriod, isCalculated: true },
@@ -900,8 +894,8 @@ export class PerformanceService {
   /**
    * Get Avg Resolution Time broken down by SLA (priority) for current and previous period
    */
-  async getResolutionTimeStats(period?: string, jobTypes?: string[]) {
-    const targetPeriod = period || this.getCurrentPeriod();
+  async getResolutionTimeStats(period?: string, jobTypes?: string[], from?: string, to?: string) {
+    const { startDate, endDate, targetPeriod } = this.getDateRange(period, from, to);
 
     // Load SLA configs once
     const slaConfigs = await this.prisma.slaConfig.findMany({
@@ -910,10 +904,7 @@ export class PerformanceService {
       select: { name: true, priority: true, color: true, resolutionTimeMinutes: true },
     });
 
-    const calcByPriority = async (p: string) => {
-      const [y, m] = p.split('-').map(Number);
-      const start = new Date(y, m - 1, 1);
-      const end = new Date(y, m, 0, 23, 59, 59);
+    const calcByPriority = async (start: Date, end: Date) => {
       const incidents = await this.prisma.incident.findMany({
         where: {
           createdAt: { gte: start, lte: end },
@@ -976,22 +967,33 @@ export class PerformanceService {
       return { overallAvg, byPriority, slaPassFail };
     };
 
-    // Find previous period
-    const prevRecord = await this.prisma.incident.findFirst({
-      where: {
-        createdAt: { lt: new Date(parseInt(targetPeriod.split('-')[0]), parseInt(targetPeriod.split('-')[1]) - 1, 1) },
-        status: { in: [IncidentStatus.CLOSED, IncidentStatus.RESOLVED] },
-      },
-      orderBy: { createdAt: 'desc' },
-      select: { createdAt: true },
-    });
-    const prevPeriod = prevRecord
-      ? `${prevRecord.createdAt.getFullYear()}-${String(prevRecord.createdAt.getMonth() + 1).padStart(2, '0')}`
-      : null;
+    // Previous period logic — skip when from/to custom range
+    let prevPeriod: string | null = null;
+    let prevStart: Date | null = null;
+    let prevEnd: Date | null = null;
+
+    if (!from || !to) {
+      const prevRecord = await this.prisma.incident.findFirst({
+        where: {
+          createdAt: { lt: new Date(parseInt(targetPeriod.split('-')[0]), parseInt(targetPeriod.split('-')[1]) - 1, 1) },
+          status: { in: [IncidentStatus.CLOSED, IncidentStatus.RESOLVED] },
+        },
+        orderBy: { createdAt: 'desc' },
+        select: { createdAt: true },
+      });
+      prevPeriod = prevRecord
+        ? `${prevRecord.createdAt.getFullYear()}-${String(prevRecord.createdAt.getMonth() + 1).padStart(2, '0')}`
+        : null;
+      if (prevPeriod) {
+        const [py, pm] = prevPeriod.split('-').map(Number);
+        prevStart = new Date(py, pm - 1, 1);
+        prevEnd = new Date(py, pm, 0, 23, 59, 59);
+      }
+    }
 
     const [current, prev] = await Promise.all([
-      calcByPriority(targetPeriod),
-      prevPeriod ? calcByPriority(prevPeriod) : Promise.resolve(null),
+      calcByPriority(startDate, endDate),
+      prevStart && prevEnd ? calcByPriority(prevStart, prevEnd) : Promise.resolve(null),
     ]);
 
     const overallChange = current.overallAvg !== null && prev?.overallAvg != null
@@ -1041,11 +1043,8 @@ export class PerformanceService {
     };
   }
 
-  async getStoreIncidentDetail(storeId: number, period?: string, jobTypes?: string[]) {
-    const targetPeriod = period || this.getCurrentPeriod();
-    const [year, month] = targetPeriod.split('-').map(Number);
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59);
+  async getStoreIncidentDetail(storeId: number, period?: string, jobTypes?: string[], from?: string, to?: string) {
+    const { startDate, endDate, targetPeriod } = this.getDateRange(period, from, to);
 
     const store = await this.prisma.store.findUnique({
       where: { id: storeId },
@@ -1098,11 +1097,8 @@ export class PerformanceService {
   /**
    * Get Top N Stores by Incident Count for a period
    */
-  async getTopStores(period?: string, limit = 10, jobTypes?: string[]) {
-    const targetPeriod = period || this.getCurrentPeriod();
-    const [year, month] = targetPeriod.split('-').map(Number);
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59);
+  async getTopStores(period?: string, limit = 10, jobTypes?: string[], from?: string, to?: string) {
+    const { startDate, endDate } = this.getDateRange(period, from, to);
 
     const incidents = await this.prisma.incident.findMany({
       where: {
@@ -1145,11 +1141,8 @@ export class PerformanceService {
   /**
    * Get Top N Equipment by Incident Count for a period
    */
-  async getTopEquipment(period?: string, limit = 10, jobTypes?: string[]) {
-    const targetPeriod = period || this.getCurrentPeriod();
-    const [year, month] = targetPeriod.split('-').map(Number);
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59);
+  async getTopEquipment(period?: string, limit = 10, jobTypes?: string[], from?: string, to?: string) {
+    const { startDate, endDate } = this.getDateRange(period, from, to);
 
     const incidents = await this.prisma.incident.findMany({
       where: {
@@ -1196,17 +1189,12 @@ export class PerformanceService {
   // ──────────────────────────────────────────────────
   // BOX 1: Top Active Equipment with Most Incidents
   // ──────────────────────────────────────────────────
-  async getTopActiveEquipment(period?: string, limit = 10, jobTypes?: string[]) {
-    const dateFilter = period
-      ? (() => {
-          const [year, month] = period.split('-').map(Number);
-          return { gte: new Date(year, month - 1, 1), lte: new Date(year, month, 0, 23, 59, 59) };
-        })()
-      : undefined;
+  async getTopActiveEquipment(period?: string, limit = 10, jobTypes?: string[], from?: string, to?: string) {
+    const { startDate, endDate } = this.getDateRange(period, from, to);
 
     const incidents = await this.prisma.incident.findMany({
       where: {
-        ...(dateFilter ? { createdAt: dateFilter } : {}),
+        createdAt: { gte: startDate, lte: endDate },
         equipmentId: { not: null },
         equipment: { status: 'ACTIVE' },
         status: { not: 'CANCELLED' },
@@ -1287,17 +1275,12 @@ export class PerformanceService {
   // ──────────────────────────────────────────────────
   // BOX 2: Equipment Name in Store with >2 Incidents
   // ──────────────────────────────────────────────────
-  async getEquipmentRepeatIncidents(period?: string, jobTypes?: string[]) {
-    const dateFilter = period
-      ? (() => {
-          const [year, month] = period.split('-').map(Number);
-          return { gte: new Date(year, month - 1, 1), lte: new Date(year, month, 0, 23, 59, 59) };
-        })()
-      : undefined;
+  async getEquipmentRepeatIncidents(period?: string, jobTypes?: string[], from?: string, to?: string) {
+    const { startDate, endDate } = this.getDateRange(period, from, to);
 
     const incidents = await this.prisma.incident.findMany({
       where: {
-        ...(dateFilter ? { createdAt: dateFilter } : {}),
+        createdAt: { gte: startDate, lte: endDate },
         equipmentId: { not: null },
         equipment: { status: 'ACTIVE' },
         ...(jobTypes?.length ? { jobType: { in: jobTypes } } : {}),
@@ -1411,11 +1394,8 @@ export class PerformanceService {
     return Math.round(rs * 0.6 + cs * 0.4);
   }
 
-  async getHelpdeskStats(period?: string, jobTypes?: string[]) {
-    const targetPeriod = period || this.getCurrentPeriod();
-    const [year, month] = targetPeriod.split('-').map(Number);
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59);
+  async getHelpdeskStats(period?: string, jobTypes?: string[], from?: string, to?: string) {
+    const { startDate, endDate, targetPeriod } = this.getDateRange(period, from, to);
 
     const helpdeskUsers = await this.prisma.user.findMany({
       where: { roles: { some: { role: UserRole.HELP_DESK } }, status: 'ACTIVE' },
@@ -1471,11 +1451,8 @@ export class PerformanceService {
     };
   }
 
-  async getHelpdeskLeaderboard(period?: string, jobTypes?: string[]) {
-    const targetPeriod = period || this.getCurrentPeriod();
-    const [year, month] = targetPeriod.split('-').map(Number);
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59);
+  async getHelpdeskLeaderboard(period?: string, jobTypes?: string[], from?: string, to?: string) {
+    const { startDate, endDate, targetPeriod } = this.getDateRange(period, from, to);
 
     const helpdeskUsers = await this.prisma.user.findMany({
       where: { roles: { some: { role: UserRole.HELP_DESK } }, status: 'ACTIVE' },
@@ -1661,6 +1638,22 @@ export class PerformanceService {
   private getCurrentPeriod(): string {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  /**
+   * Resolve date range from either explicit from/to dates or a period string
+   */
+  private getDateRange(period?: string, from?: string, to?: string): { startDate: Date; endDate: Date; targetPeriod: string } {
+    if (from && to) {
+      const startDate = new Date(from + 'T00:00:00');
+      const endDate = new Date(to + 'T23:59:59');
+      return { startDate, endDate, targetPeriod: from.substring(0, 7) };
+    }
+    const targetPeriod = period || this.getCurrentPeriod();
+    const [year, month] = targetPeriod.split('-').map(Number);
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59);
+    return { startDate, endDate, targetPeriod };
   }
 
   /**
