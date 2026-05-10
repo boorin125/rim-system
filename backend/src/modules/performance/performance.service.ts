@@ -1106,24 +1106,29 @@ export class PerformanceService {
     const incidents = await this.prisma.incident.findMany({
       where: {
         createdAt: { gte: startDate, lte: endDate },
+        status: { not: 'CANCELLED' },
         ...(jobTypes && jobTypes.length > 0 ? { jobType: { in: jobTypes } } : {}),
       },
       select: {
         storeId: true,
         storeName: true,
         storeCode: true,
+        status: true,
       },
     });
 
-    const countMap = new Map<number, { count: number; name: string; code: string }>();
+    const countMap = new Map<number, { count: number; resolved: number; name: string; code: string }>();
     for (const inc of incidents) {
       if (!inc.storeId) continue;
+      const isResolved = inc.status === 'RESOLVED' || inc.status === 'CLOSED';
       const entry = countMap.get(inc.storeId);
       if (entry) {
         entry.count++;
+        if (isResolved) entry.resolved++;
       } else {
         countMap.set(inc.storeId, {
           count: 1,
+          resolved: isResolved ? 1 : 0,
           name: inc.storeName || `Store ${inc.storeId}`,
           code: inc.storeCode || String(inc.storeId),
         });
@@ -1131,7 +1136,7 @@ export class PerformanceService {
     }
 
     return Array.from(countMap.entries())
-      .map(([id, v]) => ({ storeId: id, storeCode: v.code, storeName: v.name, count: v.count }))
+      .map(([id, v]) => ({ storeId: id, storeCode: v.code, storeName: v.name, count: v.count, resolved: v.resolved }))
       .sort((a, b) => b.count - a.count)
       .slice(0, limit);
   }

@@ -189,6 +189,7 @@ interface TopStoreEntry {
   storeCode: string
   storeName: string
   count: number
+  resolved: number
 }
 
 interface TopEquipmentEntry {
@@ -884,7 +885,7 @@ export default function PerformancePage() {
                     Top 10 Stores (Most Incidents)
                   </h3>
                   <HorizontalBarChart
-                    data={topStores.map(s => ({ label: `${s.storeCode} ${s.storeName}`, value: s.count, id: s.storeId }))}
+                    data={topStores.map(s => ({ label: `${s.storeCode} ${s.storeName}`, value: s.count, resolved: s.resolved ?? 0, id: s.storeId }))}
                     color="#3b82f6"
                     onRowClick={async (item) => {
                       if (!item.id) return
@@ -1677,7 +1678,7 @@ function ResolutionTimeCard({ data }: { data: ResolutionTimeStats | null }) {
 
 // ==================== HORIZONTAL BAR CHART (stores) ====================
 
-function HorizontalBarChart({ data, color, onRowClick }: { data: { label: string; value: number; id?: number }[]; color: string; onRowClick?: (item: { label: string; value: number; id?: number }) => void }) {
+function HorizontalBarChart({ data, color, onRowClick }: { data: { label: string; value: number; resolved?: number; id?: number }[]; color: string; onRowClick?: (item: { label: string; value: number; resolved?: number; id?: number }) => void }) {
   const [isDark, setIsDark] = useState(() =>
     typeof window === 'undefined' || !document.documentElement.classList.contains('light')
   )
@@ -1707,10 +1708,26 @@ function HorizontalBarChart({ data, color, onRowClick }: { data: { label: string
 
   const labelColor = isDark ? '#94a3b8' : '#475569'
   const valueColor = isDark ? '#ffffff' : '#1e293b'
+  const resolvedColor = '#22c55e'
   const gradId = `hbg_${color.replace('#', '')}`
+  const gradResolvedId = `hbg_resolved`
+
+  const hasResolved = data.some(d => (d.resolved ?? 0) > 0)
 
   return (
     <div className="w-full overflow-x-auto">
+      {hasResolved && (
+        <div className="flex items-center gap-4 mb-3 text-xs text-gray-400">
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-sm" style={{ background: resolvedColor }} />
+            Resolved
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-sm" style={{ background: color }} />
+            Unresolved
+          </span>
+        </div>
+      )}
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMinYMid meet"
         className="w-full"
         style={{ minWidth: Math.min(W, 280), height: `${H + 4}px` }}>
@@ -1719,9 +1736,14 @@ function HorizontalBarChart({ data, color, onRowClick }: { data: { label: string
             <stop offset="0%" stopColor={color} stopOpacity="1" />
             <stop offset="100%" stopColor={color} stopOpacity="0.45" />
           </linearGradient>
+          <linearGradient id={gradResolvedId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={resolvedColor} stopOpacity="1" />
+            <stop offset="100%" stopColor={resolvedColor} stopOpacity="0.45" />
+          </linearGradient>
         </defs>
         {data.map((d, i) => {
           const cy = PAD_T + i * ROW_H + ROW_H / 2
+          const resolvedCount = d.resolved ?? 0
 
           return (
             <g key={i} style={onRowClick ? { cursor: 'pointer' } : undefined}
@@ -1736,14 +1758,17 @@ function HorizontalBarChart({ data, color, onRowClick }: { data: { label: string
               {Array.from({ length: d.value }).map((_, j) => {
                 const sx = PAD_L + j * (SQ + GAP)
                 const sy = cy - SQ / 2
+                const isRes = j < resolvedCount
+                const sqColor = isRes ? resolvedColor : color
+                const sqGrad = isRes ? `url(#${gradResolvedId})` : `url(#${gradId})`
                 return (
                   <g key={j}>
                     {/* Base shadow */}
                     <rect x={sx + 2} y={sy + 3} width={SQ} height={SQ} rx="4"
-                      fill={color} opacity="0.25" />
+                      fill={sqColor} opacity="0.25" />
                     {/* Main square with gradient */}
                     <rect x={sx} y={sy} width={SQ} height={SQ} rx="4"
-                      fill={`url(#${gradId})`} />
+                      fill={sqGrad} />
                     {/* Top highlight shine */}
                     <rect x={sx + 2} y={sy + 2} width={SQ - 4} height={SQ / 2 - 2} rx="2"
                       fill="white" opacity="0.22" />
