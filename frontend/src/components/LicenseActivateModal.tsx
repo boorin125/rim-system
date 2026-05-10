@@ -206,7 +206,7 @@ export default function LicenseActivateModal({ onClose, onActivated }: LicenseAc
                 <div className="flex items-start gap-2 mb-3">
                   <Gift className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
                   <div className="text-sm text-gray-300">
-                    ทดลองใช้ฟรี 30 วัน — <span className="text-white font-medium">10 users / 5 stores</span>
+                    ทดลองใช้ฟรี 30 วัน — <span className="text-white font-medium">5 users / 10 stores</span>
                     <br />
                     <span className="text-xs text-gray-500">ไม่ต้องใช้บัตรเครดิต ต่ออายุได้ที่ support@rub-jobb.com</span>
                   </div>
