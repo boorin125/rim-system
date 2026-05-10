@@ -181,6 +181,9 @@ export default function ReportsPage() {
   const [filterPriority, setFilterPriority] = useState('All')
   const [filterStatus, setFilterStatus] = useState('All')
   const [filterSlaDefense, setFilterSlaDefense] = useState('All')
+  const [filterJobType, setFilterJobType] = useState('All')
+  const [categoryList, setCategoryList] = useState<{ id: number; name: string; jobTypeIds: number[] }[]>([])
+  const [jobTypeList, setJobTypeList] = useState<{ id: number; name: string }[]>([])
   const [inventorySubType, setInventorySubType] = useState<'by-category' | 'by-store'>('by-category')
   const [inventoryStoreId, setInventoryStoreId] = useState('')
   const [inventoryCategory, setInventoryCategory] = useState('All')
@@ -256,6 +259,20 @@ export default function ReportsPage() {
       .then((res) => {
         const users = Array.isArray(res.data) ? res.data : (res.data.data || [])
         setTechnicianList(users)
+      })
+      .catch(() => {})
+    axios
+      .get(`${process.env.NEXT_PUBLIC_API_URL}/categories`, { headers })
+      .then((res) => {
+        const data = Array.isArray(res.data) ? res.data : (res.data?.data || [])
+        setCategoryList(data)
+      })
+      .catch(() => {})
+    axios
+      .get(`${process.env.NEXT_PUBLIC_API_URL}/categories/job-types`, { headers })
+      .then((res) => {
+        const data = Array.isArray(res.data) ? res.data : (res.data?.data || [])
+        setJobTypeList(data)
       })
       .catch(() => {})
   }, [])
@@ -421,7 +438,7 @@ export default function ReportsPage() {
 
         case 'incident-list': {
           const [r, slaRes] = await Promise.allSettled([
-            axios.get(`${API}/incidents`, { headers, params: { ...params, limit: 1000 } }),
+            axios.get(`${API}/incidents`, { headers, params: { limit: 1000 } }),
             axios.get(`${API}/sla`, { headers }),
           ])
           if (r.status === 'rejected') throw r.reason
@@ -433,7 +450,22 @@ export default function ReportsPage() {
           }
           const getPriority = (p: string) => priorityMap.get(p) || p
 
+          // Date filtering — use closedAt for CLOSED/RESOLVED, createdAt otherwise
+          const toBKK = (iso: string) => new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' })
+          if (dateFrom || dateTo) {
+            items = items.filter((i: any) => {
+              const useClosed = filterStatus === 'CLOSED' || filterStatus === 'RESOLVED'
+              const dateStr: string | null = useClosed ? (i.resolvedAt ?? null) : (i.createdAt ?? null)
+              if (!dateStr) return false
+              const d = toBKK(dateStr)
+              if (dateFrom && d < dateFrom) return false
+              if (dateTo && d > dateTo) return false
+              return true
+            })
+          }
+
           // Apply local filters
+          if (filterJobType !== 'All') items = items.filter((i: any) => i.jobType === filterJobType)
           if (filterCategory !== 'All') items = items.filter((i: any) => i.category === filterCategory)
           if (filterPriority !== 'All') items = items.filter((i: any) => i.priority === filterPriority)
           if (filterStatus !== 'All') items = items.filter((i: any) => i.status === filterStatus)
@@ -544,7 +576,7 @@ export default function ReportsPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [selectedReport, dateFrom, dateTo, filterCategory, filterPriority, filterStatus, filterSlaDefense, inventorySubType, inventoryStoreId, inventoryCategory, inventoryStatus, selectedTechnicianId, techDetailPeriod, selectedIncidentCols])
+  }, [selectedReport, dateFrom, dateTo, filterCategory, filterPriority, filterStatus, filterSlaDefense, filterJobType, inventorySubType, inventoryStoreId, inventoryCategory, inventoryStatus, selectedTechnicianId, techDetailPeriod, selectedIncidentCols])
 
   // ==================== EXPORT HANDLERS ====================
 
@@ -579,6 +611,7 @@ export default function ReportsPage() {
       if (p.avgCustomerRating != null) filters['Customer Rating'] = `★ ${p.avgCustomerRating.toFixed(1)} / 5.0`
       if (p.ranking && p.totalTechnicians) filters['Ranking'] = `#${p.ranking} / ${p.totalTechnicians}`
     } else {
+      if (selectedReport === 'incident-list' && filterJobType !== 'All') filters['Job Type'] = filterJobType
       filters.Category = filterCategory
       filters.Priority = filterPriority
       filters.Status = filterStatus
@@ -783,16 +816,38 @@ export default function ReportsPage() {
               </>
             )}
 
-            {/* Category filter - for incident-list */}
+            {/* Job Type filter - for incident-list */}
+            {selectedReport === 'incident-list' && (
+              <div>
+                <label className="block text-gray-400 text-xs font-medium mb-1.5">Job Type</label>
+                <select
+                  value={filterJobType}
+                  onChange={(e) => { setFilterJobType(e.target.value); setFilterCategory('All'); setIsGenerated(false) }}
+                  className="w-full bg-slate-800 border border-slate-600 text-white text-sm rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500 [&>option]:bg-slate-800 [&>option]:text-white"
+                >
+                  <option value="All">All</option>
+                  {jobTypeList.map((jt) => <option key={jt.id} value={jt.name}>{jt.name}</option>)}
+                </select>
+              </div>
+            )}
+
+            {/* Category filter - for incident-list (filtered by selected job type) */}
             {selectedReport === 'incident-list' && (
               <div>
                 <label className="block text-gray-400 text-xs font-medium mb-1.5">Category</label>
                 <select
                   value={filterCategory}
                   onChange={(e) => setFilterCategory(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full bg-slate-800 border border-slate-600 text-white text-sm rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500 [&>option]:bg-slate-800 [&>option]:text-white"
                 >
-                  {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                  <option value="All">All</option>
+                  {(filterJobType === 'All'
+                    ? categoryList
+                    : (() => {
+                        const jt = jobTypeList.find(j => j.name === filterJobType)
+                        return jt ? categoryList.filter(c => c.jobTypeIds.includes(jt.id)) : categoryList
+                      })()
+                  ).map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
                 </select>
               </div>
             )}
