@@ -1056,6 +1056,7 @@ export class PerformanceService {
       where: {
         storeId,
         createdAt: { gte: startDate, lte: endDate },
+        status: { not: 'CANCELLED' },
         ...(jobTypes?.length ? { jobType: { in: jobTypes } } : {}),
       },
       orderBy: { createdAt: 'desc' },
