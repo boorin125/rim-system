@@ -186,6 +186,16 @@ export class LicenseController {
   // ==========================================
 
   /**
+   * Request a Trial license from Central License Server — requires login
+   */
+  @Post('request-trial')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async requestTrial(@Body() body: { organizationName: string; contactEmail: string }) {
+    return this.licenseService.requestTrial(body);
+  }
+
+  /**
    * Activate license (can be called without auth during initial setup)
    */
   @Post('activate')

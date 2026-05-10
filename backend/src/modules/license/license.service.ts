@@ -515,6 +515,46 @@ export class LicenseService {
   }
 
   /**
+   * Request a Trial license from the Central License Server and activate it locally.
+   */
+  async requestTrial(dto: { organizationName: string; contactEmail: string }) {
+    if (LOCAL_LICENSE_MODE) throw new BadRequestException('Trial request not available in LOCAL_LICENSE_MODE');
+    const machineId = this.getMachineId();
+    const result = await this.callCentralRegister(dto.organizationName, dto.contactEmail, machineId);
+    if (!result?.licenseKey) throw new BadRequestException('ไม่สามารถรับ Trial License ได้ กรุณาลองใหม่อีกครั้ง');
+    await this.activateLicense({ licenseKey: result.licenseKey, machineId });
+    return { success: true, licenseKey: result.licenseKey, expiresAt: result.expiresAt, trialDays: result.trialDays ?? 30 };
+  }
+
+  private async callCentralRegister(organizationName: string, contactEmail: string, machineId: string): Promise<any | null> {
+    return new Promise((resolve) => {
+      const body = JSON.stringify({ organizationName, contactEmail, machineId, product: 'RIM' });
+      const url = new URL(`${CENTRAL_LICENSE_URL}/api/register`);
+      const isHttps = url.protocol === 'https:';
+      const lib = isHttps ? https : http;
+      const req = lib.request(
+        {
+          hostname: url.hostname,
+          port: url.port || (isHttps ? 443 : 80),
+          path: url.pathname,
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+          timeout: 10000,
+        },
+        (res) => {
+          let data = '';
+          res.on('data', (chunk) => (data += chunk));
+          res.on('end', () => { try { resolve(JSON.parse(data)); } catch { resolve(null); } });
+        },
+      );
+      req.on('error', () => resolve(null));
+      req.on('timeout', () => { req.destroy(); resolve(null); });
+      req.write(body);
+      req.end();
+    });
+  }
+
+  /**
    * Call Central License Server to validate a license key.
    * Returns the parsed response body or null if unreachable.
    */
