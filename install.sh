@@ -268,6 +268,189 @@ else
 fi
 echo ""
 
+# ── Create docker-compose.yml ──────────────────
+mkdir -p docker/nginx/ssl
+cat > docker-compose.yml << 'COMPOSE_EOF'
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: rim-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-rimdb}
+      POSTGRES_USER: ${DB_USER:-rimuser}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - rim_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-rimuser}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rim_network
+
+  backend:
+    image: rubjobb/rim-backend:${RIM_VERSION:-latest}
+    container_name: rim-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-rimuser}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-rimdb}
+      JWT_SECRET: ${JWT_SECRET}
+      PORT: 3000
+      NODE_ENV: production
+      FRONTEND_URL: ${APP_URL:-http://localhost}
+      MACHINE_ID: ${MACHINE_ID}
+      LICENSE_KEY: ${LICENSE_KEY}
+      CENTRAL_LICENSE_URL: ${CENTRAL_LICENSE_URL:-https://license.rub-jobb.com}
+      TZ: Asia/Bangkok
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
+      VAPID_EMAIL: ${VAPID_EMAIL:-mailto:admin@rim-system.com}
+    volumes:
+      - rim_uploads:/app/uploads
+      - rim_backups:/app/Backup
+    networks:
+      - rim_network
+
+  frontend:
+    image: rubjobb/rim-frontend:${RIM_VERSION:-latest}
+    container_name: rim-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      PORT: 3001
+      NODE_ENV: production
+    networks:
+      - rim_network
+
+  nginx:
+    image: nginx:alpine
+    container_name: rim-nginx
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    depends_on:
+      - frontend
+      - backend
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
+    networks:
+      - rim_network
+
+volumes:
+  rim_db_data:
+  rim_uploads:
+  rim_backups:
+
+networks:
+  rim_network:
+    driver: bridge
+COMPOSE_EOF
+
+cat > docker/nginx/nginx.conf << 'NGINX_EOF'
+upstream frontend {
+    server frontend:3001;
+}
+
+upstream backend {
+    server backend:3000;
+}
+
+server {
+    listen 80;
+    server_name _;
+    client_max_body_size 2G;
+    client_body_timeout 600s;
+
+    location /api {
+        proxy_pass http://backend;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 600s;
+        proxy_send_timeout 600s;
+    }
+
+    location /uploads {
+        proxy_pass http://backend;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+    }
+
+    location / {
+        proxy_pass http://frontend;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
+
+server {
+    listen 443 ssl;
+    http2 off;
+    server_name _;
+
+    ssl_certificate /etc/nginx/ssl/cert.pem;
+    ssl_certificate_key /etc/nginx/ssl/key.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+
+    add_header X-Frame-Options SAMEORIGIN;
+    add_header X-Content-Type-Options nosniff;
+    add_header X-XSS-Protection "1; mode=block";
+
+    client_max_body_size 2G;
+    client_body_timeout 600s;
+
+    location /api {
+        proxy_pass http://backend;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_read_timeout 600s;
+        proxy_send_timeout 600s;
+    }
+
+    location /uploads {
+        proxy_pass http://backend;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+    }
+
+    location / {
+        proxy_pass http://frontend;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+}
+NGINX_EOF
+
 # ── [4/5] Pull Images & Start ──────────────────
 echo -e "${YELLOW}[4/5] Download Docker Images และเริ่มต้นระบบ...${NC}"
 echo ""
