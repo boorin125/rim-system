@@ -437,8 +437,16 @@ export default function ReportsPage() {
         }
 
         case 'incident-list': {
+          const incidentParams: Record<string, string | number> = { limit: 10000 }
+          if (dateFrom) incidentParams.dateFrom = dateFrom
+          if (dateTo) incidentParams.dateTo = dateTo
+          if (filterStatus !== 'All') incidentParams.status = filterStatus
+          if (filterCategory !== 'All') incidentParams.category = filterCategory
+          if (filterPriority !== 'All') incidentParams.priority = filterPriority
+          if (filterJobType !== 'All') incidentParams.jobType = filterJobType
+
           const [r, slaRes] = await Promise.allSettled([
-            axios.get(`${API}/incidents`, { headers, params: { limit: 1000 } }),
+            axios.get(`${API}/incidents`, { headers, params: incidentParams }),
             axios.get(`${API}/sla`, { headers }),
           ])
           if (r.status === 'rejected') throw r.reason
@@ -450,25 +458,7 @@ export default function ReportsPage() {
           }
           const getPriority = (p: string) => priorityMap.get(p) || p
 
-          // Date filtering — use closedAt for CLOSED/RESOLVED, createdAt otherwise
-          const toBKK = (iso: string) => new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' })
-          if (dateFrom || dateTo) {
-            items = items.filter((i: any) => {
-              const useClosed = filterStatus === 'CLOSED' || filterStatus === 'RESOLVED'
-              const dateStr: string | null = useClosed ? (i.resolvedAt ?? null) : (i.createdAt ?? null)
-              if (!dateStr) return false
-              const d = toBKK(dateStr)
-              if (dateFrom && d < dateFrom) return false
-              if (dateTo && d > dateTo) return false
-              return true
-            })
-          }
-
-          // Apply local filters
-          if (filterJobType !== 'All') items = items.filter((i: any) => i.jobType === filterJobType)
-          if (filterCategory !== 'All') items = items.filter((i: any) => i.category === filterCategory)
-          if (filterPriority !== 'All') items = items.filter((i: any) => i.priority === filterPriority)
-          if (filterStatus !== 'All') items = items.filter((i: any) => i.status === filterStatus)
+          // SLA Defense filter (client-side — no backend support)
           if (filterSlaDefense !== 'All') {
             items = items.filter((i: any) => {
               const defense = i.slaDefenses?.[0]

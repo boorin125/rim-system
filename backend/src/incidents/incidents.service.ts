@@ -964,6 +964,10 @@ export class IncidentsService {
       where.category = cats.length === 1 ? cats[0] : { in: cats };
     }
 
+    if (filterDto.jobType) {
+      where.jobType = filterDto.jobType;
+    }
+
     if (filterDto.search) {
       where.OR = [
         { ticketNumber: { contains: filterDto.search, mode: 'insensitive' } },
@@ -972,12 +976,12 @@ export class IncidentsService {
       ];
     }
 
-    // Pagination
+    // Pagination — allow up to 10000 for export/report use cases
     const page = Math.max(1, parseInt(filterDto.page) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(filterDto.limit) || 50));
+    const limit = Math.min(10000, Math.max(1, parseInt(filterDto.limit) || 50));
     const skip = (page - 1) * limit;
 
-    // Date range filter
+    // Date range filter — use resolvedAt for CLOSED/RESOLVED, createdAt otherwise
     if (filterDto.dateFrom || filterDto.dateTo) {
       const dateFilter: any = {};
       if (filterDto.dateFrom) dateFilter.gte = new Date(filterDto.dateFrom);
@@ -986,7 +990,13 @@ export class IncidentsService {
         to.setHours(23, 59, 59, 999);
         dateFilter.lte = to;
       }
-      where.createdAt = dateFilter;
+      const statusStr: string = typeof filterDto.status === 'string' ? filterDto.status : '';
+      const useResolvedAt = statusStr === 'CLOSED' || statusStr === 'RESOLVED';
+      if (useResolvedAt) {
+        where.resolvedAt = dateFilter;
+      } else {
+        where.createdAt = dateFilter;
+      }
     }
 
     // Sort
