@@ -1208,6 +1208,7 @@ export class PerformanceService {
         ...(dateFilter ? { createdAt: dateFilter } : {}),
         equipmentId: { not: null },
         equipment: { status: 'ACTIVE' },
+        status: { not: 'CANCELLED' },
         ...(jobTypes?.length ? { jobType: { in: jobTypes } } : {}),
       },
       select: {
@@ -1239,6 +1240,7 @@ export class PerformanceService {
       }
     }
     return Array.from(map.values())
+      .filter(e => e.count >= 2)
       .sort((a, b) => b.count - a.count || b.lastIncidentAt.getTime() - a.lastIncidentAt.getTime())
       .slice(0, limit);
   }
