@@ -535,6 +535,7 @@ export class IncidentsAnalyticsService {
       const tech = round.technician;
       const isSuperseded =
         round.resolvedAt !== null &&
+        inc.status !== 'RESOLVED' &&
         inc.status !== 'CLOSED' &&
         inc.status !== 'CANCELLED';
       const effectiveStatus = isSuperseded ? 'REOPENED' : inc.status;
