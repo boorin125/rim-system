@@ -58,7 +58,7 @@ echo ""
 
 # ── Deploy Backend ────────────────────────────────────────────
 echo -e "${YELLOW}→ อัปเดต Backend...${NC}"
-$COMPOSE_CMD up -d --no-deps backend
+$COMPOSE_CMD up -d --no-deps --force-recreate backend
 
 echo -e "${YELLOW}→ รอ Backend พร้อม...${NC}"
 MAX_WAIT=120
@@ -80,7 +80,7 @@ echo ""
 
 # ── Deploy Frontend & Nginx ───────────────────────────────────
 echo -e "${YELLOW}→ อัปเดต Frontend...${NC}"
-$COMPOSE_CMD up -d --no-deps frontend
+$COMPOSE_CMD up -d --no-deps --force-recreate frontend
 sleep 3
 
 echo -e "${YELLOW}→ อัปเดต Nginx...${NC}"
