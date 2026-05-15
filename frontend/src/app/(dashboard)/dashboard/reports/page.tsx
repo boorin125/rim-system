@@ -36,6 +36,7 @@ import {
   exportExcel,
   exportHTML,
   exportPDF,
+  sanitizeFilename,
   type ReportConfig,
 } from '@/utils/reportExporter'
 import { useThemeHighlight } from '@/hooks/useThemeHighlight'
@@ -649,6 +650,20 @@ export default function ReportsPage() {
       }
     }
 
+    let fileNameBase: string | undefined
+    if (selectedReport === 'inventory') {
+      if (inventorySubType === 'by-category') {
+        const catSlug = inventoryCategory !== 'All' ? sanitizeFilename(inventoryCategory) : 'all_categories'
+        fileNameBase = `inventory_report_${catSlug}`
+      } else {
+        const store = storeList.find((s: any) => String(s.id) === inventoryStoreId)
+        const storeSlug = inventoryStoreId
+          ? sanitizeFilename(store ? `${store.id}_${store.name}` : inventoryStoreId)
+          : 'all_stores'
+        fileNameBase = `inventory_report_${storeSlug}`
+      }
+    }
+
     return {
       title: reportLabel,
       reportType: reportLabel,
@@ -658,6 +673,7 @@ export default function ReportsPage() {
       rows: previewRows,
       generatedAt: new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' }),
       organizationName,
+      fileNameBase,
       summaryLine: selectedReport === 'customer-ratings' && ratingStats
         ? `★ ${ratingStats.averageRating.toFixed(1)} / 5.0  (${ratingStats.totalRatings} ratings)`
         : selectedReport === 'inventory'

@@ -15,6 +15,8 @@ export interface ReportConfig {
   summaryLine?: string
   /** Optional per-column width ratios (e.g. [5, 8, 30, 7, ...]) for PDF/HTML */
   columnWidths?: number[]
+  /** Override the base name used in exported filenames (without extension/datetime) */
+  fileNameBase?: string
 }
 
 function getSystemTitle(config: ReportConfig): string {
@@ -38,13 +40,16 @@ function buildHeaderLines(config: ReportConfig): string[] {
   return lines
 }
 
-function sanitizeFilename(name: string): string {
+export function sanitizeFilename(name: string): string {
   return name.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase()
 }
 
 function getFilename(config: ReportConfig, ext: string): string {
-  const date = new Date().toISOString().split('T')[0]
-  return `${sanitizeFilename(config.reportType)}_${date}.${ext}`
+  const now = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const datetime = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}`
+  const base = config.fileNameBase ?? sanitizeFilename(config.reportType)
+  return `${base}_${datetime}.${ext}`
 }
 
 // ==================== CSV ====================
