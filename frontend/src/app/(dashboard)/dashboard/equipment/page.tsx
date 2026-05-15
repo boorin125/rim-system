@@ -63,7 +63,7 @@ const iconMap: Record<string, React.ComponentType<any>> = {
 
 // Equipment-specific category → icon (not tied to incident categories)
 const equipmentCategoryIcons: Record<string, React.ComponentType<any>> = {
-  PPC: Camera,
+  'People Counter': Camera,
   HHT: Smartphone,
   'POS Scanner': ScanBarcode,
   'Access Point': Wifi,
