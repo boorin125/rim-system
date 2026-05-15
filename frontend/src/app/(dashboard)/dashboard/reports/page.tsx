@@ -112,7 +112,6 @@ const REPORT_TYPES = [
 
 type ReportTypeId = typeof REPORT_TYPES[number]['id']
 
-const EQUIPMENT_CATEGORIES = ['All', 'NETWORK', 'COMPUTER', 'POS', 'PRINTER', 'ROUTER', 'SWITCH', 'CCTV', 'OTHER']
 const EQUIPMENT_STATUSES = ['All', 'ACTIVE', 'INACTIVE', 'MAINTENANCE', 'RETIRED']
 
 const CATEGORIES = ['All', 'POS', 'Network', 'Hardware', 'Software', 'Printer', 'Monitor', 'Other']
@@ -201,6 +200,10 @@ export default function ReportsPage() {
   const [inventoryStoreId, setInventoryStoreId] = useState('')
   const [inventoryCategory, setInventoryCategory] = useState('All')
   const [inventoryStatus, setInventoryStatus] = useState('All')
+  const [equipmentCategoryList, setEquipmentCategoryList] = useState<string[]>([])
+  const [invCatSearch, setInvCatSearch] = useState('')
+  const [invCatDropdownOpen, setInvCatDropdownOpen] = useState(false)
+  const invCatRef = useRef<HTMLDivElement>(null)
   const [storeList, setStoreList] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isGenerated, setIsGenerated] = useState(false)
@@ -252,9 +255,20 @@ export default function ReportsPage() {
     const handler = (e: MouseEvent) => {
       if (statusDropdownRef.current && !statusDropdownRef.current.contains(e.target as Node))
         setStatusDropdownOpen(false)
+      if (invCatRef.current && !invCatRef.current.contains(e.target as Node))
+        setInvCatDropdownOpen(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  useEffect(() => {
+    const token = localStorage.getItem('token')
+    if (!token) return
+    axios.get(`${process.env.NEXT_PUBLIC_API_URL}/equipment/distinct-categories`, {
+      headers: { Authorization: `Bearer ${token}` }
+    }).then(res => setEquipmentCategoryList(Array.isArray(res.data) ? res.data : []))
+    .catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -728,63 +742,111 @@ export default function ReportsPage() {
             Filters
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-            {/* Date Range */}
-            <div>
-              <label className="block text-gray-400 text-xs font-medium mb-1.5">From</label>
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-gray-400 text-xs font-medium mb-1.5">To</label>
-              <input
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
+            {/* Date Range — hidden for Inventory (dates not applicable) */}
+            {selectedReport !== 'inventory' && (
+              <>
+                <div>
+                  <label className="block text-gray-400 text-xs font-medium mb-1.5">From</label>
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-400 text-xs font-medium mb-1.5">To</label>
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </>
+            )}
 
-            {/* Inventory sub-type and filters */}
+            {/* Inventory filters */}
             {selectedReport === 'inventory' && (
               <>
                 <div>
                   <label className="block text-gray-400 text-xs font-medium mb-1.5">Report Mode</label>
                   <select
                     value={inventorySubType}
-                    onChange={(e) => setInventorySubType(e.target.value as any)}
+                    onChange={(e) => {
+                      const v = e.target.value as 'by-category' | 'by-store'
+                      setInventorySubType(v)
+                      setInventoryCategory('All')
+                      setInvCatSearch('')
+                      setInventoryStoreId('')
+                    }}
                     className="w-full bg-slate-800 border border-slate-600 text-white text-sm rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500 [&>option]:bg-slate-800 [&>option]:text-white"
                   >
                     <option value="by-category">By Category</option>
                     <option value="by-store">By Store</option>
                   </select>
                 </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-gray-400 text-xs font-medium mb-1.5">Store</label>
-                  <select
-                    value={inventoryStoreId}
-                    onChange={(e) => setInventoryStoreId(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-600 text-white text-sm rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500 [&>option]:bg-slate-800 [&>option]:text-white"
-                  >
-                    <option value="">All Stores</option>
-                    {storeList.map((s: any) => (
-                      <option key={s.id} value={s.id}>{formatStore(s)}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-gray-400 text-xs font-medium mb-1.5">Equipment Category</label>
-                  <select
-                    value={inventoryCategory}
-                    onChange={(e) => setInventoryCategory(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-600 text-white text-sm rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500 [&>option]:bg-slate-800 [&>option]:text-white"
-                  >
-                    {EQUIPMENT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
+
+                {/* Store — by-store only */}
+                {inventorySubType === 'by-store' && (
+                  <div className="sm:col-span-2">
+                    <label className="block text-gray-400 text-xs font-medium mb-1.5">Store</label>
+                    <select
+                      value={inventoryStoreId}
+                      onChange={(e) => setInventoryStoreId(e.target.value)}
+                      className="w-full bg-slate-800 border border-slate-600 text-white text-sm rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500 [&>option]:bg-slate-800 [&>option]:text-white"
+                    >
+                      <option value="">All Stores</option>
+                      {storeList.map((s: any) => (
+                        <option key={s.id} value={s.id}>{formatStore(s)}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Equipment Category — by-category only, live search */}
+                {inventorySubType === 'by-category' && (
+                  <div className="relative" ref={invCatRef}>
+                    <label className="block text-gray-400 text-xs font-medium mb-1.5">Equipment Category</label>
+                    <input
+                      type="text"
+                      value={invCatSearch}
+                      onChange={(e) => { setInvCatSearch(e.target.value); setInvCatDropdownOpen(true) }}
+                      onFocus={() => setInvCatDropdownOpen(true)}
+                      placeholder="All Categories"
+                      className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-500"
+                    />
+                    {invCatDropdownOpen && (
+                      <div className="absolute z-50 mt-1 w-full bg-slate-800 border border-slate-600 rounded-lg shadow-xl max-h-52 overflow-y-auto">
+                        <button
+                          type="button"
+                          onClick={() => { setInventoryCategory('All'); setInvCatSearch(''); setInvCatDropdownOpen(false) }}
+                          className={`w-full px-3 py-2 text-sm text-left transition-colors hover:bg-slate-700 ${inventoryCategory === 'All' ? 'text-cyan-300' : 'text-gray-400'}`}
+                        >
+                          All Categories
+                        </button>
+                        <div className="border-t border-slate-700" />
+                        {equipmentCategoryList
+                          .filter(c => c.toLowerCase().includes(invCatSearch.toLowerCase()))
+                          .map(c => (
+                            <button
+                              key={c}
+                              type="button"
+                              onClick={() => { setInventoryCategory(c); setInvCatSearch(c); setInvCatDropdownOpen(false) }}
+                              className={`w-full px-3 py-2 text-sm text-left transition-colors hover:bg-slate-700 ${inventoryCategory === c ? 'text-cyan-300 font-medium' : 'text-white'}`}
+                            >
+                              {c}
+                            </button>
+                          ))
+                        }
+                        {equipmentCategoryList.filter(c => c.toLowerCase().includes(invCatSearch.toLowerCase())).length === 0 && (
+                          <p className="px-3 py-2 text-sm text-gray-500">No results</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-gray-400 text-xs font-medium mb-1.5">Equipment Status</label>
                   <select
