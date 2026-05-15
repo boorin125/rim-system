@@ -564,6 +564,7 @@ export default function IncidentsPage() {
               <thead className="bg-slate-800/80 border-b border-slate-600">
                 <tr>
                   <th className="text-left py-3 px-3 md:px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">Status</th>
+                  <th className="hidden md:table-cell text-left py-3 px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">Incident Date</th>
                   <th className="text-left py-3 px-3 md:px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">Incident No.</th>
                   <th className="hidden sm:table-cell text-left py-3 px-3 md:px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">Store</th>
                   <th className="hidden lg:table-cell text-left py-3 px-6 text-xs font-semibold text-gray-200 uppercase tracking-wider">Province</th>
@@ -605,7 +606,7 @@ export default function IncidentsPage() {
                         <div className="flex flex-col gap-1">
                           <span className={statusBadge.class}>{incident.status}</span>
                           {incident.resolutionType && (
-                            <span className={`text-[10px] ${
+                            <span className={`text-[10px] whitespace-nowrap ${
                               incident.resolutionType === 'PHONE_SUPPORT' ? 'text-emerald-400'
                               : incident.resolutionType === 'REMOTE_SUPPORT' ? 'text-blue-400'
                               : 'text-amber-400'
@@ -613,9 +614,19 @@ export default function IncidentsPage() {
                               {incident.resolutionType === 'PHONE_SUPPORT' ? 'Phone'
                                 : incident.resolutionType === 'REMOTE_SUPPORT' ? 'Remote'
                                 : 'Onsite'}
+                              <span className="text-gray-400">
+                                {incident.assignees?.[0]?.user
+                                  ? ` · ${incident.assignees[0].user.firstName} ${incident.assignees[0].user.lastName}`
+                                  : ' · No assign'}
+                              </span>
                             </span>
                           )}
                         </div>
+                      </td>
+                      <td className="hidden md:table-cell py-4 px-6">
+                        <span className="text-sm text-gray-300 whitespace-nowrap">
+                          {incident.incidentDate ? formatDateTime(incident.incidentDate) : formatDateTime(incident.createdAt)}
+                        </span>
                       </td>
                       <td className="py-3 px-3 md:py-4 md:px-6">
                         <span className="text-xs md:text-sm font-mono text-blue-400 font-semibold whitespace-nowrap">
