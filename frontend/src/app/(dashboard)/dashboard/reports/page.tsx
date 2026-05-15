@@ -193,7 +193,6 @@ export default function ReportsPage() {
   const [filterStatuses, setFilterStatuses] = useState<string[]>([])
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false)
   const statusDropdownRef = useRef<HTMLDivElement>(null)
-  const [filterSlaDefense, setFilterSlaDefense] = useState('All')
   const [filterJobType, setFilterJobType] = useState('All')
   const [categoryList, setCategoryList] = useState<{ id: number; name: string; jobTypeIds: number[] }[]>([])
   const [jobTypeList, setJobTypeList] = useState<{ id: number; name: string }[]>([])
@@ -496,14 +495,6 @@ export default function ReportsPage() {
           }
           const getPriority = (p: string) => priorityMap.get(p) || p
 
-          // SLA Defense filter (client-side — no backend support)
-          if (filterSlaDefense !== 'All') {
-            items = items.filter((i: any) => {
-              const defense = i.slaDefenses?.[0]
-              if (filterSlaDefense === 'HAS_DEFENSE') return !!defense
-              return defense?.status === filterSlaDefense
-            })
-          }
 
           const getSlaDefenseLabel = (inc: any) => {
             const defense = inc.slaDefenses?.[0]
@@ -606,7 +597,7 @@ export default function ReportsPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [selectedReport, dateFrom, dateTo, filterCategory, filterPriority, filterStatuses, filterSlaDefense, filterJobType, inventorySubType, inventoryStoreId, inventoryCategory, inventoryStatus, selectedTechnicianId, techDetailPeriod, selectedIncidentCols])
+  }, [selectedReport, dateFrom, dateTo, filterCategory, filterPriority, filterStatuses, filterJobType, inventorySubType, inventoryStoreId, inventoryCategory, inventoryStatus, selectedTechnicianId, techDetailPeriod, selectedIncidentCols])
 
   // ==================== EXPORT HANDLERS ====================
 
@@ -645,9 +636,6 @@ export default function ReportsPage() {
       filters.Category = filterCategory
       filters.Priority = filterPriority
       filters.Status = filterStatuses.length === 0 ? 'All' : filterStatuses.join(', ')
-      if (selectedReport === 'incident-list' && filterSlaDefense !== 'All') {
-        filters['SLA Defense'] = SLA_DEFENSE_FILTERS.find(f => f.value === filterSlaDefense)?.label || filterSlaDefense
-      }
     }
 
     let fileNameBase: string | undefined
@@ -658,7 +646,7 @@ export default function ReportsPage() {
       } else {
         const store = storeList.find((s: any) => String(s.id) === inventoryStoreId)
         const storeSlug = inventoryStoreId
-          ? sanitizeFilename(store ? `${store.id}_${store.name}` : inventoryStoreId)
+          ? sanitizeFilename(store ? `${store.storeCode}_${store.name}` : inventoryStoreId)
           : 'all_stores'
         fileNameBase = `inventory_report_${storeSlug}`
       }
@@ -1061,19 +1049,6 @@ export default function ReportsPage() {
               </div>
             )}
 
-            {/* SLA Defense filter */}
-            {selectedReport === 'incident-list' && (
-              <div>
-                <label className="block text-gray-400 text-xs font-medium mb-1.5">SLA Defense</label>
-                <select
-                  value={filterSlaDefense}
-                  onChange={(e) => setFilterSlaDefense(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  {SLA_DEFENSE_FILTERS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
-                </select>
-              </div>
-            )}
           </div>
 
           {/* Column Picker — Incident List */}
