@@ -1556,7 +1556,7 @@ export class EquipmentService {
 
       const storeCode = row.getCell(2).value?.toString()?.trim() || '';
       const name = row.getCell(3).value?.toString()?.trim() || '';
-      const category = row.getCell(4).value?.toString()?.trim()?.toUpperCase() || '';
+      const category = row.getCell(4).value?.toString()?.trim() || '';
       const brand = row.getCell(5).value?.toString()?.trim() || '';
       const model = row.getCell(6).value?.toString()?.trim() || '';
       const serialNumber = row.getCell(7).value?.toString()?.trim() || '';
@@ -2202,7 +2202,7 @@ export class EquipmentService {
       if (rowNumber < dataStartRow) return;
 
       const name = row.getCell(2).value?.toString()?.trim() || '';
-      const category = row.getCell(3).value?.toString()?.trim()?.toUpperCase() || '';
+      const category = row.getCell(3).value?.toString()?.trim() || '';
       const brand = row.getCell(4).value?.toString()?.trim() || '';
       const model = row.getCell(5).value?.toString()?.trim() || '';
       const serialNumber = row.getCell(6).value?.toString()?.trim() || '';
