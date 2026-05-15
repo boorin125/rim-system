@@ -2,7 +2,7 @@
 'use client'
 
 import { formatStore } from '@/utils/formatStore'
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import { useLicense } from '@/context/LicenseContext'
@@ -22,6 +22,8 @@ import {
   ListFilter,
   Package,
   Award,
+  ChevronDown,
+  Check,
 } from 'lucide-react'
 import {
   Cell,
@@ -115,7 +117,16 @@ const EQUIPMENT_STATUSES = ['All', 'ACTIVE', 'INACTIVE', 'MAINTENANCE', 'RETIRED
 
 const CATEGORIES = ['All', 'POS', 'Network', 'Hardware', 'Software', 'Printer', 'Monitor', 'Other']
 const PRIORITIES = ['All', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
-const STATUSES = ['All', 'OPEN', 'ASSIGNED', 'IN_PROGRESS', 'PENDING', 'RESOLVED', 'CLOSED', 'CANCELLED']
+const STATUSES = ['OPEN', 'ASSIGNED', 'IN_PROGRESS', 'PENDING', 'RESOLVED', 'CLOSED', 'CANCELLED']
+const STATUS_CHIP: Record<string, string> = {
+  OPEN:        'bg-slate-500/20 text-slate-300 border-slate-500/40',
+  ASSIGNED:    'bg-purple-500/20 text-purple-300 border-purple-500/40',
+  IN_PROGRESS: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
+  PENDING:     'bg-orange-500/20 text-orange-300 border-orange-500/40',
+  RESOLVED:    'bg-blue-500/20 text-blue-300 border-blue-500/40',
+  CLOSED:      'bg-green-500/20 text-green-300 border-green-500/40',
+  CANCELLED:   'bg-red-500/20 text-red-300 border-red-500/40',
+}
 const SLA_DEFENSE_FILTERS = [
   { value: 'All', label: 'All' },
   { value: 'HAS_DEFENSE', label: 'Has Defense (any)' },
@@ -179,7 +190,9 @@ export default function ReportsPage() {
   const [dateTo, setDateTo] = useState('')
   const [filterCategory, setFilterCategory] = useState('All')
   const [filterPriority, setFilterPriority] = useState('All')
-  const [filterStatus, setFilterStatus] = useState('All')
+  const [filterStatuses, setFilterStatuses] = useState<string[]>([])
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false)
+  const statusDropdownRef = useRef<HTMLDivElement>(null)
   const [filterSlaDefense, setFilterSlaDefense] = useState('All')
   const [filterJobType, setFilterJobType] = useState('All')
   const [categoryList, setCategoryList] = useState<{ id: number; name: string; jobTypeIds: number[] }[]>([])
@@ -239,6 +252,15 @@ export default function ReportsPage() {
   const [techDetailData, setTechDetailData] = useState<TechDetailData | null>(null)
 
   // Fetch organization name and store list
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (statusDropdownRef.current && !statusDropdownRef.current.contains(e.target as Node))
+        setStatusDropdownOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
   useEffect(() => {
     const token = localStorage.getItem('token')
     if (!token) return
@@ -440,7 +462,7 @@ export default function ReportsPage() {
           const incidentParams: Record<string, string | number> = { limit: 10000 }
           if (dateFrom) incidentParams.dateFrom = dateFrom
           if (dateTo) incidentParams.dateTo = dateTo
-          if (filterStatus !== 'All') incidentParams.status = filterStatus
+          if (filterStatuses.length > 0) incidentParams.status = filterStatuses.join(',')
           if (filterCategory !== 'All') incidentParams.category = filterCategory
           if (filterPriority !== 'All') incidentParams.priority = filterPriority
           if (filterJobType !== 'All') incidentParams.jobType = filterJobType
@@ -566,7 +588,7 @@ export default function ReportsPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [selectedReport, dateFrom, dateTo, filterCategory, filterPriority, filterStatus, filterSlaDefense, filterJobType, inventorySubType, inventoryStoreId, inventoryCategory, inventoryStatus, selectedTechnicianId, techDetailPeriod, selectedIncidentCols])
+  }, [selectedReport, dateFrom, dateTo, filterCategory, filterPriority, filterStatuses, filterSlaDefense, filterJobType, inventorySubType, inventoryStoreId, inventoryCategory, inventoryStatus, selectedTechnicianId, techDetailPeriod, selectedIncidentCols])
 
   // ==================== EXPORT HANDLERS ====================
 
@@ -604,7 +626,7 @@ export default function ReportsPage() {
       if (selectedReport === 'incident-list' && filterJobType !== 'All') filters['Job Type'] = filterJobType
       filters.Category = filterCategory
       filters.Priority = filterPriority
-      filters.Status = filterStatus
+      filters.Status = filterStatuses.length === 0 ? 'All' : filterStatuses.join(', ')
       if (selectedReport === 'incident-list' && filterSlaDefense !== 'All') {
         filters['SLA Defense'] = SLA_DEFENSE_FILTERS.find(f => f.value === filterSlaDefense)?.label || filterSlaDefense
       }
@@ -856,17 +878,56 @@ export default function ReportsPage() {
               </div>
             )}
 
-            {/* Status filter */}
+            {/* Status filter — multi-select */}
             {selectedReport === 'incident-list' && (
-              <div>
+              <div className="relative" ref={statusDropdownRef}>
                 <label className="block text-gray-400 text-xs font-medium mb-1.5">Status</label>
-                <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                <button
+                  type="button"
+                  onClick={() => setStatusDropdownOpen(v => !v)}
+                  className="w-full bg-slate-800 border border-slate-700 text-sm rounded-lg px-3 py-2 flex items-center justify-between gap-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
-                  {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-                </select>
+                  <span className={filterStatuses.length === 0 ? 'text-gray-400' : 'text-white'}>
+                    {filterStatuses.length === 0
+                      ? 'All Statuses'
+                      : filterStatuses.length === 1
+                      ? filterStatuses[0]
+                      : `${filterStatuses.length} selected`}
+                  </span>
+                  <ChevronDown className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${statusDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {statusDropdownOpen && (
+                  <div className="absolute z-50 mt-1 w-full bg-slate-800 border border-slate-600 rounded-lg shadow-xl overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setFilterStatuses([])}
+                      className="w-full px-3 py-2 text-xs text-gray-400 hover:text-white hover:bg-slate-700/60 text-left transition-colors"
+                    >
+                      Clear (All Statuses)
+                    </button>
+                    <div className="border-t border-slate-700" />
+                    {STATUSES.map(s => {
+                      const checked = filterStatuses.includes(s)
+                      return (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => setFilterStatuses(prev =>
+                            prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]
+                          )}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-slate-700/60 transition-colors"
+                        >
+                          <div className={`flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center ${checked ? 'bg-blue-500 border-blue-500' : 'border-slate-500'}`}>
+                            {checked && <Check className="w-3 h-3 text-white" />}
+                          </div>
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${STATUS_CHIP[s] || 'text-gray-300 border-slate-500'}`}>
+                            {s}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             )}
 

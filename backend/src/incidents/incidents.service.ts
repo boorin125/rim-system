@@ -990,8 +990,8 @@ export class IncidentsService {
         to.setHours(23, 59, 59, 999);
         dateFilter.lte = to;
       }
-      const statusStr: string = typeof filterDto.status === 'string' ? filterDto.status : '';
-      const useResolvedAt = statusStr === 'CLOSED' || statusStr === 'RESOLVED';
+      const statusList = (typeof filterDto.status === 'string' ? filterDto.status : '').split(',').filter(Boolean);
+      const useResolvedAt = statusList.length > 0 && statusList.every(s => s === 'CLOSED' || s === 'RESOLVED');
       if (useResolvedAt) {
         where.resolvedAt = dateFilter;
       } else {
