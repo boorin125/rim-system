@@ -205,6 +205,9 @@ export default function ReportsPage() {
   const [invCatDropdownOpen, setInvCatDropdownOpen] = useState(false)
   const invCatRef = useRef<HTMLDivElement>(null)
   const [storeList, setStoreList] = useState<any[]>([])
+  const [invStoreSearch, setInvStoreSearch] = useState('')
+  const [invStoreDropdownOpen, setInvStoreDropdownOpen] = useState(false)
+  const invStoreRef = useRef<HTMLDivElement>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isGenerated, setIsGenerated] = useState(false)
   const [organizationName, setOrganizationName] = useState('')
@@ -257,6 +260,8 @@ export default function ReportsPage() {
         setStatusDropdownOpen(false)
       if (invCatRef.current && !invCatRef.current.contains(e.target as Node))
         setInvCatDropdownOpen(false)
+      if (invStoreRef.current && !invStoreRef.current.contains(e.target as Node))
+        setInvStoreDropdownOpen(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -779,6 +784,7 @@ export default function ReportsPage() {
                       setInventoryCategory('All')
                       setInvCatSearch('')
                       setInventoryStoreId('')
+                      setInvStoreSearch('')
                     }}
                     className="w-full bg-slate-800 border border-slate-600 text-white text-sm rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500 [&>option]:bg-slate-800 [&>option]:text-white"
                   >
@@ -787,20 +793,59 @@ export default function ReportsPage() {
                   </select>
                 </div>
 
-                {/* Store — by-store only */}
+                {/* Store — by-store only, live search */}
                 {inventorySubType === 'by-store' && (
-                  <div className="sm:col-span-2">
+                  <div className="relative sm:col-span-2" ref={invStoreRef}>
                     <label className="block text-gray-400 text-xs font-medium mb-1.5">Store</label>
-                    <select
-                      value={inventoryStoreId}
-                      onChange={(e) => setInventoryStoreId(e.target.value)}
-                      className="w-full bg-slate-800 border border-slate-600 text-white text-sm rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500 [&>option]:bg-slate-800 [&>option]:text-white"
-                    >
-                      <option value="">All Stores</option>
-                      {storeList.map((s: any) => (
-                        <option key={s.id} value={s.id}>{formatStore(s)}</option>
-                      ))}
-                    </select>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={invStoreSearch}
+                        onChange={(e) => { setInvStoreSearch(e.target.value); setInvStoreDropdownOpen(true) }}
+                        onFocus={() => setInvStoreDropdownOpen(true)}
+                        placeholder="All Stores"
+                        className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 pr-8 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-500"
+                      />
+                      {inventoryStoreId && (
+                        <button
+                          type="button"
+                          onClick={() => { setInventoryStoreId(''); setInvStoreSearch(''); setInvStoreDropdownOpen(false) }}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+                        >✕</button>
+                      )}
+                    </div>
+                    {invStoreDropdownOpen && (
+                      <div className="absolute z-50 mt-1 w-full bg-slate-800 border border-slate-600 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                        <button
+                          type="button"
+                          onClick={() => { setInventoryStoreId(''); setInvStoreSearch(''); setInvStoreDropdownOpen(false) }}
+                          className={`w-full px-3 py-2 text-sm text-left transition-colors hover:bg-slate-700 ${!inventoryStoreId ? 'text-cyan-300' : 'text-gray-400'}`}
+                        >
+                          All Stores
+                        </button>
+                        <div className="border-t border-slate-700" />
+                        {storeList
+                          .filter((s: any) => formatStore(s).toLowerCase().includes(invStoreSearch.toLowerCase()))
+                          .map((s: any) => (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => {
+                                setInventoryStoreId(String(s.id))
+                                setInvStoreSearch(formatStore(s))
+                                setInvStoreDropdownOpen(false)
+                              }}
+                              className={`w-full px-3 py-2 text-sm text-left transition-colors hover:bg-slate-700 ${String(inventoryStoreId) === String(s.id) ? 'text-cyan-300 font-medium' : 'text-white'}`}
+                            >
+                              {formatStore(s)}
+                            </button>
+                          ))
+                        }
+                        {storeList.filter((s: any) => formatStore(s).toLowerCase().includes(invStoreSearch.toLowerCase())).length === 0 && (
+                          <p className="px-3 py-2 text-sm text-gray-500">No results</p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -808,14 +853,23 @@ export default function ReportsPage() {
                 {inventorySubType === 'by-category' && (
                   <div className="relative" ref={invCatRef}>
                     <label className="block text-gray-400 text-xs font-medium mb-1.5">Equipment Category</label>
-                    <input
-                      type="text"
-                      value={invCatSearch}
-                      onChange={(e) => { setInvCatSearch(e.target.value); setInvCatDropdownOpen(true) }}
-                      onFocus={() => setInvCatDropdownOpen(true)}
-                      placeholder="All Categories"
-                      className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-500"
-                    />
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={invCatSearch}
+                        onChange={(e) => { setInvCatSearch(e.target.value); setInvCatDropdownOpen(true) }}
+                        onFocus={() => setInvCatDropdownOpen(true)}
+                        placeholder="All Categories"
+                        className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 pr-8 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-500"
+                      />
+                      {inventoryCategory !== 'All' && (
+                        <button
+                          type="button"
+                          onClick={() => { setInventoryCategory('All'); setInvCatSearch(''); setInvCatDropdownOpen(false) }}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+                        >✕</button>
+                      )}
+                    </div>
                     {invCatDropdownOpen && (
                       <div className="absolute z-50 mt-1 w-full bg-slate-800 border border-slate-600 rounded-lg shadow-xl max-h-52 overflow-y-auto">
                         <button
