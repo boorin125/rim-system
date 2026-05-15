@@ -206,39 +206,35 @@ export default function ReportsPage() {
   const [isGenerated, setIsGenerated] = useState(false)
   const [organizationName, setOrganizationName] = useState('')
 
-  // Incident column picker
-  const [selectedIncidentCols, setSelectedIncidentCols] = useState<Set<IncidentColKey>>(() => {
-    if (typeof window === 'undefined') return new Set(ALL_INCIDENT_COL_KEYS)
+  // Incident column picker — array preserves selection order
+  const [selectedIncidentCols, setSelectedIncidentCols] = useState<IncidentColKey[]>(() => {
+    if (typeof window === 'undefined') return ALL_INCIDENT_COL_KEYS
     try {
       const saved = localStorage.getItem('rim_incident_cols')
       if (saved) {
         const keys = JSON.parse(saved) as IncidentColKey[]
         const valid = keys.filter(k => ALL_INCIDENT_COL_KEYS.includes(k))
-        if (valid.length > 0) return new Set(valid)
+        if (valid.length > 0) return valid
       }
     } catch {}
-    return new Set(ALL_INCIDENT_COL_KEYS)
+    return ALL_INCIDENT_COL_KEYS
   })
 
   const toggleIncidentCol = (key: IncidentColKey) => {
     setSelectedIncidentCols(prev => {
-      const next = new Set(prev)
-      if (next.has(key)) {
-        if (next.size <= 1) return prev
-        next.delete(key)
-      } else {
-        next.add(key)
-      }
-      localStorage.setItem('rim_incident_cols', JSON.stringify([...next]))
+      const isSelected = prev.includes(key)
+      if (isSelected && prev.length <= 1) return prev
+      const next = isSelected ? prev.filter(k => k !== key) : [...prev, key]
+      localStorage.setItem('rim_incident_cols', JSON.stringify(next))
       return next
     })
     setIsGenerated(false)
   }
 
   const setAllIncidentCols = (all: boolean) => {
-    const next = all ? new Set(ALL_INCIDENT_COL_KEYS) : new Set<IncidentColKey>([ALL_INCIDENT_COL_KEYS[0]])
+    const next = all ? ALL_INCIDENT_COL_KEYS : [ALL_INCIDENT_COL_KEYS[0]]
     setSelectedIncidentCols(next)
-    localStorage.setItem('rim_incident_cols', JSON.stringify([...next]))
+    localStorage.setItem('rim_incident_cols', JSON.stringify(next))
     setIsGenerated(false)
   }
 
@@ -498,7 +494,9 @@ export default function ReportsPage() {
             return defense.status
           }
 
-          const activeCols = INCIDENT_COLUMNS.filter(c => selectedIncidentCols.has(c.key))
+          const activeCols = selectedIncidentCols
+            .map(key => INCIDENT_COLUMNS.find(c => c.key === key))
+            .filter((c): c is typeof INCIDENT_COLUMNS[number] => !!c)
           const h = activeCols.map(c => c.label)
           const rows = items.map((inc: any, idx: number) => {
             const techName = inc.assignees?.length > 0
@@ -651,7 +649,7 @@ export default function ReportsPage() {
       columnWidths: selectedReport === 'customer-ratings'
         ? [4, 7, 30, 8, 14, 10, 27]
         : selectedReport === 'incident-list'
-        ? INCIDENT_COLUMNS.filter(c => selectedIncidentCols.has(c.key)).map(c => c.width)
+        ? selectedIncidentCols.map(key => INCIDENT_COLUMNS.find(c => c.key === key)?.width ?? 6)
         : selectedReport === 'technician-detail'
         ? [3, 9, 8, 8, 10, 10, 10, 8, 8, 8, 8]
         : undefined,
@@ -953,7 +951,7 @@ export default function ReportsPage() {
                 <div className="flex items-center gap-2">
                   <ListFilter className="w-4 h-4 text-cyan-400" />
                   <span className="text-sm font-medium text-white">เลือกคอลัมน์</span>
-                  <span className="text-xs text-gray-500">({selectedIncidentCols.size} / {INCIDENT_COLUMNS.length})</span>
+                  <span className="text-xs text-gray-500">({selectedIncidentCols.length} / {INCIDENT_COLUMNS.length})</span>
                 </div>
                 <div className="flex gap-2">
                   <button
@@ -971,27 +969,34 @@ export default function ReportsPage() {
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
-                {INCIDENT_COLUMNS.map((col) => {
-                  const checked = selectedIncidentCols.has(col.key)
+                {/* Selected columns first — in selection order with number badge */}
+                {selectedIncidentCols.map((key, idx) => {
+                  const col = INCIDENT_COLUMNS.find(c => c.key === key)
+                  if (!col) return null
                   return (
                     <button
                       key={col.key}
                       onClick={() => toggleIncidentCol(col.key)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                        checked
-                          ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300'
-                          : 'bg-slate-800 border-slate-600 text-gray-500 hover:border-slate-500 hover:text-gray-400'
-                      }`}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all bg-cyan-500/20 border-cyan-500/50 text-cyan-300"
                     >
-                      <span className={`w-3 h-3 rounded-sm border flex items-center justify-center shrink-0 ${
-                        checked ? 'bg-cyan-500 border-cyan-500' : 'border-slate-500'
-                      }`}>
-                        {checked && <span className="text-white text-[8px] leading-none">✓</span>}
+                      <span className="w-4 h-4 rounded-sm bg-cyan-500 border-cyan-500 flex items-center justify-center shrink-0 text-white font-bold" style={{ fontSize: 9 }}>
+                        {idx + 1}
                       </span>
                       {col.label}
                     </button>
                   )
                 })}
+                {/* Unselected columns — in default order */}
+                {INCIDENT_COLUMNS.filter(col => !selectedIncidentCols.includes(col.key)).map((col) => (
+                  <button
+                    key={col.key}
+                    onClick={() => toggleIncidentCol(col.key)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all bg-slate-800 border-slate-600 text-gray-500 hover:border-slate-500 hover:text-gray-400"
+                  >
+                    <span className="w-4 h-4 rounded-sm border border-slate-500 flex items-center justify-center shrink-0" />
+                    {col.label}
+                  </button>
+                ))}
               </div>
             </div>
           )}
