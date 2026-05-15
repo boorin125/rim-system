@@ -95,7 +95,7 @@ const statusColorMap: Record<string, { hex: string; text: string }> = {
   PENDING: { hex: '#3b82f6', text: '#60a5fa' },       // blue
   ASSIGNED: { hex: '#a855f7', text: '#c084fc' },      // purple
   IN_PROGRESS: { hex: '#eab308', text: '#facc15' },   // yellow
-  RESOLVED: { hex: '#22c55e', text: '#4ade80' },      // green
+  RESOLVED: { hex: '#eab308', text: '#facc15' },      // yellow
   CLOSED: { hex: '#22c55e', text: '#4ade80' },         // green
   OUTSOURCED: { hex: '#06b6d4', text: '#22d3ee' },    // cyan
   CANCELLED: { hex: '#6b7280', text: '#9ca3af' },     // gray
