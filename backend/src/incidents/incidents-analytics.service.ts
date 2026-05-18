@@ -704,17 +704,25 @@ export class IncidentsAnalyticsService {
         return i.slaDefenses?.some((d: any) => d.status === 'APPROVED');
       }).length;
 
+      // Auto-logout at 22:00 if logged in but no manual logout
+      const effectiveLogout = activity?.logoutAt
+        ?? (activity?.loginAt ? new Date(`${day}T22:00:00+07:00`) : null);
+
+      const slaTotal = slaRelevant.length;
+      const slaPercent = slaTotal > 0 ? Math.round((slaPass / slaTotal) * 1000) / 10 : null;
+
       dailyRows.push({
         date: day,
         loginAt: activity?.loginAt ?? null,
-        logoutAt: activity?.logoutAt ?? null,
+        logoutAt: effectiveLogout,
         firstCheckIn,
         lastCheckIn,
         lastResolve,
         totalJobs: dayIncidents.length,
         resolved,
         slaPass,
-        slaTotal: slaRelevant.length,
+        slaTotal,
+        slaPercent,
       });
     }
 

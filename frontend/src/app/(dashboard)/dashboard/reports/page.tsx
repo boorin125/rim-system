@@ -71,6 +71,7 @@ interface TechDetailRow {
   resolved: number
   slaPass: number
   slaTotal: number
+  slaPercent: number | null
 }
 
 interface TechDetailData {
@@ -582,7 +583,7 @@ export default function ReportsPage() {
             return `${d}/${m}/${y}`
           }
 
-          const h = ['#', 'Date', 'Login', 'Logout', 'First Check-in', 'Last Check-in', 'Last Resolve', 'Total Jobs', 'Resolved', 'SLA Pass', 'SLA Total']
+          const h = ['#', 'Date', 'Login', 'Logout', 'First Check-in', 'Last Check-in', 'Last Resolved', 'Total Jobs', 'Resolved', 'SLA Pass', 'SLA%']
           const rows = data.dailyRows.map((row, idx) => [
             idx + 1,
             fmtDate(row.date),
@@ -594,7 +595,7 @@ export default function ReportsPage() {
             row.totalJobs,
             row.resolved,
             row.slaPass,
-            row.slaTotal,
+            row.slaPercent != null ? `${row.slaPercent}%` : '-',
           ])
           setPreviewHeaders(h)
           setPreviewRows(rows)
