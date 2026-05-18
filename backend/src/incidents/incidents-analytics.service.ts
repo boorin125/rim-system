@@ -711,6 +711,11 @@ export class IncidentsAnalyticsService {
       const slaTotal = slaRelevant.length;
       const slaPercent = slaTotal > 0 ? Math.round((slaPass / slaTotal) * 1000) / 10 : null;
 
+      // Total resolution time: sum of (resolvedAt - checkInAt) for each resolved job with both timestamps
+      const resolutionTimeMins = resolvedIncidents
+        .filter((i) => i.checkInAt && i.resolvedAt)
+        .reduce((sum, i) => sum + (i.resolvedAt!.getTime() - i.checkInAt!.getTime()) / 60000, 0);
+
       dailyRows.push({
         date: day,
         loginAt: activity?.loginAt ?? null,
@@ -723,6 +728,7 @@ export class IncidentsAnalyticsService {
         slaPass,
         slaTotal,
         slaPercent,
+        resolutionTimeMins: resolutionTimeMins > 0 ? Math.round(resolutionTimeMins) : null,
       });
     }
 
