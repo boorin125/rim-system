@@ -741,6 +741,8 @@ export class IncidentsAnalyticsService {
       return a.date.localeCompare(b.date);
     });
 
+    const responseCount = incidents.filter((i) => i.checkInAt !== null).length;
+
     return {
       technician: {
         id: technician.id,
@@ -750,6 +752,7 @@ export class IncidentsAnalyticsService {
       },
       dateRange: { from: fromDate.toISOString().split('T')[0], to: toDate.toISOString().split('T')[0] },
       performance,
+      responseCount,
       dailyRows,
     };
   }

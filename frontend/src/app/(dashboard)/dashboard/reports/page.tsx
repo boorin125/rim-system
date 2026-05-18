@@ -79,6 +79,7 @@ interface TechDetailData {
   technician: { id: number; name: string; email: string; technicianType: string | null }
   dateRange: { from: string; to: string }
   performance: TechDetailPerf | null
+  responseCount: number
   dailyRows: TechDetailRow[]
 }
 
@@ -648,10 +649,9 @@ export default function ReportsPage() {
       filters['Overall Score'] = `${p.overallScore.toFixed(1)} pts`
       filters['Grade'] = `${p.grade} — ${p.gradeDescription}`
       filters['SLA Compliance'] = `${p.slaCompliance.toFixed(1)}%`
-      filters['Work Volume'] = `${p.workVolume} jobs`
+      filters['Work Volume'] = `${p.workVolume}`
       filters['Avg Resolution'] = `${p.avgResolutionTimeHrs.toFixed(1)} hrs`
-      filters['Avg Response'] = `${p.avgResponseTimeMins.toFixed(0)} min`
-      filters['First Time Fix'] = `${p.firstTimeFixRate.toFixed(1)}%`
+      filters['Response'] = `${techDetailData?.responseCount ?? 0} jobs`
       filters['Reopen Rate'] = `${p.reopenRate.toFixed(1)}%`
       if (p.avgCustomerRating != null) filters['Customer Rating'] = `★ ${p.avgCustomerRating.toFixed(1)} / 5.0`
       if (p.ranking && p.totalTechnicians) filters['Ranking'] = `#${p.ranking} / ${p.totalTechnicians}`
@@ -1537,10 +1537,9 @@ function TechnicianDetailCards({ data }: { data: TechDetailData }) {
             <p className="text-gray-500 text-xs mb-3">Performance Score Breakdown — {p.period}</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
               <MetricCard label="SLA Compliance" value={`${p.slaCompliance.toFixed(1)}%`} color={p.slaCompliance >= 95 ? 'text-green-400' : p.slaCompliance >= 80 ? 'text-yellow-400' : 'text-red-400'} />
-              <MetricCard label="Work Volume" value={`${p.workVolume} jobs`} />
+              <MetricCard label="Work Volume" value={`${p.workVolume}`} />
               <MetricCard label="Avg Resolution" value={`${p.avgResolutionTimeHrs.toFixed(1)} hrs`} color={p.avgResolutionTimeHrs <= 4 ? 'text-green-400' : p.avgResolutionTimeHrs <= 8 ? 'text-yellow-400' : 'text-red-400'} />
-              <MetricCard label="Avg Response" value={`${p.avgResponseTimeMins.toFixed(0)} min`} color={p.avgResponseTimeMins <= 30 ? 'text-green-400' : p.avgResponseTimeMins <= 60 ? 'text-yellow-400' : 'text-red-400'} />
-              <MetricCard label="First Time Fix" value={`${p.firstTimeFixRate.toFixed(1)}%`} color={p.firstTimeFixRate >= 85 ? 'text-green-400' : p.firstTimeFixRate >= 70 ? 'text-yellow-400' : 'text-red-400'} />
+              <MetricCard label="Response" value={`${data.responseCount}`} color="text-blue-400" />
               <MetricCard label="Reopen Rate" value={`${p.reopenRate.toFixed(1)}%`} color={p.reopenRate <= 5 ? 'text-green-400' : p.reopenRate <= 10 ? 'text-yellow-400' : 'text-red-400'} />
               {p.avgCustomerRating != null && (
                 <MetricCard label="Customer Rating" value={`★ ${p.avgCustomerRating.toFixed(1)}`} color={p.avgCustomerRating >= 4 ? 'text-yellow-400' : p.avgCustomerRating >= 3 ? 'text-orange-400' : 'text-red-400'} />
