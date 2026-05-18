@@ -247,11 +247,20 @@ export default function ReportsPage() {
   // Technician detail report states
   const [technicianList, setTechnicianList] = useState<any[]>([])
   const [selectedTechnicianId, setSelectedTechnicianId] = useState('')
-  const [techDetailPeriod, setTechDetailPeriod] = useState(() => {
-    const now = new Date()
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-  })
   const [techDetailData, setTechDetailData] = useState<TechDetailData | null>(null)
+
+  // Auto-fill From/To with current month when switching to technician-detail
+  useEffect(() => {
+    if (selectedReport === 'technician-detail' && !dateFrom && !dateTo) {
+      const now = new Date()
+      const y = now.getFullYear()
+      const m = String(now.getMonth() + 1).padStart(2, '0')
+      const d = String(now.getDate()).padStart(2, '0')
+      setDateFrom(`${y}-${m}-01`)
+      setDateTo(`${y}-${m}-${d}`)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedReport])
 
   // Fetch organization name and store list
   useEffect(() => {
@@ -553,7 +562,6 @@ export default function ReportsPage() {
               technicianId: selectedTechnicianId,
               from: dateFrom || undefined,
               to: dateTo || undefined,
-              period: techDetailPeriod || undefined,
             },
           })
           const data: TechDetailData = r.data
@@ -597,7 +605,7 @@ export default function ReportsPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [selectedReport, dateFrom, dateTo, filterCategory, filterPriority, filterStatuses, filterJobType, inventorySubType, inventoryStoreId, inventoryCategory, inventoryStatus, selectedTechnicianId, techDetailPeriod, selectedIncidentCols])
+  }, [selectedReport, dateFrom, dateTo, filterCategory, filterPriority, filterStatuses, filterJobType, inventorySubType, inventoryStoreId, inventoryCategory, inventoryStatus, selectedTechnicianId, selectedIncidentCols])
 
   // ==================== EXPORT HANDLERS ====================
 
@@ -933,15 +941,6 @@ export default function ReportsPage() {
                       <option key={t.id} value={t.id}>{t.firstName} {t.lastName}</option>
                     ))}
                   </select>
-                </div>
-                <div>
-                  <label className="block text-gray-400 text-xs font-medium mb-1.5">Performance Period (YYYY-MM)</label>
-                  <input
-                    type="month"
-                    value={techDetailPeriod}
-                    onChange={(e) => setTechDetailPeriod(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  />
                 </div>
               </>
             )}
