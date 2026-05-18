@@ -247,6 +247,9 @@ export default function ReportsPage() {
   // Technician detail report states
   const [technicianList, setTechnicianList] = useState<any[]>([])
   const [selectedTechnicianId, setSelectedTechnicianId] = useState('')
+  const [techSearch, setTechSearch] = useState('')
+  const [techDropdownOpen, setTechDropdownOpen] = useState(false)
+  const techRef = useRef<HTMLDivElement>(null)
   const [techDetailData, setTechDetailData] = useState<TechDetailData | null>(null)
 
   // Auto-fill From/To with current month when switching to technician-detail
@@ -271,6 +274,8 @@ export default function ReportsPage() {
         setInvCatDropdownOpen(false)
       if (invStoreRef.current && !invStoreRef.current.contains(e.target as Node))
         setInvStoreDropdownOpen(false)
+      if (techRef.current && !techRef.current.contains(e.target as Node))
+        setTechDropdownOpen(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -928,21 +933,46 @@ export default function ReportsPage() {
 
             {/* Technician picker - for technician-detail */}
             {selectedReport === 'technician-detail' && (
-              <>
-                <div className="sm:col-span-2">
-                  <label className="block text-gray-400 text-xs font-medium mb-1.5">Technician</label>
-                  <select
-                    value={selectedTechnicianId}
-                    onChange={(e) => setSelectedTechnicianId(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-600 text-white text-sm rounded-lg px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500 [&>option]:bg-slate-800 [&>option]:text-white"
-                  >
-                    <option value="">-- Select Technician --</option>
-                    {technicianList.map((t: any) => (
-                      <option key={t.id} value={t.id}>{t.firstName} {t.lastName}</option>
-                    ))}
-                  </select>
+              <div className="sm:col-span-2 relative" ref={techRef}>
+                <label className="block text-gray-400 text-xs font-medium mb-1.5">Technician</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={techSearch}
+                    onChange={(e) => { setTechSearch(e.target.value); setTechDropdownOpen(true) }}
+                    onFocus={() => setTechDropdownOpen(true)}
+                    placeholder={selectedTechnicianId
+                      ? (technicianList.find(t => String(t.id) === selectedTechnicianId)
+                          ? `${technicianList.find(t => String(t.id) === selectedTechnicianId).firstName} ${technicianList.find(t => String(t.id) === selectedTechnicianId).lastName}`
+                          : '-- Select Technician --')
+                      : '-- Select Technician --'}
+                    className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 pr-8 focus:ring-indigo-500 focus:border-indigo-500 placeholder-gray-400"
+                  />
+                  {selectedTechnicianId && (
+                    <button type="button" onClick={() => { setSelectedTechnicianId(''); setTechSearch(''); setIsGenerated(false) }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white">✕</button>
+                  )}
                 </div>
-              </>
+                {techDropdownOpen && (
+                  <div className="absolute z-50 mt-1 w-full bg-slate-800 border border-slate-600 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                    {technicianList
+                      .filter(t => `${t.firstName} ${t.lastName}`.toLowerCase().includes(techSearch.toLowerCase()))
+                      .map(t => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => { setSelectedTechnicianId(String(t.id)); setTechSearch(''); setTechDropdownOpen(false); setIsGenerated(false) }}
+                          className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-700 transition-colors ${String(t.id) === selectedTechnicianId ? 'bg-indigo-600 text-white' : 'text-white'}`}
+                        >
+                          {t.firstName} {t.lastName}
+                        </button>
+                      ))}
+                    {technicianList.filter(t => `${t.firstName} ${t.lastName}`.toLowerCase().includes(techSearch.toLowerCase())).length === 0 && (
+                      <p className="px-3 py-2 text-sm text-gray-500">No results</p>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
 
             {/* Job Type filter - for incident-list */}
