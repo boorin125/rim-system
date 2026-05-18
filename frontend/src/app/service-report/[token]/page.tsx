@@ -168,11 +168,13 @@ export default function ServiceReportPage() {
       const ratio = Math.max(window.devicePixelRatio || 1, 1)
       const w = window.innerWidth
       const h = window.innerHeight - 140
-      // Match drawing buffer to physical pixels so touch coords align
+      // Set drawing buffer to physical pixels, CSS size via w-full h-full
+      // SignaturePad scales coords internally (canvas.width / rect.width = ratio)
+      // Do NOT call ctx.scale — that would double-scale and misalign touch points
       canvas.width = w * ratio
       canvas.height = h * ratio
-      const ctx = canvas.getContext('2d')
-      if (ctx) ctx.scale(ratio, ratio)
+      canvas.style.width = w + 'px'
+      canvas.style.height = h + 'px'
       fsSignaturePadRef.current = new SignaturePad(canvas, {
         backgroundColor: 'rgb(255, 255, 255)',
         penColor: 'rgb(0, 0, 200)',

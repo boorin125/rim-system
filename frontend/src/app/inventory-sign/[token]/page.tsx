@@ -115,10 +115,12 @@ export default function InventorySignPage() {
     if (canvasRef.current && !isSigned) {
       const canvas = canvasRef.current
       const ratio = window.devicePixelRatio || 1
-      canvas.width = canvas.offsetWidth * ratio
-      canvas.height = canvas.offsetHeight * ratio
-      const ctx = canvas.getContext('2d')
-      if (ctx) ctx.scale(ratio, ratio)
+      const w = canvas.offsetWidth
+      const h = canvas.offsetHeight
+      canvas.width = w * ratio
+      canvas.height = h * ratio
+      canvas.style.width = w + 'px'
+      canvas.style.height = h + 'px'
       signaturePadRef.current = new SignaturePad(canvas, {
         minWidth: 1,
         maxWidth: 3,
@@ -151,8 +153,8 @@ export default function InventorySignPage() {
       const h = window.innerHeight - 140
       canvas.width = w * ratio
       canvas.height = h * ratio
-      const ctx = canvas.getContext('2d')
-      if (ctx) ctx.scale(ratio, ratio)
+      canvas.style.width = w + 'px'
+      canvas.style.height = h + 'px'
       fsSignaturePadRef.current = new SignaturePad(canvas, {
         backgroundColor: 'rgb(255, 255, 255)',
         penColor: 'rgb(0, 0, 200)',
