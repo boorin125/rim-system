@@ -698,8 +698,9 @@ export class IncidentsAnalyticsService {
 
       const slaRelevant = dayIncidents.filter((i) => i.jobType !== 'Project');
       const slaPass = slaRelevant.filter((i) => {
-        if (i.jobType === 'Adhoc') return true;
-        if (!i.slaDeadline || !i.resolvedAt) return true;
+        if (!i.resolvedAt) return false;          // ยังไม่ Resolve = ไม่ผ่าน
+        if (i.jobType === 'Adhoc') return true;   // Adhoc ไม่มี deadline = ผ่านเมื่อ Resolve แล้ว
+        if (!i.slaDeadline) return true;          // ไม่มี deadline แต่ Resolve แล้ว = ผ่าน
         if (i.resolvedAt <= i.slaDeadline) return true;
         return i.slaDefenses?.some((d: any) => d.status === 'APPROVED');
       }).length;
