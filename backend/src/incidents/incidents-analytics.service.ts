@@ -601,8 +601,10 @@ export class IncidentsAnalyticsService {
     });
     if (!technician) throw new Error(`Technician ID ${technicianId} not found`);
 
-    const fromDate = from ? new Date(from) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-    const toDate = to ? new Date(to) : new Date();
+    // Parse dates as LOCAL time (Bangkok TZ) to match how auth.service stores activity logs
+    const parseLocal = (s: string) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+    const fromDate = from ? parseLocal(from) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const toDate = to ? parseLocal(to) : new Date();
     toDate.setHours(23, 59, 59, 999);
 
     // ── Performance summary (monthly) ─────────────────────────────────────────
@@ -639,7 +641,9 @@ export class IncidentsAnalyticsService {
       },
       orderBy: { date: 'asc' },
     });
-    const activityMap = new Map(activityLogs.map((a) => [a.date.toISOString().split('T')[0], a]));
+    // Use local (Bangkok) date string for all day keys
+    const localDateKey = (d: Date) => d.toLocaleDateString('en-CA'); // 'YYYY-MM-DD' in local TZ
+    const activityMap = new Map(activityLogs.map((a) => [localDateKey(a.date), a]));
 
     // ── Incidents in range ─────────────────────────────────────────────────────
     const incidents = await this.prisma.incident.findMany({
@@ -664,13 +668,28 @@ export class IncidentsAnalyticsService {
       orderBy: { checkInAt: 'asc' },
     });
 
-    // Group incidents by date (YYYY-MM-DD)
+    // Group incidents by local date (YYYY-MM-DD)
     const incidentsByDay = new Map<string, typeof incidents>();
     for (const inc of incidents) {
-      const key = inc.createdAt.toISOString().split('T')[0];
+      const key = localDateKey(inc.createdAt);
       if (!incidentsByDay.has(key)) incidentsByDay.set(key, []);
       incidentsByDay.get(key)!.push(inc);
     }
+
+    // ── Pending incidents (assigned but not resolved) ─────────────────────────
+    const pendingIncidents = await this.prisma.incident.findMany({
+      where: {
+        assignees: { some: { userId: technicianId } },
+        status: { notIn: ['RESOLVED', 'CLOSED'] },
+      },
+      select: { createdAt: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    const pendingCount = pendingIncidents.length;
+    const now = new Date();
+    const oldestPendingAgingDays = pendingCount > 0
+      ? Math.floor((now.getTime() - pendingIncidents[0].createdAt.getTime()) / (1000 * 60 * 60 * 24))
+      : null;
 
     // ── Build daily rows (union of activity + incident days) ──────────────────
     const allDays = new Set<string>([...activityMap.keys(), ...incidentsByDay.keys()]);
@@ -750,9 +769,11 @@ export class IncidentsAnalyticsService {
         email: technician.email,
         technicianType: technician.technicianType,
       },
-      dateRange: { from: fromDate.toISOString().split('T')[0], to: toDate.toISOString().split('T')[0] },
+      dateRange: { from: localDateKey(fromDate), to: localDateKey(toDate) },
       performance,
       responseCount,
+      pendingCount,
+      oldestPendingAgingDays,
       dailyRows,
     };
   }

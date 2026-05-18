@@ -80,6 +80,8 @@ interface TechDetailData {
   dateRange: { from: string; to: string }
   performance: TechDetailPerf | null
   responseCount: number
+  pendingCount: number
+  oldestPendingAgingDays: number | null
   dailyRows: TechDetailRow[]
 }
 
@@ -1570,9 +1572,14 @@ function TechnicianDetailCards({ data }: { data: TechDetailData }) {
           <p className="text-gray-400 text-xs font-medium mb-1">Resolved</p>
           <p className="text-2xl font-bold text-blue-400">{data.dailyRows.reduce((s, r) => s + r.resolved, 0)}</p>
         </div>
-        <div className="glass-card p-4 rounded-xl border border-emerald-500/30">
-          <p className="text-gray-400 text-xs font-medium mb-1">Days Logged In</p>
-          <p className="text-2xl font-bold text-emerald-400">{data.dailyRows.filter(r => r.loginAt).length}</p>
+        <div className="glass-card p-4 rounded-xl border border-orange-500/30">
+          <p className="text-gray-400 text-xs font-medium mb-1">Pending</p>
+          <div className="flex items-end gap-3">
+            <p className="text-2xl font-bold text-orange-400">{data.pendingCount}</p>
+            {data.oldestPendingAgingDays != null && (
+              <p className="text-xs text-gray-500 mb-0.5">Aging: <span className={data.oldestPendingAgingDays >= 7 ? 'text-red-400' : data.oldestPendingAgingDays >= 3 ? 'text-yellow-400' : 'text-gray-400'}>{data.oldestPendingAgingDays}d</span></p>
+            )}
+          </div>
         </div>
       </div>
     </div>
