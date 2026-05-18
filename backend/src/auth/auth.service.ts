@@ -397,6 +397,27 @@ export class AuthService {
     return { message: 'Logged out successfully' };
   }
 
+  async dailyCheckin(userId: number) {
+    const now = new Date()
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    await this.prisma.userActivityLog.upsert({
+      where: { userId_date: { userId, date: todayStart } },
+      create: { userId, date: todayStart, loginAt: now },
+      update: {},
+    })
+    return { ok: true }
+  }
+
+  async dailyCheckout(userId: number) {
+    const now = new Date()
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    await this.prisma.userActivityLog.updateMany({
+      where: { userId, date: todayStart },
+      data: { logoutAt: now },
+    })
+    return { ok: true }
+  }
+
   /**
    * Validate user by ID (used by JWT strategy)
    */

@@ -1559,7 +1559,7 @@ function TechnicianDetailCards({ data }: { data: TechDetailData }) {
       </div>
 
       {/* Daily activity summary stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
         <div className="glass-card p-4 rounded-xl border border-slate-700/50">
           <p className="text-gray-400 text-xs font-medium mb-1">Active Days</p>
           <p className="text-2xl font-bold text-white">{data.dailyRows.filter(r => r.totalJobs > 0 || r.loginAt).length}</p>
@@ -1568,13 +1568,22 @@ function TechnicianDetailCards({ data }: { data: TechDetailData }) {
           <p className="text-gray-400 text-xs font-medium mb-1">Total Jobs</p>
           <p className="text-2xl font-bold text-green-400">{data.dailyRows.reduce((s, r) => s + r.totalJobs, 0)}</p>
         </div>
+        <div className="glass-card p-4 rounded-xl border border-purple-500/30">
+          <p className="text-gray-400 text-xs font-medium mb-1">Avg Jobs/Day</p>
+          {(() => {
+            const activeDays = data.dailyRows.filter(r => r.totalJobs > 0).length
+            const totalJobs = data.dailyRows.reduce((s, r) => s + r.totalJobs, 0)
+            const avg = activeDays > 0 ? (totalJobs / activeDays).toFixed(1) : '0'
+            return <p className="text-2xl font-bold text-purple-400">{avg}</p>
+          })()}
+        </div>
         <div className="glass-card p-4 rounded-xl border border-blue-500/30">
           <p className="text-gray-400 text-xs font-medium mb-1">Resolved</p>
           <p className="text-2xl font-bold text-blue-400">{data.dailyRows.reduce((s, r) => s + r.resolved, 0)}</p>
         </div>
         <div className="glass-card p-4 rounded-xl border border-orange-500/30">
           <p className="text-gray-400 text-xs font-medium mb-1">Pending</p>
-          <div className="flex items-end gap-3">
+          <div className="flex items-end justify-between">
             <p className="text-2xl font-bold text-orange-400">{data.pendingCount}</p>
             {data.oldestPendingAgingDays != null && (
               <p className="text-xs text-gray-500 mb-0.5">Aging: <span className={data.oldestPendingAgingDays >= 7 ? 'text-red-400' : data.oldestPendingAgingDays >= 3 ? 'text-yellow-400' : 'text-gray-400'}>{data.oldestPendingAgingDays}d</span></p>

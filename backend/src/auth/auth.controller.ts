@@ -243,4 +243,16 @@ export class AuthController {
   async deleteSignature(@Request() req) {
     return this.authService.deleteSignature(req.user.id);
   }
+
+  @Post('checkin')
+  @UseGuards(JwtAuthGuard)
+  async checkin(@Request() req) {
+    return this.authService.dailyCheckin(req.user.id);
+  }
+
+  @Post('checkout')
+  @UseGuards(JwtAuthGuard)
+  async checkout(@Request() req) {
+    return this.authService.dailyCheckout(req.user.id);
+  }
 }
