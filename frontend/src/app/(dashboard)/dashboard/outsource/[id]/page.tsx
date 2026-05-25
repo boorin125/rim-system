@@ -1051,251 +1051,302 @@ function DocumentReviewNotesDisplay({ notes }: { notes: any }) {
 
 // ─── Finance Confirmation Section ─────────────────────────────────
 function FinanceConfirmationSection({ job, jobId, onSuccess }: { job: any; jobId: any; onSuccess: () => void }) {
-  const [confirmingSpare, setConfirmingSpare] = useState(false)
-  const [confirmingDocs, setConfirmingDocs] = useState(false)
-  const [showRequestMore, setShowRequestMore] = useState(false)
-  const [requestNote, setRequestNote] = useState('')
-  const [submittingRequest, setSubmittingRequest] = useState(false)
-  const [uploadingSparePhoto, setUploadingSparePhoto] = useState(false)
-  const [deletingSparePhoto, setDeletingSparePhoto] = useState<number | null>(null)
-  const sparePhotoInputRef = useRef<HTMLInputElement>(null)
-
   const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api').replace('/api', '')
   const isPaid = job.paymentStatus === 'PAID'
+  const token = () => localStorage.getItem('token')
+  const authHeader = () => ({ Authorization: `Bearer ${token()}` })
 
-  const handleConfirmSpareParts = async () => {
-    if (!confirm('ยืนยันว่าได้รับ Spare Parts คืนแล้ว?')) return
-    setConfirmingSpare(true)
-    try {
-      const token = localStorage.getItem('token')
-      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/outsource/jobs/${jobId}/confirm-spare-parts`, {}, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      toast.success('บันทึกรับ Spare Parts คืนสำเร็จ')
-      onSuccess()
-    } catch (e: any) {
-      toast.error(e.response?.data?.message || 'เกิดข้อผิดพลาด')
-    } finally {
-      setConfirmingSpare(false)
-    }
-  }
+  // Panel visibility
+  const [showSparePanel, setShowSparePanel] = useState(false)
+  const [showDocsPanel, setShowDocsPanel] = useState(false)
+  const [showRequestMore, setShowRequestMore] = useState(false)
 
-  const handleConfirmDocuments = async () => {
-    if (!confirm('ยืนยันตรวจสอบเอกสาร?')) return
-    setConfirmingDocs(true)
-    try {
-      const token = localStorage.getItem('token')
-      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/outsource/jobs/${jobId}/confirm-documents`, {}, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      toast.success('ยืนยันตรวจสอบเอกสารสำเร็จ')
-      onSuccess()
-    } catch (e: any) {
-      toast.error(e.response?.data?.message || 'เกิดข้อผิดพลาด')
-    } finally {
-      setConfirmingDocs(false)
-    }
-  }
+  // Spare Parts state
+  const [noSparePartsUsed, setNoSparePartsUsed] = useState<boolean>(job.noSparePartsUsed ?? false)
+  const [uploadingSparePhoto, setUploadingSparePhoto] = useState(false)
+  const [deletingSparePhoto, setDeletingSparePhoto] = useState<number | null>(null)
+  const [confirmingSpare, setConfirmingSpare] = useState(false)
+  const sparePhotoInputRef = useRef<HTMLInputElement>(null)
 
-  const handleRequestMoreDocuments = async () => {
-    if (!requestNote.trim()) {
-      toast.error('กรุณาระบุรายละเอียดเอกสารที่ต้องการเพิ่มเติม')
-      return
-    }
-    setSubmittingRequest(true)
-    try {
-      const token = localStorage.getItem('token')
-      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/outsource/jobs/${jobId}/request-more-documents`, {
-        note: requestNote.trim(),
-      }, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      toast.success('ส่งคำขอเอกสารเพิ่มเติมสำเร็จ — ช่างจะได้รับแจ้ง')
-      setRequestNote('')
-      setShowRequestMore(false)
-      onSuccess()
-    } catch (e: any) {
-      toast.error(e.response?.data?.message || 'เกิดข้อผิดพลาด')
-    } finally {
-      setSubmittingRequest(false)
-    }
-  }
+  // Finance docs state
+  const [uploadingDocPhoto, setUploadingDocPhoto] = useState(false)
+  const [deletingDocPhoto, setDeletingDocPhoto] = useState<number | null>(null)
+  const [confirmingDocs, setConfirmingDocs] = useState(false)
+  const docPhotoInputRef = useRef<HTMLInputElement>(null)
 
+  // Request more
+  const [requestNote, setRequestNote] = useState('')
+  const [submittingRequest, setSubmittingRequest] = useState(false)
+
+  useEffect(() => { setNoSparePartsUsed(job.noSparePartsUsed ?? false) }, [job.noSparePartsUsed])
+
+  const sparePhotos: string[] = job.sparePartReturnPhotos ?? []
+  const financeDocPhotos: string[] = job.financeDocumentPhotos ?? []
+  const bothDone = job.sparePartsReturned && job.documentsReceivedAt
+
+  // ── Spare Parts handlers ──
   const handleAddSparePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    e.target.value = ''
+    const file = e.target.files?.[0]; if (!file) return; e.target.value = ''
     setUploadingSparePhoto(true)
     try {
       const compressed = await compressImage(file, { maxWidth: 1920, maxHeight: 1920, quality: 0.85 })
-      const token = localStorage.getItem('token')
-      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/outsource/jobs/${jobId}/spare-part-photos`, {
-        photo: compressed,
-      }, { headers: { Authorization: `Bearer ${token}` } })
-      toast.success('อัปโหลดรูปสำเร็จ')
-      onSuccess()
-    } catch (e: any) {
-      toast.error(e.response?.data?.message || 'อัปโหลดรูปล้มเหลว')
-    } finally {
-      setUploadingSparePhoto(false)
-    }
+      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/outsource/jobs/${jobId}/spare-part-photos`, { photo: compressed }, { headers: authHeader() })
+      toast.success('อัปโหลดรูปสำเร็จ'); onSuccess()
+    } catch (e: any) { toast.error(e.response?.data?.message || 'อัปโหลดล้มเหลว') }
+    finally { setUploadingSparePhoto(false) }
   }
 
   const handleDeleteSparePhoto = async (index: number) => {
     if (!confirm('ลบรูปนี้?')) return
     setDeletingSparePhoto(index)
     try {
-      const token = localStorage.getItem('token')
-      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/outsource/jobs/${jobId}/spare-part-photos/${index}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      toast.success('ลบรูปสำเร็จ')
-      onSuccess()
-    } catch (e: any) {
-      toast.error(e.response?.data?.message || 'ลบรูปล้มเหลว')
-    } finally {
-      setDeletingSparePhoto(null)
-    }
+      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/outsource/jobs/${jobId}/spare-part-photos/${index}`, { headers: authHeader() })
+      toast.success('ลบรูปสำเร็จ'); onSuccess()
+    } catch (e: any) { toast.error(e.response?.data?.message || 'ลบล้มเหลว') }
+    finally { setDeletingSparePhoto(null) }
   }
 
-  const sparePhotos: string[] = job.sparePartReturnPhotos ?? []
-  const bothDone = job.sparePartsReturned && job.documentsReceivedAt
+  const handleConfirmSpareParts = async () => {
+    setConfirmingSpare(true)
+    try {
+      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/outsource/jobs/${jobId}/confirm-spare-parts`, { noSparePartsUsed }, { headers: authHeader() })
+      toast.success('บันทึกสำเร็จ'); setShowSparePanel(false); onSuccess()
+    } catch (e: any) { toast.error(e.response?.data?.message || 'เกิดข้อผิดพลาด') }
+    finally { setConfirmingSpare(false) }
+  }
+
+  // ── Finance Doc Photo handlers ──
+  const handleAddDocPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return; e.target.value = ''
+    setUploadingDocPhoto(true)
+    try {
+      const compressed = await compressImage(file, { maxWidth: 1920, maxHeight: 1920, quality: 0.85 })
+      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/outsource/jobs/${jobId}/finance-document-photos`, { photo: compressed }, { headers: authHeader() })
+      toast.success('อัปโหลดรูปสำเร็จ'); onSuccess()
+    } catch (e: any) { toast.error(e.response?.data?.message || 'อัปโหลดล้มเหลว') }
+    finally { setUploadingDocPhoto(false) }
+  }
+
+  const handleDeleteDocPhoto = async (index: number) => {
+    if (!confirm('ลบรูปนี้?')) return
+    setDeletingDocPhoto(index)
+    try {
+      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/outsource/jobs/${jobId}/finance-document-photos/${index}`, { headers: authHeader() })
+      toast.success('ลบรูปสำเร็จ'); onSuccess()
+    } catch (e: any) { toast.error(e.response?.data?.message || 'ลบล้มเหลว') }
+    finally { setDeletingDocPhoto(null) }
+  }
+
+  const handleConfirmDocuments = async () => {
+    setConfirmingDocs(true)
+    try {
+      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/outsource/jobs/${jobId}/confirm-documents`, {}, { headers: authHeader() })
+      toast.success('ยืนยันตรวจสอบเอกสารสำเร็จ'); setShowDocsPanel(false); onSuccess()
+    } catch (e: any) { toast.error(e.response?.data?.message || 'เกิดข้อผิดพลาด') }
+    finally { setConfirmingDocs(false) }
+  }
+
+  const handleRequestMoreDocuments = async () => {
+    if (!requestNote.trim()) { toast.error('กรุณาระบุรายละเอียด'); return }
+    setSubmittingRequest(true)
+    try {
+      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/outsource/jobs/${jobId}/request-more-documents`, { note: requestNote.trim() }, { headers: authHeader() })
+      toast.success('ส่งคำขอสำเร็จ'); setRequestNote(''); setShowRequestMore(false); onSuccess()
+    } catch (e: any) { toast.error(e.response?.data?.message || 'เกิดข้อผิดพลาด') }
+    finally { setSubmittingRequest(false) }
+  }
 
   return (
     <div className="mt-6 pt-4 border-t border-slate-700/50">
       <h3 className="text-sm font-semibold text-white mb-3">Finance Confirmation</h3>
-
-      {/* Review Notes History */}
       <DocumentReviewNotesDisplay notes={job.documentReviewNotes} />
 
+      {/* ── Button row ── */}
       <div className="flex flex-wrap gap-3 items-center">
-        {/* Spare Parts Return */}
+        {/* Spare Parts button */}
         <button
-          onClick={handleConfirmSpareParts}
-          disabled={confirmingSpare || job.sparePartsReturned}
+          onClick={() => { if (isPaid) return; setShowSparePanel(v => !v); setShowDocsPanel(false) }}
+          disabled={isPaid}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition ${
             job.sparePartsReturned
-              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 cursor-default'
+              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30'
               : 'bg-orange-600 hover:bg-orange-700 text-white'
-          } disabled:opacity-70`}
+          } disabled:opacity-50`}
         >
-          {confirmingSpare ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Package className="h-4 w-4" />
-          )}
-          {job.sparePartsReturned ? (
-            <>
-              <CheckCircle2 className="h-4 w-4" /> รับ Spare Parts คืนแล้ว
-              {job.sparePartsConfirmedBy && (
-                <span className="text-xs opacity-75">({job.sparePartsConfirmedBy.firstName})</span>
-              )}
-            </>
-          ) : (
-            'Check รับ Spare Parts คืน'
-          )}
+          <Package className="h-4 w-4" />
+          {job.sparePartsReturned ? <><CheckCircle2 className="h-4 w-4" /> รับ Spare Parts คืนแล้ว</> : 'Check รับ Spare Parts คืน'}
         </button>
 
-        {/* Confirm Documents */}
+        {/* Docs button */}
         <button
-          onClick={job.documentsReceivedAt ? undefined : handleConfirmDocuments}
-          disabled={confirmingDocs || !!job.documentsReceivedAt}
+          onClick={() => { if (isPaid) return; setShowDocsPanel(v => !v); setShowSparePanel(false) }}
+          disabled={isPaid}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition ${
             job.documentsReceivedAt
-              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 cursor-default'
+              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30'
               : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-          } disabled:opacity-70`}
+          } disabled:opacity-50`}
         >
-          {confirmingDocs ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <CheckCircle2 className="h-4 w-4" />
-          )}
-          {job.documentsReceivedAt ? 'ตรวจสอบเอกสารแล้ว' : 'ตรวจสอบเอกสารแล้ว'}
+          <CheckCircle2 className="h-4 w-4" />
+          ตรวจสอบเอกสารแล้ว
         </button>
 
-        {/* Request More Documents */}
-        <button
-          onClick={() => setShowRequestMore(!showRequestMore)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium transition"
-        >
-          <AlertTriangle className="h-4 w-4" />
-          เอกสารไม่ครบ
+        {/* Request More Docs */}
+        <button onClick={() => setShowRequestMore(v => !v)} className="flex items-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium transition">
+          <AlertTriangle className="h-4 w-4" /> เอกสารไม่ครบ
         </button>
 
-        {/* Sub-status badge */}
+        {/* Sub-status badges */}
         {job.sparePartsReturned && !job.documentsReceivedAt && (
-          <span className="px-3 py-1.5 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400 border border-blue-500/30">
-            รอตรวจสอบเอกสาร
-          </span>
+          <span className="px-3 py-1.5 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400 border border-blue-500/30">รอตรวจสอบเอกสาร</span>
         )}
         {job.documentsReceivedAt && !job.sparePartsReturned && (
-          <span className="px-3 py-1.5 rounded-full text-xs font-medium bg-purple-500/20 text-purple-400 border border-purple-500/30">
-            รอตรวจสแปร์พาร์ท
-          </span>
+          <span className="px-3 py-1.5 rounded-full text-xs font-medium bg-purple-500/20 text-purple-400 border border-purple-500/30">รอตรวจสแปร์พาร์ท</span>
         )}
       </div>
 
-      {/* Spare Part Return Photos */}
-      <div className="mt-4">
-        <p className="text-xs font-medium text-gray-400 mb-2">รูปรับ Spare Parts คืน</p>
-        <div className="flex flex-wrap gap-2">
-          {sparePhotos.map((p, i) => (
-            <div key={i} className="relative">
-              <img src={`${baseUrl}${p}`} alt={`spare-${i+1}`} className="h-20 w-20 rounded-lg border border-slate-600 object-cover" />
-              {!isPaid && (
-                <button
-                  onClick={() => handleDeleteSparePhoto(i)}
-                  disabled={deletingSparePhoto === i}
-                  className="absolute -top-1 -right-1 bg-red-600 rounded-full p-0.5 text-white disabled:opacity-50"
-                >
-                  {deletingSparePhoto === i ? <Loader2 className="h-3 w-3 animate-spin" /> : <XCircle className="h-3 w-3" />}
+      {/* ── Spare Parts Panel ── */}
+      {showSparePanel && !isPaid && (
+        <div className="mt-3 p-4 bg-slate-800/80 border border-orange-500/20 rounded-xl space-y-4">
+          {/* noSparePartsUsed toggle */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-300">ไม่มีการใช้ Spare Part</p>
+              <p className="text-xs text-gray-500">เปิดหากไม่มีการใช้อุปกรณ์สำรอง</p>
+            </div>
+            <button
+              onClick={() => setNoSparePartsUsed(v => !v)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${noSparePartsUsed ? 'bg-blue-600' : 'bg-slate-600'}`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${noSparePartsUsed ? 'translate-x-6' : 'translate-x-1'}`} />
+            </button>
+          </div>
+
+          {/* Spare Photos — only when spare parts were used */}
+          {!noSparePartsUsed && (
+            <div>
+              <p className="text-xs font-medium text-gray-400 mb-2">รูปรับ Spare Parts คืน</p>
+              <div className="flex flex-wrap gap-2">
+                {sparePhotos.map((p, i) => (
+                  <div key={i} className="relative">
+                    <img src={`${baseUrl}${p}`} alt={`spare-${i+1}`} className="h-20 w-20 rounded-lg border border-slate-600 object-cover" />
+                    <button onClick={() => handleDeleteSparePhoto(i)} disabled={deletingSparePhoto === i}
+                      className="absolute -top-1 -right-1 bg-red-600 rounded-full p-0.5 text-white disabled:opacity-50">
+                      {deletingSparePhoto === i ? <Loader2 className="h-3 w-3 animate-spin" /> : <XCircle className="h-3 w-3" />}
+                    </button>
+                  </div>
+                ))}
+                <button onClick={() => sparePhotoInputRef.current?.click()} disabled={uploadingSparePhoto}
+                  className="h-20 w-20 border-2 border-dashed border-slate-600 rounded-lg flex flex-col items-center justify-center text-gray-500 hover:border-orange-500 transition disabled:opacity-50">
+                  {uploadingSparePhoto ? <Loader2 className="h-5 w-5 animate-spin" /> : <ImageIcon className="h-5 w-5" />}
+                </button>
+              </div>
+              <input ref={sparePhotoInputRef} type="file" accept="image/*" onChange={handleAddSparePhoto} className="hidden" />
+            </div>
+          )}
+
+          {/* Confirm + Close */}
+          <div className="flex gap-2 pt-1">
+            <button onClick={handleConfirmSpareParts} disabled={confirmingSpare}
+              className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-medium transition disabled:opacity-50 flex items-center gap-2">
+              {confirmingSpare ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+              ยืนยัน
+            </button>
+            <button onClick={() => setShowSparePanel(false)} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-gray-300 rounded-lg text-sm transition">
+              ปิด
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Finance Docs Panel ── */}
+      {showDocsPanel && !isPaid && (
+        <div className="mt-3 p-4 bg-slate-800/80 border border-emerald-500/20 rounded-xl space-y-4">
+          <div>
+            <p className="text-xs font-medium text-gray-400 mb-2">
+              อัพโหลดเอกสารใบงาน <span className="text-gray-500">({financeDocPhotos.length}/3)</span>
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {financeDocPhotos.map((p, i) => (
+                <div key={i} className="relative">
+                  <img src={`${baseUrl}${p}`} alt={`doc-${i+1}`} className="h-20 w-20 rounded-lg border border-slate-600 object-cover" />
+                  <button onClick={() => handleDeleteDocPhoto(i)} disabled={deletingDocPhoto === i}
+                    className="absolute -top-1 -right-1 bg-red-600 rounded-full p-0.5 text-white disabled:opacity-50">
+                    {deletingDocPhoto === i ? <Loader2 className="h-3 w-3 animate-spin" /> : <XCircle className="h-3 w-3" />}
+                  </button>
+                </div>
+              ))}
+              {financeDocPhotos.length < 3 && (
+                <button onClick={() => docPhotoInputRef.current?.click()} disabled={uploadingDocPhoto}
+                  className="h-20 w-20 border-2 border-dashed border-slate-600 rounded-lg flex flex-col items-center justify-center text-gray-500 hover:border-emerald-500 transition disabled:opacity-50">
+                  {uploadingDocPhoto ? <Loader2 className="h-5 w-5 animate-spin" /> : <ImageIcon className="h-5 w-5" />}
                 </button>
               )}
             </div>
-          ))}
-          {!isPaid && (
-            <button
-              onClick={() => sparePhotoInputRef.current?.click()}
-              disabled={uploadingSparePhoto}
-              className="h-20 w-20 border-2 border-dashed border-slate-600 rounded-lg flex flex-col items-center justify-center text-gray-500 hover:border-orange-500 transition"
-            >
-              {uploadingSparePhoto ? <Loader2 className="h-5 w-5 animate-spin" /> : <ImageIcon className="h-5 w-5" />}
-            </button>
-          )}
-        </div>
-        <input ref={sparePhotoInputRef} type="file" accept="image/*" onChange={handleAddSparePhoto} className="hidden" />
-      </div>
+            <input ref={docPhotoInputRef} type="file" accept="image/*" onChange={handleAddDocPhoto} className="hidden" />
+          </div>
 
-      {/* Request More Documents Form */}
+          {/* Confirm + Close */}
+          <div className="flex gap-2 pt-1">
+            <button onClick={handleConfirmDocuments} disabled={confirmingDocs}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition disabled:opacity-50 flex items-center gap-2">
+              {confirmingDocs ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+              ยืนยัน
+            </button>
+            <button onClick={() => setShowDocsPanel(false)} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-gray-300 rounded-lg text-sm transition">
+              ปิด
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Request More Documents ── */}
       {showRequestMore && (
-        <div className="mt-4 p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-          <label className="block text-sm font-medium text-amber-400 mb-2">
-            ระบุเอกสารที่ต้องการเพิ่มเติม
-          </label>
-          <textarea
-            value={requestNote}
-            onChange={(e) => setRequestNote(e.target.value)}
-            placeholder="เช่น ขาดรูปสลิปค่าขนส่ง, รูปใบงานไม่ชัด กรุณาอัปโหลดใหม่..."
-            rows={3}
-            className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none"
-          />
+        <div className="mt-3 p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+          <label className="block text-sm font-medium text-amber-400 mb-2">ระบุเอกสารที่ต้องการเพิ่มเติม</label>
+          <textarea value={requestNote} onChange={(e) => setRequestNote(e.target.value)}
+            placeholder="เช่น ขาดรูปสลิปค่าขนส่ง, รูปใบงานไม่ชัด..." rows={3}
+            className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none" />
           <div className="flex gap-2 mt-3">
-            <button
-              onClick={handleRequestMoreDocuments}
-              disabled={submittingRequest || !requestNote.trim()}
-              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium transition disabled:opacity-50 flex items-center gap-2"
-            >
-              {submittingRequest ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            <button onClick={handleRequestMoreDocuments} disabled={submittingRequest || !requestNote.trim()}
+              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium transition disabled:opacity-50 flex items-center gap-2">
+              {submittingRequest && <Loader2 className="h-4 w-4 animate-spin" />}
               {submittingRequest ? 'กำลังส่ง...' : 'ส่งคำขอ'}
             </button>
-            <button
-              onClick={() => { setShowRequestMore(false); setRequestNote('') }}
-              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-gray-300 rounded-lg text-sm transition"
-            >
+            <button onClick={() => { setShowRequestMore(false); setRequestNote('') }} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-gray-300 rounded-lg text-sm transition">
               ยกเลิก
             </button>
           </div>
+        </div>
+      )}
+
+      {/* ── Photos Display (bottom) ── */}
+      {(sparePhotos.length > 0 || financeDocPhotos.length > 0) && (
+        <div className="mt-4 space-y-3">
+          {sparePhotos.length > 0 && (
+            <div>
+              <p className="text-xs text-gray-500 mb-1">รูปรับ Spare Parts คืน</p>
+              <div className="flex flex-wrap gap-2">
+                {sparePhotos.map((p, i) => (
+                  <a key={i} href={`${baseUrl}${p}`} target="_blank" rel="noopener noreferrer">
+                    <img src={`${baseUrl}${p}`} alt={`spare-${i+1}`} className="h-16 w-16 rounded-lg border border-slate-600 object-cover hover:border-blue-500 transition cursor-pointer" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+          {financeDocPhotos.length > 0 && (
+            <div>
+              <p className="text-xs text-gray-500 mb-1">เอกสารใบงาน</p>
+              <div className="flex flex-wrap gap-2">
+                {financeDocPhotos.map((p, i) => (
+                  <a key={i} href={`${baseUrl}${p}`} target="_blank" rel="noopener noreferrer">
+                    <img src={`${baseUrl}${p}`} alt={`doc-${i+1}`} className="h-16 w-16 rounded-lg border border-slate-600 object-cover hover:border-blue-500 transition cursor-pointer" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

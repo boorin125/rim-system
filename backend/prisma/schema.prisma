@@ -1046,6 +1046,8 @@ model OutsourceJob {
   sparePartsConfirmedAt   DateTime? @map("spare_parts_confirmed_at")
   sparePartsConfirmedById Int?      @map("spare_parts_confirmed_by_id")
   sparePartReturnPhotos   String[]  @default([]) @map("spare_part_return_photos")
+  noSparePartsUsed        Boolean   @default(false) @map("no_spare_parts_used")
+  financeDocumentPhotos   String[]  @default([]) @map("finance_document_photos")
   documentsReceivedAt     DateTime? @map("documents_received_at")
   documentsReceivedById   Int?      @map("documents_received_by_id")
 

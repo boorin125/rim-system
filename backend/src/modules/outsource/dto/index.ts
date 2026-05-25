@@ -7,6 +7,7 @@ import {
   IsDateString,
   IsEnum,
   IsArray,
+  IsBoolean,
   Min,
   Max,
   IsInt,
@@ -208,6 +209,12 @@ export class ProcessPaymentDto {
   @IsOptional()
   @IsString()
   paymentNote?: string;
+}
+
+export class ConfirmSparePartsDto {
+  @IsOptional()
+  @IsBoolean()
+  noSparePartsUsed?: boolean;
 }
 
 export class RateJobDto {

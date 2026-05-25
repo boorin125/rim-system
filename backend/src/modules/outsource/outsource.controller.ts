@@ -35,6 +35,7 @@ import {
   ApproveJobDto,
   SubmitDocumentsDto,
   RequestMoreDocumentsDto,
+  ConfirmSparePartsDto,
 } from './dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -355,8 +356,9 @@ export class OutsourceController {
   async confirmSpareParts(
     @Param('id', ParseIntPipe) id: number,
     @Request() req,
+    @Body() dto: ConfirmSparePartsDto,
   ) {
-    return this.outsourceService.confirmSpareParts(id, req.user.id);
+    return this.outsourceService.confirmSpareParts(id, req.user.id, dto);
   }
 
   /**
@@ -404,6 +406,26 @@ export class OutsourceController {
     @Param('index', ParseIntPipe) index: number,
   ) {
     return this.outsourceService.deleteSparePartPhoto(id, index);
+  }
+
+  @Post('jobs/:id/finance-document-photos')
+  @Roles(UserRole.FINANCE_ADMIN, UserRole.IT_MANAGER)
+  @HttpCode(HttpStatus.OK)
+  async addFinanceDocumentPhoto(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('photo') photo: string,
+  ) {
+    return this.outsourceService.addFinanceDocumentPhoto(id, photo);
+  }
+
+  @Delete('jobs/:id/finance-document-photos/:index')
+  @Roles(UserRole.FINANCE_ADMIN, UserRole.IT_MANAGER)
+  @HttpCode(HttpStatus.OK)
+  async deleteFinanceDocumentPhoto(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('index', ParseIntPipe) index: number,
+  ) {
+    return this.outsourceService.deleteFinanceDocumentPhoto(id, index);
   }
 
   // ==========================================
