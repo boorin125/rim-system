@@ -423,7 +423,7 @@ export default function OutsourceJobDetailPage() {
       {['DOCUMENT_SUBMITTED', 'VERIFIED', 'PAID'].includes(job.status) && !(isTechnician && isAwarded) && (
         <div className="bg-slate-800/70 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-6">
           <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-            <FileText className="h-5 w-5 text-cyan-400" /> เอกสารที่ส่ง
+            <FileText className="h-5 w-5 text-cyan-400" /> รายการเอกสาร
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {job.documentSlipPath && (
@@ -474,6 +474,30 @@ export default function OutsourceJobDetailPage() {
           {/* Finance Confirmation Buttons */}
           {isFinance && (
             <FinanceConfirmationSection job={job} jobId={jobId} onSuccess={fetchJob} />
+          )}
+
+          {/* Finance Confirmation Log */}
+          {(job.sparePartsConfirmedAt || job.documentsReceivedAt) && (
+            <div className="mt-4 pt-4 border-t border-slate-700/50 space-y-2">
+              {job.sparePartsConfirmedAt && (
+                <div className="flex items-center gap-2 text-xs text-gray-400">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-orange-400 flex-shrink-0" />
+                  <span>
+                    ยืนยันรับ Spare Parts คืนแล้ว วันที่ {formatDateTime(job.sparePartsConfirmedAt)}
+                    {job.sparePartsConfirmedBy && ` By ${job.sparePartsConfirmedBy.firstName} ${job.sparePartsConfirmedBy.lastName}`}
+                  </span>
+                </div>
+              )}
+              {job.documentsReceivedAt && (
+                <div className="flex items-center gap-2 text-xs text-gray-400">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 flex-shrink-0" />
+                  <span>
+                    ยืนยันตรวจสอบเอกสารแล้ว วันที่ {formatDateTime(job.documentsReceivedAt)}
+                    {job.documentsReceivedBy && ` By ${job.documentsReceivedBy.firstName} ${job.documentsReceivedBy.lastName}`}
+                  </span>
+                </div>
+              )}
+            </div>
           )}
         </div>
       )}
