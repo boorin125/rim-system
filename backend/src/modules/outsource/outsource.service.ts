@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../../notifications/notifications.service';
+import { saveBase64Files } from '../../utils/file-storage';
 import {
   CreateOutsourceJobDto,
   UpdateOutsourceJobDto,
@@ -1288,72 +1289,98 @@ export class OutsourceService {
   }
 
   /**
-   * Confirm spare parts returned (Finance)
+   * Confirm spare parts returned (Finance).
+   * If documents already verified → move to VERIFIED.
    */
   async confirmSpareParts(jobId: number, userId: number) {
-    const job = await this.prisma.outsourceJob.findUnique({
-      where: { id: jobId },
-    });
+    const job = await this.prisma.outsourceJob.findUnique({ where: { id: jobId } });
+    if (!job) throw new NotFoundException(`ไม่พบงาน Outsource ID: ${jobId}`);
+    if (job.status !== 'DOCUMENT_SUBMITTED') throw new BadRequestException('งานยังไม่ได้ส่งเอกสาร');
 
-    if (!job) {
-      throw new NotFoundException(`ไม่พบงาน Outsource ID: ${jobId}`);
+    const bothDone = !!job.documentsReceivedAt;
+    const updateData: any = {
+      sparePartsReturned: true,
+      sparePartsConfirmedAt: new Date(),
+      sparePartsConfirmedById: userId,
+    };
+    if (bothDone) {
+      updateData.status = 'VERIFIED';
+      updateData.verificationStatus = 'APPROVED';
+      updateData.verifiedAt = job.verifiedAt ?? new Date();
+      updateData.verifiedById = job.verifiedById ?? userId;
+      updateData.paymentStatus = 'PENDING_APPROVAL';
     }
-
-    if (job.status !== 'DOCUMENT_SUBMITTED') {
-      throw new BadRequestException('งานยังไม่ได้ส่งเอกสาร');
-    }
-
-    return this.prisma.outsourceJob.update({
-      where: { id: jobId },
-      data: {
-        sparePartsReturned: true,
-        sparePartsConfirmedAt: new Date(),
-        sparePartsConfirmedById: userId,
-      },
-    });
-  }
-
-  /**
-   * Confirm documents received (Finance) → moves to VERIFIED
-   */
-  async confirmDocuments(jobId: number, userId: number) {
-    const job = await this.prisma.outsourceJob.findUnique({
-      where: { id: jobId },
-    });
-
-    if (!job) {
-      throw new NotFoundException(`ไม่พบงาน Outsource ID: ${jobId}`);
-    }
-
-    if (job.status !== 'DOCUMENT_SUBMITTED') {
-      throw new BadRequestException('งานยังไม่ได้ส่งเอกสาร');
-    }
-
-    const updatedJob = await this.prisma.outsourceJob.update({
-      where: { id: jobId },
-      data: {
-        status: 'VERIFIED',
-        verificationStatus: 'APPROVED',
-        verifiedAt: new Date(),
-        verifiedById: userId,
-        documentsReceivedAt: new Date(),
-        documentsReceivedById: userId,
-        paymentStatus: 'PENDING_APPROVAL',
-      },
-    });
-
-    // Notify technician
-    if (job.awardedToId) {
+    const updated = await this.prisma.outsourceJob.update({ where: { id: jobId }, data: updateData });
+    if (bothDone && job.awardedToId) {
       await this.notificationsService.createNotification(
-        job.awardedToId,
-        'INCIDENT_CONFIRMED',
-        'เอกสารผ่านการตรวจรับ',
-        `งาน ${job.jobCode} ผ่านการตรวจรับเอกสารแล้ว รอการชำระเงิน`,
+        job.awardedToId, 'INCIDENT_CONFIRMED',
+        'ผ่านการตรวจรับครบถ้วน',
+        `งาน ${job.jobCode} ผ่านการตรวจ Spare Parts และเอกสารแล้ว รอการชำระเงิน`,
         job.incidentId,
       );
     }
+    return updated;
+  }
 
+  /**
+   * Confirm documents received (Finance).
+   * If spare parts already returned → move to VERIFIED.
+   */
+  async confirmDocuments(jobId: number, userId: number) {
+    const job = await this.prisma.outsourceJob.findUnique({ where: { id: jobId } });
+    if (!job) throw new NotFoundException(`ไม่พบงาน Outsource ID: ${jobId}`);
+    if (job.status !== 'DOCUMENT_SUBMITTED') throw new BadRequestException('งานยังไม่ได้ส่งเอกสาร');
+
+    const bothDone = job.sparePartsReturned;
+    const now = new Date();
+    const updateData: any = {
+      verificationStatus: 'APPROVED',
+      verifiedAt: now,
+      verifiedById: userId,
+      documentsReceivedAt: now,
+      documentsReceivedById: userId,
+    };
+    if (bothDone) {
+      updateData.status = 'VERIFIED';
+      updateData.paymentStatus = 'PENDING_APPROVAL';
+    }
+    const updatedJob = await this.prisma.outsourceJob.update({ where: { id: jobId }, data: updateData });
+    if (bothDone && job.awardedToId) {
+      await this.notificationsService.createNotification(
+        job.awardedToId, 'INCIDENT_CONFIRMED',
+        'ผ่านการตรวจรับครบถ้วน',
+        `งาน ${job.jobCode} ผ่านการตรวจเอกสารและ Spare Parts แล้ว รอการชำระเงิน`,
+        job.incidentId,
+      );
+    }
     return updatedJob;
+  }
+
+  /**
+   * Add spare part return photos (Finance) — only when not PAID
+   */
+  async addSparePartPhoto(jobId: number, photo: string) {
+    const job = await this.prisma.outsourceJob.findUnique({ where: { id: jobId }, select: { id: true, sparePartReturnPhotos: true, paymentStatus: true } });
+    if (!job) throw new NotFoundException(`ไม่พบงาน Outsource ID: ${jobId}`);
+    if (job.paymentStatus === 'PAID') throw new BadRequestException('ไม่สามารถแก้ไขได้หลังจ่ายเงินแล้ว');
+
+    const paths = await saveBase64Files([photo], `outsource/spare-parts/${jobId}`);
+    const updated = [...(job.sparePartReturnPhotos ?? []), ...paths];
+    return this.prisma.outsourceJob.update({ where: { id: jobId }, data: { sparePartReturnPhotos: updated } });
+  }
+
+  /**
+   * Delete spare part return photo by index (Finance) — only when not PAID
+   */
+  async deleteSparePartPhoto(jobId: number, index: number) {
+    const job = await this.prisma.outsourceJob.findUnique({ where: { id: jobId }, select: { id: true, sparePartReturnPhotos: true, paymentStatus: true } });
+    if (!job) throw new NotFoundException(`ไม่พบงาน Outsource ID: ${jobId}`);
+    if (job.paymentStatus === 'PAID') throw new BadRequestException('ไม่สามารถแก้ไขได้หลังจ่ายเงินแล้ว');
+
+    const photos = [...(job.sparePartReturnPhotos ?? [])];
+    if (index < 0 || index >= photos.length) throw new BadRequestException('ไม่พบรูปที่ระบุ');
+    photos.splice(index, 1);
+    return this.prisma.outsourceJob.update({ where: { id: jobId }, data: { sparePartReturnPhotos: photos } });
   }
 
   /**

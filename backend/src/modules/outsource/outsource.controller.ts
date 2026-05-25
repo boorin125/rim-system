@@ -386,6 +386,26 @@ export class OutsourceController {
     return this.outsourceService.requestMoreDocuments(id, req.user.id, dto.note);
   }
 
+  @Post('jobs/:id/spare-part-photos')
+  @Roles(UserRole.FINANCE_ADMIN, UserRole.IT_MANAGER)
+  @HttpCode(HttpStatus.OK)
+  async addSparePartPhoto(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('photo') photo: string,
+  ) {
+    return this.outsourceService.addSparePartPhoto(id, photo);
+  }
+
+  @Delete('jobs/:id/spare-part-photos/:index')
+  @Roles(UserRole.FINANCE_ADMIN, UserRole.IT_MANAGER)
+  @HttpCode(HttpStatus.OK)
+  async deleteSparePartPhoto(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('index', ParseIntPipe) index: number,
+  ) {
+    return this.outsourceService.deleteSparePartPhoto(id, index);
+  }
+
   // ==========================================
   // TECHNICIAN ENDPOINTS
   // ==========================================
