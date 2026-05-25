@@ -276,6 +276,18 @@ export class EquipmentController {
     return this.equipmentService.getDistinctCategories();
   }
 
+  @Get('suggestions')
+  @Roles(
+    UserRole.SUPER_ADMIN,
+    UserRole.IT_MANAGER,
+    UserRole.SUPERVISOR,
+    UserRole.HELP_DESK,
+    UserRole.TECHNICIAN,
+  )
+  async getSuggestions() {
+    return this.equipmentService.getSuggestions();
+  }
+
   /**
    * Get all equipment with filters and pagination
    */

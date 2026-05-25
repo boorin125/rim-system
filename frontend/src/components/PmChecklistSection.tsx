@@ -123,13 +123,19 @@ function EquipmentCard({
   record,
   canEdit,
   onUpdated,
+  brandSuggestions,
+  modelSuggestions,
 }: {
   record: PmEquipmentRecord
   canEdit: boolean
   onUpdated: (updated: PmEquipmentRecord) => void
+  brandSuggestions: string[]
+  modelSuggestions: string[]
 }) {
   const [expanded, setExpanded] = useState(false)
   const [loadingPhotos, setLoadingPhotos] = useState(false)
+  const hasInitialData = !!(record.updatedBrand || record.updatedModel || record.updatedSerial)
+  const [hasChanges, setHasChanges] = useState(hasInitialData)
   const [local, setLocal] = useState({
     comment: record.comment ?? '',
     condition: record.condition ?? '',
@@ -214,6 +220,16 @@ function EquipmentCard({
     setLocal(next)
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => saveTextFields(next), 1500)
+  }
+
+  const handleHasChangesToggle = (value: boolean) => {
+    setHasChanges(value)
+    if (!value) {
+      const next = { ...local, updatedBrand: '', updatedModel: '', updatedSerial: '' }
+      setLocal(next)
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      saveTextFields(next)
+    }
   }
 
   const handleConditionChange = (value: string) => {
@@ -399,54 +415,83 @@ function EquipmentCard({
           )}
 
           {/* Update Brand / Model / Serial */}
-          <div className="space-y-1">
-            <label className="block text-xs font-medium text-gray-400 mb-2">อัพเดตข้อมูลอุปกรณ์ (ถ้ามีการเปลี่ยนแปลง)</label>
-            <div className="bg-slate-700/30 rounded-xl p-3 space-y-2">
-              {/* Column headers */}
-              <div className="grid grid-cols-[1fr_1fr_1.4fr] gap-1.5 pl-12">
-                <p className="text-[10px] text-gray-500">Brand</p>
-                <p className="text-[10px] text-gray-500">Model</p>
-                <p className="text-[10px] text-gray-500">Serial No.</p>
-              </div>
-              {/* Current data row */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] text-gray-500 w-10 flex-shrink-0 font-medium">Current</span>
-                <div className="grid grid-cols-[1fr_1fr_1.4fr] gap-1.5 flex-1">
-                  <p className="text-[10px] text-white truncate">{record.equipment.brand || '-'}</p>
-                  <p className="text-[10px] text-white truncate">{record.equipment.model || '-'}</p>
-                  <p className="text-[10px] text-white break-all">{record.equipment.serialNumber || '-'}</p>
-                </div>
-              </div>
-              {/* Divider */}
-              <div className="border-t border-slate-600/50" />
-              {/* New data inputs */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] text-gray-500 w-10 flex-shrink-0 font-medium">New</span>
-                <div className="grid grid-cols-[1fr_1fr_1.4fr] gap-1.5 flex-1">
-                  <input
-                    value={local.updatedBrand}
-                    onChange={(e) => handleFieldChange('updatedBrand', e.target.value)}
-                    disabled={!canEdit}
-                    placeholder="Brand"
-                    className="w-full px-2 py-1 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-[10px] placeholder-gray-500 focus:outline-none focus:border-blue-500 disabled:opacity-60"
-                  />
-                  <input
-                    value={local.updatedModel}
-                    onChange={(e) => handleFieldChange('updatedModel', e.target.value)}
-                    disabled={!canEdit}
-                    placeholder="Model"
-                    className="w-full px-2 py-1 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-[10px] placeholder-gray-500 focus:outline-none focus:border-blue-500 disabled:opacity-60"
-                  />
-                  <input
-                    value={local.updatedSerial}
-                    onChange={(e) => handleFieldChange('updatedSerial', e.target.value)}
-                    disabled={!canEdit}
-                    placeholder="Serial No."
-                    className="w-full px-2 py-1 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-[10px] placeholder-gray-500 focus:outline-none focus:border-blue-500 disabled:opacity-60"
-                  />
-                </div>
-              </div>
+          <div className="space-y-2">
+            <label className="block text-xs font-medium text-gray-400">อัพเดตข้อมูลอุปกรณ์</label>
+            {/* Toggle */}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={!canEdit}
+                onClick={() => handleHasChangesToggle(false)}
+                className={`flex-1 py-1.5 rounded-lg text-[11px] font-medium border transition-colors ${!hasChanges ? 'bg-green-500/20 border-green-500 text-green-400' : 'bg-slate-700/30 border-slate-600 text-gray-400'} disabled:opacity-60`}
+              >
+                ใช้ข้อมูลเดิม
+              </button>
+              <button
+                type="button"
+                disabled={!canEdit}
+                onClick={() => handleHasChangesToggle(true)}
+                className={`flex-1 py-1.5 rounded-lg text-[11px] font-medium border transition-colors ${hasChanges ? 'bg-yellow-500/20 border-yellow-500 text-yellow-400' : 'bg-slate-700/30 border-slate-600 text-gray-400'} disabled:opacity-60`}
+              >
+                มีการเปลี่ยนแปลงข้อมูล
+              </button>
             </div>
+
+            {hasChanges && (
+              <div className="bg-slate-700/30 rounded-xl p-3 space-y-2">
+                <datalist id={`brands-${record.id}`}>
+                  {brandSuggestions.map(b => <option key={b} value={b} />)}
+                </datalist>
+                <datalist id={`models-${record.id}`}>
+                  {modelSuggestions.map(m => <option key={m} value={m} />)}
+                </datalist>
+                {/* Column headers */}
+                <div className="grid grid-cols-[1fr_1fr_1.4fr] gap-1.5 pl-12">
+                  <p className="text-[10px] text-gray-500">Brand <span className="text-red-400">*</span></p>
+                  <p className="text-[10px] text-gray-500">Model <span className="text-red-400">*</span></p>
+                  <p className="text-[10px] text-gray-500">Serial No. <span className="text-red-400">*</span></p>
+                </div>
+                {/* Current data row */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-gray-500 w-10 flex-shrink-0 font-medium">Current</span>
+                  <div className="grid grid-cols-[1fr_1fr_1.4fr] gap-1.5 flex-1">
+                    <p className="text-[10px] text-white truncate">{record.equipment.brand || '-'}</p>
+                    <p className="text-[10px] text-white truncate">{record.equipment.model || '-'}</p>
+                    <p className="text-[10px] text-white break-all">{record.equipment.serialNumber || '-'}</p>
+                  </div>
+                </div>
+                <div className="border-t border-slate-600/50" />
+                {/* New data inputs */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-gray-500 w-10 flex-shrink-0 font-medium">New</span>
+                  <div className="grid grid-cols-[1fr_1fr_1.4fr] gap-1.5 flex-1">
+                    <input
+                      list={`brands-${record.id}`}
+                      value={local.updatedBrand}
+                      onChange={(e) => handleFieldChange('updatedBrand', e.target.value)}
+                      disabled={!canEdit}
+                      placeholder="Brand"
+                      className={`w-full px-2 py-1 bg-slate-700/50 border rounded-lg text-white text-[10px] placeholder-gray-500 focus:outline-none focus:border-blue-500 disabled:opacity-60 ${!local.updatedBrand ? 'border-red-500/60' : 'border-slate-600'}`}
+                    />
+                    <input
+                      list={`models-${record.id}`}
+                      value={local.updatedModel}
+                      onChange={(e) => handleFieldChange('updatedModel', e.target.value)}
+                      disabled={!canEdit}
+                      placeholder="Model"
+                      className={`w-full px-2 py-1 bg-slate-700/50 border rounded-lg text-white text-[10px] placeholder-gray-500 focus:outline-none focus:border-blue-500 disabled:opacity-60 ${!local.updatedModel ? 'border-red-500/60' : 'border-slate-600'}`}
+                    />
+                    <input
+                      value={local.updatedSerial}
+                      onChange={(e) => handleFieldChange('updatedSerial', e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+                      disabled={!canEdit}
+                      placeholder="SERIAL NO."
+                      className={`w-full px-2 py-1 bg-slate-700/50 border rounded-lg text-white text-[10px] placeholder-gray-500 focus:outline-none focus:border-blue-500 disabled:opacity-60 ${!local.updatedSerial ? 'border-red-500/60' : 'border-slate-600'}`}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -660,6 +705,16 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
   const [themeColor, setThemeColor] = useState<string | undefined>(undefined)
   // signedPaperRef removed — replaced by signedCameraRef / signedGalleryRef
 
+  const [brandSuggestions, setBrandSuggestions] = useState<string[]>([])
+  const [modelSuggestions, setModelSuggestions] = useState<string[]>([])
+
+  useEffect(() => {
+    const token = localStorage.getItem('token')
+    axios.get(`${process.env.NEXT_PUBLIC_API_URL}/equipment/suggestions`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => { setBrandSuggestions(r.data.brands ?? []); setModelSuggestions(r.data.models ?? []) })
+      .catch(() => {})
+  }, [])
+
   const fetchPmRecord = async () => {
     try {
       const token = localStorage.getItem('token')
@@ -799,6 +854,17 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
 
   const handleSubmitPm = async () => {
     if (!pmRecord) return
+    // Validate: if any updated field is set, all 3 must be filled
+    const partialInfoRecords = pmRecord.equipmentRecords.filter(r => {
+      const anySet = !!(r.updatedBrand || r.updatedModel || r.updatedSerial)
+      const allSet = !!(r.updatedBrand && r.updatedModel && r.updatedSerial)
+      return anySet && !allSet
+    })
+    if (partialInfoRecords.length > 0) {
+      const names = partialInfoRecords.map(r => r.equipment.name).join(', ')
+      toast.error(`กรุณากรอก Brand, Model, Serial No. ให้ครบทุกช่อง: ${names}`)
+      return
+    }
     try {
       setSubmitting(true)
       const token = localStorage.getItem('token')
@@ -1254,6 +1320,8 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
             record={record}
             canEdit={canEdit && !pmRecord.performedAt}
             onUpdated={handleEquipmentUpdated}
+            brandSuggestions={brandSuggestions}
+            modelSuggestions={modelSuggestions}
           />
         ))}
       </div>

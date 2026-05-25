@@ -121,6 +121,17 @@ export class EquipmentService {
     return rows.map(r => r.category).filter((c): c is string => !!c);
   }
 
+  async getSuggestions(): Promise<{ brands: string[]; models: string[] }> {
+    const [brandRows, modelRows] = await Promise.all([
+      this.prisma.equipment.findMany({ distinct: ['brand'], select: { brand: true }, orderBy: { brand: 'asc' }, where: { brand: { not: null } } }),
+      this.prisma.equipment.findMany({ distinct: ['model'], select: { model: true }, orderBy: { model: 'asc' }, where: { model: { not: null } } }),
+    ]);
+    return {
+      brands: brandRows.map(r => r.brand).filter((b): b is string => !!b),
+      models: modelRows.map(r => r.model).filter((m): m is string => !!m),
+    };
+  }
+
   /**
    * Find all equipment with filters and pagination
    */
