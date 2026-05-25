@@ -1022,6 +1022,7 @@ model OutsourceJob {
   withholdingTax   Decimal?      @map("withholding_tax") @db.Decimal(10, 2)
   netPaymentAmount Decimal?      @map("net_payment_amount") @db.Decimal(10, 2)
   paymentSlipPath  String?       @map("payment_slip_path")
+  paymentSlipPaths String[]      @default([]) @map("payment_slip_paths")
   paymentNote      String?       @map("payment_note") @db.Text
   paidAt           DateTime?     @map("paid_at")
   paidById         Int?          @map("paid_by_id")

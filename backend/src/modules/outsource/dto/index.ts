@@ -201,6 +201,11 @@ export class ProcessPaymentDto {
   paymentSlipPath?: string;
 
   @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  paymentSlipPaths?: string[];
+
+  @IsOptional()
   @IsString()
   paymentNote?: string;
 }

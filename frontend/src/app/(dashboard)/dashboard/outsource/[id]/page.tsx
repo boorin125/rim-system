@@ -127,14 +127,14 @@ export default function OutsourceJobDetailPage() {
   const formatDateTime = (d: string) => new Date(d).toLocaleString('th-TH', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
   // ─── Actions ──────────────────────────────────────────────────────
-  const handlePayment = async (data: { amount: number; note: string; withholdingTax?: number; netPaymentAmount?: number; paymentSlipPath?: string }) => {
+  const handlePayment = async (data: { amount: number; note: string; withholdingTax?: number; netPaymentAmount?: number; paymentSlipPaths?: string[] }) => {
     try {
       await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/outsource/jobs/${jobId}/pay`, {
         paymentAmount: data.amount,
         paymentNote: data.note,
         withholdingTax: data.withholdingTax,
         netPaymentAmount: data.netPaymentAmount,
-        paymentSlipPath: data.paymentSlipPath,
+        paymentSlipPaths: data.paymentSlipPaths,
       }, config())
       toast.success('บันทึกการจ่ายเงินสำเร็จ')
       setShowPayment(false)
@@ -515,21 +515,16 @@ export default function OutsourceJobDetailPage() {
           )}
           {job.paymentNote && <p className="text-gray-300 mt-3 text-sm">{job.paymentNote}</p>}
           {job.paidAt && <p className="text-sm text-gray-400 mt-2">จ่ายเมื่อ: {formatDateTime(job.paidAt)}</p>}
-          {job.paymentSlipPath && (
+          {((job.paymentSlipPaths?.length > 0) || job.paymentSlipPath) && (
             <div className="mt-4">
               <p className="text-sm text-gray-400 mb-2">สลิปโอนเงิน</p>
-              <a href={fileUrl(job.paymentSlipPath)} target="_blank" rel="noopener noreferrer" className="inline-block">
-                <img
-                  src={fileUrl(job.paymentSlipPath)}
-                  alt="สลิปโอนเงิน"
-                  className="max-w-xs rounded-lg border border-slate-600 hover:border-blue-500 transition cursor-pointer"
-                  onError={(e) => {
-                    const el = e.target as HTMLImageElement
-                    el.style.display = 'none'
-                    el.parentElement!.insertAdjacentHTML('afterend', `<a href="${fileUrl(job.paymentSlipPath)}" target="_blank" class="text-sm text-blue-400 underline">เปิดลิงก์โดยตรง</a>`)
-                  }}
-                />
-              </a>
+              <div className="flex flex-wrap gap-2">
+                {(job.paymentSlipPaths?.length > 0 ? job.paymentSlipPaths : [job.paymentSlipPath]).map((p: string, i: number) => (
+                  <a key={i} href={fileUrl(p)} target="_blank" rel="noopener noreferrer">
+                    <img src={fileUrl(p)} alt={`สลิป ${i + 1}`} className="h-32 rounded-lg border border-slate-600 hover:border-blue-500 transition cursor-pointer object-cover" />
+                  </a>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -562,7 +557,7 @@ function PaymentModal({ agreedPrice, shippingCost, jobId, onConfirm, onClose }: 
   agreedPrice: any;
   shippingCost: any;
   jobId: any;
-  onConfirm: (data: { amount: number; note: string; withholdingTax?: number; netPaymentAmount?: number; paymentSlipPath?: string }) => void;
+  onConfirm: (data: { amount: number; note: string; withholdingTax?: number; netPaymentAmount?: number; paymentSlipPaths?: string[] }) => void;
   onClose: () => void;
 }) {
   const themeHighlight = useThemeHighlight()
@@ -570,12 +565,13 @@ function PaymentModal({ agreedPrice, shippingCost, jobId, onConfirm, onClose }: 
   const [amount, setAmount] = useState(agreedPrice ? String(Number(agreedPrice)) : '')
   const [note, setNote] = useState('')
   const [withTax, setWithTax] = useState(true)
-  const [slipFile, setSlipFile] = useState<File | null>(null)
-  const [slipPreview, setSlipPreview] = useState<string | null>(null)
-  const [slipPath, setSlipPath] = useState<string | null>(null)
+  const [slipPreviews, setSlipPreviews] = useState<string[]>([])
+  const [slipPaths, setSlipPaths] = useState<string[]>([])
   const [uploading, setUploading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const slipInputRef = useRef<HTMLInputElement>(null)
 
+  const MAX_SLIPS = 3
   const numAmount = Number(amount) || 0
   const totalBeforeTax = numAmount + numShipping
   const taxAmount = withTax ? Math.round(totalBeforeTax * 0.03 * 100) / 100 : 0
@@ -584,13 +580,12 @@ function PaymentModal({ agreedPrice, shippingCost, jobId, onConfirm, onClose }: 
   const handleSlipSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-
-    // Upload immediately
+    e.target.value = ''
+    if (slipPaths.length >= MAX_SLIPS) return
     setUploading(true)
     try {
       const compressed = await compressImage(file, { maxWidth: 1920, maxHeight: 1920, quality: 0.85 })
-      setSlipFile(compressed)
-      setSlipPreview(URL.createObjectURL(compressed))
+      const preview = URL.createObjectURL(compressed)
       const formData = new FormData()
       formData.append('slip', compressed)
       const token = localStorage.getItem('token')
@@ -599,15 +594,19 @@ function PaymentModal({ agreedPrice, shippingCost, jobId, onConfirm, onClose }: 
         formData,
         { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' } }
       )
-      setSlipPath(res.data.slipUrl)
+      setSlipPreviews(prev => [...prev, preview])
+      setSlipPaths(prev => [...prev, res.data.slipUrl])
       toast.success('อัปโหลดสลิปสำเร็จ')
     } catch {
       toast.error('อัปโหลดสลิปล้มเหลว')
-      setSlipFile(null)
-      setSlipPreview(null)
     } finally {
       setUploading(false)
     }
+  }
+
+  const removeSlip = (index: number) => {
+    setSlipPreviews(prev => prev.filter((_, i) => i !== index))
+    setSlipPaths(prev => prev.filter((_, i) => i !== index))
   }
 
   const handleSubmit = async () => {
@@ -618,7 +617,7 @@ function PaymentModal({ agreedPrice, shippingCost, jobId, onConfirm, onClose }: 
       note,
       withholdingTax: withTax ? taxAmount : undefined,
       netPaymentAmount: withTax ? netAmount : undefined,
-      paymentSlipPath: slipPath || undefined,
+      paymentSlipPaths: slipPaths.length > 0 ? slipPaths : undefined,
     })
     setSubmitting(false)
   }
@@ -687,30 +686,33 @@ function PaymentModal({ agreedPrice, shippingCost, jobId, onConfirm, onClose }: 
 
         {/* Slip Upload */}
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">แนบสลิปโอนเงิน</label>
-          {slipPreview ? (
-            <div className="relative">
-              <img src={slipPreview} alt="สลิป" className="max-h-48 rounded-lg border border-slate-600 mx-auto" />
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            แนบสลิปโอนเงิน <span className="text-gray-500 font-normal">({slipPaths.length}/{MAX_SLIPS})</span>
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {slipPreviews.map((preview, i) => (
+              <div key={i} className="relative">
+                <img src={preview} alt={`สลิป ${i + 1}`} className="h-24 w-24 rounded-lg border border-slate-600 object-cover" />
+                <button
+                  onClick={() => removeSlip(i)}
+                  className="absolute -top-1 -right-1 bg-red-600 hover:bg-red-700 text-white rounded-full p-0.5 transition"
+                >
+                  <XCircle className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+            {slipPaths.length < MAX_SLIPS && (
               <button
-                onClick={() => { setSlipFile(null); setSlipPreview(null); setSlipPath(null) }}
-                className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 transition"
+                onClick={() => slipInputRef.current?.click()}
+                disabled={uploading}
+                className="h-24 w-24 border-2 border-dashed border-slate-600 rounded-lg flex flex-col items-center justify-center text-gray-500 hover:border-blue-500 transition disabled:opacity-50"
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                {uploading ? <Loader2 className="w-6 h-6 animate-spin" /> : <CreditCard className="w-6 h-6 mb-1" />}
+                {!uploading && <span className="text-xs">เพิ่มสลิป</span>}
               </button>
-              {uploading && (
-                <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-lg">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white" />
-                </div>
-              )}
-            </div>
-          ) : (
-            <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-slate-600 rounded-lg cursor-pointer hover:border-blue-500 transition">
-              <CreditCard className="w-8 h-8 text-gray-500 mb-2" />
-              <span className="text-sm text-gray-400">คลิกเพื่อแนบสลิป</span>
-              <span className="text-xs text-gray-500 mt-1">PNG, JPG (ไม่เกิน 5MB)</span>
-              <input type="file" accept="image/*" onChange={handleSlipSelect} className="hidden" />
-            </label>
-          )}
+            )}
+          </div>
+          <input ref={slipInputRef} type="file" accept="image/*" onChange={handleSlipSelect} className="hidden" />
         </div>
       </div>
       <div className="p-6 border-t border-slate-700 flex justify-end gap-3">
