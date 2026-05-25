@@ -173,6 +173,17 @@ export async function generateInventoryListPDF(data: InventoryListData): Promise
     // 8+50+45+32+30+25 = 190 mm
   ]
 
+  // Draw vertical column dividers for a given row
+  const drawColDividers = (rowY: number, rowH: number) => {
+    doc.setDrawColor(210, 195, 235)
+    doc.setLineWidth(0.2)
+    let dx = marginL
+    for (let ci = 0; ci < cols.length - 1; ci++) {
+      dx += cols[ci].w
+      doc.line(dx, rowY, dx, rowY + rowH)
+    }
+  }
+
   const drawTableHeader = (yh: number) => {
     doc.setFillColor(233, 213, 255)  // purple-200 — matches PM Report equipment bar
     doc.rect(marginL, yh, contentW, 7, 'F')
@@ -185,6 +196,7 @@ export async function generateInventoryListPDF(data: InventoryListData): Promise
       doc.text(col.label, tx, yh + 4.5, { align: col.align })
       xh += col.w
     }
+    drawColDividers(yh, 7)
   }
 
   drawTableHeader(y)
@@ -293,10 +305,11 @@ export async function generateInventoryListPDF(data: InventoryListData): Promise
       doc.setFontSize(7)
     }
 
-    // Row border
+    // Row border + vertical dividers
     doc.setDrawColor(210, 195, 235)
     doc.setLineWidth(0.2)
     doc.rect(marginL, y, contentW, ROW_H)
+    drawColDividers(y, ROW_H)
 
     y += ROW_H
     pageItemCount++
