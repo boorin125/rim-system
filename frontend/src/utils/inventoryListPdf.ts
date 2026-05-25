@@ -326,8 +326,8 @@ export async function generateInventoryListPDF(data: InventoryListData): Promise
   // ── Signature Section ────────────────────────────────────────────────────
   // sigBlockH=45: 7 (header bar) + 38 (boxes). Fits in 50 mm gap after 8 rows on last page.
   // Condition: if remaining space is enough → stay on same page; else new page. Always pin to bottom.
-  const sigBlockH = 45
-  const sigFixedY = pageH - 10 - sigBlockH  // ~242 mm
+  const sigBlockH = 52
+  const sigFixedY = pageH - 10 - sigBlockH  // ~235 mm
 
   if (y + sigBlockH > pageH - 10) {
     doc.addPage()
@@ -344,8 +344,8 @@ export async function generateInventoryListPDF(data: InventoryListData): Promise
   y += 7
 
   const colW = contentW / 2
-  const sigImgH = 15
-  const boxH = 38
+  const sigImgH = 22
+  const boxH = 45
   const boxTop = y
 
   // Bordered signature boxes
