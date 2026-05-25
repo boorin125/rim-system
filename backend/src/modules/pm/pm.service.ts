@@ -295,7 +295,7 @@ export class PmService {
     const equipmentIds = pmRecord.equipmentRecords.map((r) => r.equipmentId);
     const currentEquipments = await this.prisma.equipment.findMany({
       where: { id: { in: equipmentIds } },
-      select: { id: true, brand: true, model: true, serialNumber: true, status: true, updatedAt: true },
+      select: { id: true, brand: true, model: true, serialNumber: true, status: true, imagePath: true, updatedAt: true },
     });
     const equipmentMap = new Map(currentEquipments.map((e) => [e.id, e]));
     const skippedEquipment: string[] = [];
@@ -349,6 +349,12 @@ export class PmService {
           changes.push(`Status: MAINTENANCE → ACTIVE (ผ่านการตรวจสอบ)`);
         }
 
+        // Update equipment photo with latest after photo from PM
+        if (rec.afterPhotos && rec.afterPhotos.length > 0) {
+          updateData.imagePath = rec.afterPhotos[rec.afterPhotos.length - 1];
+          changes.push('รูปอุปกรณ์อัพเดตจาก PM');
+        }
+
         if (Object.keys(updateData).length === 0) continue;
 
         await tx.equipment.update({ where: { id: rec.equipmentId }, data: updateData });
@@ -360,12 +366,13 @@ export class PmService {
             ? EquipmentLogAction.UPDATED
             : EquipmentLogAction.UPDATED;
 
-        const oldVal: any = { brand: current.brand, model: current.model, serialNumber: current.serialNumber, status: current.status };
+        const oldVal: any = { brand: current.brand, model: current.model, serialNumber: current.serialNumber, status: current.status, imagePath: current.imagePath };
         const newVal: any = {
           brand: rec.updatedBrand ?? current.brand,
           model: rec.updatedModel ?? current.model,
           serialNumber: rec.updatedSerial ?? current.serialNumber,
           status: newStatus ?? current.status,
+          imagePath: updateData.imagePath ?? current.imagePath,
         };
 
         await tx.equipmentLog.create({
