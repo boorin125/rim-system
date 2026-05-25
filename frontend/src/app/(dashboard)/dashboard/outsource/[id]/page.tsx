@@ -2,7 +2,7 @@
 'use client'
 
 import { formatStore } from '@/utils/formatStore'
-import { compressImage } from '@/utils/imageUtils'
+import { compressImage, fileToBase64 } from '@/utils/imageUtils'
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
@@ -1090,7 +1090,8 @@ function FinanceConfirmationSection({ job, jobId, onSuccess }: { job: any; jobId
     setUploadingSparePhoto(true)
     try {
       const compressed = await compressImage(file, { maxWidth: 1920, maxHeight: 1920, quality: 0.85 })
-      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/outsource/jobs/${jobId}/spare-part-photos`, { photo: compressed }, { headers: authHeader() })
+      const base64 = await fileToBase64(compressed)
+      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/outsource/jobs/${jobId}/spare-part-photos`, { photo: base64 }, { headers: authHeader() })
       toast.success('อัปโหลดรูปสำเร็จ'); onSuccess()
     } catch (e: any) { toast.error(e.response?.data?.message || 'อัปโหลดล้มเหลว') }
     finally { setUploadingSparePhoto(false) }
@@ -1121,7 +1122,8 @@ function FinanceConfirmationSection({ job, jobId, onSuccess }: { job: any; jobId
     setUploadingDocPhoto(true)
     try {
       const compressed = await compressImage(file, { maxWidth: 1920, maxHeight: 1920, quality: 0.85 })
-      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/outsource/jobs/${jobId}/finance-document-photos`, { photo: compressed }, { headers: authHeader() })
+      const base64 = await fileToBase64(compressed)
+      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/outsource/jobs/${jobId}/finance-document-photos`, { photo: base64 }, { headers: authHeader() })
       toast.success('อัปโหลดรูปสำเร็จ'); onSuccess()
     } catch (e: any) { toast.error(e.response?.data?.message || 'อัปโหลดล้มเหลว') }
     finally { setUploadingDocPhoto(false) }
