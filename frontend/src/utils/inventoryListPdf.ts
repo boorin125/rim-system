@@ -378,10 +378,11 @@ export async function generateInventoryListPDF(data: InventoryListData): Promise
       if (sigDims.w > 0) {
         const ratio = sigDims.w / sigDims.h
         const sw = Math.min(sigImgH * ratio, colW - 20)
-        const sh = sw / ratio
+        const sh = Math.min(sw / ratio, sigImgH)
         const sx = marginL + (colW - sw) / 2
+        const sy = boxTop + 7 + (sigImgH - sh) / 2
         const fmt = data.technicianSignature.startsWith('data:image/png') ? 'PNG' : 'JPEG'
-        doc.addImage(data.technicianSignature, fmt, sx, boxTop + 7, sw, Math.min(sh, sigImgH), undefined, 'FAST')
+        doc.addImage(data.technicianSignature, fmt, sx, sy, sw, sh, undefined, 'FAST')
       }
     } catch {}
   }
@@ -421,10 +422,11 @@ export async function generateInventoryListPDF(data: InventoryListData): Promise
         if (sigDims.w > 0) {
           const ratio = sigDims.w / sigDims.h
           const sw = Math.min(sigImgH * ratio, colW - 20)
-          const sh = sw / ratio
+          const sh = Math.min(sw / ratio, sigImgH)
           const sx = rightX + (colW - sw) / 2
+          const sy = boxTop + 7 + (sigImgH - sh) / 2
           const fmt = sigSrc.startsWith('data:image/png') ? 'PNG' : 'JPEG'
-          doc.addImage(sigSrc, fmt, sx, boxTop + 7, sw, Math.min(sh, sigImgH), undefined, 'FAST')
+          doc.addImage(sigSrc, fmt, sx, sy, sw, sh, undefined, 'FAST')
         }
       }
     } catch {}
