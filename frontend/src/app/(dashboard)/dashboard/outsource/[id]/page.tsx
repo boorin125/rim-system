@@ -1052,6 +1052,7 @@ function DocumentReviewNotesDisplay({ notes }: { notes: any }) {
 // ─── Finance Confirmation Section ─────────────────────────────────
 function FinanceConfirmationSection({ job, jobId, onSuccess }: { job: any; jobId: any; onSuccess: () => void }) {
   const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api').replace('/api', '')
+  const uploadUrl = (p: string) => `${baseUrl}/uploads/${p}`
   const isPaid = job.paymentStatus === 'PAID'
   const token = () => localStorage.getItem('token')
   const authHeader = () => ({ Authorization: `Bearer ${token()}` })
@@ -1231,7 +1232,7 @@ function FinanceConfirmationSection({ job, jobId, onSuccess }: { job: any; jobId
               <div className="flex flex-wrap gap-2">
                 {sparePhotos.map((p, i) => (
                   <div key={i} className="relative">
-                    <img src={`${baseUrl}${p}`} alt={`spare-${i+1}`} className="h-20 w-20 rounded-lg border border-slate-600 object-cover" />
+                    <img src={uploadUrl(p)} alt={`spare-${i+1}`} className="h-20 w-20 rounded-lg border border-slate-600 object-cover" />
                     <button onClick={() => handleDeleteSparePhoto(i)} disabled={deletingSparePhoto === i}
                       className="absolute -top-1 -right-1 bg-red-600 rounded-full p-0.5 text-white disabled:opacity-50">
                       {deletingSparePhoto === i ? <Loader2 className="h-3 w-3 animate-spin" /> : <XCircle className="h-3 w-3" />}
@@ -1271,7 +1272,7 @@ function FinanceConfirmationSection({ job, jobId, onSuccess }: { job: any; jobId
             <div className="flex flex-wrap gap-2">
               {financeDocPhotos.map((p, i) => (
                 <div key={i} className="relative">
-                  <img src={`${baseUrl}${p}`} alt={`doc-${i+1}`} className="h-20 w-20 rounded-lg border border-slate-600 object-cover" />
+                  <img src={uploadUrl(p)} alt={`doc-${i+1}`} className="h-20 w-20 rounded-lg border border-slate-600 object-cover" />
                   <button onClick={() => handleDeleteDocPhoto(i)} disabled={deletingDocPhoto === i}
                     className="absolute -top-1 -right-1 bg-red-600 rounded-full p-0.5 text-white disabled:opacity-50">
                     {deletingDocPhoto === i ? <Loader2 className="h-3 w-3 animate-spin" /> : <XCircle className="h-3 w-3" />}
@@ -1330,8 +1331,8 @@ function FinanceConfirmationSection({ job, jobId, onSuccess }: { job: any; jobId
               <p className="text-xs text-gray-500 mb-1">รูปรับ Spare Parts คืน</p>
               <div className="flex flex-wrap gap-2">
                 {sparePhotos.map((p, i) => (
-                  <a key={i} href={`${baseUrl}${p}`} target="_blank" rel="noopener noreferrer">
-                    <img src={`${baseUrl}${p}`} alt={`spare-${i+1}`} className="h-16 w-16 rounded-lg border border-slate-600 object-cover hover:border-blue-500 transition cursor-pointer" />
+                  <a key={i} href={uploadUrl(p)} target="_blank" rel="noopener noreferrer">
+                    <img src={uploadUrl(p)} alt={`spare-${i+1}`} className="h-16 w-16 rounded-lg border border-slate-600 object-cover hover:border-blue-500 transition cursor-pointer" />
                   </a>
                 ))}
               </div>
@@ -1342,8 +1343,8 @@ function FinanceConfirmationSection({ job, jobId, onSuccess }: { job: any; jobId
               <p className="text-xs text-gray-500 mb-1">เอกสารใบงาน</p>
               <div className="flex flex-wrap gap-2">
                 {financeDocPhotos.map((p, i) => (
-                  <a key={i} href={`${baseUrl}${p}`} target="_blank" rel="noopener noreferrer">
-                    <img src={`${baseUrl}${p}`} alt={`doc-${i+1}`} className="h-16 w-16 rounded-lg border border-slate-600 object-cover hover:border-blue-500 transition cursor-pointer" />
+                  <a key={i} href={uploadUrl(p)} target="_blank" rel="noopener noreferrer">
+                    <img src={uploadUrl(p)} alt={`doc-${i+1}`} className="h-16 w-16 rounded-lg border border-slate-600 object-cover hover:border-blue-500 transition cursor-pointer" />
                   </a>
                 ))}
               </div>
