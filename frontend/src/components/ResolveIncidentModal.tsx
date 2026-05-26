@@ -92,6 +92,7 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
   const [speechSupported, setSpeechSupported] = useState(false);
   const recognitionRef = useRef<any>(null);
 
+  const contentRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const [cameraFacing, setCameraFacing] = useState<'environment' | 'user'>('environment');
@@ -327,6 +328,7 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
     const validationError = validateForm();
     if (validationError) {
       setError(validationError);
+      contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
@@ -441,7 +443,7 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
     <>
     {createPortal(
     <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center sm:p-4 bg-black/60">
-      <div className="glass-card border border-slate-700/50 rounded-t-2xl sm:rounded-xl w-full max-w-4xl flex flex-col overflow-hidden h-[92dvh] sm:h-auto sm:max-h-[90vh]">
+      <div className="glass-card border border-slate-700/50 rounded-t-2xl sm:rounded-xl w-full max-w-4xl flex flex-col overflow-hidden h-[92dvh] sm:h-[90vh]">
         {/* Header */}
         <div className="shrink-0 flex items-center justify-between px-4 py-3 sm:p-6 border-b border-slate-700/50 bg-slate-800/30">
           <h2 className="text-lg sm:text-2xl font-bold text-white">Resolve Incident</h2>
@@ -455,7 +457,7 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
         </div>
 
         {/* Content - Scrollable */}
-        <div className="flex-1 overflow-y-auto min-h-0 px-4 py-4 sm:p-6 space-y-5 sm:space-y-6">
+        <div ref={contentRef} className="flex-1 overflow-y-auto min-h-0 px-4 py-4 sm:p-6 space-y-5 sm:space-y-6">
           {/* Error Message */}
           {error && (
             <div className="p-4 bg-red-900/30 border border-red-700/50 rounded-lg">
