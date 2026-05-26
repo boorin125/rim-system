@@ -338,6 +338,9 @@ const RELEASE_NOTES: {
       { type: 'improved', text: 'Performance Equipment Duplicate Problems: เพิ่ม Brand/Model/S/N ใน list, Store ใน modal, subtitle แสดง Brand/Model/S/N, นับเฉพาะ Resolved' },
       { type: 'improved', text: 'Performance Equipment Duplicate Problems: แสดงเฉพาะ Active equipment เท่านั้น' },
       { type: 'fixed',    text: 'SLA Monitor: หยุดส่ง notification ช่วง 22:00–06:00 (Bangkok time)' },
+      { type: 'improved', text: 'Incidents: Filter Category และ Province เป็น Live Search (พิมพ์ค้นหาได้)' },
+      { type: 'fixed',    text: 'Incidents: แก้ Export Excel ไม่มีข้อมูล (ปัญหา BOM + line endings)' },
+      { type: 'improved', text: 'Incidents: ชื่อไฟล์ Export ตาม Filter เช่น Incident_Closed_POS_Bangkok_26052026' },
     ],
   },
   {
