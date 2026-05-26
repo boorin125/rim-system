@@ -328,12 +328,15 @@ const RELEASE_NOTES: {
       { type: 'new',      text: 'Incidents: เพิ่ม Filter Province ใน Incident List' },
       { type: 'new',      text: 'Incidents: แทนที่ Advanced Filter ด้วยปุ่ม Export CSV / Excel' },
       { type: 'new',      text: 'Reports: เพิ่มคอลัมน์ Province ใน Incident List report' },
+      { type: 'new',      text: 'Settings: เพิ่ม Release Notes popup ใน Software card' },
       { type: 'improved', text: 'Performance Leaderboard: ย้ายคอลัมน์ คะแนน ก่อน ปริมาณงาน, default sort = คะแนน' },
       { type: 'improved', text: 'Performance Leaderboard: คอลัมน์ Avg. Resolution แสดง SLA 1–4 แยกตาม Priority' },
       { type: 'improved', text: 'Performance Detail: เปลี่ยน First Time Fix เป็น Response Rate (Resolved ÷ Responded × 100%)' },
       { type: 'improved', text: 'Performance Detail: เพิ่ม SLA 1–4 Resolution Time rows ใน Time & Volume Metrics' },
       { type: 'improved', text: 'Performance Detail: Reopen Rate score = 100 − Reopen Rate%, อัปเดต Tips' },
-      { type: 'improved', text: 'Performance: Equipment Duplicate Problems แสดงเฉพาะ Active equipment' },
+      { type: 'improved', text: 'Performance Top 10 Equipment Active: เพิ่มคอลัมน์ Store + นับเฉพาะ Resolved' },
+      { type: 'improved', text: 'Performance Equipment Duplicate Problems: เพิ่ม Brand/Model/S/N ใน list, Store ใน modal, subtitle แสดง Brand/Model/S/N, นับเฉพาะ Resolved' },
+      { type: 'improved', text: 'Performance Equipment Duplicate Problems: แสดงเฉพาะ Active equipment เท่านั้น' },
       { type: 'fixed',    text: 'SLA Monitor: หยุดส่ง notification ช่วง 22:00–06:00 (Bangkok time)' },
     ],
   },
@@ -619,7 +622,8 @@ export default function SettingsPage() {
   const [basePreset, setBasePreset] = useState<{ bgStart: string; bgEnd: string } | null>(null)
   const [themeBrightness, setThemeBrightness] = useState<number>(50)
 
-  // Release Notes expand state — latest version open by default
+  // Release Notes modal
+  const [showReleaseNotes, setShowReleaseNotes] = useState(false)
   const [expandedVersions, setExpandedVersions] = useState<Set<string>>(() => new Set([RELEASE_NOTES[0]?.version ?? '']))
 
   // Disk info state
@@ -4462,6 +4466,15 @@ export default function SettingsPage() {
                       </span>
                     </div>
                   )}
+                  <div className="pt-1">
+                    <button
+                      onClick={() => setShowReleaseNotes(true)}
+                      className="text-sm text-indigo-400 hover:text-indigo-300 hover:underline transition-colors flex items-center gap-1.5"
+                    >
+                      <History className="w-3.5 h-3.5" />
+                      Release Notes
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -4797,62 +4810,6 @@ export default function SettingsPage() {
               )}
             </div>
 
-            {/* Release Notes */}
-            <div className="p-6 bg-slate-700/30 rounded-xl">
-              <div className="flex items-center space-x-3 mb-4">
-                <History className="w-5 h-5 text-indigo-400" />
-                <h3 className="text-lg font-semibold text-white">Release Notes</h3>
-                <span className="text-xs text-gray-500">{RELEASE_NOTES.length} versions</span>
-              </div>
-              <div className="space-y-2">
-                {RELEASE_NOTES.map((release, idx) => {
-                  const isExpanded = expandedVersions.has(release.version)
-                  const isLatest = idx === 0
-                  return (
-                    <div key={release.version} className={`rounded-lg border overflow-hidden ${isLatest ? 'border-indigo-500/40' : 'border-slate-700'}`}>
-                      {/* Header */}
-                      <button
-                        onClick={() => setExpandedVersions(prev => {
-                          const next = new Set(prev)
-                          if (next.has(release.version)) next.delete(release.version)
-                          else next.add(release.version)
-                          return next
-                        })}
-                        className={`w-full flex items-center justify-between px-4 py-3 text-left transition-colors ${isLatest ? 'bg-indigo-500/10 hover:bg-indigo-500/20' : 'bg-slate-800/40 hover:bg-slate-800/70'}`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="font-mono font-semibold text-white">v{release.version}</span>
-                          {isLatest && (
-                            <span className="text-[10px] px-1.5 py-0.5 bg-indigo-500/30 border border-indigo-500/50 rounded text-indigo-300 font-medium">LATEST</span>
-                          )}
-                          <span className="text-xs text-gray-400">{release.date}</span>
-                          <span className="text-xs text-gray-500">{release.changes.length} changes</span>
-                        </div>
-                        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
-                      </button>
-                      {/* Change list */}
-                      {isExpanded && (
-                        <div className="px-4 py-3 bg-slate-900/30 space-y-1.5">
-                          {release.changes.map((c, ci) => (
-                            <div key={ci} className="flex items-start gap-2.5 text-sm">
-                              <span className={`mt-0.5 shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide ${
-                                c.type === 'new'      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
-                                c.type === 'improved' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
-                                                        'bg-orange-500/20 text-orange-300 border border-orange-500/30'
-                              }`}>
-                                {c.type === 'new' ? 'New' : c.type === 'improved' ? 'Update' : 'Fix'}
-                              </span>
-                              <span className="text-gray-300 leading-relaxed">{c.text}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-
             {/* Copyright */}
             <div className="pt-6 border-t border-slate-700 flex items-center justify-between">
               <div>
@@ -4884,6 +4841,80 @@ export default function SettingsPage() {
                   </button>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Release Notes Modal ── */}
+        {showReleaseNotes && (
+          <div
+            className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+            onClick={() => setShowReleaseNotes(false)}
+          >
+            <div
+              className="bg-slate-800 rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl border border-slate-700"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
+                <div className="flex items-center gap-3">
+                  <History className="w-5 h-5 text-indigo-400" />
+                  <h2 className="text-lg font-semibold text-white">Release Notes</h2>
+                  <span className="text-xs text-gray-500">{RELEASE_NOTES.length} versions</span>
+                </div>
+                <button
+                  onClick={() => setShowReleaseNotes(false)}
+                  className="p-1.5 text-gray-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              {/* Modal body */}
+              <div className="overflow-y-auto p-4 space-y-2">
+                {RELEASE_NOTES.map((release, idx) => {
+                  const isExpanded = expandedVersions.has(release.version)
+                  const isLatest = idx === 0
+                  return (
+                    <div key={release.version} className={`rounded-lg border overflow-hidden ${isLatest ? 'border-indigo-500/40' : 'border-slate-700'}`}>
+                      <button
+                        onClick={() => setExpandedVersions(prev => {
+                          const next = new Set(prev)
+                          if (next.has(release.version)) next.delete(release.version)
+                          else next.add(release.version)
+                          return next
+                        })}
+                        className={`w-full flex items-center justify-between px-4 py-3 text-left transition-colors ${isLatest ? 'bg-indigo-500/10 hover:bg-indigo-500/20' : 'bg-slate-900/40 hover:bg-slate-900/70'}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="font-mono font-semibold text-white">v{release.version}</span>
+                          {isLatest && (
+                            <span className="text-[10px] px-1.5 py-0.5 bg-indigo-500/30 border border-indigo-500/50 rounded text-indigo-300 font-medium">LATEST</span>
+                          )}
+                          <span className="text-xs text-gray-400">{release.date}</span>
+                          <span className="text-xs text-gray-500">{release.changes.length} changes</span>
+                        </div>
+                        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                      </button>
+                      {isExpanded && (
+                        <div className="px-4 py-3 bg-slate-900/30 space-y-1.5">
+                          {release.changes.map((c, ci) => (
+                            <div key={ci} className="flex items-start gap-2.5 text-sm">
+                              <span className={`mt-0.5 shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide ${
+                                c.type === 'new'      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+                                c.type === 'improved' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
+                                                        'bg-orange-500/20 text-orange-300 border border-orange-500/30'
+                              }`}>
+                                {c.type === 'new' ? 'New' : c.type === 'improved' ? 'Update' : 'Fix'}
+                              </span>
+                              <span className="text-gray-300 leading-relaxed">{c.text}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           </div>
         )}
