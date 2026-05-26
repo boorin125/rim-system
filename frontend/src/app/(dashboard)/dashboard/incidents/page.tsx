@@ -15,11 +15,100 @@ import {
   Briefcase,
   ShieldCheck,
   Download,
+  X,
+  ChevronDown,
 } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import { isViewOnly, canPerformAction, getUserRoles, isPureTechnician } from '@/config/permissions'
 import { formatDateTime } from '@/utils/dateUtils'
+
+interface SearchableSelectProps {
+  value: string
+  onChange: (v: string) => void
+  options: string[]
+  placeholder: string
+}
+
+function SearchableSelect({ value, onChange, options, placeholder }: SearchableSelectProps) {
+  const [search, setSearch] = useState('')
+  const [isOpen, setIsOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false)
+        setSearch('')
+      }
+    }
+    if (isOpen) document.addEventListener('mousedown', handleOutside)
+    return () => document.removeEventListener('mousedown', handleOutside)
+  }, [isOpen])
+
+  const filtered = options.filter(o => o.toLowerCase().includes(search.toLowerCase()))
+  const selected = value !== 'ALL' ? value : null
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={() => { setIsOpen(o => !o); setSearch('') }}
+        className="w-full flex items-center justify-between px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-left"
+      >
+        <span className={selected ? 'text-white' : 'text-gray-400 text-sm'}>{selected || placeholder}</span>
+        <div className="flex items-center gap-1 shrink-0 ml-2">
+          {selected && (
+            <span
+              role="button"
+              onClick={(e) => { e.stopPropagation(); onChange('ALL'); setIsOpen(false) }}
+              className="p-0.5 hover:bg-slate-600 rounded"
+            >
+              <X className="w-3 h-3 text-gray-400" />
+            </span>
+          )}
+          <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        </div>
+      </button>
+      {isOpen && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl z-50 overflow-hidden">
+          <div className="p-2 border-b border-slate-700">
+            <input
+              autoFocus
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search..."
+              className="w-full px-3 py-1.5 bg-slate-700 border border-slate-600 rounded text-white placeholder-gray-400 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+          <div className="max-h-52 overflow-y-auto">
+            <button
+              type="button"
+              onClick={() => { onChange('ALL'); setIsOpen(false); setSearch('') }}
+              className={`w-full text-left px-4 py-2 text-sm hover:bg-slate-700 transition-colors ${value === 'ALL' ? 'text-blue-400 font-medium' : 'text-gray-300'}`}
+            >
+              {placeholder}
+            </button>
+            {filtered.map(opt => (
+              <button
+                type="button"
+                key={opt}
+                onClick={() => { onChange(opt); setIsOpen(false); setSearch('') }}
+                className={`w-full text-left px-4 py-2 text-sm hover:bg-slate-700 transition-colors ${value === opt ? 'text-blue-400 font-medium' : 'text-gray-300'}`}
+              >
+                {opt}
+              </button>
+            ))}
+            {filtered.length === 0 && (
+              <div className="px-4 py-2 text-sm text-gray-500">No results</div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function IncidentsPage() {
   const router = useRouter()
@@ -318,6 +407,16 @@ export default function IncidentsPage() {
 
       const headers = Object.keys(exportData[0])
 
+      // Build filename: Incident_[Status_][Category_][Province_]ddmmyyyy
+      const statusLabels: Record<string, string> = { PENDING: 'Pending', CLOSED: 'Closed', CANCELLED: 'Cancelled' }
+      const parts = ['Incident']
+      if (filterStatus !== 'ALL') parts.push(statusLabels[filterStatus] || filterStatus)
+      if (filterCategory !== 'ALL') parts.push(filterCategory.replace(/[\s/\\]/g, ''))
+      if (filterProvince !== 'ALL') parts.push(filterProvince.replace(/[\s/\\]/g, '_'))
+      const d = new Date()
+      parts.push(`${String(d.getDate()).padStart(2, '0')}${String(d.getMonth() + 1).padStart(2, '0')}${d.getFullYear()}`)
+      const filename = parts.join('_')
+
       if (format === 'csv') {
         const csvContent = [
           headers.map(h => `"${h}"`).join(','),
@@ -328,30 +427,30 @@ export default function IncidentsPage() {
               return `"${stringValue.replace(/"/g, '""')}"`
             }).join(',')
           )
-        ].join('\n')
+        ].join('\r\n')
 
         const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
         const link = document.createElement('a')
         link.href = URL.createObjectURL(blob)
-        link.download = `incidents_${new Date().toISOString().split('T')[0]}.csv`
+        link.download = `${filename}.csv`
         link.click()
         toast.success('CSV file downloaded')
       } else {
-        const csvContent = [
+        const xlsContent = [
           headers.join('\t'),
           ...exportData.map((row: any) =>
             headers.map(header => {
               const value = row[header as keyof typeof row]
               const stringValue = value != null ? String(value) : ''
-              return stringValue.replace(/\t/g, ' ').replace(/\n/g, ' ')
+              return stringValue.replace(/\t/g, ' ').replace(/[\r\n]+/g, ' ')
             }).join('\t')
           )
-        ].join('\n')
+        ].join('\r\n')
 
-        const blob = new Blob(['\uFEFF' + csvContent], { type: 'application/vnd.ms-excel;charset=utf-8;' })
+        const blob = new Blob([xlsContent], { type: 'application/vnd.ms-excel;charset=utf-8;' })
         const link = document.createElement('a')
         link.href = URL.createObjectURL(blob)
-        link.download = `incidents_${new Date().toISOString().split('T')[0]}.xls`
+        link.download = `${filename}.xls`
         link.click()
         toast.success('Excel file downloaded')
       }
@@ -514,27 +613,19 @@ export default function IncidentsPage() {
               <option value="CANCELLED">Cancelled</option>
             </select>
 
-            <select
+            <SearchableSelect
               value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-              className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 [&>option]:bg-slate-800 [&>option]:text-white"
-            >
-              <option value="ALL">All Category</option>
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
+              onChange={setFilterCategory}
+              options={categories}
+              placeholder="All Category"
+            />
 
-            <select
+            <SearchableSelect
               value={filterProvince}
-              onChange={(e) => setFilterProvince(e.target.value)}
-              className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 [&>option]:bg-slate-800 [&>option]:text-white"
-            >
-              <option value="ALL">All Province</option>
-              {provinces.map((p) => (
-                <option key={p} value={p}>{p}</option>
-              ))}
-            </select>
+              onChange={setFilterProvince}
+              options={provinces}
+              placeholder="All Province"
+            />
           </div>
         </div>
 
