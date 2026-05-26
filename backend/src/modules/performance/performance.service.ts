@@ -1197,7 +1197,7 @@ export class PerformanceService {
         createdAt: { gte: startDate, lte: endDate },
         equipmentId: { not: null },
         equipment: { status: 'ACTIVE' },
-        status: { not: 'CANCELLED' },
+        resolvedAt: { not: null },
         ...(jobTypes?.length ? { jobType: { in: jobTypes } } : {}),
       },
       select: {
@@ -1248,7 +1248,7 @@ export class PerformanceService {
       select: { id: true, name: true, category: true, brand: true, model: true, serialNumber: true },
     });
     const incidents = await this.prisma.incident.findMany({
-      where: { equipmentId },
+      where: { equipmentId, resolvedAt: { not: null } },
       orderBy: { createdAt: 'desc' },
       select: {
         ticketNumber: true, title: true, resolutionNote: true,
