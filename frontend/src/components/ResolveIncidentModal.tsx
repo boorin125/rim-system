@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Upload, Trash2, Camera, Mic, MicOff, FileText, CheckCircle, FlipHorizontal2, Crop } from 'lucide-react';
-import SparePartForm from './SparePartForm';
+import { X, Upload, Trash2, Camera, Mic, MicOff, FileText, CheckCircle, FlipHorizontal2, Crop, ArrowRightLeft, Cpu, Plus } from 'lucide-react';
+import SparePartEntryModal from './SparePartEntryModal';
 import { compressImages } from '@/utils/imageUtils';
 import CropModal from './CropModal';
 
@@ -76,6 +76,7 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [usedSpareParts, setUsedSpareParts] = useState(false);
   const [spareParts, setSpareParts] = useState<SparePart[]>([]);
+  const [sparePartEntryOpen, setSparePartEntryOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -640,12 +641,52 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
             </label>
 
             {usedSpareParts && (
-              <SparePartForm
-                spareParts={spareParts}
-                onChange={setSpareParts}
-                storeId={storeId}
-                incidentEquipmentIds={incidentEquipmentIds}
-              />
+              <div className="space-y-3">
+                {/* Added parts list */}
+                {spareParts.length > 0 && (
+                  <div className="space-y-2">
+                    {spareParts.map((p, i) => (
+                      <div key={p.id} className="flex items-center gap-3 px-3 py-2.5 bg-slate-800/40 border border-slate-700/50 rounded-lg">
+                        <div className={`p-1.5 rounded-lg shrink-0 ${p.repairType === 'EQUIPMENT_REPLACEMENT' ? 'bg-blue-900/40' : 'bg-purple-900/40'}`}>
+                          {p.repairType === 'EQUIPMENT_REPLACEMENT'
+                            ? <ArrowRightLeft className="w-3.5 h-3.5 text-blue-400" />
+                            : <Cpu className="w-3.5 h-3.5 text-purple-400" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-white font-medium">
+                            #{i + 1} {p.repairType === 'EQUIPMENT_REPLACEMENT' ? 'เปลี่ยนอุปกรณ์' : 'เปลี่ยนชิ้นส่วน'}
+                          </p>
+                          <p className="text-xs text-gray-400 truncate">
+                            {p.repairType === 'EQUIPMENT_REPLACEMENT'
+                              ? `${p.oldDeviceName || '—'} → ${[p.newBrand, p.newModel].filter(Boolean).join(' ') || p.newDeviceName || '—'}`
+                              : `${p.componentName || '—'} (${p.parentEquipmentName || 'Parent: ?'})`}
+                          </p>
+                        </div>
+                        <button type="button" onClick={() => setSpareParts(prev => prev.filter(x => x.id !== p.id))}
+                          className="p-1.5 text-red-400 hover:bg-red-900/20 rounded-lg transition-colors shrink-0">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add Part button */}
+                <button type="button" onClick={() => setSparePartEntryOpen(true)}
+                  className="w-full flex items-center justify-center gap-2 py-3 text-sm bg-blue-600/20 border border-blue-500/50 text-blue-300 rounded-xl hover:bg-blue-600/30 transition-colors">
+                  <Plus className="w-4 h-4" />
+                  เพิ่ม Spare Part
+                </button>
+
+                {/* Entry modal */}
+                <SparePartEntryModal
+                  isOpen={sparePartEntryOpen}
+                  onClose={() => setSparePartEntryOpen(false)}
+                  onAdd={p => setSpareParts(prev => [...prev, p])}
+                  storeId={storeId}
+                  incidentEquipmentIds={incidentEquipmentIds}
+                />
+              </div>
             )}
           </div>
 

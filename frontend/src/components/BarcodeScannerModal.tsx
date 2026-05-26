@@ -108,7 +108,7 @@ export default function BarcodeScannerModal({ isOpen, onDetect, onClose, label }
 
   return createPortal(
     /* Full-screen overlay on mobile, centered card on desktop */
-    <div className="fixed inset-0 z-[10000] bg-black flex flex-col sm:items-center sm:justify-center sm:bg-black/80">
+    <div className="fixed inset-0 z-[10002] bg-black flex flex-col sm:items-center sm:justify-center sm:bg-black/80">
       <div className="relative flex flex-col w-full h-full sm:h-auto sm:max-w-lg sm:rounded-2xl sm:overflow-hidden sm:shadow-2xl bg-black">
 
         {/* Header */}
