@@ -1197,27 +1197,6 @@ export default function SparePartForm({
         </div>
       )}
 
-      {/* Scanning Indicator */}
-      {scanningFor && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-          <div className="glass-card border border-slate-700/50 rounded-lg p-6 max-w-sm text-center">
-            <Camera className="w-16 h-16 text-blue-400 mx-auto mb-4 animate-pulse" />
-            <h3 className="text-lg font-semibold text-white mb-2">
-              Scanning Barcode...
-            </h3>
-            <p className="text-sm text-gray-300 mb-4">
-              Point your camera at the barcode
-            </p>
-            <button
-              onClick={() => setScanningFor(null)}
-              className="px-4 py-2 bg-slate-700 text-gray-200 rounded-lg hover:bg-slate-600 transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Info */}
       <div className="flex items-start gap-2 p-3 bg-blue-900/20 border border-blue-700/50 rounded-lg text-sm text-blue-200">
         <Package className="w-4 h-4 flex-shrink-0 mt-0.5" />

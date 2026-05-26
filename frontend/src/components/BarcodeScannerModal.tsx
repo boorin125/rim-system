@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { X, Camera, Keyboard, Zap } from 'lucide-react'
 
 interface Props {
@@ -103,11 +104,11 @@ export default function BarcodeScannerModal({ isOpen, onDetect, onClose, label }
     }
   }
 
-  if (!isOpen) return null
+  if (!isOpen || typeof document === 'undefined') return null
 
-  return (
+  return createPortal(
     /* Full-screen overlay on mobile, centered card on desktop */
-    <div className="fixed inset-0 z-[70] bg-black flex flex-col sm:items-center sm:justify-center sm:bg-black/80">
+    <div className="fixed inset-0 z-[10000] bg-black flex flex-col sm:items-center sm:justify-center sm:bg-black/80">
       <div className="relative flex flex-col w-full h-full sm:h-auto sm:max-w-lg sm:rounded-2xl sm:overflow-hidden sm:shadow-2xl bg-black">
 
         {/* Header */}
@@ -234,6 +235,7 @@ export default function BarcodeScannerModal({ isOpen, onDetect, onClose, label }
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
