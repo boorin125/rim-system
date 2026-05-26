@@ -2730,7 +2730,7 @@ export class IncidentsService {
     }
 
     // Update incident and create spare parts in transaction
-    return this.prisma.$transaction(async (prisma) => {
+    const result = await this.prisma.$transaction(async (prisma) => {
       // Update incident
       const updated = await prisma.incident.update({
         where: { id },
@@ -2858,7 +2858,13 @@ export class IncidentsService {
         },
       });
 
-      // Send notification to incident creator (skip if creator is Help Desk — they get notified at techConfirmResolve)
+      // Help Desk notification is now sent when technician confirms resolve (techConfirmResolve)
+
+      return result;
+    });
+
+    // Send notification outside transaction — must not fail the resolve response
+    try {
       if (result && result.createdById !== userId) {
         const creatorIsHelpDesk = result.createdBy?.roles?.some(
           (r: any) => r.role === UserRole.HELP_DESK,
@@ -2872,11 +2878,11 @@ export class IncidentsService {
           );
         }
       }
+    } catch (e) {
+      console.error(`resolveIncident notification failed for ${id}: ${e}`);
+    }
 
-      // Help Desk notification is now sent when technician confirms resolve (techConfirmResolve)
-
-      return result;
-    });
+    return result;
   }
 
   /**
