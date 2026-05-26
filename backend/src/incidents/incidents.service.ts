@@ -964,6 +964,10 @@ export class IncidentsService {
       where.category = cats.length === 1 ? cats[0] : { in: cats };
     }
 
+    if (filterDto.province) {
+      where.store = { province: filterDto.province };
+    }
+
     if (filterDto.jobType) {
       where.jobType = filterDto.jobType;
     }

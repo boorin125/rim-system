@@ -47,6 +47,8 @@ export default function IncidentsPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [slaConfigs, setSlaConfigs] = useState<any[]>([])
   const [categories, setCategories] = useState<string[]>([])
+  const [filterProvince, setFilterProvince] = useState('ALL')
+  const [provinces, setProvinces] = useState<string[]>([])
   const isSuperAdmin = useRef(false)
   const isPureTech = useRef(false)
   const currentUserId = useRef<number | null>(null)
@@ -78,7 +80,7 @@ export default function IncidentsPage() {
   // Reset page when filters change (not search — handled by debounce above)
   useEffect(() => {
     setCurrentPage(1)
-  }, [filterStatus, filterCategory, sortField, sortOrder, advancedFilters])
+  }, [filterStatus, filterCategory, filterProvince, sortField, sortOrder, advancedFilters])
 
   // Mount: restore cache + kick off all fetches in parallel
   useEffect(() => {
@@ -107,6 +109,7 @@ export default function IncidentsPage() {
     if (!isSuperAdmin.current) fetchIncidents()
     fetchSlaConfigs()
     fetchCategories()
+    fetchProvinces()
   }, [])
 
   // Auto-poll every 30s (silent — no spinner) for real-time monitor display
@@ -123,7 +126,7 @@ export default function IncidentsPage() {
     if (isFirstRender.current) { isFirstRender.current = false; return }
     if (isSuperAdmin.current) { setIsLoading(false); return }
     fetchIncidents()
-  }, [currentPage, debouncedSearch, filterStatus, filterCategory, sortField, sortOrder, advancedFilters])
+  }, [currentPage, debouncedSearch, filterStatus, filterCategory, filterProvince, sortField, sortOrder, advancedFilters])
 
   const buildParams = (overrides?: Record<string, any>) => {
     const params: Record<string, any> = {
@@ -149,6 +152,7 @@ export default function IncidentsPage() {
     }
 
     if (filterCategory !== 'ALL') params.category = filterCategory
+    if (filterProvince !== 'ALL') params.province = filterProvince
 
     // Advanced filters
     if (advancedFilters.status.length > 0) params.status = advancedFilters.status.join(',')
@@ -236,6 +240,21 @@ export default function IncidentsPage() {
     } catch {
       setCategories(['POS', 'Network', 'Hardware', 'Software', 'Printer', 'Monitor', 'Other'])
     }
+  }
+
+  const fetchProvinces = async () => {
+    try {
+      const cached = sessionStorage.getItem('provinces_cache')
+      if (cached) setProvinces(JSON.parse(cached))
+      const token = localStorage.getItem('token')
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/stores/provinces`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (Array.isArray(res.data)) {
+        setProvinces(res.data)
+        try { sessionStorage.setItem('provinces_cache', JSON.stringify(res.data)) } catch {}
+      }
+    } catch {}
   }
 
   const getPriorityDisplayName = (priority: string): string => {
@@ -490,7 +509,7 @@ export default function IncidentsPage() {
           </div>
 
           {/* Bottom Row - Quick Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
@@ -510,6 +529,17 @@ export default function IncidentsPage() {
               <option value="ALL">All Category</option>
               {categories.map((cat) => (
                 <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+
+            <select
+              value={filterProvince}
+              onChange={(e) => setFilterProvince(e.target.value)}
+              className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 [&>option]:bg-slate-800 [&>option]:text-white"
+            >
+              <option value="ALL">All Province</option>
+              {provinces.map((p) => (
+                <option key={p} value={p}>{p}</option>
               ))}
             </select>
           </div>
