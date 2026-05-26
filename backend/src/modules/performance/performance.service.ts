@@ -125,7 +125,8 @@ export class PerformanceService {
       performanceScore = await this.calculatePerformance(technicianId, targetPeriod);
     }
 
-    return this.formatPerformanceResponse(performanceScore);
+    const slaBreakdown = await this.getSlaBreakdown(technicianId, targetPeriod);
+    return this.formatPerformanceResponse(performanceScore, slaBreakdown);
   }
 
   /**
@@ -229,7 +230,7 @@ export class PerformanceService {
     const reopenRate = respondedIncidents.length > 0
       ? (reopenedIncidents.length / respondedIncidents.length) * 100
       : 0;
-    const reopenScore = this.calculatePercentageScore(reopenRate, TARGETS.reopenRate, true);
+    const reopenScore = Math.max(0, 100 - reopenRate);
 
     // 7. Customer Satisfaction (using cumulative running average from User)
     const avgCustomerRating = technician.cumulativeRating ?? 5.0;
@@ -1672,9 +1673,53 @@ export class PerformanceService {
   }
 
   /**
+   * SLA breakdown per priority (CRITICAL/HIGH/MEDIUM/LOW) — computed on-the-fly
+   */
+  private async getSlaBreakdown(technicianId: number, period: string) {
+    const [year, month] = period.split('-').map(Number);
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59);
+
+    const [incidents, slaConfigs] = await Promise.all([
+      this.prisma.incident.findMany({
+        where: {
+          assigneeId: technicianId,
+          createdAt: { gte: startDate, lte: endDate },
+          resolvedAt: { not: null },
+          checkInAt: { not: null },
+        },
+        select: { priority: true, resolvedAt: true, checkInAt: true },
+      }),
+      this.prisma.slaConfig.findMany({
+        where: { isActive: true },
+        select: { priority: true, resolutionTimeMinutes: true, name: true },
+      }),
+    ]);
+
+    const configMap = new Map(slaConfigs.map(c => [c.priority, c]));
+    const priorities = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const;
+    const result: Record<string, { avg: number | null; targetHours: number | null; count: number; label: string }> = {};
+
+    for (const p of priorities) {
+      const group = incidents.filter(i => i.priority === p);
+      const config = configMap.get(p);
+      const avg = group.length > 0
+        ? group.reduce((sum, i) => sum + (i.resolvedAt!.getTime() - i.checkInAt!.getTime()) / (1000 * 60 * 60), 0) / group.length
+        : null;
+      result[p] = {
+        avg: avg !== null ? Math.round(avg * 100) / 100 : null,
+        targetHours: config ? config.resolutionTimeMinutes / 60 : null,
+        count: group.length,
+        label: config?.name || p,
+      };
+    }
+    return result;
+  }
+
+  /**
    * Format performance response
    */
-  private formatPerformanceResponse(score: any) {
+  private formatPerformanceResponse(score: any, slaBreakdown?: Record<string, any>) {
     if (!score) return null;
 
     return {
@@ -1740,6 +1785,7 @@ export class PerformanceService {
         topPerformerScore: Number(score.topPerformerScore),
       },
       calculatedAt: score.calculatedAt,
+      slaBreakdown: slaBreakdown ?? null,
     };
   }
 }

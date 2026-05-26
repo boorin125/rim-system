@@ -80,6 +80,13 @@ interface MetricData {
   unit?: string
 }
 
+interface SlaBreakdownEntry {
+  avg: number | null
+  targetHours: number | null
+  count: number
+  label: string
+}
+
 interface PerformanceData {
   technicianId: number
   technicianName: string | null
@@ -109,6 +116,7 @@ interface PerformanceData {
     topPerformerScore: number
   }
   calculatedAt: string
+  slaBreakdown: { CRITICAL: SlaBreakdownEntry; HIGH: SlaBreakdownEntry; MEDIUM: SlaBreakdownEntry; LOW: SlaBreakdownEntry } | null
 }
 
 interface LeaderboardEntry {
@@ -2399,9 +2407,9 @@ function MiniGaugeCard({ label, score, displayValue, weight, icon: Icon, target,
 
 // ── Metric row (bar chart style for time/volume metrics) ───
 
-function MetricRow({ icon: Icon, label, value, score, weight, target, color, barColor, tips }: {
+function MetricRow({ icon: Icon, label, value, score, weight, target, color, barColor, tips, subtitle }: {
   icon: React.ElementType; label: string; value: string; score: number; weight: number
-  target?: string; color: string; barColor: (s: number) => string; tips?: string[]
+  target?: string; color: string; barColor: (s: number) => string; tips?: string[]; subtitle?: string
 }) {
   const [showTips, setShowTips] = useState(false)
   const iconCls: Record<string, string> = {
@@ -2416,10 +2424,13 @@ function MetricRow({ icon: Icon, label, value, score, weight, target, color, bar
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-sm font-medium text-white">{label}</span>
+            <div>
+              <span className="text-sm font-medium text-white">{label}</span>
+              {subtitle && <span className="text-xs text-gray-500 ml-2">{subtitle}</span>}
+            </div>
             <div className="flex items-center gap-2 text-xs">
               {target && <span className="text-gray-500">Target: {target}</span>}
-              <span className="text-gray-600">W: {weight}%</span>
+              {weight > 0 && <span className="text-gray-600">W: {weight}%</span>}
               <span className={`font-semibold ${sc(score)}`}>{score.toFixed(0)}</span>
               {tips && tips.length > 0 && (
                 <button
@@ -2585,16 +2596,16 @@ function PerformanceDetail({ data, fmtTime, fmtPct, barColor }: {
             'ถามลูกค้าว่าพอใจก่อนออกจากพื้นที่',
             'ทำความสะอาดและเก็บอุปกรณ์ให้เรียบร้อยหลังงาน',
           ]} />
-        <MiniGaugeCard label="First Time Fix"
-          score={hasIncidents ? data.metrics.firstTimeFix.score : 0}
-          displayValue={hasIncidents ? fmtPct(data.metrics.firstTimeFix.value) : 'N/A'}
-          weight={data.metrics.firstTimeFix.weight}
-          icon={ThumbsUp} target={`${data.metrics.firstTimeFix.target}%`}
+        <MiniGaugeCard label="Response Rate"
+          score={hasIncidents ? data.metrics.responseTime.score : 0}
+          displayValue={hasIncidents && data.metrics.responseTime.value > 0 ? fmtPct(data.metrics.responseTime.value) : 'N/A'}
+          weight={data.metrics.responseTime.weight}
+          icon={Zap} target={`≥${data.metrics.responseTime.standard}%`}
           tips={[
-            'อ่าน History งานและ Root Cause ก่อนลงพื้นที่',
-            'เตรียมอะไหล่และเครื่องมือให้ครบก่อนออกเดินทาง',
-            'วินิจฉัยปัญหาให้ครบถ้วนก่อนเริ่มซ่อม',
-            'ทดสอบระบบอย่างละเอียดก่อนปิดงานทุกครั้ง',
+            'Response Rate = Resolved ÷ Responded × 100%',
+            'ตอบรับและ Check-in ทุกงานที่ได้รับมอบหมาย',
+            'ติดตามงานค้างและดำเนินการให้ครบทุกใบ',
+            'หากงาน Resolve ไม่ได้ ให้รายงานและส่งต่อทันที',
           ]} />
         <MiniGaugeCard label="Reopen Rate"
           score={hasIncidents ? data.metrics.reopenRate.score : 0}
@@ -2602,9 +2613,9 @@ function PerformanceDetail({ data, fmtTime, fmtPct, barColor }: {
           weight={data.metrics.reopenRate.weight}
           icon={RotateCcw} target={`≤${data.metrics.reopenRate.target}%`}
           tips={[
-            'ทดสอบซ้ำหลายรอบและแก้ Root Cause จริงก่อนปิดงาน',
+            'คะแนน = 100 − Reopen Rate (%) ยิ่งน้อยยิ่งดี',
+            'แก้ Root Cause จริงและทดสอบซ้ำก่อนปิดงาน',
             'บันทึก Resolution Notes ให้ครบถ้วนชัดเจน',
-            'แนะนำการใช้งานที่ถูกต้องและวิธีป้องกันปัญหาซ้ำ',
             'Follow up ลูกค้า 1–2 วันหลังปิดงาน',
           ]} />
       </div>
@@ -2625,28 +2636,43 @@ function PerformanceDetail({ data, fmtTime, fmtPct, barColor }: {
               'บันทึกข้อมูลผ่าน App ทันทีเพื่อลดเวลา Admin',
               'ประสานงานกับลูกค้าล่วงหน้าเพื่อลดเวลารอหน้างาน',
             ]} />
-          <MetricRow icon={Timer} label="Resolution Time"
-            value={hasIncidents ? fmtTime(data.metrics.resolutionTime.value, data.metrics.resolutionTime.unit) : 'N/A'}
-            score={hasIncidents ? data.metrics.resolutionTime.score : 0} weight={data.metrics.resolutionTime.weight}
-            target={fmtTime(data.metrics.resolutionTime.standard, data.metrics.resolutionTime.unit)}
-            color="indigo" barColor={barColor}
-            tips={[
+          {(() => {
+            const sla = data.slaBreakdown
+            const slaTimeScore = (avg: number | null, target: number | null) => {
+              if (!avg || !target) return 0
+              if (avg <= target) return 100
+              if (avg >= target * 2) return 0
+              return Math.round(100 - ((avg - target) / target) * 100)
+            }
+            const slaTips = [
               'เตรียมอุปกรณ์ Diagnose และอะไหล่สำรองทั่วไปติดตัวตลอด',
               'ศึกษา Knowledge Base และคู่มือสินค้าล่วงหน้า',
               'ขอความช่วยเหลือจาก Senior Tech ทันทีเมื่อติดขัด',
               'หลีกเลี่ยงการเดินทางกลับมาขออะไหล่เพิ่ม',
-            ]} />
-          <MetricRow icon={Zap} label="Response Rate"
-            value={hasIncidents && data.metrics.responseTime.value > 0 ? fmtPct(data.metrics.responseTime.value) : 'N/A'}
-            score={hasIncidents ? data.metrics.responseTime.score : 0} weight={data.metrics.responseTime.weight}
-            target={`≥ ${data.metrics.responseTime.standard}%`}
-            color="purple" barColor={barColor}
-            tips={[
-              'Response Rate = งานที่ Resolve ÷ งานที่มีการ Response × 100%',
-              'ตอบรับและ Check-in ทุกงานที่ได้รับมอบหมาย',
-              'ติดตามงานที่ยังค้างอยู่และดำเนินการให้ครบทุกใบ',
-              'หากงานไม่สามารถ Resolve ได้ ให้รายงานและส่งต่อทันที',
-            ]} />
+            ]
+            const rows: { key: 'CRITICAL'|'HIGH'|'MEDIUM'|'LOW'; label: string; slaNum: number }[] = [
+              { key: 'CRITICAL', label: 'SLA 1 Critical', slaNum: 1 },
+              { key: 'HIGH',     label: 'SLA 2 High',     slaNum: 2 },
+              { key: 'MEDIUM',   label: 'SLA 3 Medium',   slaNum: 3 },
+              { key: 'LOW',      label: 'SLA 4 Low',      slaNum: 4 },
+            ]
+            return rows.map(({ key, label }) => {
+              const entry = sla?.[key]
+              const avg = entry?.avg ?? null
+              const target = entry?.targetHours ?? null
+              const count = entry?.count ?? 0
+              const score = slaTimeScore(avg, target)
+              return (
+                <MetricRow key={key} icon={Timer} label={label}
+                  value={avg !== null ? fmtTime(avg, 'hours') : 'N/A'}
+                  score={score} weight={0}
+                  target={target !== null ? fmtTime(target, 'hours') : '-'}
+                  color="indigo" barColor={barColor}
+                  tips={slaTips}
+                  subtitle={count > 0 ? `${count} งาน` : undefined} />
+              )
+            })
+          })()}
         </div>
       </div>
     </div>
