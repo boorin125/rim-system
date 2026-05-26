@@ -2420,7 +2420,7 @@ export class IncidentsService {
         `${techUser?.firstName} ${techUser?.lastName} checked in with ${beforePhotos.length} before photo(s)${gpsInfo}`,
       );
     } catch (e) {
-      this.logger.error(`checkin history failed for ${id}: ${e}`);
+      console.error(`checkin history failed for ${id}: ${e}`);
     }
 
     try {
@@ -2431,7 +2431,7 @@ export class IncidentsService {
         id,
       );
     } catch (e) {
-      this.logger.error(`checkin notification failed for ${id}: ${e}`);
+      console.error(`checkin notification failed for ${id}: ${e}`);
     }
 
     return updated;
