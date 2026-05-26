@@ -778,6 +778,7 @@ export default function UpdateResolveModal({
                   onAdd={p => setSpareParts(prev => [...prev, p])}
                   storeId={storeId}
                   incidentEquipmentIds={incidentEquipmentIds}
+                  usedEquipmentIds={spareParts.filter(p => p.repairType === 'EQUIPMENT_REPLACEMENT' && p.oldEquipmentId).map(p => p.oldEquipmentId!)}
                 />
               </div>
             )}

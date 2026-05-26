@@ -25,6 +25,7 @@ interface Props {
   onAdd: (part: SparePart) => void
   storeId?: number
   incidentEquipmentIds?: number[]
+  usedEquipmentIds?: number[]
 }
 
 function makeEmptyPart(): SparePart {
@@ -46,7 +47,7 @@ function makeEmptyPart(): SparePart {
   }
 }
 
-export default function SparePartEntryModal({ isOpen, onClose, onAdd, storeId, incidentEquipmentIds }: Props) {
+export default function SparePartEntryModal({ isOpen, onClose, onAdd, storeId, incidentEquipmentIds, usedEquipmentIds }: Props) {
   const [part, setPart] = useState<SparePart>(makeEmptyPart)
   const [scanningFor, setScanningFor] = useState<'oldSerialNo' | 'newSerialNo' | 'oldComponentSerial' | 'newComponentSerial' | null>(null)
   const [storeEquipment, setStoreEquipment] = useState<DeviceSuggestion[]>([])
@@ -100,18 +101,30 @@ export default function SparePartEntryModal({ isOpen, onClose, onAdd, storeId, i
     fetch()
   }, [storeId, isOpen])
 
+  // Equipment available for EQUIPMENT_REPLACEMENT (excludes already-used devices)
+  const availableEquipment = usedEquipmentIds?.length
+    ? filteredEquipment.filter(d => !usedEquipmentIds.includes(d.id))
+    : filteredEquipment
+
   // Auto-fill when only 1 device
   useEffect(() => {
-    if (filteredEquipment.length !== 1) return
-    const d = filteredEquipment[0]
-    const displayName = [d.position, d.brand, d.model].filter(Boolean).join(' ') || d.name
-    if (part.repairType === 'EQUIPMENT_REPLACEMENT' && !part.selectedDeviceId) {
-      setPart(p => ({ ...p, selectedDeviceId: d.id, oldDeviceName: displayName, oldSerialNo: d.serialNumber || '', oldEquipmentId: d.id, newDeviceName: p.newDeviceName || d.name }))
-    } else if (part.repairType === 'COMPONENT_REPLACEMENT' && !part.parentEquipmentId) {
-      setPart(p => ({ ...p, parentEquipmentName: displayName, parentEquipmentId: d.id }))
+    if (part.repairType === 'EQUIPMENT_REPLACEMENT') {
+      if (availableEquipment.length !== 1) return
+      const d = availableEquipment[0]
+      const displayName = [d.position, d.brand, d.model].filter(Boolean).join(' ') || d.name
+      if (!part.selectedDeviceId) {
+        setPart(p => ({ ...p, selectedDeviceId: d.id, oldDeviceName: displayName, oldSerialNo: d.serialNumber || '', oldEquipmentId: d.id, newDeviceName: p.newDeviceName || d.name }))
+      }
+    } else if (part.repairType === 'COMPONENT_REPLACEMENT') {
+      if (filteredEquipment.length !== 1) return
+      const d = filteredEquipment[0]
+      const displayName = [d.position, d.brand, d.model].filter(Boolean).join(' ') || d.name
+      if (!part.parentEquipmentId) {
+        setPart(p => ({ ...p, parentEquipmentName: displayName, parentEquipmentId: d.id }))
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredEquipment, part.repairType])
+  }, [filteredEquipment, availableEquipment, part.repairType])
 
   // Click outside to close dropdowns
   useEffect(() => {
@@ -173,7 +186,7 @@ export default function SparePartEntryModal({ isOpen, onClose, onAdd, storeId, i
   // Resolved old device (from DB)
   const resolvedOldDev = part.oldEquipmentId
     ? storeEquipment.find(d => d.id === part.oldEquipmentId)
-    : filteredEquipment.length === 1 ? filteredEquipment[0] : null
+    : availableEquipment.length === 1 ? availableEquipment[0] : null
 
   return createPortal(
     <div className="fixed inset-0 z-[10001] bg-black/70 flex items-end sm:items-center justify-center sm:p-4">
@@ -335,16 +348,18 @@ export default function SparePartEntryModal({ isOpen, onClose, onAdd, storeId, i
                   </h5>
                   {loadingEquipment ? (
                     <p className="text-xs text-yellow-300">กำลังโหลดข้อมูล...</p>
-                  ) : filteredEquipment.length === 0 ? (
-                    <p className="text-xs text-gray-400">ไม่พบ Equipment ในสาขานี้ — กรอกข้อมูลเองได้</p>
-                  ) : filteredEquipment.length === 1 ? (
+                  ) : availableEquipment.length === 0 ? (
+                    <p className="text-xs text-gray-400">
+                      {filteredEquipment.length > 0 ? 'อุปกรณ์ทั้งหมดถูกเพิ่มแล้ว' : 'ไม่พบ Equipment ในสาขานี้ — กรอกข้อมูลเองได้'}
+                    </p>
+                  ) : availableEquipment.length === 1 ? (
                     <div className="flex items-center gap-2 p-2 bg-yellow-900/30 border border-yellow-600/40 rounded-lg">
                       <Package className="w-4 h-4 text-yellow-400 shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-white truncate">
-                          {filteredEquipment[0].name}{filteredEquipment[0].brand || filteredEquipment[0].model ? ` — ${[filteredEquipment[0].brand, filteredEquipment[0].model].filter(Boolean).join(' ')}` : ''}
+                          {availableEquipment[0].name}{availableEquipment[0].brand || availableEquipment[0].model ? ` — ${[availableEquipment[0].brand, availableEquipment[0].model].filter(Boolean).join(' ')}` : ''}
                         </p>
-                        {filteredEquipment[0].serialNumber && <p className="text-xs text-yellow-300 font-mono">S/N: {filteredEquipment[0].serialNumber}</p>}
+                        {availableEquipment[0].serialNumber && <p className="text-xs text-yellow-300 font-mono">S/N: {availableEquipment[0].serialNumber}</p>}
                       </div>
                     </div>
                   ) : (
@@ -362,7 +377,7 @@ export default function SparePartEntryModal({ isOpen, onClose, onAdd, storeId, i
                     }}
                       className="w-full px-3 py-2.5 text-sm bg-slate-700/50 border border-slate-600/50 text-white rounded-lg focus:ring-2 focus:ring-yellow-500 [&>option]:bg-slate-800 [&>option]:text-white">
                       <option value="">-- เลือก Device --</option>
-                      {filteredEquipment.map(d => (
+                      {availableEquipment.map(d => (
                         <option key={d.id} value={d.id}>
                           {d.name}{d.brand || d.model ? ` — ${[d.brand, d.model].filter(Boolean).join(' ')}` : ''}{d.serialNumber ? ` (S/N: ${d.serialNumber})` : ''}
                         </option>
