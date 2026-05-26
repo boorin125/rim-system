@@ -676,7 +676,7 @@ export class PerformanceService {
             createdAt: { gte: startDate, lte: endDate },
             ...(jobTypes && jobTypes.length > 0 ? { jobType: { in: jobTypes } } : {}),
           },
-          select: { status: true, jobType: true, slaDeadline: true, resolvedAt: true, createdAt: true, slaDefenses: { select: { status: true } } },
+          select: { status: true, jobType: true, slaDeadline: true, resolvedAt: true, createdAt: true, checkInAt: true, priority: true, slaDefenses: { select: { status: true } } },
         });
 
         const totalJobs = incidents.length;
@@ -704,6 +704,19 @@ export class PerformanceService {
             ) / 100
           : null;
 
+        // Per-SLA avg resolution time (checkIn → resolved)
+        const priorities = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const;
+        const slaResolution: Record<string, number | null> = {};
+        for (const p of priorities) {
+          const group = completedWithTimes.filter(i => (i as any).priority === p && (i as any).checkInAt);
+          slaResolution[p] = group.length > 0
+            ? Math.round(
+                group.reduce((sum, i) => sum + (i.resolvedAt!.getTime() - ((i as any).checkInAt as Date).getTime()) / 3600000, 0)
+                / group.length * 100
+              ) / 100
+            : null;
+        }
+
         const resolvedCount = completed.length;
         return {
           technicianId: s.technicianId,
@@ -715,6 +728,7 @@ export class PerformanceService {
           workVolume: resolvedCount,
           slaPercent: resolvedCount === 0 ? 0 : slaPercent,
           avgResolutionTimeHours: resolvedCount === 0 ? null : avgResolutionTimeHours,
+          slaResolution: resolvedCount === 0 ? { CRITICAL: null, HIGH: null, MEDIUM: null, LOW: null } : slaResolution,
         };
       })
     );

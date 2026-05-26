@@ -130,6 +130,7 @@ interface LeaderboardEntry {
   workVolume: number
   slaPercent: number
   avgResolutionTimeHours: number | null
+  slaResolution?: { CRITICAL: number | null; HIGH: number | null; MEDIUM: number | null; LOW: number | null }
 }
 
 interface SlaByPriorityItem {
@@ -396,7 +397,7 @@ export default function PerformancePage() {
   const [yty, setYty] = useState<ComparisonData | null>(null)
 
   // Leaderboard sort + type filter
-  const [sortBy, setSortBy] = useState<'score' | 'workVolume' | 'sla'>('workVolume')
+  const [sortBy, setSortBy] = useState<'score' | 'workVolume' | 'sla'>('score')
   const [techTypeFilter, setTechTypeFilter] = useState<'all' | 'INSOURCE' | 'OUTSOURCE'>('all')
 
   // Top stores / equipment
@@ -1226,8 +1227,8 @@ export default function PerformancePage() {
             // Resolved-only ranking
             const withResolved = [...leaderboard.filter(e => e.workVolume > 0)]
               .sort((a, b) => {
-                if (b.workVolume !== a.workVolume) return b.workVolume - a.workVolume
                 if (b.score !== a.score) return b.score - a.score
+                if (b.workVolume !== a.workVolume) return b.workVolume - a.workVolume
                 if (b.slaPercent !== a.slaPercent) return b.slaPercent - a.slaPercent
                 return a.rank - b.rank
               })
@@ -1266,9 +1267,9 @@ export default function PerformancePage() {
                       onChange={(e) => setSortBy(e.target.value as any)}
                       className="px-3 py-1.5 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
+                      <option value="score">คะแนน</option>
                       <option value="workVolume">ปริมาณงาน</option>
                       <option value="sla">SLA Achieve %</option>
-                      <option value="score">คะแนน</option>
                     </select>
                   </div>
                   </div>
@@ -1306,6 +1307,11 @@ export default function PerformancePage() {
                           <th className="text-left py-4 px-4 text-sm font-medium text-gray-400 w-16">อันดับ</th>
                           <th className="text-left py-4 px-4 text-sm font-medium text-gray-400">ชื่อช่าง</th>
                           <th className="text-center py-4 px-4 text-sm font-medium text-gray-400">
+                            <button onClick={() => setSortBy('score')} className={`flex items-center gap-1 mx-auto hover:text-white transition-colors ${sortBy === 'score' ? 'text-blue-400' : ''}`}>
+                              คะแนน <ArrowUpDown className="w-3 h-3" />
+                            </button>
+                          </th>
+                          <th className="text-center py-4 px-4 text-sm font-medium text-gray-400">
                             <button onClick={() => setSortBy('workVolume')} className={`flex items-center gap-1 mx-auto hover:text-white transition-colors ${sortBy === 'workVolume' ? 'text-blue-400' : ''}`}>
                               ปริมาณงาน <ArrowUpDown className="w-3 h-3" />
                             </button>
@@ -1313,11 +1319,6 @@ export default function PerformancePage() {
                           <th className="text-center py-4 px-4 text-sm font-medium text-gray-400">
                             <button onClick={() => setSortBy('sla')} className={`flex items-center gap-1 mx-auto hover:text-white transition-colors ${sortBy === 'sla' ? 'text-blue-400' : ''}`}>
                               SLA Achieve % <ArrowUpDown className="w-3 h-3" />
-                            </button>
-                          </th>
-                          <th className="text-center py-4 px-4 text-sm font-medium text-gray-400">
-                            <button onClick={() => setSortBy('score')} className={`flex items-center gap-1 mx-auto hover:text-white transition-colors ${sortBy === 'score' ? 'text-blue-400' : ''}`}>
-                              คะแนน <ArrowUpDown className="w-3 h-3" />
                             </button>
                           </th>
                           <th className="text-center py-4 px-4 text-sm font-medium text-gray-400 whitespace-nowrap">Avg. Resolution</th>
@@ -1346,6 +1347,9 @@ export default function PerformancePage() {
                               {e.technicianType && <p className="text-xs text-gray-500">{e.technicianType}</p>}
                             </td>
                             <td className="py-4 px-4 text-center">
+                              <span className={`text-lg font-semibold ${isZero ? 'text-gray-600' : scoreColor(e.score)}`}>{e.score.toFixed(1)}</span>
+                            </td>
+                            <td className="py-4 px-4 text-center">
                               <span className="text-white font-semibold">{e.workVolume}</span>
                               <span className="text-gray-500 text-xs ml-1">งาน</span>
                             </td>
@@ -1359,10 +1363,21 @@ export default function PerformancePage() {
                               )}
                             </td>
                             <td className="py-4 px-4 text-center">
-                              <span className={`text-lg font-semibold ${isZero ? 'text-gray-600' : scoreColor(e.score)}`}>{e.score.toFixed(1)}</span>
-                            </td>
-                            <td className="py-4 px-4 text-center">
-                              {!isZero && e.avgResolutionTimeHours !== null && e.avgResolutionTimeHours !== undefined ? (
+                              {!isZero && e.slaResolution ? (
+                                <div className="text-xs space-y-0.5 min-w-[80px] mx-auto inline-block text-left">
+                                  {(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const).map((p, pi) => {
+                                    const v = e.slaResolution![p]
+                                    return (
+                                      <div key={p} className="flex items-center justify-between gap-2">
+                                        <span className="text-gray-500">SLA{pi + 1}</span>
+                                        <span className={v !== null ? 'text-blue-300' : 'text-gray-600'}>
+                                          {v !== null ? fmtHours(v) : '-'}
+                                        </span>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              ) : !isZero && e.avgResolutionTimeHours !== null && e.avgResolutionTimeHours !== undefined ? (
                                 <span className={`text-sm font-medium ${e.avgResolutionTimeHours <= 4 ? 'text-emerald-400' : e.avgResolutionTimeHours <= 8 ? 'text-yellow-400' : 'text-red-400'}`}>
                                   {fmtHours(e.avgResolutionTimeHours)}
                                 </span>
