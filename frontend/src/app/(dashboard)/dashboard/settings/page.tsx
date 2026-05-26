@@ -38,6 +38,7 @@ import {
   Tags,
   Briefcase,
   ChevronRight,
+  ChevronDown,
   TicketIcon,
   Palette,
   FileText,
@@ -314,6 +315,80 @@ const TABLE_LABELS: Record<string, string> = {
   knowledge_articles: 'บทความ',
 }
 
+// ── Release Notes ──────────────────────────────────────────────────────────
+const RELEASE_NOTES: {
+  version: string
+  date: string
+  changes: { type: 'new' | 'improved' | 'fixed'; text: string }[]
+}[] = [
+  {
+    version: '1.0.15',
+    date: '2026-05-26',
+    changes: [
+      { type: 'new',      text: 'Incidents: เพิ่ม Filter Province ใน Incident List' },
+      { type: 'new',      text: 'Incidents: แทนที่ Advanced Filter ด้วยปุ่ม Export CSV / Excel' },
+      { type: 'new',      text: 'Reports: เพิ่มคอลัมน์ Province ใน Incident List report' },
+      { type: 'improved', text: 'Performance Leaderboard: ย้ายคอลัมน์ คะแนน ก่อน ปริมาณงาน, default sort = คะแนน' },
+      { type: 'improved', text: 'Performance Leaderboard: คอลัมน์ Avg. Resolution แสดง SLA 1–4 แยกตาม Priority' },
+      { type: 'improved', text: 'Performance Detail: เปลี่ยน First Time Fix เป็น Response Rate (Resolved ÷ Responded × 100%)' },
+      { type: 'improved', text: 'Performance Detail: เพิ่ม SLA 1–4 Resolution Time rows ใน Time & Volume Metrics' },
+      { type: 'improved', text: 'Performance Detail: Reopen Rate score = 100 − Reopen Rate%, อัปเดต Tips' },
+      { type: 'improved', text: 'Performance: Equipment Duplicate Problems แสดงเฉพาะ Active equipment' },
+      { type: 'fixed',    text: 'SLA Monitor: หยุดส่ง notification ช่วง 22:00–06:00 (Bangkok time)' },
+    ],
+  },
+  {
+    version: '1.0.14',
+    date: '2026-05-26',
+    changes: [
+      { type: 'new',      text: 'Outsource: เพิ่ม Log ยืนยันรับ Spare Parts และตรวจสอบเอกสารใต้ Card รายการเอกสาร' },
+      { type: 'improved', text: 'Performance: Top 10 Equipment Active เพิ่มคอลัมน์ Store (StoreID StoreName)' },
+      { type: 'improved', text: 'Performance: Equipment Duplicate Problems เพิ่ม Brand/Model/S/N, แสดง Store ใน modal detail' },
+      { type: 'improved', text: 'Performance: นับจำนวนครั้งเฉพาะ Incident ที่ Resolve แล้วทุก card' },
+      { type: 'fixed',    text: 'Outsource: แก้ URL รูปภาพใน Document Submission Section ซ้ำ prefix /uploads/' },
+    ],
+  },
+  {
+    version: '1.0.13',
+    date: '2026-05-22',
+    changes: [
+      { type: 'new',      text: 'Performance: เพิ่มหน้า Performance Detail สำหรับช่าง พร้อม Gauge, Leaderboard, SLA Trend' },
+      { type: 'new',      text: 'Outsource: Finance Confirmation — ยืนยันรับ Spare Parts + ตรวจสอบเอกสาร' },
+      { type: 'improved', text: 'Outsource: Document Submission รองรับ multi-photo upload พร้อม preview' },
+    ],
+  },
+  {
+    version: '1.0.12',
+    date: '2026-05-15',
+    changes: [
+      { type: 'new',      text: 'Incidents: เพิ่มคอลัมน์ Province ใน Incident List table' },
+      { type: 'new',      text: 'Incidents: Export CSV/Excel รองรับ filter ปัจจุบัน' },
+      { type: 'improved', text: 'Performance: เพิ่ม Card Equipment Duplicate Problems แยกตาม Store' },
+      { type: 'improved', text: 'SLA Monitor: รองรับ SLA Defense ใน breach calculation' },
+    ],
+  },
+  {
+    version: '1.0.11',
+    date: '2026-05-08',
+    changes: [
+      { type: 'new',      text: 'License Server: deploy ที่ license.rub-jobb.com พร้อม API สำหรับ activation' },
+      { type: 'new',      text: 'Performance: เพิ่ม Card Top 10 Active Equipment และ Top Stores' },
+      { type: 'improved', text: 'PM: Inventory List รองรับ Online Sign ผ่าน public token URL' },
+      { type: 'fixed',    text: 'Image Upload: แก้ EXIF orientation ไม่ถูกต้องบน iOS HEIC/HEIF' },
+    ],
+  },
+  {
+    version: '1.0.10',
+    date: '2026-04-30',
+    changes: [
+      { type: 'new',      text: 'Outsource: ระบบจัดการงาน Outsource ครบวงจร (Post Job → Bid → Award → Close)' },
+      { type: 'new',      text: 'PM: Preventive Maintenance module พร้อม equipment checklist และรูปถ่าย before/after' },
+      { type: 'improved', text: 'Settings: เพิ่ม Disk space monitor + แจ้งเตือนทาง Email เมื่อพื้นที่ใกล้เต็ม' },
+      { type: 'fixed',    text: 'Notification: แก้ P2002 serial sequence error เมื่อ import ข้อมูล' },
+    ],
+  },
+]
+
 export default function SettingsPage() {
   const themeHighlight = useThemeHighlight()
   const [activeTab, setActiveTab] = useTabState<TabType>('organization')
@@ -543,6 +618,9 @@ export default function SettingsPage() {
   const [savedTheme, setSavedTheme] = useState({ bgStart: '#0f172a', bgEnd: '#1e293b' })
   const [basePreset, setBasePreset] = useState<{ bgStart: string; bgEnd: string } | null>(null)
   const [themeBrightness, setThemeBrightness] = useState<number>(50)
+
+  // Release Notes expand state — latest version open by default
+  const [expandedVersions, setExpandedVersions] = useState<Set<string>>(() => new Set([RELEASE_NOTES[0]?.version ?? '']))
 
   // Disk info state
   const [diskInfo, setDiskInfo] = useState<{ total: number; used: number; free: number; usedPercent: number; systemUsed?: number; backupUsed?: number } | null>(null)
@@ -4717,6 +4795,62 @@ export default function SettingsPage() {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Release Notes */}
+            <div className="p-6 bg-slate-700/30 rounded-xl">
+              <div className="flex items-center space-x-3 mb-4">
+                <History className="w-5 h-5 text-indigo-400" />
+                <h3 className="text-lg font-semibold text-white">Release Notes</h3>
+                <span className="text-xs text-gray-500">{RELEASE_NOTES.length} versions</span>
+              </div>
+              <div className="space-y-2">
+                {RELEASE_NOTES.map((release, idx) => {
+                  const isExpanded = expandedVersions.has(release.version)
+                  const isLatest = idx === 0
+                  return (
+                    <div key={release.version} className={`rounded-lg border overflow-hidden ${isLatest ? 'border-indigo-500/40' : 'border-slate-700'}`}>
+                      {/* Header */}
+                      <button
+                        onClick={() => setExpandedVersions(prev => {
+                          const next = new Set(prev)
+                          if (next.has(release.version)) next.delete(release.version)
+                          else next.add(release.version)
+                          return next
+                        })}
+                        className={`w-full flex items-center justify-between px-4 py-3 text-left transition-colors ${isLatest ? 'bg-indigo-500/10 hover:bg-indigo-500/20' : 'bg-slate-800/40 hover:bg-slate-800/70'}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="font-mono font-semibold text-white">v{release.version}</span>
+                          {isLatest && (
+                            <span className="text-[10px] px-1.5 py-0.5 bg-indigo-500/30 border border-indigo-500/50 rounded text-indigo-300 font-medium">LATEST</span>
+                          )}
+                          <span className="text-xs text-gray-400">{release.date}</span>
+                          <span className="text-xs text-gray-500">{release.changes.length} changes</span>
+                        </div>
+                        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                      </button>
+                      {/* Change list */}
+                      {isExpanded && (
+                        <div className="px-4 py-3 bg-slate-900/30 space-y-1.5">
+                          {release.changes.map((c, ci) => (
+                            <div key={ci} className="flex items-start gap-2.5 text-sm">
+                              <span className={`mt-0.5 shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide ${
+                                c.type === 'new'      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+                                c.type === 'improved' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
+                                                        'bg-orange-500/20 text-orange-300 border border-orange-500/30'
+                              }`}>
+                                {c.type === 'new' ? 'New' : c.type === 'improved' ? 'Update' : 'Fix'}
+                              </span>
+                              <span className="text-gray-300 leading-relaxed">{c.text}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
             </div>
 
             {/* Copyright */}
