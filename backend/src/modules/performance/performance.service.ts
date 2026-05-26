@@ -37,7 +37,7 @@ const TARGETS = {
   slaCompliance: 95, // 95%
   workVolume: 50, // 50 jobs per month
   resolutionTime: 4, // 4 hours
-  responseTime: 30, // 30 minutes
+  responseTime: 80, // 80% response rate target
   firstTimeFix: 85, // 85%
   reopenRate: 5, // ≤5%
 };
@@ -206,17 +206,15 @@ export class PerformanceService {
       ? this.calculateTimeScore(avgResolutionTime, TARGETS.resolutionTime)
       : 100;
 
-    // 4. Average Response Time (in minutes) - time from assignment to technician response
-    const withResponse = incidents.filter((i) => i.respondedAt);
-    const avgResponseTime = withResponse.length > 0
-      ? withResponse.reduce((sum, i) => {
-          const diff = (i.respondedAt!.getTime() - i.createdAt.getTime()) / (1000 * 60);
-          return sum + diff;
-        }, 0) / withResponse.length
+    // 4. Response Rate - resolved / responded × 100%
+    const respondedIncidentsForRate = incidents.filter((i) => i.respondedAt || i.checkInAt);
+    const resolvedFromResponded = respondedIncidentsForRate.filter((i) => i.resolvedAt);
+    const avgResponseTime = respondedIncidentsForRate.length > 0
+      ? (resolvedFromResponded.length / respondedIncidentsForRate.length) * 100
       : 0;
-    const responseTimeScore = avgResponseTime > 0
-      ? this.calculateTimeScore(avgResponseTime, TARGETS.responseTime)
-      : 100;
+    const responseTimeScore = respondedIncidentsForRate.length > 0
+      ? this.calculatePercentageScore(avgResponseTime, TARGETS.responseTime)
+      : 0;
 
     // 5. First Time Fix Rate
     const firstTimeFixes = closedIncidents.filter((i) => i.reopenCount === 0);
@@ -1715,7 +1713,7 @@ export class PerformanceService {
           score: Number(score.responseTimeScore),
           weight: WEIGHTS.responseTime,
           standard: Number(score.responseTimeStandard),
-          unit: 'minutes',
+          unit: 'percent',
         },
         firstTimeFix: {
           value: Number(score.firstTimeFixRate),

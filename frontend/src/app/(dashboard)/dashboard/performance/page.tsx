@@ -2636,16 +2636,16 @@ function PerformanceDetail({ data, fmtTime, fmtPct, barColor }: {
               'ขอความช่วยเหลือจาก Senior Tech ทันทีเมื่อติดขัด',
               'หลีกเลี่ยงการเดินทางกลับมาขออะไหล่เพิ่ม',
             ]} />
-          <MetricRow icon={Zap} label="Response Time"
-            value={hasIncidents ? fmtTime(data.metrics.responseTime.value, data.metrics.responseTime.unit) : 'N/A'}
+          <MetricRow icon={Zap} label="Response Rate"
+            value={hasIncidents && data.metrics.responseTime.value > 0 ? fmtPct(data.metrics.responseTime.value) : 'N/A'}
             score={hasIncidents ? data.metrics.responseTime.score : 0} weight={data.metrics.responseTime.weight}
-            target={fmtTime(data.metrics.responseTime.standard, data.metrics.responseTime.unit)}
+            target={`≥ ${data.metrics.responseTime.standard}%`}
             color="purple" barColor={barColor}
             tips={[
-              'ตอบรับงานภายใน 15 นาทีหลังได้รับแจ้งทุกครั้ง',
-              'แจ้ง ETA ที่ชัดเจนให้ Helpdesk และลูกค้าทราบทันที',
-              'เปิดการแจ้งเตือน App ตลอดเวลาทำการ',
-              'แจ้งทันทีหากมีเหตุจำเป็นที่ทำให้ Response ช้า',
+              'Response Rate = งานที่ Resolve ÷ งานที่มีการ Response × 100%',
+              'ตอบรับและ Check-in ทุกงานที่ได้รับมอบหมาย',
+              'ติดตามงานที่ยังค้างอยู่และดำเนินการให้ครบทุกใบ',
+              'หากงานไม่สามารถ Resolve ได้ ให้รายงานและส่งต่อทันที',
             ]} />
         </div>
       </div>
