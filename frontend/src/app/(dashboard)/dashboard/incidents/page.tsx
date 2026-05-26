@@ -388,22 +388,28 @@ export default function IncidentsPage() {
         return
       }
 
-      const exportData = allData.map((incident: any) => ({
-        'Ticket Number': incident.ticketNumber || incident.id,
-        'Title': incident.title,
-        'Description': incident.description,
-        'Status': incident.status,
-        'Priority': getPriorityDisplayName(incident.priority),
-        'Category': incident.category,
-        'Store': formatStore(incident.store),
-        'Province': incident.store?.province || '',
-        'Assignee': incident.assignees?.length > 0
-          ? incident.assignees.map((a: any) => `${a.user?.firstName || ''} ${a.user?.lastName || ''}`).join(', ')
-          : incident.assignee ? `${incident.assignee.firstName} ${incident.assignee.lastName}` : 'Unassigned',
-        'Created At': formatDateTime(incident.createdAt),
-        'Updated At': formatDateTime(incident.updatedAt),
-        'SLA Deadline': incident.slaDeadline ? formatDateTime(incident.slaDeadline) : 'N/A',
-      }))
+      const exportData = allData.map((incident: any) => {
+        const technician = incident.assignees?.length > 0
+          ? incident.assignees.map((a: any) => `${a.user?.firstName || ''} ${a.user?.lastName || ''}`.trim()).join(', ')
+          : incident.assignee ? `${incident.assignee.firstName} ${incident.assignee.lastName}` : 'Unassigned'
+        const resolution = incident.resolutionType === 'PHONE_SUPPORT' ? 'Phone'
+          : incident.resolutionType === 'REMOTE_SUPPORT' ? 'Remote'
+          : incident.resolutionType === 'ONSITE' ? 'Onsite'
+          : incident.resolutionType || ''
+        return {
+          'Status': incident.status,
+          'Incident Date': incident.incidentDate ? formatDateTime(incident.incidentDate) : formatDateTime(incident.createdAt),
+          'Ticket Number': String(incident.ticketNumber || incident.id),
+          'Store': formatStore(incident.store),
+          'Province': incident.store?.province || '',
+          'Title': incident.title || '',
+          'Category': incident.category || '',
+          'Priority': getPriorityDisplayName(incident.priority),
+          'Technician': technician,
+          'Resolution': resolution,
+          'Resolve': incident.resolvedAt ? formatDateTime(incident.resolvedAt) : '',
+        }
+      })
 
       const headers = Object.keys(exportData[0])
 
@@ -417,13 +423,14 @@ export default function IncidentsPage() {
       parts.push(`${String(d.getDate()).padStart(2, '0')}${String(d.getMonth() + 1).padStart(2, '0')}${d.getFullYear()}`)
       const filename = parts.join('_')
 
+      const escXml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+
       if (format === 'csv') {
         const csvContent = [
           headers.map(h => `"${h}"`).join(','),
           ...exportData.map((row: any) =>
             headers.map(header => {
-              const value = row[header as keyof typeof row]
-              const stringValue = value != null ? String(value) : ''
+              const stringValue = row[header] != null ? String(row[header]) : ''
               return `"${stringValue.replace(/"/g, '""')}"`
             }).join(',')
           )
@@ -436,16 +443,14 @@ export default function IncidentsPage() {
         link.click()
         toast.success('CSV file downloaded')
       } else {
-        const xlsContent = [
-          headers.join('\t'),
+        // SpreadsheetML XML \u2014 no format-mismatch warning, correct UTF-8 for Thai
+        const xmlRows = [
+          `<Row>${headers.map(h => `<Cell><Data ss:Type="String">${escXml(h)}</Data></Cell>`).join('')}</Row>`,
           ...exportData.map((row: any) =>
-            headers.map(header => {
-              const value = row[header as keyof typeof row]
-              const stringValue = value != null ? String(value) : ''
-              return stringValue.replace(/\t/g, ' ').replace(/[\r\n]+/g, ' ')
-            }).join('\t')
-          )
-        ].join('\r\n')
+            `<Row>${headers.map(h => `<Cell><Data ss:Type="String">${escXml(String(row[h] ?? ''))}</Data></Cell>`).join('')}</Row>`
+          ),
+        ].join('')
+        const xlsContent = `<?xml version="1.0" encoding="UTF-8"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Incidents"><Table>${xmlRows}</Table></Worksheet></Workbook>`
 
         const blob = new Blob([xlsContent], { type: 'application/vnd.ms-excel;charset=utf-8;' })
         const link = document.createElement('a')
