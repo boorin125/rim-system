@@ -2,7 +2,7 @@
 'use client'
 
 import { formatStore } from '@/utils/formatStore'
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Plus,
@@ -14,10 +14,10 @@ import {
   ArrowUpDown,
   Briefcase,
   ShieldCheck,
+  Download,
 } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
-import AdvancedIncidentFilter from '@/components/AdvancedIncidentFilter'
 import { isViewOnly, canPerformAction, getUserRoles, isPureTechnician } from '@/config/permissions'
 import { formatDateTime } from '@/utils/dateUtils'
 
@@ -35,14 +35,6 @@ export default function IncidentsPage() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [incidentToDelete, setIncidentToDelete] = useState<any>(null)
   const [currentUser, setCurrentUser] = useState<any>(null)
-  const [advancedFilters, setAdvancedFilters] = useState<any>({
-    status: [],
-    priority: [],
-    category: [],
-    dateRange: { from: '', to: '' },
-    assignee: '',
-    store: '',
-  })
   const [sortField, setSortField] = useState<string>('createdAt')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [slaConfigs, setSlaConfigs] = useState<any[]>([])
@@ -80,7 +72,7 @@ export default function IncidentsPage() {
   // Reset page when filters change (not search — handled by debounce above)
   useEffect(() => {
     setCurrentPage(1)
-  }, [filterStatus, filterCategory, filterProvince, sortField, sortOrder, advancedFilters])
+  }, [filterStatus, filterCategory, filterProvince, sortField, sortOrder])
 
   // Mount: restore cache + kick off all fetches in parallel
   useEffect(() => {
@@ -126,7 +118,7 @@ export default function IncidentsPage() {
     if (isFirstRender.current) { isFirstRender.current = false; return }
     if (isSuperAdmin.current) { setIsLoading(false); return }
     fetchIncidents()
-  }, [currentPage, debouncedSearch, filterStatus, filterCategory, filterProvince, sortField, sortOrder, advancedFilters])
+  }, [currentPage, debouncedSearch, filterStatus, filterCategory, filterProvince, sortField, sortOrder])
 
   const buildParams = (overrides?: Record<string, any>) => {
     const params: Record<string, any> = {
@@ -153,13 +145,6 @@ export default function IncidentsPage() {
 
     if (filterCategory !== 'ALL') params.category = filterCategory
     if (filterProvince !== 'ALL') params.province = filterProvince
-
-    // Advanced filters
-    if (advancedFilters.status.length > 0) params.status = advancedFilters.status.join(',')
-    if (advancedFilters.priority.length > 0) params.priority = advancedFilters.priority.join(',')
-    if (advancedFilters.category.length > 0) params.category = advancedFilters.category.join(',')
-    if (advancedFilters.dateRange.from) params.dateFrom = advancedFilters.dateRange.from
-    if (advancedFilters.dateRange.to) params.dateTo = advancedFilters.dateRange.to
 
     return { ...params, ...overrides }
   }
@@ -486,7 +471,7 @@ export default function IncidentsPage() {
       {/* Filters */}
       <div className="glass-card p-6 rounded-2xl sticky top-0 z-10">
         <div className="flex flex-col gap-4">
-          {/* Search row + Advanced Filter */}
+          {/* Search row + Export buttons */}
           <div className="flex flex-col sm:flex-row gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -498,14 +483,22 @@ export default function IncidentsPage() {
                 className="w-full pl-10 pr-4 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-            <AdvancedIncidentFilter
-              onFilterChange={(filters) => {
-                setAdvancedFilters(filters)
-              }}
-              onExport={handleExport}
-              slaConfigs={slaConfigs}
-              categories={categories}
-            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleExport('csv')}
+                className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-600/40 text-emerald-400 rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+              >
+                <Download className="w-4 h-4" />
+                CSV
+              </button>
+              <button
+                onClick={() => handleExport('excel')}
+                className="flex items-center gap-1.5 px-3 py-2 bg-teal-600/20 hover:bg-teal-600/30 border border-teal-600/40 text-teal-400 rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+              >
+                <Download className="w-4 h-4" />
+                Excel
+              </button>
+            </div>
           </div>
 
           {/* Bottom Row - Quick Filters */}
