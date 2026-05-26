@@ -1336,7 +1336,7 @@ export class PerformanceService {
   async getEquipmentNameStoreDetail(equipmentName: string, storeId: number) {
     const equipments = await this.prisma.equipment.findMany({
       where: { name: equipmentName, storeId },
-      select: { id: true },
+      select: { id: true, brand: true, model: true, serialNumber: true },
     });
     const equipmentIds = equipments.map(e => e.id);
     const incidents = await this.prisma.incident.findMany({
@@ -1354,6 +1354,9 @@ export class PerformanceService {
     return {
       equipmentName,
       storeId,
+      brand: equipments[0]?.brand || '',
+      model: equipments[0]?.model || '',
+      serialNumber: equipments[0]?.serialNumber || '',
       incidents: incidents.map((inc, idx) => ({
         no: idx + 1,
         incidentDate: inc.incidentDate || inc.createdAt,

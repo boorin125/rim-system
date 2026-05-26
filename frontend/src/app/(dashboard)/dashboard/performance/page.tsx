@@ -406,7 +406,7 @@ export default function PerformancePage() {
 
   // Box 2: Repeat Equipment in Store
   const [repeatEquipment, setRepeatEquipment] = useState<RepeatEquipmentEntry[]>([])
-  const [repeatEquipDetail, setRepeatEquipDetail] = useState<{ equipmentName: string; storeId: number; incidents: RepeatIncidentRow[] } | null>(null)
+  const [repeatEquipDetail, setRepeatEquipDetail] = useState<{ equipmentName: string; storeId: number; brand: string; model: string; serialNumber: string; incidents: RepeatIncidentRow[] } | null>(null)
   const [repeatEquipModal, setRepeatEquipModal] = useState(false)
   const [loadingRepeatDetail, setLoadingRepeatDetail] = useState(false)
 
@@ -1551,6 +1551,8 @@ export default function PerformancePage() {
                 {repeatEquipDetail && (
                   <p className="text-sm text-gray-400 mt-0.5">
                     {repeatEquipDetail.equipmentName}
+                    {[repeatEquipDetail.brand, repeatEquipDetail.model].filter(Boolean).join(' ') && ` · ${[repeatEquipDetail.brand, repeatEquipDetail.model].filter(Boolean).join(' ')}`}
+                    {repeatEquipDetail.serialNumber && ` · S/N: ${repeatEquipDetail.serialNumber}`}
                   </p>
                 )}
               </div>
