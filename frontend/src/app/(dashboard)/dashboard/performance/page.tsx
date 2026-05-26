@@ -214,6 +214,9 @@ interface RepeatEquipmentEntry {
   storeId: number
   storeCode: string
   storeName: string
+  brand: string
+  model: string
+  serialNumber: string
   count: number
   lastIncidentAt: string
 }
@@ -233,9 +236,7 @@ interface RepeatIncidentRow {
   no: number
   incidentDate: string
   incidentNo: string
-  brand: string
-  model: string
-  serialNumber: string
+  store: string
   title: string
   resolution: string
   resolvedAt: string | null
@@ -1035,11 +1036,11 @@ export default function PerformancePage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[380px]">
+                <table className="w-full text-sm min-w-[480px]">
                   <thead>
                     <tr className="text-gray-400 border-b border-slate-700">
                       <th className="text-left py-2 px-2 font-medium">Equipment</th>
-                      <th className="text-left py-2 px-2 font-medium">Store</th>
+                      <th className="text-left py-2 px-2 font-medium">Brand / Model / S/N</th>
                       <th className="text-center py-2 px-2 font-medium">ครั้ง</th>
                       <th className="text-center py-2 px-2 font-medium">ล่าสุด</th>
                       <th className="text-center py-2 px-2 font-medium"></th>
@@ -1049,7 +1050,10 @@ export default function PerformancePage() {
                     {repeatEquipment.map((eq, idx) => (
                       <tr key={`${eq.equipmentName}-${eq.storeId}`} className="border-b border-slate-700/50 hover:bg-slate-700/30 transition">
                         <td className="py-2 px-2 text-white font-medium">{eq.equipmentName}</td>
-                        <td className="py-2 px-2 text-gray-300">{eq.storeCode} {eq.storeName}</td>
+                        <td className="py-2 px-2 text-white">
+                          <div>{[eq.brand, eq.model].filter(v => v && v !== '-').join(' ') || '-'}</div>
+                          {eq.serialNumber && eq.serialNumber !== '-' && <div className="text-xs text-gray-400">S/N: {eq.serialNumber}</div>}
+                        </td>
                         <td className="py-2 px-2 text-center">
                           <span className="px-2 py-0.5 bg-orange-500/20 text-orange-400 rounded-full text-xs font-semibold">{eq.count}</span>
                         </td>
@@ -1568,7 +1572,7 @@ export default function PerformancePage() {
                       <th className="text-center py-3 px-3 font-medium w-10">#</th>
                       <th className="text-left py-3 px-3 font-medium">Incident Date</th>
                       <th className="text-left py-3 px-3 font-medium">Ticket No.</th>
-                      <th className="text-left py-3 px-3 font-medium">Brand / Model / S/N</th>
+                      <th className="text-left py-3 px-3 font-medium">Store</th>
                       <th className="text-left py-3 px-3 font-medium">Title</th>
                       <th className="text-left py-3 px-3 font-medium">Resolution</th>
                       <th className="text-left py-3 px-3 font-medium">Resolved Date</th>
@@ -1583,10 +1587,7 @@ export default function PerformancePage() {
                           {row.incidentDate ? new Date(row.incidentDate).toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '-'}
                         </td>
                         <td className="py-2.5 px-3 text-orange-400 font-mono text-xs">{row.incidentNo || '-'}</td>
-                        <td className="py-2.5 px-3 text-white">
-                          <div>{[row.brand, row.model].filter(Boolean).join(' ') || '-'}</div>
-                          {row.serialNumber && <div className="text-xs text-gray-400">S/N: {row.serialNumber}</div>}
-                        </td>
+                        <td className="py-2.5 px-3 text-gray-300 whitespace-nowrap">{row.store || '-'}</td>
                         <td className="py-2.5 px-3 text-white">{row.title || '-'}</td>
                         <td className="py-2.5 px-3 text-gray-300 max-w-[200px] truncate" title={row.resolution}>{row.resolution || '-'}</td>
                         <td className="py-2.5 px-3 text-gray-300 whitespace-nowrap">

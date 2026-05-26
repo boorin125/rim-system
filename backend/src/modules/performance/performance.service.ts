@@ -1291,29 +1291,38 @@ export class PerformanceService {
         createdAt: { gte: startDate, lte: endDate },
         equipmentId: { not: null },
         equipment: { status: 'ACTIVE' },
+        resolvedAt: { not: null },
         ...(jobTypes?.length ? { jobType: { in: jobTypes } } : {}),
       },
       select: {
         createdAt: true,
         storeId: true, storeCode: true, storeName: true,
-        equipment: { select: { name: true } },
+        equipment: { select: { name: true, brand: true, model: true, serialNumber: true } },
       },
     });
 
-    const map = new Map<string, { equipmentName: string; storeId: number; storeCode: string; storeName: string; count: number; lastIncidentAt: Date }>();
+    const map = new Map<string, { equipmentName: string; storeId: number; storeCode: string; storeName: string; brand: string; model: string; serialNumber: string; count: number; lastIncidentAt: Date }>();
     for (const inc of incidents) {
       if (!inc.equipment || !inc.storeId) continue;
       const key = `${inc.equipment.name}__${inc.storeId}`;
       const cur = map.get(key);
       if (cur) {
         cur.count++;
-        if (inc.createdAt > cur.lastIncidentAt) cur.lastIncidentAt = inc.createdAt;
+        if (inc.createdAt > cur.lastIncidentAt) {
+          cur.lastIncidentAt = inc.createdAt;
+          cur.brand = inc.equipment.brand || '-';
+          cur.model = inc.equipment.model || '-';
+          cur.serialNumber = inc.equipment.serialNumber || '-';
+        }
       } else {
         map.set(key, {
           equipmentName: inc.equipment.name,
           storeId: inc.storeId,
           storeCode: inc.storeCode || String(inc.storeId),
           storeName: inc.storeName || `Store ${inc.storeId}`,
+          brand: inc.equipment.brand || '-',
+          model: inc.equipment.model || '-',
+          serialNumber: inc.equipment.serialNumber || '-',
           count: 1,
           lastIncidentAt: inc.createdAt,
         });
@@ -1331,13 +1340,12 @@ export class PerformanceService {
     });
     const equipmentIds = equipments.map(e => e.id);
     const incidents = await this.prisma.incident.findMany({
-      where: { equipmentId: { in: equipmentIds } },
+      where: { equipmentId: { in: equipmentIds }, resolvedAt: { not: null } },
       orderBy: { createdAt: 'desc' },
       select: {
         ticketNumber: true, title: true, resolutionNote: true,
         incidentDate: true, createdAt: true, resolvedAt: true,
         storeCode: true, storeName: true,
-        equipment: { select: { brand: true, model: true, serialNumber: true } },
         assignee: { select: { firstName: true, lastName: true } },
         resolvedBy: { select: { firstName: true, lastName: true } },
         assignees: { select: { user: { select: { firstName: true, lastName: true } } } },
@@ -1350,9 +1358,7 @@ export class PerformanceService {
         no: idx + 1,
         incidentDate: inc.incidentDate || inc.createdAt,
         incidentNo: inc.ticketNumber,
-        brand: inc.equipment?.brand || '-',
-        model: inc.equipment?.model || '-',
-        serialNumber: inc.equipment?.serialNumber || '-',
+        store: `${inc.storeCode || ''} ${inc.storeName || ''}`.trim() || '-',
         title: inc.title,
         resolution: inc.resolutionNote || '-',
         resolvedAt: inc.resolvedAt,
