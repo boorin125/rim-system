@@ -12,6 +12,7 @@ interface UpdateResolveModalProps {
   onClose: () => void;
   incidentId: string;
   storeId?: number;
+  incidentEquipmentIds?: number[];
   currentData: {
     resolutionNote: string;
     usedSpareParts: boolean;
@@ -74,6 +75,7 @@ export default function UpdateResolveModal({
   onClose,
   incidentId,
   storeId,
+  incidentEquipmentIds,
   currentData,
   onUpdate,
 }: UpdateResolveModalProps) {
@@ -775,6 +777,7 @@ export default function UpdateResolveModal({
                   onClose={() => setSparePartEntryOpen(false)}
                   onAdd={p => setSpareParts(prev => [...prev, p])}
                   storeId={storeId}
+                  incidentEquipmentIds={incidentEquipmentIds}
                 />
               </div>
             )}

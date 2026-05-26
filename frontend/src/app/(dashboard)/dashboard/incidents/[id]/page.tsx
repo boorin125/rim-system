@@ -2770,6 +2770,7 @@ SLA Breach Time: ${slaBreachText}`
         onClose={() => setShowUpdate(false)}
         incidentId={incident.id}
         storeId={incident.store?.id}
+        incidentEquipmentIds={incident.equipmentIds || []}
         currentData={{
           resolutionNote: incident.resolutionNote || '',
           usedSpareParts: incident.usedSpareParts || false,
