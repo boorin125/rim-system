@@ -20,10 +20,24 @@ export class SlaMonitorService {
   ) {}
 
   /**
-   * Check for SLA violations every 15 minutes
+   * Returns true during quiet hours 22:00–06:00 Bangkok time (UTC+7).
+   * SLA and reminder notifications are suppressed during this window.
+   */
+  private isQuietHours(): boolean {
+    const bangkokHour = (new Date().getUTCHours() + 7) % 24;
+    return bangkokHour >= 22 || bangkokHour < 6;
+  }
+
+  /**
+   * Check for SLA violations every 10 minutes
    */
   @Cron(CronExpression.EVERY_10_MINUTES)
   async checkSlaStatus() {
+    if (this.isQuietHours()) {
+      this.logger.log('SLA monitoring skipped — quiet hours (22:00–06:00)');
+      return;
+    }
+
     this.logger.log('Running SLA monitoring check...');
 
     try {
@@ -211,6 +225,8 @@ export class SlaMonitorService {
    */
   @Cron(CronExpression.EVERY_10_MINUTES)
   async checkScheduledAssignmentReminders() {
+    if (this.isQuietHours()) return;
+
     const now = new Date();
     const windowStart = new Date(now.getTime() + 20 * 60 * 1000); // +20 min
     const windowEnd   = new Date(now.getTime() + 30 * 60 * 1000); // +30 min
