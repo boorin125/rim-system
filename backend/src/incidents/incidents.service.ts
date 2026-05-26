@@ -2406,26 +2406,33 @@ export class IncidentsService {
       select: { firstName: true, lastName: true },
     });
 
-    // Create history entry with GPS info if available
-    const gpsInfo = checkInLatitude && checkInLongitude
-      ? ` (GPS: ${checkInLatitude.toFixed(6)}, ${checkInLongitude.toFixed(6)})`
-      : '';
-    await this.historyService.createHistory(
-      id,
-      IncidentAction.CHECKED_IN,
-      userId,
-      prevStatus,
-      isFirstCheckIn ? IncidentStatus.IN_PROGRESS : prevStatus,
-      `${techUser?.firstName} ${techUser?.lastName} checked in with ${beforePhotos.length} before photo(s)${gpsInfo}`,
-    );
+    // History + notification are best-effort — must not fail the check-in response
+    try {
+      const gpsInfo = checkInLatitude && checkInLongitude
+        ? ` (GPS: ${checkInLatitude.toFixed(6)}, ${checkInLongitude.toFixed(6)})`
+        : '';
+      await this.historyService.createHistory(
+        id,
+        IncidentAction.CHECKED_IN,
+        userId,
+        prevStatus,
+        isFirstCheckIn ? IncidentStatus.IN_PROGRESS : prevStatus,
+        `${techUser?.firstName} ${techUser?.lastName} checked in with ${beforePhotos.length} before photo(s)${gpsInfo}`,
+      );
+    } catch (e) {
+      this.logger.error(`checkin history failed for ${id}: ${e}`);
+    }
 
-    // Notify all supervisors about check-in
-    await this.notificationsService.notifyAllSupervisors(
-      'INCIDENT_CHECKED_IN' as any,
-      'Technician Checked In',
-      `${techUser?.firstName} ${techUser?.lastName} checked in at ${updated.store?.storeCode || ''} ${updated.store?.name || ''} ${updated.ticketNumber} ${updated.title}`,
-      id,
-    );
+    try {
+      await this.notificationsService.notifyAllSupervisors(
+        'INCIDENT_CHECKED_IN' as any,
+        'Technician Checked In',
+        `${techUser?.firstName} ${techUser?.lastName} checked in at ${updated.store?.storeCode || ''} ${updated.store?.name || ''} ${updated.ticketNumber} ${updated.title}`,
+        id,
+      );
+    } catch (e) {
+      this.logger.error(`checkin notification failed for ${id}: ${e}`);
+    }
 
     return updated;
   }
