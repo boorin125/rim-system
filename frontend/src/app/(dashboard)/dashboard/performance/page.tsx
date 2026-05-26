@@ -203,6 +203,8 @@ interface ActiveEquipmentEntry {
   brand: string
   model: string
   serialNumber: string
+  storeCode: string
+  storeName: string
   count: number
   lastIncidentAt: string
 }
@@ -969,11 +971,12 @@ export default function PerformancePage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[420px]">
+                <table className="w-full text-sm min-w-[560px]">
                   <thead>
                     <tr className="text-gray-400 border-b border-slate-700">
                       <th className="text-left py-2 px-2 font-medium">#</th>
                       <th className="text-left py-2 px-2 font-medium">Brand / Model / S/N</th>
+                      <th className="text-left py-2 px-2 font-medium">Store</th>
                       <th className="text-center py-2 px-2 font-medium">ครั้ง</th>
                       <th className="text-center py-2 px-2 font-medium">ล่าสุด</th>
                       <th className="text-center py-2 px-2 font-medium"></th>
@@ -986,6 +989,9 @@ export default function PerformancePage() {
                         <td className="py-2 px-2 text-white">
                           <div className="font-medium">{[eq.brand, eq.model].filter(Boolean).join(' ') || '-'}</div>
                           <div className="text-xs text-gray-400">S/N: {eq.serialNumber || '-'}</div>
+                        </td>
+                        <td className="py-2 px-2 text-gray-300 text-xs">
+                          {[eq.storeCode, eq.storeName].filter(Boolean).join(' ') || '-'}
                         </td>
                         <td className="py-2 px-2 text-center">
                           <span className="px-2 py-0.5 bg-red-500/20 text-red-400 rounded-full text-xs font-semibold">{eq.count}</span>

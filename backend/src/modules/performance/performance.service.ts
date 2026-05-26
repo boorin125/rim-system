@@ -1203,19 +1203,25 @@ export class PerformanceService {
       select: {
         createdAt: true,
         equipmentId: true,
+        storeCode: true,
+        storeName: true,
         equipment: {
           select: { id: true, category: true, brand: true, model: true, serialNumber: true },
         },
       },
     });
 
-    const map = new Map<number, { equipmentId: number; category: string; brand: string; model: string; serialNumber: string; count: number; lastIncidentAt: Date }>();
+    const map = new Map<number, { equipmentId: number; category: string; brand: string; model: string; serialNumber: string; storeCode: string; storeName: string; count: number; lastIncidentAt: Date }>();
     for (const inc of incidents) {
       if (!inc.equipmentId || !inc.equipment) continue;
       const cur = map.get(inc.equipmentId);
       if (cur) {
         cur.count++;
-        if (inc.createdAt > cur.lastIncidentAt) cur.lastIncidentAt = inc.createdAt;
+        if (inc.createdAt > cur.lastIncidentAt) {
+          cur.lastIncidentAt = inc.createdAt;
+          cur.storeCode = inc.storeCode || '';
+          cur.storeName = inc.storeName || '';
+        }
       } else {
         map.set(inc.equipmentId, {
           equipmentId: inc.equipmentId,
@@ -1223,6 +1229,8 @@ export class PerformanceService {
           brand: inc.equipment.brand || '',
           model: inc.equipment.model || '',
           serialNumber: inc.equipment.serialNumber || '',
+          storeCode: inc.storeCode || '',
+          storeName: inc.storeName || '',
           count: 1,
           lastIncidentAt: inc.createdAt,
         });
