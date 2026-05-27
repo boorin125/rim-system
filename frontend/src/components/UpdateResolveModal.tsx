@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { X, Upload, Trash2, AlertCircle, Edit3, Camera, Mic, MicOff, ArrowRightLeft, Cpu, Plus } from 'lucide-react';
+import axios from 'axios';
 import SparePartEntryModal from './SparePartEntryModal';
 import { SparePart } from './SparePartForm';
 import { compressImages, validateImageFile } from '@/utils/imageUtils';
@@ -266,6 +267,32 @@ export default function UpdateResolveModal({
           };
         });
         setSpareParts(formattedParts);
+
+        // Resolve missing parentEquipmentName from storeEquipment
+        // (handles old entries where parentEquipmentName was not saved, but parentEquipmentId exists)
+        const needResolve = formattedParts.filter(
+          p => p.repairType === 'COMPONENT_REPLACEMENT' && !p.parentEquipmentName && p.parentEquipmentId
+        );
+        if (needResolve.length > 0 && storeId) {
+          ;(async () => {
+            try {
+              const token = localStorage.getItem('token');
+              const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/equipment`, {
+                params: { storeId, limit: 200 },
+                headers: { Authorization: `Bearer ${token}` },
+              });
+              const equipMap = new Map<number, any>(
+                (res.data?.data || []).map((e: any) => [e.id, e])
+              );
+              setSpareParts(prev => prev.map(p => {
+                if (p.repairType !== 'COMPONENT_REPLACEMENT' || p.parentEquipmentName || !p.parentEquipmentId) return p;
+                const e = equipMap.get(p.parentEquipmentId!);
+                if (!e) return p;
+                return { ...p, parentEquipmentName: [e.position, e.brand, e.model].filter(Boolean).join(' ') || e.name };
+              }));
+            } catch { /* ignore */ }
+          })();
+        }
       } else {
         setSpareParts([]);
       }
