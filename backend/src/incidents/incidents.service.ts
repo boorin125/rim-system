@@ -1263,7 +1263,35 @@ export class IncidentsService {
       }];
     }
 
-    return { ...incident, equipmentList };
+    // Enrich spareParts: resolve parentEquipmentName, equipmentName, newBrandModel dynamically
+    // (these are not stored in DB — parentEquipmentName/equipmentName must be resolved from Equipment table)
+    let enrichedSpareParts: any[] = (incident as any).spareParts || [];
+    if (enrichedSpareParts.length > 0) {
+      const spEquipIds = enrichedSpareParts
+        .flatMap((sp: any) => [sp.oldEquipmentId, sp.parentEquipmentId])
+        .filter(Boolean) as number[];
+      if (spEquipIds.length > 0) {
+        const spEquipments = await this.prisma.equipment.findMany({
+          where: { id: { in: spEquipIds } },
+          select: { id: true, name: true, brand: true, model: true },
+        });
+        const spEquipMap = new Map(spEquipments.map((e) => [e.id, e]));
+        enrichedSpareParts = enrichedSpareParts.map((sp: any) => {
+          const oldEquip = sp.oldEquipmentId ? (spEquipMap.get(sp.oldEquipmentId) ?? null) : null;
+          const parentEquip = sp.parentEquipmentId ? (spEquipMap.get(sp.parentEquipmentId) ?? null) : null;
+          const legacyNew = sp.deviceName?.includes(' → ') ? sp.deviceName.split(' → ')[1]?.trim() : '';
+          return {
+            ...sp,
+            equipmentName: oldEquip?.name ||
+              (sp.deviceName?.includes(' → ') ? sp.deviceName.split(' → ')[0]?.trim() : sp.deviceName) || '',
+            parentEquipmentName: parentEquip?.name || '',
+            newBrandModel: [sp.newBrand, sp.newModel].filter(Boolean).join(' ') || legacyNew || '',
+          };
+        });
+      }
+    }
+
+    return { ...incident, equipmentList, spareParts: enrichedSpareParts };
   }
 
   /**
