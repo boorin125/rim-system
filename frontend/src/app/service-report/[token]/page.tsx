@@ -166,15 +166,12 @@ export default function ServiceReportPage() {
     if (fsCanvasRef.current) {
       const canvas = fsCanvasRef.current
       const ratio = Math.max(window.devicePixelRatio || 1, 1)
-      const w = window.innerWidth
-      const h = window.innerHeight - 140
-      // Set drawing buffer to physical pixels, CSS size via w-full h-full
-      // SignaturePad scales coords internally (canvas.width / rect.width = ratio)
-      // Do NOT call ctx.scale — that would double-scale and misalign touch points
-      canvas.width = w * ratio
-      canvas.height = h * ratio
-      canvas.style.width = w + 'px'
-      canvas.style.height = h + 'px'
+      // Use actual rendered CSS size from layout (absolute inset-0 w-full h-full)
+      // This avoids touch-coordinate offset when device rotates or fullscreen size differs from window.innerWidth
+      const rect = canvas.getBoundingClientRect()
+      canvas.width = Math.round(rect.width * ratio)
+      canvas.height = Math.round(rect.height * ratio)
+      // Do NOT set canvas.style.width/height — CSS already controls display size via w-full h-full
       fsSignaturePadRef.current = new SignaturePad(canvas, {
         backgroundColor: 'rgb(255, 255, 255)',
         penColor: 'rgb(0, 0, 200)',
@@ -183,6 +180,19 @@ export default function ServiceReportPage() {
       })
     }
   }
+
+  // Re-init canvas on resize / orientation change (handles iOS landscape rotation when lock not supported)
+  useEffect(() => {
+    if (!isFullscreenSign) return
+    const handleResize = () => {
+      fsSignaturePadRef.current?.off()
+      fsSignaturePadRef.current = null
+      setTimeout(initFsCanvas, 80)
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isFullscreenSign])
 
   const openFullscreenSign = async () => {
     setIsFullscreenSign(true)
@@ -776,7 +786,7 @@ export default function ServiceReportPage() {
                       {/* Technician display */}
                       <div className="text-center flex flex-col items-center justify-start">
                         <p className="text-xs text-gray-500 mb-2">ลายเซ็นผู้ให้บริการ / Service</p>
-                        <div className="border border-gray-300 rounded-lg bg-white w-full" style={{ height: '200px', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: '10px' }}>
+                        <div className="border border-gray-300 rounded-lg bg-white w-full" style={{ height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           {techSignatureUrl ? (
                             <img
                               src={techSignatureUrl}
@@ -1304,7 +1314,7 @@ export default function ServiceReportPage() {
                   {/* Technician display */}
                   <div className="text-center flex flex-col items-center justify-center">
                     <p className="text-xs text-gray-500 mb-2">ลายเซ็นผู้ให้บริการ / Service</p>
-                    <div className="border border-gray-300 rounded bg-gray-50 w-full" style={{ height: '200px', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: '10px' }}>
+                    <div className="border border-gray-300 rounded bg-gray-50 w-full" style={{ height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {techSignatureUrl ? (
                         <img
                           src={techSignatureUrl}

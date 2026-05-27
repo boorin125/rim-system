@@ -313,7 +313,8 @@ async function drawSignatures(
   doc.setDrawColor(180, 180, 180); doc.setLineWidth(0.3)
   doc.line(midCX - 22, boxTop + 18, midCX + 22, boxTop + 18)
 
-  if (!blankSignature && data.resolvedBy) {
+  // Always show service provider name (even on blank PDF — it's pre-filled, not user-entered)
+  if (data.resolvedBy) {
     const resolverName = data.resolvedBy.name
     const sigName = data.technicians && data.technicians.length > 0
       ? [...data.technicians.filter(t => t.name === resolverName), ...data.technicians.filter(t => t.name !== resolverName)].map(t => t.name).join(', ')
