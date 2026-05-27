@@ -26,6 +26,7 @@ interface Props {
   storeId?: number
   incidentEquipmentIds?: number[]
   usedEquipmentIds?: number[]
+  initialPart?: SparePart   // set to enable edit mode
 }
 
 function makeEmptyPart(): SparePart {
@@ -47,7 +48,8 @@ function makeEmptyPart(): SparePart {
   }
 }
 
-export default function SparePartEntryModal({ isOpen, onClose, onAdd, storeId, incidentEquipmentIds, usedEquipmentIds }: Props) {
+export default function SparePartEntryModal({ isOpen, onClose, onAdd, storeId, incidentEquipmentIds, usedEquipmentIds, initialPart }: Props) {
+  const isEditMode = !!initialPart
   const [part, setPart] = useState<SparePart>(makeEmptyPart)
   const [scanningFor, setScanningFor] = useState<'oldSerialNo' | 'newSerialNo' | 'oldComponentSerial' | 'newComponentSerial' | null>(null)
   const [storeEquipment, setStoreEquipment] = useState<DeviceSuggestion[]>([])
@@ -62,15 +64,16 @@ export default function SparePartEntryModal({ isOpen, onClose, onAdd, storeId, i
   const modelRef = useRef<HTMLDivElement>(null)
   const parentRef = useRef<HTMLDivElement>(null)
 
-  // Reset part when modal opens
+  // Reset / populate part when modal opens
   useEffect(() => {
     if (isOpen) {
-      setPart(makeEmptyPart())
+      setPart(initialPart ? { ...initialPart } : makeEmptyPart())
       setScanningFor(null)
       setShowBrandDropdown(false)
       setShowModelDropdown(false)
       setShowParentDropdown(false)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen])
 
   // Fetch store equipment
@@ -177,7 +180,8 @@ export default function SparePartEntryModal({ isOpen, onClose, onAdd, storeId, i
   }
 
   const handleConfirm = () => {
-    onAdd({ ...part, id: `spare-${Date.now()}` })
+    // In edit mode preserve the original id so the caller can replace the entry
+    onAdd({ ...part, id: initialPart?.id ?? `spare-${Date.now()}` })
     onClose()
   }
 
@@ -196,7 +200,7 @@ export default function SparePartEntryModal({ isOpen, onClose, onAdd, storeId, i
         <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-white/10 bg-slate-800/50">
           <div className="flex items-center gap-2">
             <Package className="w-5 h-5 text-blue-400" />
-            <h3 className="font-semibold text-white">เพิ่ม Spare Part</h3>
+            <h3 className="font-semibold text-white">{isEditMode ? 'แก้ไข Spare Part' : 'เพิ่ม Spare Part'}</h3>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg transition-colors">
             <X className="w-5 h-5 text-gray-400" />
@@ -534,7 +538,7 @@ export default function SparePartEntryModal({ isOpen, onClose, onAdd, storeId, i
           </button>
           <button onClick={handleConfirm}
             className="flex-1 py-3 text-sm bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium flex items-center justify-center gap-2">
-            <Check className="w-4 h-4" />เพิ่ม Spare Part
+            <Check className="w-4 h-4" />{isEditMode ? 'บันทึก' : 'เพิ่ม Spare Part'}
           </button>
         </div>
       </div>

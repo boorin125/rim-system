@@ -77,6 +77,7 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
   const [usedSpareParts, setUsedSpareParts] = useState(false);
   const [spareParts, setSpareParts] = useState<SparePart[]>([]);
   const [sparePartEntryOpen, setSparePartEntryOpen] = useState(false);
+  const [editingPart, setEditingPart] = useState<SparePart | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -646,24 +647,37 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
                 {spareParts.length > 0 && (
                   <div className="space-y-2">
                     {spareParts.map((p, i) => (
-                      <div key={p.id} className="flex items-center gap-3 px-3 py-2.5 bg-slate-800/40 border border-slate-700/50 rounded-lg">
-                        <div className={`p-1.5 rounded-lg shrink-0 ${p.repairType === 'EQUIPMENT_REPLACEMENT' ? 'bg-blue-900/40' : 'bg-purple-900/40'}`}>
+                      <div key={p.id}
+                        onClick={() => { setEditingPart(p); setSparePartEntryOpen(true) }}
+                        className={`flex items-center gap-3 px-3 py-2.5 border rounded-lg cursor-pointer transition-all hover:brightness-110 ${p.repairType === 'EQUIPMENT_REPLACEMENT' ? 'bg-blue-900/40 border-blue-700/50' : 'bg-purple-900/40 border-purple-700/50'}`}>
+                        <div className={`p-1.5 rounded-lg shrink-0 ${p.repairType === 'EQUIPMENT_REPLACEMENT' ? 'bg-blue-800/60' : 'bg-purple-800/60'}`}>
                           {p.repairType === 'EQUIPMENT_REPLACEMENT'
-                            ? <ArrowRightLeft className="w-3.5 h-3.5 text-blue-400" />
-                            : <Cpu className="w-3.5 h-3.5 text-purple-400" />}
+                            ? <ArrowRightLeft className="w-3.5 h-3.5 text-blue-300" />
+                            : <Cpu className="w-3.5 h-3.5 text-purple-300" />}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm text-white font-medium">
+                          <p className={`text-xs font-semibold mb-0.5 ${p.repairType === 'EQUIPMENT_REPLACEMENT' ? 'text-blue-300' : 'text-purple-300'}`}>
                             #{i + 1} {p.repairType === 'EQUIPMENT_REPLACEMENT' ? 'เปลี่ยนอุปกรณ์' : 'เปลี่ยนชิ้นส่วน'}
                           </p>
-                          <p className="text-xs text-gray-400 truncate">
-                            {p.repairType === 'EQUIPMENT_REPLACEMENT'
-                              ? `${p.oldDeviceName || '—'} → ${[p.newBrand, p.newModel].filter(Boolean).join(' ') || p.newDeviceName || '—'}`
-                              : `${p.componentName || '—'} (${p.parentEquipmentName || 'Parent: ?'})`}
-                          </p>
+                          {p.repairType === 'EQUIPMENT_REPLACEMENT' ? (
+                            <p className="text-xs text-white truncate">
+                              <span className="font-medium">{p.oldDeviceName || '—'}</span>
+                              {p.oldSerialNo && <span className="text-gray-400"> S/N:{p.oldSerialNo}</span>}
+                              <span className="text-gray-400 mx-1">→</span>
+                              <span className="text-green-400">{[p.newBrand, p.newModel].filter(Boolean).join(' ') || p.newDeviceName || '—'}{p.newSerialNo ? ` S/N:${p.newSerialNo}` : ''}</span>
+                            </p>
+                          ) : (
+                            <p className="text-xs text-white truncate">
+                              <span className="font-medium">{p.parentEquipmentName || '—'}</span>
+                              <span className="text-gray-400 mx-1">→</span>
+                              <span className="text-gray-400">{p.componentName || '—'}{p.oldComponentSerial ? ` S/N:${p.oldComponentSerial}` : ''}</span>
+                              <span className="text-gray-400 mx-1">→</span>
+                              <span className="text-green-400">{p.componentName || '—'}{p.newComponentSerial ? ` S/N:${p.newComponentSerial}` : ''}</span>
+                            </p>
+                          )}
                         </div>
-                        <button type="button" onClick={() => setSpareParts(prev => prev.filter(x => x.id !== p.id))}
-                          className="p-1.5 text-red-400 hover:bg-red-900/20 rounded-lg transition-colors shrink-0">
+                        <button type="button" onClick={e => { e.stopPropagation(); setSpareParts(prev => prev.filter(x => x.id !== p.id)) }}
+                          className="p-1.5 text-red-400 hover:bg-red-900/30 rounded-lg transition-colors shrink-0">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -672,7 +686,7 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
                 )}
 
                 {/* Add Part button */}
-                <button type="button" onClick={() => setSparePartEntryOpen(true)}
+                <button type="button" onClick={() => { setEditingPart(null); setSparePartEntryOpen(true) }}
                   className="w-full flex items-center justify-center gap-2 py-3 text-sm bg-blue-600/20 border border-blue-500/50 text-blue-300 rounded-xl hover:bg-blue-600/30 transition-colors">
                   <Plus className="w-4 h-4" />
                   เพิ่ม Spare Part
@@ -681,11 +695,12 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
                 {/* Entry modal */}
                 <SparePartEntryModal
                   isOpen={sparePartEntryOpen}
-                  onClose={() => setSparePartEntryOpen(false)}
-                  onAdd={p => setSpareParts(prev => [...prev, p])}
+                  onClose={() => { setSparePartEntryOpen(false); setEditingPart(null) }}
+                  onAdd={p => setSpareParts(prev => prev.some(x => x.id === p.id) ? prev.map(x => x.id === p.id ? p : x) : [...prev, p])}
                   storeId={storeId}
                   incidentEquipmentIds={incidentEquipmentIds}
-                  usedEquipmentIds={spareParts.filter(p => p.repairType === 'EQUIPMENT_REPLACEMENT' && p.oldEquipmentId).map(p => p.oldEquipmentId!)}
+                  initialPart={editingPart ?? undefined}
+                  usedEquipmentIds={spareParts.filter(p => p.repairType === 'EQUIPMENT_REPLACEMENT' && p.oldEquipmentId && p.id !== editingPart?.id).map(p => p.oldEquipmentId!)}
                 />
               </div>
             )}
