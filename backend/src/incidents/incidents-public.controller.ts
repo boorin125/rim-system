@@ -124,13 +124,15 @@ export class IncidentsPublicController {
         deviceName: sp.deviceName,
         oldSerialNo: sp.oldSerialNo,
         newSerialNo: sp.newSerialNo,
-        equipmentName: oldEquip?.name || sp.deviceName || '',
+        equipmentName: oldEquip?.name ||
+          (sp.deviceName?.includes(' → ') ? sp.deviceName.split(' → ')[0]?.trim() : sp.deviceName) || '',
         oldBrandModel: [oldBrand, oldModel].filter(Boolean).join(' ') || '',
-        newBrandModel: [sp.newBrand, sp.newModel].filter(Boolean).join(' ') || '',
+        newBrandModel: [sp.newBrand, sp.newModel].filter(Boolean).join(' ') ||
+          (sp.deviceName?.includes(' → ') ? sp.deviceName.split(' → ')[1]?.trim() : '') || '',
         componentName: sp.componentName || '',
         oldComponentSerial: sp.oldComponentSerial || '',
         newComponentSerial: sp.newComponentSerial || '',
-        parentEquipmentName: parentEquip?.name || sp.deviceName || '',
+        parentEquipmentName: parentEquip?.name || '',
       };
     });
 

@@ -162,12 +162,15 @@ export class EmailService {
       if (hasEquip || !hasComp) {
         const equipRows = hasEquip
           ? (equipParts as any[]).map((part, index) => {
-              const deviceName = part.equipmentName || part.oldEquipment?.name || part.deviceName || '-';
+              const deviceName = part.equipmentName || part.oldEquipment?.name ||
+                (part.deviceName?.includes(' → ') ? part.deviceName.split(' → ')[0]?.trim() : part.deviceName) || '-';
               const oldBrandModel = part.oldBrandModel ||
                 [part.oldEquipment?.brand, part.oldEquipment?.model].filter(Boolean).join(' ') || '-';
+              const legacyNewName = part.deviceName?.includes(' → ') ? part.deviceName.split(' → ')[1]?.trim() : '';
               const newBrandModel = part.newBrandModel ||
                 [part.newBrand, part.newModel].filter(Boolean).join(' ') ||
-                [part.newEquipment?.brand, part.newEquipment?.model].filter(Boolean).join(' ') || '-';
+                [part.newEquipment?.brand, part.newEquipment?.model].filter(Boolean).join(' ') ||
+                legacyNewName || '-';
               const oldSerial = part.oldSerialNo || '-';
               const newSerial = part.newSerialNo || '-';
               return `
