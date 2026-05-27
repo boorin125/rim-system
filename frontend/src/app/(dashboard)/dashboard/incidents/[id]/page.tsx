@@ -206,7 +206,8 @@ export default function IncidentDetailPage() {
     if (cat) {
       fetchKbArticles(cat, incident.title || '')
     }
-  }, [incident?.id, incident?.category, incident?.equipmentList])
+  // Use primitive string values (not array reference) to avoid re-fetching on every silent poll
+  }, [incident?.id, incident?.category, incident?.equipmentList?.[0]?.category])
 
   const fetchIncident = async () => {
     try {
