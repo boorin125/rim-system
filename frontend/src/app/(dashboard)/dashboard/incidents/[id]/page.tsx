@@ -125,6 +125,7 @@ export default function IncidentDetailPage() {
   const [isApprovingFromReject, setIsApprovingFromReject] = useState(false)
   const [kbArticles, setKbArticles] = useState<any[]>([])
   const [kbLoading, setKbLoading] = useState(false)
+  const [kbCategoryId, setKbCategoryId] = useState<number | null>(null)
   const [selectedKbArticle, setSelectedKbArticle] = useState<any>(null)
   const [showKbArticleModal, setShowKbArticleModal] = useState(false)
 
@@ -310,7 +311,8 @@ export default function IncidentDetailPage() {
         c.name.toLowerCase().includes(catNameLower) ||
         catNameLower.includes(c.name.toLowerCase())
       )
-      if (!matchedCat) { setKbArticles([]); return }
+      if (!matchedCat) { setKbArticles([]); setKbCategoryId(null); return }
+      setKbCategoryId(matchedCat.id)
 
       // 2. Fetch all published articles in that KB category
       const artRes = await axios.get(
@@ -1908,7 +1910,7 @@ SLA Breach Time: ${slaBreachText}`
                 <p className="text-sm text-gray-400">Knowledge Base ที่เกี่ยวข้อง</p>
                 {!kbLoading && kbArticles.length > 0 && (
                   <span className="text-xs bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded-full">
-                    {kbArticles.length} บทความ
+                    {Math.min(kbArticles.length, 3)}/{kbArticles.length} บทความ
                   </span>
                 )}
               </div>
@@ -1916,7 +1918,7 @@ SLA Breach Time: ${slaBreachText}`
                 <p className="text-xs text-gray-500 pl-6">กำลังโหลด...</p>
               ) : (
                 <div className="flex flex-col">
-                  {kbArticles.map((article: any) => (
+                  {kbArticles.slice(0, 3).map((article: any) => (
                     <button
                       key={article.id}
                       onClick={() => openKbArticle(article.id, article)}
@@ -1939,6 +1941,17 @@ SLA Breach Time: ${slaBreachText}`
                       )}
                     </button>
                   ))}
+                  {kbCategoryId && (
+                    <a
+                      href={`/dashboard/knowledge-base?categoryId=${kbCategoryId}`}
+                      className="flex items-center gap-2 py-1.5 pl-6 pr-2 text-left hover:bg-slate-700/30 rounded-lg transition-colors group"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-slate-600 group-hover:bg-blue-400 flex-shrink-0 transition-colors" />
+                      <span className="text-sm text-gray-500 group-hover:text-blue-400 transition-colors">
+                        ดูทั้งหมด ({kbArticles.length} บทความ) →
+                      </span>
+                    </a>
+                  )}
                 </div>
               )}
             </div>
