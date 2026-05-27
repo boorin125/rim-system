@@ -684,13 +684,15 @@ export default function ServiceReportPage() {
                     {/* Customer Signature */}
                     <div className="text-center">
                       <p className="text-xs text-gray-500 mb-3">ลายเซ็นลูกค้า / Customer</p>
-                      {report.customerSignature && (
-                        <img
-                          src={getPhotoUrl(report.customerSignature)}
-                          alt="Customer Signature"
-                          className="h-20 mx-auto mb-2 bg-white rounded-lg shadow-sm p-1"
-                        />
-                      )}
+                      <div className="h-20 flex items-end justify-center mb-2">
+                        {report.customerSignature && (
+                          <img
+                            src={getPhotoUrl(report.customerSignature)}
+                            alt="Customer Signature"
+                            className="h-16 object-contain"
+                          />
+                        )}
+                      </div>
                       <div className="border-b-2 border-gray-400 w-48 mx-auto mb-1"></div>
                       <p className="text-gray-800 text-sm font-medium">( {report.customerSignatureName || '-'} )</p>
                       <p className="text-gray-500 text-xs mt-0.5">
@@ -1213,13 +1215,15 @@ export default function ServiceReportPage() {
                 {/* Customer Signature */}
                 <div className="p-4 text-center">
                   <p className="text-xs text-gray-500 mb-3">ลายเซ็นลูกค้า / Customer</p>
-                  {report.customerSignature && (
-                    <img
-                      src={getPhotoUrl(report.customerSignature)}
-                      alt="Customer Signature"
-                      className="h-20 mx-auto mb-2 bg-white"
-                    />
-                  )}
+                  <div className="h-20 flex items-end justify-center mb-2">
+                    {report.customerSignature && (
+                      <img
+                        src={getPhotoUrl(report.customerSignature)}
+                        alt="Customer Signature"
+                        className="h-16 object-contain"
+                      />
+                    )}
+                  </div>
                   <div className="border-b border-black w-48 mx-auto mb-1"></div>
                   <p className="text-black text-sm font-medium">( {report.customerSignatureName || '-'} )</p>
                   <p className="text-gray-500 text-xs mt-0.5">
