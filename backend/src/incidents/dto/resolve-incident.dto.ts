@@ -7,6 +7,7 @@ import {
   IsOptional,
   ValidateNested,
   IsEnum,
+  ValidateIf,
   MinLength,
   IsInt,
 } from 'class-validator';
@@ -59,7 +60,8 @@ export class SparePartDto {
   @IsString()
   newSerialNo?: string;
 
-  @IsOptional()
+  // Only validate for EQUIPMENT_REPLACEMENT (or legacy parts without repairType that have a non-empty value)
+  @ValidateIf(o => o.repairType === 'EQUIPMENT_REPLACEMENT' || (!o.repairType && !!o.replacementType))
   @IsEnum(['PERMANENT', 'TEMPORARY'], {
     message: 'Replacement type must be PERMANENT or TEMPORARY',
   })
