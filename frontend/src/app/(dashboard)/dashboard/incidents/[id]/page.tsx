@@ -1941,17 +1941,17 @@ SLA Breach Time: ${slaBreachText}`
                       )}
                     </button>
                   ))}
-                  {kbCategoryId && (
-                    <a
-                      href={`/dashboard/knowledge-base?categoryId=${kbCategoryId}`}
-                      className="flex items-center gap-2 py-1.5 pl-6 pr-2 text-left hover:bg-slate-700/30 rounded-lg transition-colors group"
-                    >
-                      <span className="w-1.5 h-1.5 rounded-full bg-slate-600 group-hover:bg-blue-400 flex-shrink-0 transition-colors" />
-                      <span className="text-sm text-gray-500 group-hover:text-blue-400 transition-colors">
-                        ดูทั้งหมด ({kbArticles.length} บทความ) →
-                      </span>
-                    </a>
-                  )}
+                  <a
+                    href={kbCategoryId
+                      ? `/dashboard/knowledge-base?categoryId=${kbCategoryId}`
+                      : `/dashboard/knowledge-base`}
+                    className="flex items-center gap-2 py-1.5 pl-6 pr-2 text-left hover:bg-slate-700/30 rounded-lg transition-colors group"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-600 group-hover:bg-blue-400 flex-shrink-0 transition-colors" />
+                    <span className="text-sm text-gray-500 group-hover:text-blue-400 transition-colors">
+                      ดูทั้งหมด ({kbArticles.length} บทความ) →
+                    </span>
+                  </a>
                 </div>
               )}
             </div>
