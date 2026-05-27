@@ -80,8 +80,8 @@ export default function ConfirmCloseModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4">
-      <div className="glass-card border border-slate-700/50 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] sm:max-h-[88vh] flex flex-col animate-fade-in">
+    <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-[200] p-3 sm:p-4 pt-16 sm:pt-20 overflow-y-auto">
+      <div className="glass-card border border-slate-700/50 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[calc(100vh-80px)] sm:max-h-[calc(100vh-96px)] flex flex-col animate-fade-in">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700/50 bg-slate-800/30 flex-shrink-0">
           <div>
