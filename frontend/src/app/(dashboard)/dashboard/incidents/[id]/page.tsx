@@ -2135,7 +2135,10 @@ SLA Breach Time: ${slaBreachText}`
                           .map((part: any, index: number) => {
                             const deviceName = part.equipmentName || part.deviceName?.split(' → ')[0]?.trim() || '-'
                             const oldBrandModel = part.oldBrandModel || '-'
-                            const newBrandModel = part.newBrandModel || '-'
+                            // Fallback for old records: parse "OldDevice → NewDevice" in deviceName
+                            const legacyNewName = part.deviceName?.includes(' → ')
+                              ? part.deviceName.split(' → ')[1]?.trim() : ''
+                            const newBrandModel = part.newBrandModel || legacyNewName || '-'
                             return (
                               <tr key={index} className="border-b border-slate-700/30">
                                 <td className="py-2.5 px-3">
