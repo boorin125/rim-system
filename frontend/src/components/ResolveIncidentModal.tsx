@@ -662,7 +662,7 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
                           {p.repairType === 'EQUIPMENT_REPLACEMENT' ? (
                             <p className="text-xs text-white truncate">
                               <span className="font-medium">{p.oldDeviceName || '—'}</span>
-                              <span className="text-gray-400"> S/N:{p.oldSerialNo || '-'}</span>
+                              <span className="text-gray-400"> {p.oldBrand || '-'} {p.oldModel || '-'} S/N:{p.oldSerialNo || '-'}</span>
                               <span className="text-gray-400 mx-1">→</span>
                               <span className="text-green-400">{[p.newBrand, p.newModel].filter(Boolean).join(' ') || p.newDeviceName || '—'} S/N:{p.newSerialNo || '-'}</span>
                             </p>

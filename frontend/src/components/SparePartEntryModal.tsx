@@ -34,6 +34,8 @@ function makeEmptyPart(): SparePart {
     id: `spare-${Date.now()}`,
     repairType: 'EQUIPMENT_REPLACEMENT',
     oldDeviceName: '',
+    oldBrand: '',
+    oldModel: '',
     oldSerialNo: '',
     newDeviceName: '',
     newSerialNo: '',
@@ -114,9 +116,17 @@ export default function SparePartEntryModal({ isOpen, onClose, onAdd, storeId, i
     if (part.repairType === 'EQUIPMENT_REPLACEMENT') {
       if (availableEquipment.length !== 1) return
       const d = availableEquipment[0]
-      const displayName = [d.position, d.brand, d.model].filter(Boolean).join(' ') || d.name
       if (!part.selectedDeviceId) {
-        setPart(p => ({ ...p, selectedDeviceId: d.id, oldDeviceName: displayName, oldSerialNo: d.serialNumber || '', oldEquipmentId: d.id, newDeviceName: p.newDeviceName || d.name }))
+        setPart(p => ({
+          ...p,
+          selectedDeviceId: d.id,
+          oldDeviceName: d.position || d.name,
+          oldBrand: d.brand || '',
+          oldModel: d.model || '',
+          oldSerialNo: d.serialNumber || '',
+          oldEquipmentId: d.id,
+          newDeviceName: p.newDeviceName || d.name,
+        }))
       }
     } else if (part.repairType === 'COMPONENT_REPLACEMENT') {
       if (filteredEquipment.length !== 1) return
@@ -143,12 +153,17 @@ export default function SparePartEntryModal({ isOpen, onClose, onAdd, storeId, i
   const up = (field: keyof SparePart, value: string) => setPart(p => ({ ...p, [field]: value }))
 
   const selectOldDevice = (d: DeviceSuggestion) => {
-    const parts: string[] = []
-    if (d.position) parts.push(d.position)
-    if (d.brand) parts.push(d.brand)
-    if (d.model) parts.push(d.model)
-    if (parts.length === 0) parts.push(d.name)
-    setPart(p => ({ ...p, selectedDeviceId: d.id, oldDeviceName: parts.join(' '), oldSerialNo: d.serialNumber || '', oldEquipmentId: d.id, newDeviceName: p.newDeviceName || d.name }))
+    const label = d.position || d.name
+    setPart(p => ({
+      ...p,
+      selectedDeviceId: d.id,
+      oldDeviceName: label,
+      oldBrand: d.brand || '',
+      oldModel: d.model || '',
+      oldSerialNo: d.serialNumber || '',
+      oldEquipmentId: d.id,
+      newDeviceName: p.newDeviceName || d.name,
+    }))
   }
 
   const fetchBrands = async (query: string) => {
@@ -181,7 +196,21 @@ export default function SparePartEntryModal({ isOpen, onClose, onAdd, storeId, i
 
   const handleConfirm = () => {
     // In edit mode preserve the original id so the caller can replace the entry
-    onAdd({ ...part, id: initialPart?.id ?? `spare-${Date.now()}` })
+    const finalPart = { ...part, id: initialPart?.id ?? `spare-${Date.now()}` }
+
+    // Fix race condition: if COMPONENT_REPLACEMENT parentEquipmentName wasn't set yet
+    // (auto-fill effect may not have fired before user clicked confirm), resolve it now
+    if (finalPart.repairType === 'COMPONENT_REPLACEMENT' && !finalPart.parentEquipmentName) {
+      const d = filteredEquipment.length === 1
+        ? filteredEquipment[0]
+        : storeEquipment.find(x => x.id === finalPart.parentEquipmentId)
+      if (d) {
+        finalPart.parentEquipmentName = [d.position, d.brand, d.model].filter(Boolean).join(' ') || d.name
+        if (!finalPart.parentEquipmentId) finalPart.parentEquipmentId = d.id
+      }
+    }
+
+    onAdd(finalPart)
     onClose()
   }
 

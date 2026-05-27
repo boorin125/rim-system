@@ -14,7 +14,9 @@ export interface SparePart {
   // Device selector (เลือกจาก Equipment ของ Store)
   selectedDeviceId?: number;
   // Old Device
-  oldDeviceName: string;
+  oldDeviceName: string;    // position หรือ name (label) ของอุปกรณ์
+  oldBrand?: string;        // brand แยกสำหรับ display
+  oldModel?: string;        // model แยกสำหรับ display
   oldSerialNo: string;
   oldEquipmentId?: number;  // ✅ เชื่อมโยงกับ Equipment ที่ถูกถอดออก
   // New Device
