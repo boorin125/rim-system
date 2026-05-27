@@ -36,6 +36,8 @@ import {
   Shield,
   BookOpen,
   ChevronRight,
+  ArrowRightLeft,
+  Cpu,
 } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
@@ -2106,61 +2108,97 @@ SLA Breach Time: ${slaBreachText}`
           
           {/* Spare Parts (if any) */}
           {incident.usedSpareParts && incident.spareParts && incident.spareParts.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-green-500/20">
-              <h3 className="text-sm font-semibold text-green-400 mb-3">Spare Parts Used</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-green-500/20">
-                      <th className="text-left py-2 px-3 text-gray-400 font-medium w-8">#</th>
-                      <th className="text-left py-2 px-3 text-gray-400 font-medium">Old Equipment</th>
-                      <th className="text-left py-2 px-3 text-gray-400 font-medium">Old Serial No.</th>
-                      <th className="text-center py-2 px-3 text-gray-400 font-medium w-8"></th>
-                      <th className="text-left py-2 px-3 text-gray-400 font-medium">New Equipment</th>
-                      <th className="text-left py-2 px-3 text-gray-400 font-medium">New Serial No.</th>
-                      <th className="text-left py-2 px-3 text-gray-400 font-medium">Notes</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {incident.spareParts.map((part: any, index: number) => {
-                      const deviceNames = part.deviceName?.includes(' → ')
-                        ? part.deviceName.split(' → ')
-                        : [part.deviceName, part.deviceName]
-                      const oldName = deviceNames[0]?.trim() || '-'
-                      const newName = deviceNames[1]?.trim() || deviceNames[0]?.trim() || '-'
-                      const replacementType = part.replacementType as 'PERMANENT' | 'TEMPORARY' | undefined
-                      // Strip legacy embedded type strings that old data had stored inside the notes field
-                      const cleanNotes = part.notes
-                        ?.replace(/^\[Component Replacement\]\s*/i, '')
-                        ?.replace(/^Type:\s*(PERMANENT|TEMPORARY)\s*\|?\s*/i, '')
-                        ?.trim() || ''
-                      return (
-                        <tr key={index} className="border-b border-slate-700/30">
-                          <td className="py-2.5 px-3">
-                            <span className="flex-shrink-0 w-6 h-6 flex items-center justify-center bg-green-500/20 text-green-400 text-xs font-bold rounded-full">
-                              {index + 1}
-                            </span>
-                          </td>
-                          <td className="py-2.5 px-3 text-gray-300">{oldName}</td>
-                          <td className="py-2.5 px-3 text-gray-400 font-mono text-xs">{part.oldSerialNo}</td>
-                          <td className="py-2.5 px-3 text-center text-green-400">→</td>
-                          <td className="py-2.5 px-3 text-white font-medium">{newName}</td>
-                          <td className="py-2.5 px-3 text-green-400 font-mono text-xs">{part.newSerialNo}</td>
-                          <td className="py-2.5 px-3 text-xs">
-                            {replacementType && (
-                              <span className={`inline-block px-1.5 py-0.5 rounded text-xs mr-1 ${replacementType === 'PERMANENT' ? 'bg-blue-500/20 text-blue-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
-                                {replacementType}
-                              </span>
-                            )}
-                            {cleanNotes && <span className="text-gray-500 italic">{cleanNotes}</span>}
-                            {!replacementType && !cleanNotes && <span className="text-gray-600">-</span>}
-                          </td>
+            <div className="mt-4 pt-4 border-t border-green-500/20 space-y-4">
+
+              {/* ── ตาราง เปลี่ยนอุปกรณ์ (EQUIPMENT_REPLACEMENT) ── */}
+              {incident.spareParts.some((p: any) => p.repairType === 'EQUIPMENT_REPLACEMENT' || !p.repairType) && (
+                <div>
+                  <h3 className="text-sm font-semibold text-green-400 mb-2 flex items-center gap-1.5">
+                    <ArrowRightLeft className="w-3.5 h-3.5" />รายการเปลี่ยนอุปกรณ์
+                  </h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-green-500/20">
+                          <th className="text-left py-2 px-3 text-gray-400 font-medium w-8">#</th>
+                          <th className="text-left py-2 px-3 text-gray-400 font-medium">ชื่ออุปกรณ์</th>
+                          <th className="text-left py-2 px-3 text-gray-400 font-medium">Brand/Model เดิม</th>
+                          <th className="text-left py-2 px-3 text-gray-400 font-medium">Serial No. เดิม</th>
+                          <th className="text-center py-2 px-1 text-gray-400 font-medium w-6">→</th>
+                          <th className="text-left py-2 px-3 text-gray-400 font-medium">Brand/Model ใหม่</th>
+                          <th className="text-left py-2 px-3 text-gray-400 font-medium">Serial No. ใหม่</th>
                         </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                      </thead>
+                      <tbody>
+                        {incident.spareParts
+                          .filter((p: any) => p.repairType === 'EQUIPMENT_REPLACEMENT' || !p.repairType)
+                          .map((part: any, index: number) => {
+                            const deviceName = part.equipmentName || part.deviceName?.split(' → ')[0]?.trim() || '-'
+                            const oldBrandModel = part.oldBrandModel || '-'
+                            const newBrandModel = part.newBrandModel || '-'
+                            return (
+                              <tr key={index} className="border-b border-slate-700/30">
+                                <td className="py-2.5 px-3">
+                                  <span className="w-6 h-6 flex items-center justify-center bg-green-500/20 text-green-400 text-xs font-bold rounded-full">
+                                    {index + 1}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3 text-gray-300">{deviceName}</td>
+                                <td className="py-2.5 px-3 text-gray-400 text-xs">{oldBrandModel}</td>
+                                <td className="py-2.5 px-3 text-gray-400 font-mono text-xs">{part.oldSerialNo || '-'}</td>
+                                <td className="py-2.5 px-1 text-center text-green-400">→</td>
+                                <td className="py-2.5 px-3 text-white font-medium text-xs">{newBrandModel}</td>
+                                <td className="py-2.5 px-3 text-green-400 font-mono text-xs">{part.newSerialNo || '-'}</td>
+                              </tr>
+                            )
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* ── ตาราง เปลี่ยนชิ้นส่วน (COMPONENT_REPLACEMENT) ── */}
+              {incident.spareParts.some((p: any) => p.repairType === 'COMPONENT_REPLACEMENT') && (
+                <div>
+                  <h3 className="text-sm font-semibold text-purple-400 mb-2 flex items-center gap-1.5">
+                    <Cpu className="w-3.5 h-3.5" />รายการเปลี่ยนชิ้นส่วน
+                  </h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-purple-500/20">
+                          <th className="text-left py-2 px-3 text-gray-400 font-medium w-8">#</th>
+                          <th className="text-left py-2 px-3 text-gray-400 font-medium">ชื่ออุปกรณ์</th>
+                          <th className="text-left py-2 px-3 text-gray-400 font-medium">ชิ้นส่วนที่เปลี่ยน</th>
+                          <th className="text-left py-2 px-3 text-gray-400 font-medium">Serial No. เดิม → ใหม่</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {incident.spareParts
+                          .filter((p: any) => p.repairType === 'COMPONENT_REPLACEMENT')
+                          .map((part: any, index: number) => (
+                            <tr key={index} className="border-b border-slate-700/30">
+                              <td className="py-2.5 px-3">
+                                <span className="w-6 h-6 flex items-center justify-center bg-purple-500/20 text-purple-400 text-xs font-bold rounded-full">
+                                  {index + 1}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-gray-300">{part.parentEquipmentName || '-'}</td>
+                              <td className="py-2.5 px-3 text-gray-300">{part.componentName || '-'}</td>
+                              <td className="py-2.5 px-3 font-mono text-xs">
+                                <span className="text-gray-400">{part.oldComponentSerial || '-'}</span>
+                                <span className="text-purple-400 mx-1.5">→</span>
+                                <span className="text-green-400">{part.newComponentSerial || '-'}</span>
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
             </div>
           )}
         </div>
