@@ -282,12 +282,13 @@ export class IncidentsService {
         if (equipIds.length > 0) {
           const equipments = await this.prisma.equipment.findMany({
             where: { id: { in: equipIds } },
-            select: { id: true, name: true, position: true, brand: true, model: true },
+            select: { id: true, name: true, brand: true, model: true },
           });
           equipments.forEach(e => equipMap.set(e.id, e));
         }
+        // Use name first — Equipment.name already stores the full label (e.g. "UPS POS#1")
         const resolveEquipLabel = (equip: any) =>
-          [equip?.position, equip?.brand, equip?.model].filter(Boolean).join(' ') || equip?.name || '';
+          equip?.name || [equip?.brand, equip?.model].filter(Boolean).join(' ') || '';
         return rawParts.map((sp: any) => {
           const oldEquip = sp.oldEquipmentId ? (equipMap.get(sp.oldEquipmentId) ?? null) : null;
           const newEquip = sp.newEquipmentId ? (equipMap.get(sp.newEquipmentId) ?? null) : null;
