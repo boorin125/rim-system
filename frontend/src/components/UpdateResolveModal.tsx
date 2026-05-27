@@ -305,7 +305,8 @@ export default function UpdateResolveModal({
       setNewSignedSrPhotoUrls([]);
       setError('');
     }
-  }, [isOpen, currentData]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   const totalPhotos = existingPhotos.length + newPhotos.length;
 
