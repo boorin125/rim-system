@@ -1,7 +1,7 @@
 // frontend/src/components/ConfirmCloseModal.tsx
 
 import { useState } from 'react';
-import { X, CheckCircle, AlertCircle, Clock, User, FileText, Image, ExternalLink, Pen } from 'lucide-react';
+import { X, CheckCircle, AlertCircle, Clock, User, FileText, Image, ExternalLink, Pen, ArrowRightLeft, Cpu } from 'lucide-react';
 import { getPhotoUrl } from '@/utils/photoUtils';
 import PhotoViewerModal from './PhotoViewerModal';
 
@@ -19,10 +19,17 @@ interface ConfirmCloseModalProps {
     resolutionNote: string;
     usedSpareParts: boolean;
     spareParts?: Array<{
-      deviceName: string;
-      oldSerialNo: string;
-      newSerialNo: string;
-      notes?: string;
+      repairType?: string;
+      deviceName?: string;
+      equipmentName?: string;
+      oldBrandModel?: string;
+      newBrandModel?: string;
+      oldSerialNo?: string;
+      newSerialNo?: string;
+      parentEquipmentName?: string;
+      componentName?: string;
+      oldComponentSerial?: string;
+      newComponentSerial?: string;
     }>;
     beforePhotos?: string[];
     afterPhotos?: string[];
@@ -140,32 +147,100 @@ export default function ConfirmCloseModal({
             </div>
           </div>
 
-          {/* Spare Parts */}
+          {/* Spare Parts — two tables: green for EQUIPMENT_REPLACEMENT, purple for COMPONENT_REPLACEMENT */}
           {incident.usedSpareParts && incident.spareParts && incident.spareParts.length > 0 && (
-            <div>
-              <h3 className="font-semibold text-white mb-3">Spare Parts Used</h3>
-              <div className="overflow-x-auto rounded-lg border border-slate-700/50">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-slate-700/60 text-gray-300 text-xs uppercase">
-                      <th className="px-3 py-2.5 text-center w-10">#</th>
-                      <th className="px-3 py-2.5 text-left">Part</th>
-                      <th className="px-3 py-2.5 text-left">Old Serial No.</th>
-                      <th className="px-3 py-2.5 text-left">New Serial No.</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {incident.spareParts.map((part, index) => (
-                      <tr key={index} className="border-t border-slate-700/40 hover:bg-slate-700/20">
-                        <td className="px-3 py-2.5 text-center text-gray-400">{index + 1}</td>
-                        <td className="px-3 py-2.5 text-white font-medium">{part.deviceName || '-'}</td>
-                        <td className="px-3 py-2.5 text-gray-300 font-mono text-xs">{part.oldSerialNo || '-'}</td>
-                        <td className="px-3 py-2.5 text-gray-300 font-mono text-xs">{part.newSerialNo || '-'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+            <div className="space-y-4">
+              <h3 className="font-semibold text-white">Spare Parts Used</h3>
+
+              {/* TABLE 1: อุปกรณ์ที่เปลี่ยน (EQUIPMENT_REPLACEMENT) */}
+              {incident.spareParts.some(p => p.repairType === 'EQUIPMENT_REPLACEMENT' || !p.repairType) && (
+                <div>
+                  <h4 className="text-sm font-semibold text-green-400 mb-2 flex items-center gap-1.5">
+                    <ArrowRightLeft className="w-3.5 h-3.5" />รายการเปลี่ยนอุปกรณ์ / Device Used
+                  </h4>
+                  <div className="overflow-x-auto rounded-lg border border-green-700/30">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-green-900/20 text-gray-300 text-xs border-b border-green-700/30">
+                          <th className="px-3 py-2.5 text-center w-8">#</th>
+                          <th className="px-3 py-2.5 text-left">ชื่ออุปกรณ์</th>
+                          <th className="px-3 py-2.5 text-left">Brand/Model เดิม</th>
+                          <th className="px-3 py-2.5 text-left">Serial No. เดิม</th>
+                          <th className="px-1 py-2.5 text-center w-6">→</th>
+                          <th className="px-3 py-2.5 text-left">Brand/Model ใหม่</th>
+                          <th className="px-3 py-2.5 text-left">Serial No. ใหม่</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {incident.spareParts
+                          .filter(p => p.repairType === 'EQUIPMENT_REPLACEMENT' || !p.repairType)
+                          .map((part, index) => {
+                            const deviceName = part.equipmentName || part.deviceName?.split(' → ')[0]?.trim() || '-'
+                            const oldBrandModel = part.oldBrandModel || '-'
+                            const legacyNewName = part.deviceName?.includes(' → ') ? part.deviceName.split(' → ')[1]?.trim() : ''
+                            const newBrandModel = part.newBrandModel || legacyNewName || '-'
+                            return (
+                              <tr key={index} className="border-t border-slate-700/40 hover:bg-slate-700/20">
+                                <td className="px-3 py-2.5 text-center">
+                                  <span className="w-5 h-5 inline-flex items-center justify-center bg-green-500/20 text-green-400 text-xs font-bold rounded-full">
+                                    {index + 1}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2.5 text-gray-200">{deviceName}</td>
+                                <td className="px-3 py-2.5 text-gray-400 text-xs">{oldBrandModel}</td>
+                                <td className="px-3 py-2.5 text-gray-400 font-mono text-xs">{part.oldSerialNo || '-'}</td>
+                                <td className="px-1 py-2.5 text-center text-green-400">→</td>
+                                <td className="px-3 py-2.5 text-white font-medium text-xs">{newBrandModel}</td>
+                                <td className="px-3 py-2.5 text-green-400 font-mono text-xs">{part.newSerialNo || '-'}</td>
+                              </tr>
+                            )
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* TABLE 2: ชิ้นส่วนที่เปลี่ยน (COMPONENT_REPLACEMENT) */}
+              {incident.spareParts.some(p => p.repairType === 'COMPONENT_REPLACEMENT') && (
+                <div>
+                  <h4 className="text-sm font-semibold text-purple-400 mb-2 flex items-center gap-1.5">
+                    <Cpu className="w-3.5 h-3.5" />รายการเปลี่ยนชิ้นส่วน / Spare Part Used
+                  </h4>
+                  <div className="overflow-x-auto rounded-lg border border-purple-700/30">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-purple-900/20 text-gray-300 text-xs border-b border-purple-700/30">
+                          <th className="px-3 py-2.5 text-center w-8">#</th>
+                          <th className="px-3 py-2.5 text-left">ชื่ออุปกรณ์</th>
+                          <th className="px-3 py-2.5 text-left">ชิ้นส่วนที่เปลี่ยน</th>
+                          <th className="px-3 py-2.5 text-left">Serial No. เดิม → ใหม่</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {incident.spareParts
+                          .filter(p => p.repairType === 'COMPONENT_REPLACEMENT')
+                          .map((part, index) => (
+                            <tr key={index} className="border-t border-slate-700/40 hover:bg-slate-700/20">
+                              <td className="px-3 py-2.5 text-center">
+                                <span className="w-5 h-5 inline-flex items-center justify-center bg-purple-500/20 text-purple-400 text-xs font-bold rounded-full">
+                                  {index + 1}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2.5 text-gray-200">{part.parentEquipmentName || '-'}</td>
+                              <td className="px-3 py-2.5 text-gray-200">{part.componentName || '-'}</td>
+                              <td className="px-3 py-2.5 font-mono text-xs">
+                                <span className="text-gray-400">{part.oldComponentSerial || '-'}</span>
+                                <span className="text-purple-400 mx-1.5">→</span>
+                                <span className="text-green-400">{part.newComponentSerial || '-'}</span>
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
