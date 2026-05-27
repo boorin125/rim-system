@@ -282,10 +282,12 @@ export class IncidentsService {
         if (equipIds.length > 0) {
           const equipments = await this.prisma.equipment.findMany({
             where: { id: { in: equipIds } },
-            select: { id: true, name: true, brand: true, model: true },
+            select: { id: true, name: true, position: true, brand: true, model: true },
           });
           equipments.forEach(e => equipMap.set(e.id, e));
         }
+        const resolveEquipLabel = (equip: any) =>
+          [equip?.position, equip?.brand, equip?.model].filter(Boolean).join(' ') || equip?.name || '';
         return rawParts.map((sp: any) => {
           const oldEquip = sp.oldEquipmentId ? (equipMap.get(sp.oldEquipmentId) ?? null) : null;
           const newEquip = sp.newEquipmentId ? (equipMap.get(sp.newEquipmentId) ?? null) : null;
@@ -295,14 +297,17 @@ export class IncidentsService {
             deviceName: sp.deviceName,
             oldSerialNo: sp.oldSerialNo,
             newSerialNo: sp.newSerialNo,
-            equipmentName: oldEquip?.name || sp.deviceName || '',
+            oldEquipmentId: sp.oldEquipmentId || null,
+            newEquipmentId: sp.newEquipmentId || null,
+            parentEquipmentId: sp.parentEquipmentId || null,
+            equipmentName: resolveEquipLabel(oldEquip) || sp.deviceName || '',
             oldBrandModel: [oldEquip?.brand, oldEquip?.model].filter(Boolean).join(' ') || '',
             newBrandModel: [sp.newBrand, sp.newModel].filter(Boolean).join(' ') ||
               [newEquip?.brand, newEquip?.model].filter(Boolean).join(' ') || '',
             componentName: sp.componentName || '',
             oldComponentSerial: sp.oldComponentSerial || '',
             newComponentSerial: sp.newComponentSerial || '',
-            parentEquipmentName: parentEquip?.name || sp.deviceName || '',
+            parentEquipmentName: resolveEquipLabel(parentEquip) || sp.deviceName || '',
           };
         });
       })(),
