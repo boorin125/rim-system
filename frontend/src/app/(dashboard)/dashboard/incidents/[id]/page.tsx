@@ -261,9 +261,17 @@ export default function IncidentDetailPage() {
         { headers: { Authorization: `Bearer ${token}` } }
       )
       setIncident((prev: any) => {
-        // Detect when customerSignedAt newly appears → notify
-        if (!prev?.customerSignedAt && response.data?.customerSignedAt) {
+        const didSign = !prev?.customerSignedAt && response.data?.customerSignedAt
+        if (didSign) {
           toast.success('ลูกค้าเซ็น Service Report แล้ว — พร้อมยืนยันปิดงาน ✅', { duration: 5000 })
+        }
+        // If nothing meaningful changed, return prev (same reference → no re-render)
+        if (
+          prev?.customerSignedAt === response.data?.customerSignedAt &&
+          prev?.status === response.data?.status &&
+          prev?.updatedAt === response.data?.updatedAt
+        ) {
+          return prev
         }
         return response.data
       })
