@@ -429,8 +429,20 @@ async function generateClassicPDF(data: ServiceReportData, options: PdfOptions):
 
   // Compute dynamic min heights so all 3 text sections + spare parts fit on 1 page
   // Budget: page(297) - footer(15) - current_y - tail(sectionGaps + spare parts + remark + status + sig header + sig)
-  const _spN = (data.usedSpareParts && data.spareParts.length > 0) ? data.spareParts.length : 0
-  const _spTableH = 7 + (_spN > 0 ? _spN * 5.5 : 5.5)
+  // Correct spare parts height: split by type since each table has its own section header + table header
+  const _equipN = data.spareParts.filter(sp => sp.repairType !== 'COMPONENT_REPLACEMENT').length
+  const _compN = data.spareParts.filter(sp => sp.repairType === 'COMPONENT_REPLACEMENT').length
+  const _hasEquip = _equipN > 0
+  const _hasComp = _compN > 0
+  // Each rendered table: section-header(7) + table-header(7) + data rows
+  // Table 1 shown when hasEquip || !hasComp; Table 2 shown when hasComp
+  let _spTableH = 0
+  if (_hasEquip || !_hasComp) {
+    _spTableH += 7 + 7 + (_hasEquip ? _equipN * 5.5 : 5.5)   // empty row when no equip parts
+  }
+  if (_hasComp) {
+    _spTableH += 7 + 7 + _compN * 5.5
+  }
   const _fixedTail = 5 + 6 + _spTableH + 6 + 6 + 5 + 6 + 30  // gap+spHeader+spRows+remark+status+gap+sigHeader+sig
   const _availForText = 282 - y - _fixedTail
   const D_PROB = 30, D_WORK = 30, D_COMMENT = 20
@@ -713,8 +725,18 @@ async function generateModernPDF(data: ServiceReportData, options: PdfOptions): 
   let mCommentH = Math.max(18, commentLines.length * 4.5 + 6)
 
   // Budget: 3 section headers(7+1 each) + 3 gaps(3 each) + spare parts + status + sig header + sig + footer
-  const mSpN = (data.usedSpareParts && data.spareParts.length > 0) ? data.spareParts.length : 0
-  const mSpTableH = 7 + (mSpN > 0 ? mSpN * 5.5 : 5.5)
+  // Correct spare parts height: split by type since each table has its own section label + table header
+  const mEquipN = data.spareParts.filter(sp => sp.repairType !== 'COMPONENT_REPLACEMENT').length
+  const mCompN = data.spareParts.filter(sp => sp.repairType === 'COMPONENT_REPLACEMENT').length
+  const mHasEquip = mEquipN > 0
+  const mHasComp = mCompN > 0
+  let mSpTableH = 0
+  if (mHasEquip || !mHasComp) {
+    mSpTableH += sectionLabelH + 7 + (mHasEquip ? mEquipN * 5.5 : 5.5)
+  }
+  if (mHasComp) {
+    mSpTableH += sectionLabelH + 7 + mCompN * 5.5
+  }
   const mFixedTail = (sectionLabelH + 1) * 3 + 3 * 3 + mSpTableH + 12 + (sectionLabelH + 1) + 30 + 10
   const mAvail = 285 - y - mFixedTail
   const mTotalText = mProblemH + mResH + mCommentH
