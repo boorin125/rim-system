@@ -132,12 +132,26 @@ export default function SparePartEntryModal({ isOpen, onClose, onAdd, storeId, i
       if (filteredEquipment.length !== 1) return
       const d = filteredEquipment[0]
       const displayName = [d.position, d.brand, d.model].filter(Boolean).join(' ') || d.name
-      if (!part.parentEquipmentId) {
-        setPart(p => ({ ...p, parentEquipmentName: displayName, parentEquipmentId: d.id }))
-      }
+      // Always set for single device (safe: only 1 choice anyway)
+      setPart(p => ({ ...p, parentEquipmentName: displayName, parentEquipmentId: d.id }))
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filteredEquipment, availableEquipment, part.repairType])
+
+  // Resolve parentEquipmentName from storeEquipment when editing an old entry
+  // (covers multi-device incidents where auto-fill doesn't run)
+  useEffect(() => {
+    if (!isOpen || !storeEquipment.length) return
+    setPart(p => {
+      if (p.repairType !== 'COMPONENT_REPLACEMENT') return p
+      if (p.parentEquipmentName) return p          // already has a name
+      if (!p.parentEquipmentId) return p            // no ID to look up
+      const d = storeEquipment.find(x => x.id === p.parentEquipmentId)
+      if (!d) return p
+      return { ...p, parentEquipmentName: [d.position, d.brand, d.model].filter(Boolean).join(' ') || d.name }
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storeEquipment, isOpen])
 
   // Click outside to close dropdowns
   useEffect(() => {

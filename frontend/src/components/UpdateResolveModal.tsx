@@ -30,6 +30,7 @@ interface UpdateResolveModalProps {
       oldComponentSerial?: string;
       newComponentSerial?: string;
       parentEquipmentId?: number;
+      parentEquipmentName?: string;
       notes?: string;
     }>;
     afterPhotos?: string[];
@@ -260,6 +261,7 @@ export default function UpdateResolveModal({
             oldComponentSerial: part.oldComponentSerial || undefined,
             newComponentSerial: part.newComponentSerial || undefined,
             parentEquipmentId: part.parentEquipmentId || undefined,
+            parentEquipmentName: part.parentEquipmentName || undefined,
             notes: cleanNotes || undefined,
           };
         });
