@@ -24,7 +24,9 @@ export interface SparePart {
   repairType: 'EQUIPMENT_REPLACEMENT' | 'COMPONENT_REPLACEMENT';
 
   // === EQUIPMENT_REPLACEMENT Fields ===
-  oldDeviceName: string;
+  oldDeviceName: string;    // position หรือ name (label) ของอุปกรณ์
+  oldBrand?: string;        // brand แยกสำหรับ display
+  oldModel?: string;        // model แยกสำหรับ display
   oldSerialNo: string;
   oldEquipmentId?: number;  // ✅ Equipment ID ที่ถูกถอดออก
   newDeviceName: string;
