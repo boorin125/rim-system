@@ -199,15 +199,12 @@ export default function IncidentDetailPage() {
   }, [])
 
 
-  // Fetch KB articles when incident loads — use incident.category, fallback to first equipment category
+  // Fetch KB articles based on incident category only (stable primitives — no array ref)
   useEffect(() => {
-    const cat = incident?.category ||
-      (incident?.equipmentList?.length > 0 ? incident.equipmentList[0].category : null)
-    if (cat) {
-      fetchKbArticles(cat, incident.title || '')
+    if (incident?.id && incident?.category) {
+      fetchKbArticles(incident.category, incident.title || '')
     }
-  // Use primitive string values (not array reference) to avoid re-fetching on every silent poll
-  }, [incident?.id, incident?.category, incident?.equipmentList?.[0]?.category])
+  }, [incident?.id, incident?.category])
 
   const fetchIncident = async () => {
     try {
