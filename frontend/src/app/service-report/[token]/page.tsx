@@ -774,7 +774,7 @@ export default function ServiceReportPage() {
                         </button>
                       </div>
                       {/* Technician display */}
-                      <div className="text-center flex flex-col items-center justify-center">
+                      <div className="text-center flex flex-col items-center justify-start">
                         <p className="text-xs text-gray-500 mb-2">ลายเซ็นผู้ให้บริการ / Service</p>
                         <div className="border border-gray-300 rounded-lg bg-white w-full" style={{ height: '200px', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: '10px' }}>
                           {techSignatureUrl ? (
