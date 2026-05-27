@@ -322,6 +322,23 @@ const RELEASE_NOTES: {
   changes: { type: 'new' | 'improved' | 'fixed'; text: string }[]
 }[] = [
   {
+    version: '1.0.16',
+    date: '2026-05-28',
+    changes: [
+      { type: 'new',      text: 'Incident Detail: แสดง Knowledge Base Articles ที่เกี่ยวข้อง (สูงสุด 3 บทความ) พร้อม More link ไปหน้า KB' },
+      { type: 'new',      text: 'Incident Detail: แบ่งตาราง Spare Parts เป็น 2 ชนิด — อุปกรณ์ที่เปลี่ยน (เขียว) / ชิ้นส่วนที่เปลี่ยน (ม่วง)' },
+      { type: 'new',      text: 'Spare Parts: Popup modal สำหรับเพิ่ม/แก้ไขอะไหล่ (SparePartEntryModal) แทน inline form ใน Resolve Modal และ Update Modal' },
+      { type: 'new',      text: 'Spare Parts: click-to-edit สำหรับแถวอะไหล่ พร้อม color-coded rows และ ป้องกันการเพิ่ม EQUIPMENT_REPLACEMENT ซ้ำสำหรับอุปกรณ์เดิม' },
+      { type: 'new',      text: 'Confirm Incident Closure: แบ่งตาราง Spare Parts เป็น 2 ชนิด (เขียว/ม่วง) พร้อมข้อมูลครบ เหมือนหน้า Incident Detail' },
+      { type: 'improved', text: 'Service Report Online: ลายเซ็นผู้ให้บริการ/ลูกค้า bottom-aligned, ลายเซ็นลูกค้ากลมกลืนกับ Card ไม่มี white box' },
+      { type: 'improved', text: 'Service Report Online: fullscreen canvas ลายเซ็นลูกค้า แก้ตำแหน่งทัชไม่ตรงบนหน้าจอ Retina/HiDPI + landscape' },
+      { type: 'improved', text: 'Service Report PDF: แก้ layout เมื่อมีทั้ง Equipment Replacement + Component Replacement — Signature box ไม่ถูกดันออกนอกหน้า' },
+      { type: 'improved', text: 'Confirm Incident Closure: Modal ไม่ถูกบัง Header อีกต่อไป' },
+      { type: 'fixed',    text: 'Service Report PDF: แสดงชื่อช่างเสมอแม้เปิด Blank PDF mode' },
+      { type: 'fixed',    text: 'Spare Parts: แสดง oldBrand/oldModel, parentEquipmentName ถูกต้องทั้งใน Incident Detail, Email, Public View และ SR' },
+    ],
+  },
+  {
     version: '1.0.15',
     date: '2026-05-26',
     changes: [
