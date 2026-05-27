@@ -15,7 +15,7 @@ services:
     volumes:
       - rim_db_data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-rimuser}']
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-rimuser} -d ${DB_NAME:-rimdb}']
       interval: 10s
       timeout: 5s
       retries: 5
