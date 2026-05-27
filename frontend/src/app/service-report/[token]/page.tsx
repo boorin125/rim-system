@@ -162,37 +162,43 @@ export default function ServiceReportPage() {
   }
 
   // Fullscreen signature handlers
-  const initFsCanvas = () => {
-    if (fsCanvasRef.current) {
-      const canvas = fsCanvasRef.current
-      const ratio = Math.max(window.devicePixelRatio || 1, 1)
-      // Use actual rendered CSS size from layout (absolute inset-0 w-full h-full)
-      // This avoids touch-coordinate offset when device rotates or fullscreen size differs from window.innerWidth
-      const rect = canvas.getBoundingClientRect()
-      canvas.width = Math.round(rect.width * ratio)
-      canvas.height = Math.round(rect.height * ratio)
-      // Do NOT set canvas.style.width/height — CSS already controls display size via w-full h-full
-      fsSignaturePadRef.current = new SignaturePad(canvas, {
-        backgroundColor: 'rgb(255, 255, 255)',
-        penColor: 'rgb(0, 0, 200)',
-        minWidth: 1.5,
-        maxWidth: 3,
-      })
-    }
-  }
+  // initFsCanvas reads the canvas's ACTUAL displayed size via getBoundingClientRect().
+  // Must be called after layout settles — use ResizeObserver (below) rather than a fixed timeout.
+  const initFsCanvas = useCallback(() => {
+    if (!fsCanvasRef.current) return
+    const canvas = fsCanvasRef.current
+    const rect = canvas.getBoundingClientRect()
+    if (rect.width < 10 || rect.height < 10) return  // Not laid out yet — skip
+    const ratio = Math.max(window.devicePixelRatio || 1, 1)
+    canvas.width = Math.round(rect.width * ratio)
+    canvas.height = Math.round(rect.height * ratio)
+    // Do NOT set canvas.style.width/height — CSS (absolute inset-0 w-full h-full) controls display size
+    fsSignaturePadRef.current?.off()
+    fsSignaturePadRef.current = new SignaturePad(canvas, {
+      backgroundColor: 'rgb(255, 255, 255)',
+      penColor: 'rgb(0, 0, 200)',
+      minWidth: 1.5,
+      maxWidth: 3,
+    })
+  }, [])
 
-  // Re-init canvas on resize / orientation change (handles iOS landscape rotation when lock not supported)
+  // Watch canvas size with ResizeObserver: re-init whenever it reaches its final size
+  // (handles orientation lock completing 200-500ms after fullscreen opens, both iOS & Android)
   useEffect(() => {
     if (!isFullscreenSign) return
-    const handleResize = () => {
-      fsSignaturePadRef.current?.off()
-      fsSignaturePadRef.current = null
-      setTimeout(initFsCanvas, 80)
+    let debounce: ReturnType<typeof setTimeout>
+    const reinit = () => {
+      clearTimeout(debounce)
+      debounce = setTimeout(initFsCanvas, 80)
     }
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isFullscreenSign])
+    // Initial call — fires after first paint of the overlay
+    reinit()
+    const canvas = fsCanvasRef.current
+    if (!canvas) return
+    const ro = new ResizeObserver(reinit)
+    ro.observe(canvas)
+    return () => { clearTimeout(debounce); ro.disconnect() }
+  }, [isFullscreenSign, initFsCanvas])
 
   const openFullscreenSign = async () => {
     setIsFullscreenSign(true)
@@ -206,7 +212,7 @@ export default function ServiceReportPage() {
     } catch (_) {
       // Not supported on this device/browser — fallback to portrait fullscreen
     }
-    setTimeout(initFsCanvas, 100)
+    // No setTimeout here — ResizeObserver handles init after layout settles
   }
 
   const closeFullscreenSign = async () => {
