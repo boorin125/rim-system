@@ -164,14 +164,20 @@ export default function ServiceReportPage() {
   // Fullscreen signature handlers
   // initFsCanvas reads the canvas's ACTUAL displayed size via getBoundingClientRect().
   // Must be called after layout settles — use ResizeObserver (below) rather than a fixed timeout.
+  // CRITICAL: must call ctx.scale(ratio, ratio) so SignaturePad's CSS-pixel coordinates map correctly
+  // to the hi-DPI buffer. Without this, touch at center draws at 1/dpr position (top-left corner on retina).
   const initFsCanvas = useCallback(() => {
     if (!fsCanvasRef.current) return
     const canvas = fsCanvasRef.current
     const rect = canvas.getBoundingClientRect()
     if (rect.width < 10 || rect.height < 10) return  // Not laid out yet — skip
     const ratio = Math.max(window.devicePixelRatio || 1, 1)
+    // Setting canvas.width/height resets the context (clears transforms too)
     canvas.width = Math.round(rect.width * ratio)
     canvas.height = Math.round(rect.height * ratio)
+    // Scale context so CSS-pixel coords from SignaturePad land on correct buffer pixels
+    const ctx = canvas.getContext('2d')
+    if (ctx) ctx.scale(ratio, ratio)
     // Do NOT set canvas.style.width/height — CSS (absolute inset-0 w-full h-full) controls display size
     fsSignaturePadRef.current?.off()
     fsSignaturePadRef.current = new SignaturePad(canvas, {
