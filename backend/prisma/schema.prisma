@@ -414,6 +414,8 @@ model Incident {
   @@index([assigneeId])
   @@index([status, createdAt])
   @@index([status, priority])
+  @@index([resolutionType])
+  @@index([resolutionType, status])
   @@map("incidents")
 }
 

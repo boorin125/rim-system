@@ -51,29 +51,10 @@ export class IncidentsAnalyticsService {
   async getDashboardStats(user: any, from?: string, to?: string) {
     const where = this.buildWhereClause(user, from, to);
 
-    const [
-      total,
-      open,
-      assigned,
-      inProgress,
-      pending,
-      resolved,
-      closed,
-      cancelled,
-      critical,
-      high,
-      overdueSla,
-    ] = await Promise.all([
-      this.prisma.incident.count({ where }),
-      this.prisma.incident.count({ where: { ...where, status: IncidentStatus.OPEN } }),
-      this.prisma.incident.count({ where: { ...where, status: IncidentStatus.ASSIGNED } }),
-      this.prisma.incident.count({ where: { ...where, status: IncidentStatus.IN_PROGRESS } }),
-      this.prisma.incident.count({ where: { ...where, status: IncidentStatus.PENDING } }),
-      this.prisma.incident.count({ where: { ...where, status: IncidentStatus.RESOLVED } }),
-      this.prisma.incident.count({ where: { ...where, status: IncidentStatus.CLOSED } }),
-      this.prisma.incident.count({ where: { ...where, status: IncidentStatus.CANCELLED } }),
-      this.prisma.incident.count({ where: { ...where, priority: 'CRITICAL' } }),
-      this.prisma.incident.count({ where: { ...where, priority: 'HIGH' } }),
+    // 3 queries instead of 11 — groupBy for status, groupBy for priority, count for overdue SLA
+    const [statusGroups, priorityGroups, overdueSla] = await Promise.all([
+      this.prisma.incident.groupBy({ by: ['status'], where, _count: { _all: true } }),
+      this.prisma.incident.groupBy({ by: ['priority'], where, _count: { _all: true } }),
       this.prisma.incident.count({
         where: {
           ...where,
@@ -85,20 +66,24 @@ export class IncidentsAnalyticsService {
       }),
     ]);
 
+    const byStatus = Object.fromEntries(statusGroups.map(g => [g.status, g._count._all]))
+    const byPriority = Object.fromEntries(priorityGroups.map(g => [g.priority, g._count._all]))
+    const total = statusGroups.reduce((sum, g) => sum + g._count._all, 0)
+
     return {
       total,
       byStatus: {
-        open,
-        assigned,
-        inProgress,
-        pending,
-        resolved,
-        closed,
-        cancelled,
+        open: byStatus[IncidentStatus.OPEN] ?? 0,
+        assigned: byStatus[IncidentStatus.ASSIGNED] ?? 0,
+        inProgress: byStatus[IncidentStatus.IN_PROGRESS] ?? 0,
+        pending: byStatus[IncidentStatus.PENDING] ?? 0,
+        resolved: byStatus[IncidentStatus.RESOLVED] ?? 0,
+        closed: byStatus[IncidentStatus.CLOSED] ?? 0,
+        cancelled: byStatus[IncidentStatus.CANCELLED] ?? 0,
       },
       byPriority: {
-        critical,
-        high,
+        critical: byPriority['CRITICAL'] ?? 0,
+        high: byPriority['HIGH'] ?? 0,
       },
       sla: {
         overdue: overdueSla,

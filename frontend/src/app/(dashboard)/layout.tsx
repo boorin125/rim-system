@@ -420,10 +420,15 @@ export default function DashboardLayout({
     return () => clearInterval(interval)
   }, [user])
 
-  // Fetch theme settings on every page navigation to keep in sync with admin changes
+  // Fetch theme settings — re-fetch at most every 5 minutes to sync admin changes without hammering API on every navigation
   useEffect(() => {
     const token = localStorage.getItem('token')
     if (!token) return
+
+    const THEME_TTL = 5 * 60 * 1000 // 5 minutes
+    const lastFetch = parseInt(localStorage.getItem('themeStyleTs') || '0', 10)
+    if (Date.now() - lastFetch < THEME_TTL) return
+
     const fetchTheme = async () => {
       try {
         const res = await axios.get(
@@ -432,6 +437,7 @@ export default function DashboardLayout({
         )
         if (res.data?.bgStart && res.data?.bgEnd) {
           const { bgStart, bgEnd } = res.data
+          localStorage.setItem('themeStyleTs', String(Date.now()))
           // Use functional setState to avoid stale closure issues
           setThemeStyle(prev => {
             if (prev?.bgStart === bgStart && prev?.bgEnd === bgEnd) {

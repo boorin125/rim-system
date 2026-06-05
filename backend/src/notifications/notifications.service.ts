@@ -210,18 +210,9 @@ export class NotificationsService {
    * Get unread notification count for a user
    * Help Desk users only count INCIDENT_RESOLVED notifications
    */
-  async getUnreadCount(userId: number) {
-    // Get user to check roles
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: {
-        roles: {
-          select: { role: true },
-        },
-      },
-    });
-
-    const userRoles = user?.roles?.map(r => r.role) || [];
+  async getUnreadCount(userId: number, requestUser?: any) {
+    // Use roles from JWT-validated request user if available — avoids extra DB query
+    const userRoles: string[] = requestUser?.roles ?? []
 
     const where: any = {
       userId,

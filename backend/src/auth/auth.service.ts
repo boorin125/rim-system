@@ -24,6 +24,14 @@ export class AuthService {
     private readonly emailService: EmailService,
   ) {}
 
+  // In-memory cache for JWT auth validation — avoids DB query on every API call
+  private readonly _userCache = new Map<number, { data: any; expiresAt: number }>()
+  private readonly USER_CACHE_TTL = 30_000 // 30 seconds
+
+  invalidateUserCache(userId: number) {
+    this._userCache.delete(userId)
+  }
+
   /**
    * Helper to format user with roles array
    */
@@ -422,6 +430,12 @@ export class AuthService {
    * Validate user by ID (used by JWT strategy)
    */
   async validateUser(userId: number) {
+    const now = Date.now()
+    const cached = this._userCache.get(userId)
+    if (cached && cached.expiresAt > now) {
+      return cached.data
+    }
+
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
@@ -442,7 +456,9 @@ export class AuthService {
     }
 
     const { password, ...result } = user;
-    return this.formatUserWithRoles(result);
+    const formatted = this.formatUserWithRoles(result)
+    this._userCache.set(userId, { data: formatted, expiresAt: now + this.USER_CACHE_TTL })
+    return formatted
   }
 
   /**
