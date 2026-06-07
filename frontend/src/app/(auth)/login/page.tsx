@@ -131,10 +131,12 @@ function LoginContent() {
         loginData
       )
 
-      // Save tokens
+      // Save tokens — clear old sessionExpiresAt first so stale expiry
+      // from a previous session never triggers an immediate logout
       localStorage.setItem('token', response.data.accessToken)
       localStorage.setItem('refreshToken', response.data.refreshToken)
       localStorage.setItem('user', JSON.stringify(response.data.user))
+      localStorage.removeItem('sessionExpiresAt')
       if (response.data.sessionExpiresAt) {
         localStorage.setItem('sessionExpiresAt', response.data.sessionExpiresAt)
       }
