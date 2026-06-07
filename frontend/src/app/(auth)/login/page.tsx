@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Mail, Lock, Eye, EyeOff, Phone, X, FileText } from 'lucide-react'
 import toast from 'react-hot-toast'
 import axios from 'axios'
+import { hasMenuAccess, menuPermissions } from '@/config/permissions'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
@@ -140,8 +141,12 @@ function LoginContent() {
 
       toast.success('เข้าสู่ระบบสำเร็จ!')
 
-      // Keep button disabled until redirect completes
-      router.push(nextUrl)
+      // Validate nextUrl against user's role — if it's a known restricted page the user
+      // can't access (e.g. IT_MANAGER landing on /dashboard/settings), fall back to /dashboard
+      const pathOnly = nextUrl.split('?')[0]
+      const isKnownMenu = pathOnly in menuPermissions
+      const canAccess = !isKnownMenu || hasMenuAccess(response.data.user, pathOnly)
+      router.push(canAccess ? nextUrl : '/dashboard')
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'เข้าสู่ระบบไม่สำเร็จ')
       setIsLoading(false)

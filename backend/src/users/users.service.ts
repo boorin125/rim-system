@@ -3,6 +3,7 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
+import { AuthService } from '../auth/auth.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateUserRolesDto } from './dto/update-user-roles.dto';
@@ -14,6 +15,7 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly emailService: EmailService,
+    private readonly authService: AuthService,
   ) {}
 
   /**
@@ -304,6 +306,7 @@ export class UsersService {
       },
     });
 
+    this.authService.invalidateUserCache(id);
     return this.formatUserWithRoles(user);
   }
 
@@ -365,6 +368,7 @@ export class UsersService {
     });
 
     // Return updated user
+    this.authService.invalidateUserCache(id);
     return this.findOne(id);
   }
 
@@ -414,6 +418,7 @@ export class UsersService {
       },
     });
 
+    this.authService.invalidateUserCache(id);
     return { message: 'User scheduled for deletion in 7 days', scheduledDeleteAt };
   }
 
@@ -443,6 +448,7 @@ export class UsersService {
       },
     });
 
+    this.authService.invalidateUserCache(id);
     return { message: 'Deletion cancelled successfully' };
   }
 
@@ -474,6 +480,7 @@ export class UsersService {
 
     await this.prisma.user.delete({ where: { id } });
 
+    this.authService.invalidateUserCache(id);
     return { message: 'User deleted successfully' };
   }
 
@@ -546,6 +553,7 @@ export class UsersService {
       },
     });
 
+    this.authService.invalidateUserCache(id);
     return this.formatUserWithRoles(user);
   }
 
@@ -570,6 +578,7 @@ export class UsersService {
       },
     });
 
+    this.authService.invalidateUserCache(id);
     return {
       message: 'Account unlocked successfully',
     };
@@ -768,6 +777,7 @@ export class UsersService {
       userName: `${updatedUser.firstName} ${updatedUser.lastName}`,
     });
 
+    this.authService.invalidateUserCache(id);
     return this.formatUserWithRoles(updatedUser);
   }
 
