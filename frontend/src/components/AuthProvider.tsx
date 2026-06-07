@@ -202,22 +202,25 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         const expiresAt = new Date(sessionExpiresAt)
         const now = new Date()
         const msLeft = expiresAt.getTime() - now.getTime()
-        const minLeft = msLeft / 60000
 
         if (msLeft <= 0) {
-          // Session expired — force logout immediately, no warning
           handleLogout('Session หมดอายุแล้ว กรุณาเข้าสู่ระบบใหม่')
         }
       }
     }
 
-    // Check immediately
-    checkTokenValidity()
+    // Delay the initial check by 3 seconds to let the login flow (token save +
+    // navigation) complete before evaluating sessionExpiresAt.  This prevents a
+    // stale or in-transit value from triggering a spurious logout right after login.
+    const initialCheck = setTimeout(checkTokenValidity, 3000)
 
-    // Check every minute
+    // Check every minute thereafter
     const interval = setInterval(checkTokenValidity, 60000)
 
-    return () => clearInterval(interval)
+    return () => {
+      clearTimeout(initialCheck)
+      clearInterval(interval)
+    }
   }, [pathname, handleLogout])
 
   return <>{children}</>
