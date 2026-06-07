@@ -255,7 +255,11 @@ export default function DashboardLayout({
     }).catch(() => {})
   }, [])
 
-  // Check authentication and refresh user data
+  // Check authentication and refresh user data — runs once on mount only.
+  // Using [] instead of [router] prevents a re-fire when the App Router updates its
+  // internal reference after navigation, which could race with localStorage cleanup
+  // from a prior session and cause a spurious "no token" redirect.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const token = localStorage.getItem('token')
     const userStr = localStorage.getItem('user')
@@ -272,12 +276,17 @@ export default function DashboardLayout({
       setUser(JSON.parse(userStr))
     }
 
+    const controller = new AbortController()
+
     // Fetch fresh user data from API to get updated roles
     const fetchUserProfile = async () => {
       try {
         const res = await axios.get(
           `${process.env.NEXT_PUBLIC_API_URL}/auth/profile`,
-          { headers: { Authorization: `Bearer ${token}` } }
+          {
+            headers: { Authorization: `Bearer ${token}` },
+            signal: controller.signal,
+          }
         )
         if (res.data) {
           // Update localStorage with fresh user data (including updated roles)
@@ -309,6 +318,8 @@ export default function DashboardLayout({
           }
         }
       } catch (error: any) {
+        // Ignore aborted requests (component unmounted before response arrived)
+        if (axios.isCancel(error) || error.name === 'CanceledError') return
         // If token is invalid, redirect to login
         if (error.response?.status === 401) {
           localStorage.removeItem('token')
@@ -339,7 +350,9 @@ export default function DashboardLayout({
     }
     fetchOrgSettings()
 
-  }, [router])
+    return () => controller.abort()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Helper: apply title + favicon from org settings object
   const applyBranding = (settings: { organizationName?: string; logoPath?: string }) => {

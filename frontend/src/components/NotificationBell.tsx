@@ -127,6 +127,7 @@ export default function NotificationBell() {
   const fetchUnreadCount = async () => {
     try {
       const token = localStorage.getItem('token');
+      if (!token) return;
       const response = await axios.get(
         `${process.env.NEXT_PUBLIC_API_URL}/notifications/unread-count`,
         {
