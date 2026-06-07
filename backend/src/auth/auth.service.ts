@@ -15,6 +15,7 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { UserStatus, NotificationType } from '@prisma/client';
+import { getUserCache, setUserCache, invalidateUserCache, USER_CACHE_TTL } from './user-cache';
 
 @Injectable()
 export class AuthService {
@@ -24,12 +25,8 @@ export class AuthService {
     private readonly emailService: EmailService,
   ) {}
 
-  // In-memory cache for JWT auth validation — avoids DB query on every API call
-  private readonly _userCache = new Map<number, { data: any; expiresAt: number }>()
-  private readonly USER_CACHE_TTL = 30_000 // 30 seconds
-
   invalidateUserCache(userId: number) {
-    this._userCache.delete(userId)
+    invalidateUserCache(userId)
   }
 
   /**
@@ -431,7 +428,7 @@ export class AuthService {
    */
   async validateUser(userId: number) {
     const now = Date.now()
-    const cached = this._userCache.get(userId)
+    const cached = getUserCache(userId)
     if (cached && cached.expiresAt > now) {
       return cached.data
     }
@@ -457,7 +454,7 @@ export class AuthService {
 
     const { password, ...result } = user;
     const formatted = this.formatUserWithRoles(result)
-    this._userCache.set(userId, { data: formatted, expiresAt: now + this.USER_CACHE_TTL })
+    setUserCache(userId, formatted, now + USER_CACHE_TTL)
     return formatted
   }
 
