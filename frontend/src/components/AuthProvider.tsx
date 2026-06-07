@@ -3,7 +3,7 @@
 
 import { useEffect, useRef, useCallback } from 'react'
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 
 // Flag to prevent multiple refresh requests
@@ -38,7 +38,6 @@ const publicPaths = [
 
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
-  const pathname = usePathname()
   const interceptorsSet = useRef(false)
   const logoutShown = useRef(false)
 
@@ -181,47 +180,47 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     }
   }, [handleLogout])
 
-  // Check token validity periodically
-  useEffect(() => {
-    // Skip for public pages
-    if (publicPaths.some(p => pathname?.includes(p))) return
+  // Keep a stable ref to the latest handleLogout so the interval doesn't need
+  // handleLogout (or its router dep) in its dependency array.
+  const handleLogoutRef = useRef(handleLogout)
+  handleLogoutRef.current = handleLogout
 
+  // Check token validity periodically — set up ONCE on mount (empty deps).
+  // Reading window.location.pathname inside the callback means we don't need
+  // pathname as a dependency, which eliminates the timer-reset-on-navigation
+  // race that caused a spurious "Session หมดอายุแล้ว" toast right after login.
+  useEffect(() => {
     const checkTokenValidity = () => {
+      // Skip while on public pages
+      if (publicPaths.some(p => window.location.pathname.includes(p))) return
+
       const token = localStorage.getItem('token')
       const refreshToken = localStorage.getItem('refreshToken')
 
-      // If no tokens at all, redirect to login
       if (!token && !refreshToken) {
-        handleLogout()
+        handleLogoutRef.current()
         return
       }
 
-      // Check session expiry (refresh token expiry)
       const sessionExpiresAt = localStorage.getItem('sessionExpiresAt')
       if (sessionExpiresAt) {
-        const expiresAt = new Date(sessionExpiresAt)
-        const now = new Date()
-        const msLeft = expiresAt.getTime() - now.getTime()
-
+        const msLeft = new Date(sessionExpiresAt).getTime() - Date.now()
         if (msLeft <= 0) {
-          handleLogout('Session หมดอายุแล้ว กรุณาเข้าสู่ระบบใหม่')
+          handleLogoutRef.current('Session หมดอายุแล้ว กรุณาเข้าสู่ระบบใหม่')
         }
       }
     }
 
-    // Delay the initial check by 3 seconds to let the login flow (token save +
-    // navigation) complete before evaluating sessionExpiresAt.  This prevents a
-    // stale or in-transit value from triggering a spurious logout right after login.
-    const initialCheck = setTimeout(checkTokenValidity, 3000)
-
-    // Check every minute thereafter
+    // Wait 30 s before first check — well past any login/navigation settle time.
+    const initialCheck = setTimeout(checkTokenValidity, 30000)
     const interval = setInterval(checkTokenValidity, 60000)
 
     return () => {
       clearTimeout(initialCheck)
       clearInterval(interval)
     }
-  }, [pathname, handleLogout])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return <>{children}</>
 }
