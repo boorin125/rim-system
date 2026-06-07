@@ -322,6 +322,15 @@ const RELEASE_NOTES: {
   changes: { type: 'new' | 'improved' | 'fixed'; text: string }[]
 }[] = [
   {
+    version: '1.0.17',
+    date: '2026-06-08',
+    changes: [
+      { type: 'fixed',    text: 'Auth: แก้ Toast "Session หมดอายุแล้ว" ขึ้นทันทีหลัง Login — เปลี่ยน periodic check เป็น 30s initial delay + silent refresh ก่อน logout' },
+      { type: 'improved', text: 'Incidents: Filter (Status, Category, Province, Sort, Search) คงค่าไว้แม้จะ Refresh หน้า โดยใช้ localStorage' },
+      { type: 'improved', text: 'Incidents: Export Excel เป็นไฟล์ .xlsx จริง (SheetJS) แทน SpreadsheetML format เดิม' },
+    ],
+  },
+  {
     version: '1.0.16',
     date: '2026-05-28',
     changes: [
