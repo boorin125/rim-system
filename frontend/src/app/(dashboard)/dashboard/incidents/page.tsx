@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
+import * as XLSX from 'xlsx'
 import { isViewOnly, canPerformAction, getUserRoles, isPureTechnician } from '@/config/permissions'
 import { formatDateTime } from '@/utils/dateUtils'
 
@@ -110,31 +111,52 @@ function SearchableSelect({ value, onChange, options, placeholder }: SearchableS
   )
 }
 
+const FILTER_KEY = 'incidents_filters'
+
+function readFilter(key: string, def: any) {
+  try {
+    const raw = localStorage.getItem(FILTER_KEY)
+    if (!raw) return def
+    const val = JSON.parse(raw)[key]
+    return val !== undefined ? val : def
+  } catch { return def }
+}
+
 export default function IncidentsPage() {
   const router = useRouter()
   const [incidents, setIncidents] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [filterStatus, setFilterStatus] = useState('ALL')
-  const [filterCategory, setFilterCategory] = useState('ALL')
-  const [currentPage, setCurrentPage] = useState(1)
+  const [searchTerm, setSearchTerm] = useState<string>(() => readFilter('searchTerm', ''))
+  const [debouncedSearch, setDebouncedSearch] = useState<string>(() => readFilter('searchTerm', ''))
+  const [filterStatus, setFilterStatus] = useState<string>(() => readFilter('filterStatus', 'ALL'))
+  const [filterCategory, setFilterCategory] = useState<string>(() => readFilter('filterCategory', 'ALL'))
+  const [currentPage, setCurrentPage] = useState<number>(() => readFilter('currentPage', 1))
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [incidentToDelete, setIncidentToDelete] = useState<any>(null)
   const [currentUser, setCurrentUser] = useState<any>(null)
-  const [sortField, setSortField] = useState<string>('createdAt')
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  const [sortField, setSortField] = useState<string>(() => readFilter('sortField', 'createdAt'))
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(() => readFilter('sortOrder', 'desc'))
   const [slaConfigs, setSlaConfigs] = useState<any[]>([])
   const [categories, setCategories] = useState<string[]>([])
-  const [filterProvince, setFilterProvince] = useState('ALL')
+  const [filterProvince, setFilterProvince] = useState<string>(() => readFilter('filterProvince', 'ALL'))
   const [provinces, setProvinces] = useState<string[]>([])
   const isSuperAdmin = useRef(false)
   const isPureTech = useRef(false)
   const currentUserId = useRef<number | null>(null)
 
   const itemsPerPage = 50
+
+  // Persist filters to localStorage on every change
+  useEffect(() => {
+    try {
+      localStorage.setItem(FILTER_KEY, JSON.stringify({
+        searchTerm, filterStatus, filterCategory, filterProvince,
+        sortField, sortOrder, currentPage,
+      }))
+    } catch {}
+  }, [searchTerm, filterStatus, filterCategory, filterProvince, sortField, sortOrder, currentPage])
 
   // Theme highlight color
   const [sortActiveBg, setSortActiveBg] = useState('#3b82f6')
@@ -423,8 +445,6 @@ export default function IncidentsPage() {
       parts.push(`${String(d.getDate()).padStart(2, '0')}${String(d.getMonth() + 1).padStart(2, '0')}${d.getFullYear()}`)
       const filename = parts.join('_')
 
-      const escXml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-
       if (format === 'csv') {
         const csvContent = [
           headers.map(h => `"${h}"`).join(','),
@@ -443,20 +463,10 @@ export default function IncidentsPage() {
         link.click()
         toast.success('CSV file downloaded')
       } else {
-        // SpreadsheetML XML \u2014 no format-mismatch warning, correct UTF-8 for Thai
-        const xmlRows = [
-          `<Row>${headers.map(h => `<Cell><Data ss:Type="String">${escXml(h)}</Data></Cell>`).join('')}</Row>`,
-          ...exportData.map((row: any) =>
-            `<Row>${headers.map(h => `<Cell><Data ss:Type="String">${escXml(String(row[h] ?? ''))}</Data></Cell>`).join('')}</Row>`
-          ),
-        ].join('')
-        const xlsContent = `<?xml version="1.0" encoding="UTF-8"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Incidents"><Table>${xmlRows}</Table></Worksheet></Workbook>`
-
-        const blob = new Blob([xlsContent], { type: 'application/vnd.ms-excel;charset=utf-8;' })
-        const link = document.createElement('a')
-        link.href = URL.createObjectURL(blob)
-        link.download = `${filename}.xls`
-        link.click()
+        const ws = XLSX.utils.json_to_sheet(exportData, { header: headers })
+        const wb = XLSX.utils.book_new()
+        XLSX.utils.book_append_sheet(wb, ws, 'Incidents')
+        XLSX.writeFile(wb, `${filename}.xlsx`)
         toast.success('Excel file downloaded')
       }
     } catch {
