@@ -68,6 +68,8 @@ interface OutsourceJob {
   sparePartsConfirmedBy?: { firstName: string; lastName: string } | null
   documentsReceivedAt?: string | null
   documentsReceivedBy?: { firstName: string; lastName: string } | null
+  paidAt?: string | null
+  paidBy?: { firstName: string; lastName: string } | null
   _count?: {
     bids: number
   }
@@ -546,6 +548,14 @@ export default function OutsourceMarketplacePage() {
                             <CheckCircle2 className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
                             <span>ยืนยัน ตรวจสอบเอกสารแล้ว วันที่ <span className="text-gray-300">{formatDate(job.documentsReceivedAt!)}</span>
                               {job.documentsReceivedBy && <span className="text-gray-500"> โดย {job.documentsReceivedBy.firstName} {job.documentsReceivedBy.lastName}</span>}
+                            </span>
+                          </div>
+                        )}
+                        {job.paidAt && (
+                          <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+                            <span>ยืนยันจ่ายเงิน วันที่ <span className="text-gray-300">{formatDate(job.paidAt)}</span>
+                              {job.paidBy && <span className="text-gray-500"> โดย {job.paidBy.firstName} {job.paidBy.lastName}</span>}
                             </span>
                           </div>
                         )}

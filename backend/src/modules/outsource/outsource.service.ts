@@ -567,6 +567,9 @@ export class OutsourceService {
           documentsReceivedBy: {
             select: { firstName: true, lastName: true },
           },
+          paidBy: {
+            select: { firstName: true, lastName: true },
+          },
           _count: {
             select: { bids: true },
           },
