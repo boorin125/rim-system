@@ -102,16 +102,16 @@ export default function OutsourceJobDetailPage() {
   const isTechnician = !isAdmin && highestRole === 'TECHNICIAN'
   const isOutsource = user?.technicianType === 'OUTSOURCE'
 
-  const fetchJob = async () => {
+  const fetchJob = async (silent = false) => {
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
       const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/outsource/jobs/${jobId}`, config())
       setJob(res.data)
     } catch {
       toast.error('ไม่พบงาน Outsource')
       router.push('/dashboard/outsource')
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }
 
@@ -473,7 +473,7 @@ export default function OutsourceJobDetailPage() {
 
           {/* Finance Confirmation Buttons */}
           {isFinance && (
-            <FinanceConfirmationSection job={job} jobId={jobId} onSuccess={fetchJob} />
+            <FinanceConfirmationSection job={job} jobId={jobId} onSuccess={fetchJob} onPhotoSuccess={() => fetchJob(true)} />
           )}
 
           {/* Finance Confirmation Log */}
@@ -1074,7 +1074,7 @@ function DocumentReviewNotesDisplay({ notes }: { notes: any }) {
 }
 
 // ─── Finance Confirmation Section ─────────────────────────────────
-function FinanceConfirmationSection({ job, jobId, onSuccess }: { job: any; jobId: any; onSuccess: () => void }) {
+function FinanceConfirmationSection({ job, jobId, onSuccess, onPhotoSuccess }: { job: any; jobId: any; onSuccess: () => void; onPhotoSuccess: () => void }) {
   const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api').replace('/api', '')
   const uploadUrl = (p: string) => `${baseUrl}/uploads/${p}`
   const isPaid = job.paymentStatus === 'PAID'
@@ -1117,7 +1117,7 @@ function FinanceConfirmationSection({ job, jobId, onSuccess }: { job: any; jobId
       const compressed = await compressImage(file, { maxWidth: 1920, maxHeight: 1920, quality: 0.85 })
       const base64 = await fileToBase64(compressed)
       await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/outsource/jobs/${jobId}/spare-part-photos`, { photo: base64 }, { headers: authHeader() })
-      toast.success('อัปโหลดรูปสำเร็จ'); onSuccess()
+      toast.success('อัปโหลดรูปสำเร็จ'); onPhotoSuccess()
     } catch (e: any) { toast.error(e.response?.data?.message || 'อัปโหลดล้มเหลว') }
     finally { setUploadingSparePhoto(false) }
   }
@@ -1127,7 +1127,7 @@ function FinanceConfirmationSection({ job, jobId, onSuccess }: { job: any; jobId
     setDeletingSparePhoto(index)
     try {
       await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/outsource/jobs/${jobId}/spare-part-photos/${index}`, { headers: authHeader() })
-      toast.success('ลบรูปสำเร็จ'); onSuccess()
+      toast.success('ลบรูปสำเร็จ'); onPhotoSuccess()
     } catch (e: any) { toast.error(e.response?.data?.message || 'ลบล้มเหลว') }
     finally { setDeletingSparePhoto(null) }
   }
@@ -1149,7 +1149,7 @@ function FinanceConfirmationSection({ job, jobId, onSuccess }: { job: any; jobId
       const compressed = await compressImage(file, { maxWidth: 1920, maxHeight: 1920, quality: 0.85 })
       const base64 = await fileToBase64(compressed)
       await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/outsource/jobs/${jobId}/finance-document-photos`, { photo: base64 }, { headers: authHeader() })
-      toast.success('อัปโหลดรูปสำเร็จ'); onSuccess()
+      toast.success('อัปโหลดรูปสำเร็จ'); onPhotoSuccess()
     } catch (e: any) { toast.error(e.response?.data?.message || 'อัปโหลดล้มเหลว') }
     finally { setUploadingDocPhoto(false) }
   }
@@ -1159,7 +1159,7 @@ function FinanceConfirmationSection({ job, jobId, onSuccess }: { job: any; jobId
     setDeletingDocPhoto(index)
     try {
       await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/outsource/jobs/${jobId}/finance-document-photos/${index}`, { headers: authHeader() })
-      toast.success('ลบรูปสำเร็จ'); onSuccess()
+      toast.success('ลบรูปสำเร็จ'); onPhotoSuccess()
     } catch (e: any) { toast.error(e.response?.data?.message || 'ลบล้มเหลว') }
     finally { setDeletingDocPhoto(null) }
   }
