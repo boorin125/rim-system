@@ -43,6 +43,8 @@ interface OutsourceJob {
     ticketNumber: string
     title: string
     status: string
+    resolvedAt?: string | null
+    resolvedBy?: { firstName: string; lastName: string } | null
     store: {
       id: number
       name: string
@@ -62,6 +64,10 @@ interface OutsourceJob {
     lastName: string
   }
   verifiedAt?: string | null
+  sparePartsConfirmedAt?: string | null
+  sparePartsConfirmedBy?: { firstName: string; lastName: string } | null
+  documentsReceivedAt?: string | null
+  documentsReceivedBy?: { firstName: string; lastName: string } | null
   _count?: {
     bids: number
   }
@@ -502,15 +508,50 @@ export default function OutsourceMarketplacePage() {
                         นัดเข้างาน: {formatDate(job.deadline)}
                       </div>
                     )}
-                    {job.verifiedAt && (
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-1 text-teal-400 text-xs">
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                          ตรวจสอบเอกสาร: {formatDate(job.verifiedAt)}
-                        </div>
-                        {(() => {
-                          const days = Math.floor((Date.now() - new Date(job.verifiedAt).getTime()) / (1000 * 60 * 60 * 24))
-                          return (
+                  </div>
+
+                  {/* Closure Log — แสดงเมื่อมีอย่างน้อย 1 เงื่อนไข */}
+                  {(job.incident.resolvedAt || job.sparePartsConfirmedAt || job.documentsReceivedAt) && (() => {
+                    const resolvedAt = job.incident.resolvedAt ? new Date(job.incident.resolvedAt) : null
+                    const spareAt = job.sparePartsConfirmedAt ? new Date(job.sparePartsConfirmedAt) : null
+                    const docsAt = job.documentsReceivedAt ? new Date(job.documentsReceivedAt) : null
+                    const allMet = resolvedAt && spareAt && docsAt
+                    const allConditionsMetAt = allMet
+                      ? new Date(Math.max(resolvedAt.getTime(), spareAt.getTime(), docsAt.getTime()))
+                      : null
+                    const days = allConditionsMetAt
+                      ? Math.floor((Date.now() - allConditionsMetAt.getTime()) / (1000 * 60 * 60 * 24))
+                      : null
+
+                    return (
+                      <div className="mt-2 space-y-1 border-t border-slate-700/50 pt-2">
+                        {resolvedAt && (
+                          <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                            <CheckCircle2 className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+                            <span>ปิดงานวันที่ <span className="text-gray-300">{formatDate(job.incident.resolvedAt!)}</span>
+                              {job.incident.resolvedBy && <span className="text-gray-500"> โดย {job.incident.resolvedBy.firstName} {job.incident.resolvedBy.lastName}</span>}
+                            </span>
+                          </div>
+                        )}
+                        {spareAt && (
+                          <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                            <CheckCircle2 className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+                            <span>ยืนยัน Check รับ Spare Part คืน วันที่ <span className="text-gray-300">{formatDate(job.sparePartsConfirmedAt!)}</span>
+                              {job.sparePartsConfirmedBy && <span className="text-gray-500"> โดย {job.sparePartsConfirmedBy.firstName} {job.sparePartsConfirmedBy.lastName}</span>}
+                            </span>
+                          </div>
+                        )}
+                        {docsAt && (
+                          <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                            <CheckCircle2 className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+                            <span>ยืนยัน ตรวจสอบเอกสารแล้ว วันที่ <span className="text-gray-300">{formatDate(job.documentsReceivedAt!)}</span>
+                              {job.documentsReceivedBy && <span className="text-gray-500"> โดย {job.documentsReceivedBy.firstName} {job.documentsReceivedBy.lastName}</span>}
+                            </span>
+                          </div>
+                        )}
+                        {days !== null && (
+                          <div className="flex items-center gap-2 pt-0.5">
+                            <span className="text-xs text-gray-500">ครบเงื่อนไขทั้งหมดแล้ว</span>
                             <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                               days >= 30
                                 ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
@@ -518,11 +559,11 @@ export default function OutsourceMarketplacePage() {
                             }`}>
                               {days} วันแล้ว
                             </span>
-                          )
-                        })()}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
+                    )
+                  })()}
                 </div>
               </Link>
             ))}

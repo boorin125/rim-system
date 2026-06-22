@@ -548,6 +548,8 @@ export class OutsourceService {
               ticketNumber: true,
               title: true,
               status: true,
+              resolvedAt: true,
+              resolvedBy: { select: { firstName: true, lastName: true } },
               store: {
                 select: { id: true, name: true, storeCode: true, company: true, address: true, province: true, googleMapLink: true },
               },
@@ -558,6 +560,12 @@ export class OutsourceService {
           },
           awardedTo: {
             select: { id: true, firstName: true, lastName: true },
+          },
+          sparePartsConfirmedBy: {
+            select: { firstName: true, lastName: true },
+          },
+          documentsReceivedBy: {
+            select: { firstName: true, lastName: true },
           },
           _count: {
             select: { bids: true },
