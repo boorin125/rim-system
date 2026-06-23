@@ -22,6 +22,7 @@ import {
   Search,
   Calendar,
   FileText,
+  X,
 } from 'lucide-react'
 import { isViewOnly, canPerformAction, getUserRoles, getHighestRole } from '@/config/permissions'
 import { useThemeHighlight } from '@/hooks/useThemeHighlight'
@@ -162,6 +163,8 @@ export default function OutsourceMarketplacePage() {
     dateTo: '',
   })
   const [searchInput, setSearchInput] = useState('')
+  const [localDateFrom, setLocalDateFrom] = useState('')
+  const [localDateTo, setLocalDateTo] = useState('')
   const [pagination, setPagination] = useState({
     total: 0,
     totalPages: 0,
@@ -377,8 +380,16 @@ export default function OutsourceMarketplacePage() {
                 placeholder="ค้นหาชื่อช่าง..."
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                className="bg-slate-700 border border-slate-600 rounded-lg pl-9 pr-3 py-2 text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent w-48"
+                className="bg-slate-700 border border-slate-600 rounded-lg pl-9 pr-8 py-2 text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent w-48"
               />
+              {searchInput && (
+                <button
+                  onClick={() => setSearchInput('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
 
             {/* Date range */}
@@ -386,17 +397,23 @@ export default function OutsourceMarketplacePage() {
               <Calendar className="h-4 w-4 text-gray-400" />
               <input
                 type="date"
-                value={filter.dateFrom}
-                onChange={(e) => setFilter({ ...filter, dateFrom: e.target.value, page: 1 })}
+                value={localDateFrom}
+                onChange={(e) => setLocalDateFrom(e.target.value)}
                 className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               <span className="text-gray-400 text-sm">ถึง</span>
               <input
                 type="date"
-                value={filter.dateTo}
-                onChange={(e) => setFilter({ ...filter, dateTo: e.target.value, page: 1 })}
+                value={localDateTo}
+                onChange={(e) => setLocalDateTo(e.target.value)}
                 className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
+              <button
+                onClick={() => setFilter({ ...filter, dateFrom: localDateFrom, dateTo: localDateTo, page: 1 })}
+                className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg transition"
+              >
+                ค้นหา
+              </button>
             </div>
 
             {/* Clear filters */}
@@ -404,6 +421,8 @@ export default function OutsourceMarketplacePage() {
               <button
                 onClick={() => {
                   setSearchInput('')
+                  setLocalDateFrom('')
+                  setLocalDateTo('')
                   setFilter({ ...filter, search: '', dateFrom: '', dateTo: '', page: 1 })
                 }}
                 className="text-xs text-gray-400 hover:text-white transition"
