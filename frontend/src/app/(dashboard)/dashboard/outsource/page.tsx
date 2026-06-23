@@ -92,7 +92,7 @@ interface Stats {
 const statusColors: Record<string, string> = {
   DRAFT: 'bg-gray-500/20 text-gray-400 border border-gray-500/30',
   PENDING_APPROVAL: 'bg-amber-500/20 text-amber-400 border border-amber-500/30',
-  OPEN: 'bg-green-500/20 text-green-400 border border-green-500/30',
+  OPEN: 'bg-orange-500/20 text-orange-400 border border-orange-500/30',
   BIDDING_CLOSED: 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30',
   AWARDED: 'bg-blue-500/20 text-blue-400 border border-blue-500/30',
   IN_PROGRESS: 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30',
@@ -128,6 +128,22 @@ const urgencyColors: Record<string, string> = {
   NORMAL: 'text-blue-400',
   HIGH: 'text-orange-400',
   URGENT: 'text-red-400',
+}
+
+function getDisplayStatus(job: OutsourceJob): string {
+  if (['PAID', 'CANCELLED', 'PENDING_CANCEL', 'REJECTED', 'DRAFT', 'PENDING_APPROVAL'].includes(job.status)) {
+    return job.status
+  }
+  if (job.sparePartsConfirmedAt && job.documentsReceivedAt) {
+    const confirmedAt = new Date(Math.max(
+      new Date(job.sparePartsConfirmedAt).getTime(),
+      new Date(job.documentsReceivedAt).getTime()
+    ))
+    const days = Math.floor((Date.now() - confirmedAt.getTime()) / (1000 * 60 * 60 * 24))
+    return days >= 30 ? 'PAYMENT_DUE' : 'VERIFIED'
+  }
+  if (job.incident?.resolvedAt) return 'COMPLETED'
+  return job.status
 }
 
 export default function OutsourceMarketplacePage() {
@@ -429,17 +445,11 @@ export default function OutsourceMarketplacePage() {
                   {/* Badges row */}
                   <div className="flex items-center gap-2 flex-wrap mb-2">
                     <span className="text-xs font-mono text-blue-400">{job.incident?.ticketNumber}</span>
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[job.status]}`}>
-                      {statusLabels[job.status]}
-                    </span>
-                    {job.status === 'VERIFIED' && job.verifiedAt && (() => {
-                      const days = Math.floor((Date.now() - new Date(job.verifiedAt).getTime()) / (1000 * 60 * 60 * 24))
-                      return days >= 30 ? (
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusColors['PAYMENT_DUE']}`}>
-                          {statusLabels['PAYMENT_DUE']}
-                        </span>
-                      ) : null
-                    })()}
+                    {(() => { const ds = getDisplayStatus(job); return (
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[ds]}`}>
+                        {statusLabels[ds]}
+                      </span>
+                    ) })()}
                     <span className={`text-xs font-medium ${urgencyColors[job.urgencyLevel]}`}>
                       {job.urgencyLevel === 'URGENT' && '!!! '}
                       {job.urgencyLevel === 'HIGH' && '!! '}
