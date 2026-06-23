@@ -328,6 +328,8 @@ const RELEASE_NOTES: {
       { type: 'improved', text: 'Outsource: นับวันใน Closure Log เฉพาะเมื่อครบทั้ง 3 เงื่อนไข — ปิดงาน + ยืนยัน Spare Parts + ยืนยันเอกสาร' },
       { type: 'improved', text: 'Outsource: เพิ่ม Log การยืนยัน 4 รายการ (ปิดงาน / ยืนยัน Spare Parts / ยืนยันเอกสาร / ยืนยันจ่ายเงิน) พร้อมวันที่และชื่อผู้ยืนยัน' },
       { type: 'fixed',    text: 'Outsource: อัพโหลดรูปใน Finance Panel แล้วไม่เด้งออกจาก Panel — สามารถกด ยืนยัน ต่อได้เลย' },
+      { type: 'improved', text: 'Outsource: แสดงสถานะตามสภาพจริง — งานเสร็จ / ตรวจสอบเอกสารแล้ว / ครบกำหนดจ่าย และสถานะ เปิดรับงาน เปลี่ยนเป็นสีส้ม' },
+      { type: 'improved', text: 'Outsource: Filter สถานะตรงตามที่แสดง, ช่อง Search ชื่อช่างแสดง Suggestion, วันที่เลือกได้อิสระก่อนกดค้นหา' },
     ],
   },
   {

@@ -204,12 +204,24 @@ export default function OutsourceMarketplacePage() {
     }
   }, [filter, user])
 
-  useEffect(() => {
-    const t = setTimeout(() => {
-      setFilter(prev => ({ ...prev, search: searchInput, page: 1 }))
-    }, 400)
-    return () => clearTimeout(t)
-  }, [searchInput])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+
+  const techSuggestions = searchInput.trim().length > 0
+    ? [...new Set(
+        jobs
+          .filter(j => j.awardedTo &&
+            `${j.awardedTo.firstName} ${j.awardedTo.lastName}`
+              .toLowerCase()
+              .includes(searchInput.toLowerCase())
+          )
+          .map(j => `${j.awardedTo!.firstName} ${j.awardedTo!.lastName}`)
+      )].slice(0, 6)
+    : []
+
+  const commitSearch = () => {
+    setShowSuggestions(false)
+    setFilter(prev => ({ ...prev, search: searchInput, dateFrom: localDateFrom, dateTo: localDateTo, page: 1 }))
+  }
 
   const loadData = async () => {
     try {
@@ -379,16 +391,34 @@ export default function OutsourceMarketplacePage() {
                 type="text"
                 placeholder="ค้นหาชื่อช่าง..."
                 value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
+                onChange={(e) => { setSearchInput(e.target.value); setShowSuggestions(true) }}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                onKeyDown={(e) => { if (e.key === 'Enter') commitSearch() }}
                 className="bg-slate-700 border border-slate-600 rounded-lg pl-9 pr-8 py-2 text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent w-48"
               />
               {searchInput && (
                 <button
-                  onClick={() => setSearchInput('')}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => { setSearchInput(''); setShowSuggestions(false) }}
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
+              )}
+              {showSuggestions && techSuggestions.length > 0 && (
+                <div className="absolute top-full left-0 mt-1 w-full bg-slate-800 border border-slate-600 rounded-lg shadow-xl z-50 overflow-hidden">
+                  {techSuggestions.map((name) => (
+                    <button
+                      key={name}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => { setSearchInput(name); setShowSuggestions(false); setFilter(prev => ({ ...prev, search: name, page: 1 })) }}
+                      className="w-full text-left px-3 py-2 text-sm text-white hover:bg-slate-700 transition"
+                    >
+                      {name}
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
 
@@ -409,7 +439,7 @@ export default function OutsourceMarketplacePage() {
                 className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               <button
-                onClick={() => setFilter({ ...filter, dateFrom: localDateFrom, dateTo: localDateTo, page: 1 })}
+                onClick={commitSearch}
                 className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg transition"
               >
                 ค้นหา
