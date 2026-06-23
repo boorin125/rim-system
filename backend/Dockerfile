@@ -9,10 +9,6 @@ RUN npm run build
 
 FROM node:20-alpine AS production
 
-ARG GIT_COMMIT=unknown
-ARG BUILD_DATE=unknown
-ARG APP_VERSION=1.0.0
-
 RUN apk add --no-cache curl samba-client
 
 WORKDIR /app
@@ -26,9 +22,10 @@ COPY prisma ./prisma
 COPY entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
 
-ENV GIT_COMMIT=${GIT_COMMIT}
-ENV BUILD_DATE=${BUILD_DATE}
-ENV APP_VERSION=${APP_VERSION}
+ARG GIT_COMMIT=unknown
+ARG BUILD_DATE=unknown
+ARG APP_VERSION=1.0.0
+ENV GIT_COMMIT=${GIT_COMMIT} BUILD_DATE=${BUILD_DATE} APP_VERSION=${APP_VERSION}
 
 HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=6 \
   CMD nc -z 127.0.0.1 3000 || exit 1
