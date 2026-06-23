@@ -322,6 +322,15 @@ const RELEASE_NOTES: {
   changes: { type: 'new' | 'improved' | 'fixed'; text: string }[]
 }[] = [
   {
+    version: '1.0.18',
+    date: '2026-06-23',
+    changes: [
+      { type: 'improved', text: 'Outsource: นับวันใน Closure Log เฉพาะเมื่อครบทั้ง 3 เงื่อนไข — ปิดงาน + ยืนยัน Spare Parts + ยืนยันเอกสาร' },
+      { type: 'improved', text: 'Outsource: เพิ่ม Log การยืนยัน 4 รายการ (ปิดงาน / ยืนยัน Spare Parts / ยืนยันเอกสาร / ยืนยันจ่ายเงิน) พร้อมวันที่และชื่อผู้ยืนยัน' },
+      { type: 'fixed',    text: 'Outsource: อัพโหลดรูปใน Finance Panel แล้วไม่เด้งออกจาก Panel — สามารถกด ยืนยัน ต่อได้เลย' },
+    ],
+  },
+  {
     version: '1.0.17',
     date: '2026-06-08',
     changes: [
