@@ -523,14 +523,26 @@ export class OutsourceService {
       where.awardedToId = query.awardedToId;
     }
 
-    // Search by technician name
+    // Search by technician name — split by space so "สุกกฤต แดงย้อน" matches firstName+lastName
     if (query?.search) {
-      where.awardedTo = {
-        OR: [
-          { firstName: { contains: query.search, mode: 'insensitive' } },
-          { lastName: { contains: query.search, mode: 'insensitive' } },
-        ],
-      };
+      const parts = query.search.trim().split(/\s+/).filter(Boolean);
+      if (parts.length > 1) {
+        where.awardedTo = {
+          AND: parts.map(p => ({
+            OR: [
+              { firstName: { contains: p, mode: 'insensitive' } },
+              { lastName: { contains: p, mode: 'insensitive' } },
+            ],
+          })),
+        };
+      } else {
+        where.awardedTo = {
+          OR: [
+            { firstName: { contains: query.search, mode: 'insensitive' } },
+            { lastName: { contains: query.search, mode: 'insensitive' } },
+          ],
+        };
+      }
     }
 
     // Filter by date range (postedAt)
