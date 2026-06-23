@@ -37,13 +37,14 @@ import { getHighestRole } from '@/config/permissions'
 const statusColors: Record<string, string> = {
   DRAFT: 'bg-gray-500/20 text-gray-400 border border-gray-500/30',
   PENDING_APPROVAL: 'bg-amber-500/20 text-amber-400 border border-amber-500/30',
-  OPEN: 'bg-green-500/20 text-green-400 border border-green-500/30',
+  OPEN: 'bg-orange-500/20 text-orange-400 border border-orange-500/30',
   BIDDING_CLOSED: 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30',
   AWARDED: 'bg-blue-500/20 text-blue-400 border border-blue-500/30',
   IN_PROGRESS: 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30',
   COMPLETED: 'bg-purple-500/20 text-purple-400 border border-purple-500/30',
   DOCUMENT_SUBMITTED: 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30',
   VERIFIED: 'bg-teal-500/20 text-teal-400 border border-teal-500/30',
+  PAYMENT_DUE: 'bg-rose-500/20 text-rose-400 border border-rose-500/30',
   REJECTED: 'bg-red-500/20 text-red-400 border border-red-500/30',
   PAID: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
   CANCELLED: 'bg-gray-500/20 text-gray-500 border border-gray-500/30',
@@ -52,8 +53,20 @@ const statusColors: Record<string, string> = {
 const statusLabels: Record<string, string> = {
   DRAFT: 'ร่าง', PENDING_APPROVAL: 'รออนุมัติ', OPEN: 'เปิดรับงาน', BIDDING_CLOSED: 'ปิดรับงาน',
   AWARDED: 'กำลังดำเนินการ', IN_PROGRESS: 'กำลังดำเนินการ', COMPLETED: 'งานเสร็จ',
-  DOCUMENT_SUBMITTED: 'ส่งเอกสารแล้ว', VERIFIED: 'ตรวจสอบเอกสารแล้ว', REJECTED: 'ไม่ผ่าน', PAID: 'จ่ายเงินแล้ว', CANCELLED: 'ยกเลิก',
+  DOCUMENT_SUBMITTED: 'ส่งเอกสารแล้ว', VERIFIED: 'ตรวจสอบเอกสารแล้ว',
+  PAYMENT_DUE: 'ครบกำหนดจ่าย', REJECTED: 'ไม่ผ่าน', PAID: 'จ่ายเงินแล้ว', CANCELLED: 'ยกเลิก',
   PENDING_CANCEL: 'รอยืนยันยกเลิก',
+}
+
+function getDisplayStatus(job: any): string {
+  if (['PAID', 'CANCELLED', 'PENDING_CANCEL', 'REJECTED', 'DRAFT', 'PENDING_APPROVAL'].includes(job.status)) return job.status
+  if (job.sparePartsConfirmedAt && job.documentsReceivedAt) {
+    const confirmedAt = new Date(Math.max(new Date(job.sparePartsConfirmedAt).getTime(), new Date(job.documentsReceivedAt).getTime()))
+    const days = Math.floor((Date.now() - confirmedAt.getTime()) / (1000 * 60 * 60 * 24))
+    return days >= 30 ? 'PAYMENT_DUE' : 'VERIFIED'
+  }
+  if (job.incident?.resolvedAt) return 'COMPLETED'
+  return job.status
 }
 const urgencyColors: Record<string, string> = {
   LOW: 'text-gray-400', NORMAL: 'text-blue-400', HIGH: 'text-orange-400', URGENT: 'text-red-400',
@@ -211,8 +224,8 @@ export default function OutsourceJobDetailPage() {
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-sm font-mono text-blue-400">{job.jobCode}</span>
-              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[job.status]}`}>
-                {statusLabels[job.status]}
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[getDisplayStatus(job)]}`}>
+                {statusLabels[getDisplayStatus(job)]}
               </span>
               <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                 job.jobType === 'DIRECT_ASSIGN'
