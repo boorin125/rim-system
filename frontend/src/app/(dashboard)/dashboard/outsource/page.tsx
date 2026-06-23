@@ -84,8 +84,8 @@ interface Stats {
   totalBids: number
   avgBidsPerJob: number
   totalPayments: number
-  documentSubmittedJobs: number
-  verifiedJobs: number
+  completedDisplayJobs: number
+  verifiedDisplayJobs: number
   paymentDueJobs: number
   paidJobs: number
 }
@@ -343,8 +343,8 @@ export default function OutsourceMarketplacePage() {
         (isFinance || isItManager) ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
             <StatCard label="งานทั้งหมด" value={stats.totalJobs} icon={Briefcase} />
-            <StatCard label="ส่งเอกสารแล้ว" value={stats.documentSubmittedJobs} icon={FileText} color="cyan" />
-            <StatCard label="ตรวจสอบแล้ว" value={stats.verifiedJobs} icon={CheckCircle2} color="teal" />
+            <StatCard label="งานเสร็จ" value={stats.completedDisplayJobs} icon={CheckCircle2} color="purple" />
+            <StatCard label="ตรวจสอบเอกสารแล้ว" value={stats.verifiedDisplayJobs} icon={FileText} color="teal" />
             <StatCard label="ครบกำหนดจ่าย" value={stats.paymentDueJobs} icon={AlertTriangle} color="rose" />
             <StatCard label="จ่ายแล้ว" value={stats.paidJobs} icon={DollarSign} color="emerald" />
           </div>

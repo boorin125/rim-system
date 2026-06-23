@@ -1663,9 +1663,9 @@ export class OutsourceService {
       totalBids,
       avgBidsPerJob,
       totalPayments,
-      // Finance-specific stats
-      documentSubmittedJobs,
-      verifiedJobs,
+      // Finance display stats (computed same logic as frontend getDisplayStatus)
+      completedDisplayJobs,
+      verifiedDisplayJobs,
       paymentDueJobs,
       paidJobs,
     ] = await Promise.all([
@@ -1682,9 +1682,29 @@ export class OutsourceService {
         where: { paymentStatus: 'PAID' },
         _sum: { paymentAmount: true },
       }),
-      this.prisma.outsourceJob.count({ where: { status: 'DOCUMENT_SUBMITTED' } }),
-      this.prisma.outsourceJob.count({ where: { status: 'VERIFIED' } }),
-      this.prisma.outsourceJob.count({ where: { status: 'VERIFIED', verifiedAt: { lte: thirtyDaysAgo } } }),
+      // "งานเสร็จ" = incident closed, not all finance confirmed, not terminal
+      this.prisma.outsourceJob.count({
+        where: {
+          incident: { is: { resolvedAt: { not: null } } },
+          status: { notIn: ['PAID', 'CANCELLED', 'PENDING_CANCEL', 'REJECTED'] },
+          NOT: { AND: [{ sparePartsConfirmedAt: { not: null } }, { documentsReceivedAt: { not: null } }] },
+        },
+      }),
+      // "ตรวจสอบเอกสารแล้ว" = both confirmed, max < 30 days ago
+      this.prisma.outsourceJob.count({
+        where: {
+          sparePartsConfirmedAt: { not: null },
+          documentsReceivedAt: { not: null },
+          NOT: { AND: [{ sparePartsConfirmedAt: { lte: thirtyDaysAgo } }, { documentsReceivedAt: { lte: thirtyDaysAgo } }] },
+        },
+      }),
+      // "ครบกำหนดจ่าย" = both confirmed >= 30 days ago
+      this.prisma.outsourceJob.count({
+        where: {
+          sparePartsConfirmedAt: { not: null, lte: thirtyDaysAgo },
+          documentsReceivedAt: { not: null, lte: thirtyDaysAgo },
+        },
+      }),
       this.prisma.outsourceJob.count({ where: { status: 'PAID' } }),
     ]);
 
@@ -1700,8 +1720,8 @@ export class OutsourceService {
       totalBids,
       avgBidsPerJob: Math.round(avgBids * 10) / 10,
       totalPayments: totalPayments._sum.paymentAmount || 0,
-      documentSubmittedJobs,
-      verifiedJobs,
+      completedDisplayJobs,
+      verifiedDisplayJobs,
       paymentDueJobs,
       paidJobs,
     };
