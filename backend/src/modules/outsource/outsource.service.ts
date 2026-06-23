@@ -491,11 +491,20 @@ export class OutsourceService {
     const where: any = {};
 
     if (query?.status === 'PAYMENT_DUE') {
-      // Special computed status: VERIFIED + verifiedAt >= 30 days ago
+      // spare+docs both confirmed >= 30 days ago
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      where.status = 'VERIFIED';
-      where.verifiedAt = { lte: thirtyDaysAgo };
+      where.sparePartsConfirmedAt = { not: null, lte: thirtyDaysAgo };
+      where.documentsReceivedAt = { not: null, lte: thirtyDaysAgo };
+    } else if (query?.status === 'VERIFIED') {
+      // display "ตรวจสอบเอกสารแล้ว" = both spare+docs confirmed (includes PAYMENT_DUE range too)
+      where.sparePartsConfirmedAt = { not: null };
+      where.documentsReceivedAt = { not: null };
+    } else if (query?.status === 'COMPLETED') {
+      // display "งานเสร็จ" = incident closed but not all finance confirmed
+      where.incident = { is: { resolvedAt: { not: null } } };
+      where.status = { notIn: ['PAID', 'CANCELLED', 'PENDING_CANCEL', 'REJECTED'] };
+      where.NOT = { AND: [{ sparePartsConfirmedAt: { not: null } }, { documentsReceivedAt: { not: null } }] };
     } else if (query?.status) {
       where.status = query.status;
     } else if (query?.isFinance) {

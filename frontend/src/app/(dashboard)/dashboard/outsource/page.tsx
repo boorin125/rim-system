@@ -201,6 +201,13 @@ export default function OutsourceMarketplacePage() {
     }
   }, [filter, user])
 
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setFilter(prev => ({ ...prev, search: searchInput, page: 1 }))
+    }, 400)
+    return () => clearTimeout(t)
+  }, [searchInput])
+
   const loadData = async () => {
     try {
       setLoading(true)
@@ -347,18 +354,17 @@ export default function OutsourceMarketplacePage() {
               className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="">ทุกสถานะ</option>
-              <option value="PENDING_APPROVAL">รออนุมัติ</option>
               <option value="OPEN">เปิดรับงาน</option>
+              <option value="AWARDED">กำลังดำเนินการ</option>
               {(isFinance || isItManager) && (
                 <>
-                  <option value="AWARDED">กำลังดำเนินการ</option>
                   <option value="COMPLETED">งานเสร็จ</option>
-                  <option value="DOCUMENT_SUBMITTED">ส่งเอกสารแล้ว</option>
                   <option value="VERIFIED">ตรวจสอบเอกสารแล้ว</option>
                   <option value="PAYMENT_DUE">ครบกำหนดจ่าย</option>
                   <option value="PAID">จ่ายเงินแล้ว</option>
                 </>
               )}
+              <option value="PENDING_APPROVAL">รออนุมัติ</option>
               <option value="PENDING_CANCEL">รอยืนยันยกเลิก</option>
               <option value="CANCELLED">ยกเลิก</option>
             </select>
@@ -371,16 +377,6 @@ export default function OutsourceMarketplacePage() {
                 placeholder="ค้นหาชื่อช่าง..."
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    setFilter({ ...filter, search: searchInput, page: 1 })
-                  }
-                }}
-                onBlur={() => {
-                  if (searchInput !== filter.search) {
-                    setFilter({ ...filter, search: searchInput, page: 1 })
-                  }
-                }}
                 className="bg-slate-700 border border-slate-600 rounded-lg pl-9 pr-3 py-2 text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent w-48"
               />
             </div>
