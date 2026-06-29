@@ -427,7 +427,7 @@ export class BackupService {
       try {
         fs.writeFileSync(path.join(tempDir, 'db.bkp'), zlib.gzipSync(Buffer.from(backupContent, 'utf-8')));
 
-        if (dto.backupType !== 'DIFFERENTIAL') {
+        if (backup.backupType !== 'DIFFERENTIAL') {
           // Full backup: include uploads directory
           const uploadsTarPath = path.join(tempDir, 'uploads.tar.gz');
           if (fs.existsSync(UPLOADS_DIR)) {
