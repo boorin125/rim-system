@@ -421,20 +421,25 @@ export class BackupService {
         data: backupData,
       });
 
-      // Every backup bundles db.bkp + uploads/ into a single .tar
+      // Full backup bundles db.bkp + uploads/; Differential only bundles db.bkp (no uploads)
       const tempDir = path.join(DEFAULT_BACKUP_DIR, `tmp-bkp-${backupId}`);
       fs.mkdirSync(tempDir, { recursive: true });
       try {
         fs.writeFileSync(path.join(tempDir, 'db.bkp'), zlib.gzipSync(Buffer.from(backupContent, 'utf-8')));
 
-        const uploadsTarPath = path.join(tempDir, 'uploads.tar.gz');
-        if (fs.existsSync(UPLOADS_DIR)) {
-          execSync(`tar -czf "${uploadsTarPath}" -C "${path.dirname(UPLOADS_DIR)}" uploads`, { timeout: 600000 });
+        if (dto.backupType !== 'DIFFERENTIAL') {
+          // Full backup: include uploads directory
+          const uploadsTarPath = path.join(tempDir, 'uploads.tar.gz');
+          if (fs.existsSync(UPLOADS_DIR)) {
+            execSync(`tar -czf "${uploadsTarPath}" -C "${path.dirname(UPLOADS_DIR)}" uploads`, { timeout: 600000 });
+          } else {
+            execSync(`tar -czf "${uploadsTarPath}" -T /dev/null`, { timeout: 10000 });
+          }
+          execSync(`tar -cf "${filePath}" -C "${tempDir}" db.bkp uploads.tar.gz`, { timeout: 60000 });
         } else {
-          execSync(`tar -czf "${uploadsTarPath}" -T /dev/null`, { timeout: 10000 });
+          // Differential backup: DB only — uploads unchanged since Full backup
+          execSync(`tar -cf "${filePath}" -C "${tempDir}" db.bkp`, { timeout: 60000 });
         }
-
-        execSync(`tar -cf "${filePath}" -C "${tempDir}" db.bkp uploads.tar.gz`, { timeout: 60000 });
       } finally {
         try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch { /* ignore */ }
       }
