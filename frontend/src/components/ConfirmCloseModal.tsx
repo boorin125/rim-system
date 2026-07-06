@@ -86,10 +86,28 @@ export default function ConfirmCloseModal({ isOpen, onClose, incident, onConfirm
     setIsConfirming(true);
     setError('');
     try {
-      // Only send update if Helpdesk edited spare parts
-      const sparePartsUpdate = editingSpareParts
-        ? { usedSpareParts, spareParts }
-        : undefined;
+      let sparePartsUpdate: { usedSpareParts: boolean; spareParts: SparePart[] } | undefined;
+      if (editingSpareParts) {
+        // Strip DB-only fields and map display fields to DTO fields
+        const cleanParts: SparePart[] = spareParts.map(p => {
+          if (p.repairType === 'COMPONENT_REPLACEMENT') {
+            return {
+              repairType: p.repairType,
+              componentName: p.componentName,
+              oldComponentSerial: p.oldComponentSerial,
+              newComponentSerial: p.newComponentSerial,
+            };
+          }
+          return {
+            repairType: p.repairType || 'EQUIPMENT_REPLACEMENT',
+            oldDeviceName: p.oldBrandModel || p.oldDeviceName || p.deviceName || p.equipmentName,
+            oldSerialNo: p.oldSerialNo,
+            newDeviceName: p.newBrandModel || p.newDeviceName,
+            newSerialNo: p.newSerialNo,
+          };
+        });
+        sparePartsUpdate = { usedSpareParts, spareParts: cleanParts };
+      }
       await onConfirm(sparePartsUpdate);
       onClose();
     } catch (err: any) {
