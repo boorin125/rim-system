@@ -207,7 +207,7 @@ export default function ConfirmCloseModal({ isOpen, onClose, incident, onConfirm
                   if (!editingSpareParts) {
                     // Initialise editable copy from current incident data
                     setUsedSpareParts(incident.usedSpareParts);
-                    setSpareParts(incident.spareParts?.map(p => ({ ...p })) ?? []);
+                    setSpareParts(incident.spareParts?.map(dbToFormPart) ?? []);
                   }
                   setEditingSpareParts(v => !v);
                 }}
