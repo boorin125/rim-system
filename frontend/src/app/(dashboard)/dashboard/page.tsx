@@ -188,6 +188,7 @@ export default function DashboardPage() {
 
   const [statusCounts, setStatusCounts] = useState<StatusCounts | null>(null)
   const [incidents, setIncidents] = useState<Incident[]>([])
+  const [pendingConfirmList, setPendingConfirmList] = useState<Incident[]>([])
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [showPendingModal, setShowPendingModal] = useState(false)
@@ -233,11 +234,17 @@ export default function DashboardPage() {
       ? `${process.env.NEXT_PUBLIC_API_URL}/incidents?limit=30&assigneeId=${user.id}&statusGroup=PENDING`
       : `${process.env.NEXT_PUBLIC_API_URL}/incidents?limit=60`
 
+    // Separate query for confirm-close card — fetch ALL RESOLVED incidents regardless of age
+    const confirmUrl = !isPureTech && hasIncidentAccess
+      ? `${process.env.NEXT_PUBLIC_API_URL}/incidents?status=RESOLVED&limit=50`
+      : null
+
     setIsLoading(true)
     try {
-      const [statsRes, incRes, notifsRes, unreadRes] = await Promise.allSettled([
+      const [statsRes, incRes, confirmRes, notifsRes, unreadRes] = await Promise.allSettled([
         hasIncidentAccess ? axios.get(`${process.env.NEXT_PUBLIC_API_URL}/incidents/analytics/stats`, { headers: h }) : Promise.reject('no access'),
         hasIncidentAccess ? axios.get(incidentUrl, { headers: h }) : Promise.reject('no access'),
+        confirmUrl ? axios.get(confirmUrl, { headers: h }) : Promise.reject('no access'),
         axios.get(`${process.env.NEXT_PUBLIC_API_URL}/notifications?limit=12`, { headers: h }),
         axios.get(`${process.env.NEXT_PUBLIC_API_URL}/notifications/unread-count`, { headers: h }),
       ])
@@ -247,6 +254,11 @@ export default function DashboardPage() {
         const d = incRes.value.data
         const list: Incident[] = d?.data ?? (Array.isArray(d) ? d : [])
         setIncidents(list)
+      }
+      if (confirmRes.status === 'fulfilled') {
+        const d = confirmRes.value.data
+        const list: Incident[] = d?.data ?? (Array.isArray(d) ? d : [])
+        setPendingConfirmList(list.slice(0, 8))
       }
       if (notifsRes.status === 'fulfilled') setNotifications(notifsRes.value.data ?? [])
       if (unreadRes.status === 'fulfilled') setUnreadCount(unreadRes.value.data?.count ?? 0)
@@ -314,7 +326,7 @@ export default function DashboardPage() {
         })
         .slice(0, 10)
 
-  const pendingConfirm = incidents.filter(i => i.status === 'RESOLVED').slice(0, 8)
+  const pendingConfirm = pendingConfirmList
   const recentIncidents = incidents.slice(0, 12)
 
   // ── Status card definitions ──
