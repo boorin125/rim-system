@@ -747,9 +747,10 @@ export default function IncidentsPage() {
                                 : incident.resolutionType === 'REMOTE_SUPPORT' ? 'Remote'
                                 : 'Onsite'}
                               <span className="text-gray-400">
-                                {incident.assignees?.[0]?.user
-                                  ? ` · ${incident.assignees[0].user.firstName} ${incident.assignees[0].user.lastName}`
-                                  : ' · No assign'}
+                                {(() => {
+                                  const tech = incident.assignees?.[0]?.user || incident.assignee;
+                                  return tech ? ` · ${tech.firstName} ${tech.lastName}` : ' · No assign';
+                                })()}
                               </span>
                             </span>
                           )}
