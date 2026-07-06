@@ -2878,6 +2878,8 @@ SLA Breach Time: ${slaBreachText}`
           serviceReportToken: incident.serviceReportToken,
           customerSignedAt: incident.customerSignedAt,
           resolvedAt: incident.resolvedAt,
+          storeId: incident.store?.id,
+          incidentEquipmentIds: incident.equipmentIds || [],
         }}
         onConfirm={handleConfirmClose}
       />
