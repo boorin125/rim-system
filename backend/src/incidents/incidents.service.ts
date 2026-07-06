@@ -1039,6 +1039,9 @@ export class IncidentsService {
           slaDeadline: true,
           storeId: true,
           assigneeId: true,
+          assignee: {
+            select: { id: true, firstName: true, lastName: true },
+          },
           store: {
             select: {
               id: true, storeCode: true, name: true,
