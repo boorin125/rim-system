@@ -83,6 +83,8 @@ export default function OutsourceJobDetailPage() {
 
   // Modals
   const [showPayment, setShowPayment] = useState(false)
+  const [showPaymentBlocked, setShowPaymentBlocked] = useState(false)
+  const [paymentBlockedReasons, setPaymentBlockedReasons] = useState<string[]>([])
   const [showCancel, setShowCancel] = useState(false)
   const [showReject, setShowReject] = useState(false)
 
@@ -155,6 +157,21 @@ export default function OutsourceJobDetailPage() {
     } catch (e: any) { toast.error(e.response?.data?.message || 'เกิดข้อผิดพลาด') }
   }
 
+  const handlePayClick = () => {
+    const missing: string[] = []
+    const isJobClosed = job.incident?.resolvedAt != null ||
+      ['COMPLETED', 'DOCUMENT_SUBMITTED', 'VERIFIED', 'PAYMENT_DUE'].includes(job.status)
+    if (!isJobClosed) missing.push('งานยังไม่ปิด — Incident ต้องถูก Resolve ก่อน')
+    if (!job.sparePartsConfirmedAt) missing.push('ยังไม่ได้ยืนยันรับ Spare Parts คืน')
+    if (!job.documentsReceivedAt) missing.push('ยังไม่ได้ยืนยันตรวจสอบเอกสาร')
+    if (missing.length > 0) {
+      setPaymentBlockedReasons(missing)
+      setShowPaymentBlocked(true)
+    } else {
+      setShowPayment(true)
+    }
+  }
+
   const handleCancel = async (reason: string) => {
     try {
       await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/outsource/jobs/${jobId}/cancel`, { reason }, config())
@@ -213,6 +230,12 @@ export default function OutsourceJobDetailPage() {
 
   const isAwarded = job.awardedToId === user?.id
 
+  const isPayReady = (() => {
+    const isJobClosed = job.incident?.resolvedAt != null ||
+      ['COMPLETED', 'DOCUMENT_SUBMITTED', 'VERIFIED', 'PAYMENT_DUE'].includes(job.status)
+    return isJobClosed && !!job.sparePartsConfirmedAt && !!job.documentsReceivedAt
+  })()
+
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
@@ -255,8 +278,13 @@ export default function OutsourceJobDetailPage() {
               </button>
             </>
           )}
-          {isFinance && job.status === 'VERIFIED' && job.paymentStatus !== 'PAID' && (
-            <button onClick={() => setShowPayment(true)} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm transition flex items-center gap-2">
+          {isFinance && job.paymentStatus !== 'PAID' && !['CANCELLED', 'DRAFT', 'PENDING_APPROVAL', 'OPEN', 'BIDDING_CLOSED', 'AWARDED', 'IN_PROGRESS'].includes(job.status) && (
+            <button
+              onClick={handlePayClick}
+              className={`px-4 py-2 text-white rounded-lg text-sm transition flex items-center gap-2 ${
+                isPayReady ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-600 hover:bg-slate-500'
+              }`}
+            >
               <CreditCard className="h-4 w-4" /> จ่ายเงิน
             </button>
           )}
@@ -569,6 +597,7 @@ export default function OutsourceJobDetailPage() {
 
       {/* ─── Modals ──────────────────────────────────────────────── */}
       {showPayment && <PaymentModal agreedPrice={job.agreedPrice} shippingCost={job.shippingCost} jobId={jobId} onConfirm={handlePayment} onClose={() => setShowPayment(false)} />}
+      {showPaymentBlocked && <PaymentBlockedModal reasons={paymentBlockedReasons} onClose={() => setShowPaymentBlocked(false)} />}
       {showCancel && <CancelModal onConfirm={handleCancel} onClose={() => setShowCancel(false)} />}
       {showReject && <RejectModal onConfirm={handleReject} onClose={() => setShowReject(false)} />}
     </div>
@@ -587,6 +616,33 @@ function ModalWrapper({ title, children, onClose }: { title: string; children: R
         {children}
       </div>
     </div>
+  )
+}
+
+function PaymentBlockedModal({ reasons, onClose }: { reasons: string[]; onClose: () => void }) {
+  return (
+    <ModalWrapper title="ไม่สามารถจ่ายเงินได้" onClose={onClose}>
+      <div className="p-6 space-y-4">
+        <div className="flex items-start gap-3 p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
+          <AlertTriangle className="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-red-300 mb-2">ยังขาดขั้นตอนต่อไปนี้:</p>
+            <ul className="space-y-1.5">
+              {reasons.map((r, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-red-400">
+                  <span className="mt-0.5 h-4 w-4 rounded-full bg-red-500/30 flex items-center justify-center text-xs font-bold flex-shrink-0">{i + 1}</span>
+                  {r}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+        <p className="text-xs text-gray-500">กรุณาดำเนินการขั้นตอนข้างต้นให้ครบก่อนทำการจ่ายเงิน</p>
+      </div>
+      <div className="p-6 border-t border-slate-700 flex justify-end">
+        <button onClick={onClose} className="px-5 py-2 bg-slate-700 hover:bg-slate-600 text-gray-300 rounded-lg transition">รับทราบ</button>
+      </div>
+    </ModalWrapper>
   )
 }
 

@@ -1199,14 +1199,24 @@ export class OutsourceService {
   async processPayment(jobId: number, userId: number, dto: ProcessPaymentDto) {
     const job = await this.prisma.outsourceJob.findUnique({
       where: { id: jobId },
+      include: { incident: { select: { resolvedAt: true } } },
     });
 
     if (!job) {
       throw new NotFoundException(`ไม่พบงาน Outsource ID: ${jobId}`);
     }
 
-    if (job.status !== 'VERIFIED') {
-      throw new BadRequestException('งานยังไม่ผ่านการตรวจสอบ');
+    const missing: string[] = [];
+
+    const isJobClosed =
+      (job.incident?.resolvedAt != null) ||
+      ['COMPLETED', 'DOCUMENT_SUBMITTED', 'VERIFIED', 'PAID'].includes(job.status);
+    if (!isJobClosed) missing.push('งานยังไม่ปิด — Incident ต้องถูก Resolve ก่อน');
+    if (!job.sparePartsConfirmedAt) missing.push('ยังไม่ได้ยืนยันรับ Spare Parts คืน');
+    if (!job.documentsReceivedAt) missing.push('ยังไม่ได้ยืนยันตรวจสอบเอกสาร');
+
+    if (missing.length > 0) {
+      throw new BadRequestException(missing.join(' | '));
     }
 
     // Calculate payment including shipping cost
