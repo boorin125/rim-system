@@ -741,19 +741,15 @@ export default function IncidentsPage() {
                             const tech = incident.assignees?.[0]?.user || incident.assignee;
                             const label = incident.resolutionType === 'PHONE_SUPPORT' ? 'Phone'
                               : incident.resolutionType === 'REMOTE_SUPPORT' ? 'Remote'
-                              : incident.resolutionType ? 'Onsite' : null;
+                              : (incident.resolutionType || tech) ? 'Onsite' : null;
                             const color = incident.resolutionType === 'PHONE_SUPPORT' ? 'text-emerald-400'
                               : incident.resolutionType === 'REMOTE_SUPPORT' ? 'text-blue-400'
-                              : incident.resolutionType ? 'text-amber-400' : 'text-gray-400';
+                              : 'text-amber-400';
                             if (!label && !tech) return null;
                             return (
                               <span className={`text-[10px] whitespace-nowrap ${color}`}>
                                 {label}
-                                <span className="text-gray-400">
-                                  {label && tech ? ` · ${tech.firstName} ${tech.lastName}`
-                                    : !label && tech ? `${tech.firstName} ${tech.lastName}`
-                                    : ''}
-                                </span>
+                                {tech && <span className="text-gray-400"> · {tech.firstName} {tech.lastName}</span>}
                               </span>
                             );
                           })()}
