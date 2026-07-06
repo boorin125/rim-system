@@ -19,6 +19,7 @@ interface SparePart {
   newComponentSerial?: string;
   oldDeviceName?: string;
   newDeviceName?: string;
+  _isNew?: boolean; // UI only — true = added by Helpdesk in edit mode (old fields editable)
 }
 
 interface ConfirmCloseModalProps {
@@ -48,6 +49,7 @@ const emptyEquipmentPart = (): SparePart => ({
   oldSerialNo: '',
   newBrandModel: '',
   newSerialNo: '',
+  _isNew: true,
 })
 
 const emptyComponentPart = (): SparePart => ({
@@ -56,6 +58,7 @@ const emptyComponentPart = (): SparePart => ({
   componentName: '',
   oldComponentSerial: '',
   newComponentSerial: '',
+  _isNew: true,
 })
 
 export default function ConfirmCloseModal({ isOpen, onClose, incident, onConfirm }: ConfirmCloseModalProps) {
@@ -123,6 +126,16 @@ export default function ConfirmCloseModal({ isOpen, onClose, incident, onConfirm
 
   const removePart = (index: number) => {
     setSpareParts(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const switchType = (index: number, newType: 'EQUIPMENT_REPLACEMENT' | 'COMPONENT_REPLACEMENT') => {
+    setSpareParts(prev => prev.map((p, i) => {
+      if (i !== index) return p;
+      if (newType === 'COMPONENT_REPLACEMENT') {
+        return { repairType: 'COMPONENT_REPLACEMENT', _isNew: p._isNew, parentEquipmentName: '', componentName: '', oldComponentSerial: '', newComponentSerial: '' };
+      }
+      return { repairType: 'EQUIPMENT_REPLACEMENT', _isNew: p._isNew, oldBrandModel: p._isNew ? '' : (p.oldBrandModel || p.equipmentName || ''), oldSerialNo: p._isNew ? '' : (p.oldSerialNo || ''), newBrandModel: '', newSerialNo: '' };
+    }));
   };
 
   if (!isOpen) return null;
@@ -213,7 +226,7 @@ export default function ConfirmCloseModal({ isOpen, onClose, incident, onConfirm
 
             {editingSpareParts ? (
               /* ── Edit Mode ── */
-              <div className="space-y-4 p-4 bg-amber-500/5 border border-amber-500/20 rounded-xl">
+              <div className="space-y-3 p-4 bg-amber-500/5 border border-amber-500/20 rounded-xl">
                 {/* usedSpareParts toggle */}
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-300">มีการใช้ Spare Parts</span>
@@ -227,72 +240,111 @@ export default function ConfirmCloseModal({ isOpen, onClose, incident, onConfirm
 
                 {usedSpareParts && (
                   <>
-                    {/* Equipment Replacement rows */}
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-xs font-semibold text-green-400 flex items-center gap-1"><ArrowRightLeft className="w-3.5 h-3.5" /> เปลี่ยนอุปกรณ์</p>
-                        <button onClick={() => setSpareParts(prev => [...prev, emptyEquipmentPart()])}
-                          className="flex items-center gap-1 text-xs text-green-400 hover:text-green-300 px-2 py-1 rounded-lg bg-green-500/10 hover:bg-green-500/20 transition">
-                          <Plus className="w-3 h-3" /> เพิ่ม
-                        </button>
-                      </div>
-                      {equipmentParts.length === 0 && <p className="text-xs text-gray-500 italic">ไม่มีรายการ</p>}
+                    {/* Flat list of all parts — each row has type toggle */}
+                    <div className="space-y-2">
                       {spareParts.map((part, idx) => {
-                        if (part.repairType !== 'EQUIPMENT_REPLACEMENT' && part.repairType !== undefined) return null;
+                        const isEquip = part.repairType === 'EQUIPMENT_REPLACEMENT' || !part.repairType;
+                        const isNew = !!part._isNew;
                         return (
-                          <div key={idx} className="grid grid-cols-[1fr_1fr_auto] gap-2 mb-2 items-start">
-                            <div className="space-y-1">
-                              <input value={part.oldBrandModel || part.oldDeviceName || ''} onChange={e => updatePart(idx, 'oldBrandModel', e.target.value)}
-                                placeholder="Brand/Model เดิม" className="w-full px-2 py-1.5 text-xs bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-gray-500 focus:ring-1 focus:ring-green-500 focus:border-transparent" />
-                              <input value={part.oldSerialNo || ''} onChange={e => updatePart(idx, 'oldSerialNo', e.target.value)}
-                                placeholder="Serial No. เดิม" className="w-full px-2 py-1.5 text-xs bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-gray-500 focus:ring-1 focus:ring-green-500 focus:border-transparent" />
+                          <div key={idx} className={`p-3 rounded-lg border ${isEquip ? 'bg-slate-800/40 border-green-700/20' : 'bg-slate-800/40 border-purple-700/20'}`}>
+                            {/* Row header: type toggle + delete */}
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex rounded-lg overflow-hidden border border-slate-600 text-xs">
+                                <button onClick={() => switchType(idx, 'EQUIPMENT_REPLACEMENT')}
+                                  className={`px-2.5 py-1 flex items-center gap-1 transition ${isEquip ? 'bg-green-500/20 text-green-300' : 'bg-slate-700/50 text-gray-400 hover:bg-slate-700'}`}>
+                                  <ArrowRightLeft className="w-3 h-3" /> อุปกรณ์
+                                </button>
+                                <button onClick={() => switchType(idx, 'COMPONENT_REPLACEMENT')}
+                                  className={`px-2.5 py-1 flex items-center gap-1 transition ${!isEquip ? 'bg-purple-500/20 text-purple-300' : 'bg-slate-700/50 text-gray-400 hover:bg-slate-700'}`}>
+                                  <Cpu className="w-3 h-3" /> ชิ้นส่วน
+                                </button>
+                              </div>
+                              <button onClick={() => removePart(idx)} className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
                             </div>
-                            <div className="space-y-1">
-                              <input value={part.newBrandModel || part.newDeviceName || ''} onChange={e => updatePart(idx, 'newBrandModel', e.target.value)}
-                                placeholder="Brand/Model ใหม่" className="w-full px-2 py-1.5 text-xs bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-gray-500 focus:ring-1 focus:ring-green-500 focus:border-transparent" />
-                              <input value={part.newSerialNo || ''} onChange={e => updatePart(idx, 'newSerialNo', e.target.value)}
-                                placeholder="Serial No. ใหม่" className="w-full px-2 py-1.5 text-xs bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-gray-500 focus:ring-1 focus:ring-green-500 focus:border-transparent" />
-                            </div>
-                            <button onClick={() => removePart(idx)} className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition mt-0.5">
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+
+                            {/* Fields based on type */}
+                            {isEquip ? (
+                              <div className="grid grid-cols-2 gap-2">
+                                <div className="space-y-1">
+                                  <input
+                                    value={part.oldBrandModel || part.oldDeviceName || part.equipmentName || ''}
+                                    onChange={isNew ? e => updatePart(idx, 'oldBrandModel', e.target.value) : undefined}
+                                    readOnly={!isNew}
+                                    placeholder="Brand/Model เดิม"
+                                    className={`w-full px-2 py-1.5 text-xs border rounded-lg placeholder-gray-500 focus:outline-none focus:ring-1 focus:border-transparent ${!isNew ? 'bg-slate-800/50 border-slate-700 text-gray-400 cursor-not-allowed' : 'bg-slate-700 border-slate-600 text-white focus:ring-green-500'}`}
+                                  />
+                                  <input
+                                    value={part.oldSerialNo || ''}
+                                    onChange={isNew ? e => updatePart(idx, 'oldSerialNo', e.target.value) : undefined}
+                                    readOnly={!isNew}
+                                    placeholder="Serial No. เดิม"
+                                    className={`w-full px-2 py-1.5 text-xs border rounded-lg font-mono placeholder-gray-500 focus:outline-none focus:ring-1 focus:border-transparent ${!isNew ? 'bg-slate-800/50 border-slate-700 text-gray-400 cursor-not-allowed' : 'bg-slate-700 border-slate-600 text-white focus:ring-green-500'}`}
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <input
+                                    value={part.newBrandModel || part.newDeviceName || ''}
+                                    onChange={e => updatePart(idx, 'newBrandModel', e.target.value)}
+                                    placeholder="Brand/Model ใหม่"
+                                    className="w-full px-2 py-1.5 text-xs bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-gray-500 focus:ring-1 focus:ring-green-500 focus:border-transparent focus:outline-none"
+                                  />
+                                  <input
+                                    value={part.newSerialNo || ''}
+                                    onChange={e => updatePart(idx, 'newSerialNo', e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+                                    placeholder="Serial No. ใหม่ (A-Z, 0-9)"
+                                    className="w-full px-2 py-1.5 text-xs bg-slate-700 border border-slate-600 rounded-lg text-white font-mono placeholder-gray-500 focus:ring-1 focus:ring-green-500 focus:border-transparent focus:outline-none"
+                                  />
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="grid grid-cols-2 gap-2">
+                                <div className="space-y-1">
+                                  <input
+                                    value={part.parentEquipmentName || ''}
+                                    onChange={e => updatePart(idx, 'parentEquipmentName', e.target.value)}
+                                    placeholder="ชื่ออุปกรณ์หลัก"
+                                    className="w-full px-2 py-1.5 text-xs bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-gray-500 focus:ring-1 focus:ring-purple-500 focus:border-transparent focus:outline-none"
+                                  />
+                                  <input
+                                    value={part.componentName || ''}
+                                    onChange={e => updatePart(idx, 'componentName', e.target.value)}
+                                    placeholder="ชิ้นส่วนที่เปลี่ยน"
+                                    className="w-full px-2 py-1.5 text-xs bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-gray-500 focus:ring-1 focus:ring-purple-500 focus:border-transparent focus:outline-none"
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <input
+                                    value={part.oldComponentSerial || ''}
+                                    onChange={e => updatePart(idx, 'oldComponentSerial', e.target.value)}
+                                    placeholder="Serial เดิม"
+                                    className="w-full px-2 py-1.5 text-xs bg-slate-700 border border-slate-600 rounded-lg text-white font-mono placeholder-gray-500 focus:ring-1 focus:ring-purple-500 focus:border-transparent focus:outline-none"
+                                  />
+                                  <input
+                                    value={part.newComponentSerial || ''}
+                                    onChange={e => updatePart(idx, 'newComponentSerial', e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+                                    placeholder="Serial ใหม่ (A-Z, 0-9)"
+                                    className="w-full px-2 py-1.5 text-xs bg-slate-700 border border-slate-600 rounded-lg text-white font-mono placeholder-gray-500 focus:ring-1 focus:ring-purple-500 focus:border-transparent focus:outline-none"
+                                  />
+                                </div>
+                              </div>
+                            )}
                           </div>
                         );
                       })}
                     </div>
 
-                    {/* Component Replacement rows */}
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-xs font-semibold text-purple-400 flex items-center gap-1"><Cpu className="w-3.5 h-3.5" /> เปลี่ยนชิ้นส่วน</p>
-                        <button onClick={() => setSpareParts(prev => [...prev, emptyComponentPart()])}
-                          className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 px-2 py-1 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 transition">
-                          <Plus className="w-3 h-3" /> เพิ่ม
-                        </button>
-                      </div>
-                      {componentParts.length === 0 && <p className="text-xs text-gray-500 italic">ไม่มีรายการ</p>}
-                      {spareParts.map((part, idx) => {
-                        if (part.repairType !== 'COMPONENT_REPLACEMENT') return null;
-                        return (
-                          <div key={idx} className="grid grid-cols-[1fr_1fr_auto] gap-2 mb-2 items-start">
-                            <div className="space-y-1">
-                              <input value={part.parentEquipmentName || ''} onChange={e => updatePart(idx, 'parentEquipmentName', e.target.value)}
-                                placeholder="ชื่ออุปกรณ์หลัก" className="w-full px-2 py-1.5 text-xs bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-gray-500 focus:ring-1 focus:ring-purple-500 focus:border-transparent" />
-                              <input value={part.componentName || ''} onChange={e => updatePart(idx, 'componentName', e.target.value)}
-                                placeholder="ชิ้นส่วนที่เปลี่ยน" className="w-full px-2 py-1.5 text-xs bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-gray-500 focus:ring-1 focus:ring-purple-500 focus:border-transparent" />
-                            </div>
-                            <div className="space-y-1">
-                              <input value={part.oldComponentSerial || ''} onChange={e => updatePart(idx, 'oldComponentSerial', e.target.value)}
-                                placeholder="Serial เดิม" className="w-full px-2 py-1.5 text-xs bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-gray-500 focus:ring-1 focus:ring-purple-500 focus:border-transparent" />
-                              <input value={part.newComponentSerial || ''} onChange={e => updatePart(idx, 'newComponentSerial', e.target.value)}
-                                placeholder="Serial ใหม่" className="w-full px-2 py-1.5 text-xs bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-gray-500 focus:ring-1 focus:ring-purple-500 focus:border-transparent" />
-                            </div>
-                            <button onClick={() => removePart(idx)} className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition mt-0.5">
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        );
-                      })}
+                    {/* Add buttons */}
+                    <div className="flex gap-2">
+                      <button onClick={() => setSpareParts(prev => [...prev, emptyEquipmentPart()])}
+                        className="flex items-center gap-1 text-xs text-green-400 hover:text-green-300 px-3 py-1.5 rounded-lg bg-green-500/10 hover:bg-green-500/20 transition">
+                        <Plus className="w-3 h-3" /> เพิ่มอุปกรณ์
+                      </button>
+                      <button onClick={() => setSpareParts(prev => [...prev, emptyComponentPart()])}
+                        className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 px-3 py-1.5 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 transition">
+                        <Plus className="w-3 h-3" /> เพิ่มชิ้นส่วน
+                      </button>
                     </div>
                   </>
                 )}
