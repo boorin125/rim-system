@@ -460,11 +460,13 @@ export class IncidentsService {
       }
 
       // ========================================
-      // EQUIPMENT REPLACEMENT - NEW STRUCTURE (oldDeviceName + newDeviceName)
+      // EQUIPMENT REPLACEMENT - NEW STRUCTURE (at least one of oldDeviceName/newDeviceName)
       // ========================================
-      if (sp.oldDeviceName && sp.newDeviceName) {
-        // Construct deviceName from old → new
-        const deviceName = `${sp.oldDeviceName} → ${sp.newDeviceName}`;
+      if (sp.newDeviceName || sp.oldDeviceName) {
+        // Construct deviceName: "old → new", or just whichever is available
+        const deviceName = sp.oldDeviceName && sp.newDeviceName
+          ? `${sp.oldDeviceName} → ${sp.newDeviceName}`
+          : sp.newDeviceName || sp.oldDeviceName;
 
         // Include replacement type in notes if provided
         let notes = sp.notes || '';
@@ -489,7 +491,7 @@ export class IncidentsService {
       // ========================================
       return {
         repairType: 'EQUIPMENT_REPLACEMENT',
-        deviceName: sp.deviceName,
+        deviceName: sp.deviceName || sp.newDeviceName || sp.oldDeviceName || 'Unknown',
         oldSerialNo: sp.oldSerialNo || '',
         newSerialNo: sp.newSerialNo || '',
         notes: sp.notes || null,

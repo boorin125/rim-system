@@ -103,10 +103,10 @@ export default function ConfirmCloseModal({ isOpen, onClose, incident, onConfirm
           }
           return {
             repairType: p.repairType || 'EQUIPMENT_REPLACEMENT',
-            oldDeviceName: p.oldBrandModel || p.oldDeviceName || p.deviceName || p.equipmentName,
-            oldSerialNo: p.oldSerialNo,
-            newDeviceName: p.newBrandModel || p.newDeviceName,
-            newSerialNo: p.newSerialNo,
+            oldDeviceName: p.oldBrandModel || p.oldDeviceName || p.deviceName || p.equipmentName || '',
+            oldSerialNo: p.oldSerialNo || '',
+            newDeviceName: p.newBrandModel || p.newDeviceName || '',
+            newSerialNo: p.newSerialNo || '',
           };
         });
         sparePartsUpdate = { usedSpareParts, spareParts: cleanParts };
