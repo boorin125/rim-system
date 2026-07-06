@@ -160,6 +160,21 @@ export class ResolveIncidentDto {
 }
 
 /**
+ * Confirm Close DTO — Helpdesk can optionally update spare parts before closing
+ */
+export class ConfirmCloseDto {
+  @IsOptional()
+  @IsBoolean()
+  usedSpareParts?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SparePartDto)
+  spareParts?: SparePartDto[];
+}
+
+/**
  * Update Resolution DTO (before Help Desk confirms)
  */
 export class UpdateResolveDto {

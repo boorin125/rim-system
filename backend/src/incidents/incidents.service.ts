@@ -9,7 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateIncidentDto } from './dto/create-incident.dto';
 import { UpdateIncidentDto } from './dto/update-incident.dto';
 import { IncidentStatus, Priority, UserRole, IncidentAction, IncidentType, EquipmentStatus, EquipmentLogAction, EquipmentLogSource, RepairType, AuditModule, AuditAction, NotificationType, SlaDefenseStatus, SlaRegion } from '@prisma/client';
-import { ResolveIncidentDto, UpdateResolveDto } from './dto/resolve-incident.dto';
+import { ResolveIncidentDto, UpdateResolveDto, ConfirmCloseDto } from './dto/resolve-incident.dto';
 import { SubmitResponseDto } from './dto/submit-response.dto';
 import { IncidentHistoryService } from './incident-history.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -3209,7 +3209,7 @@ export class IncidentsService {
    * Only HELP_DESK can confirm
    * Status: RESOLVED → CLOSED
    */
-  async confirmClose(id: string, userId: number) {
+  async confirmClose(id: string, userId: number, dto?: ConfirmCloseDto) {
     const incident = await this.prisma.incident.findFirst({
       where: { id },
     });
@@ -3230,6 +3230,44 @@ export class IncidentsService {
       throw new BadRequestException(
         'ช่างเทคนิคยังไม่ได้ยืนยันการปิดงาน กรุณารอช่างยืนยันก่อน',
       );
+    }
+
+    // If Helpdesk provided updated spare parts, replace them before closing
+    if (dto && dto.spareParts !== undefined) {
+      await this.prisma.sparePart.deleteMany({ where: { incidentId: id } });
+      await this.prisma.incident.update({
+        where: { id },
+        data: {
+          usedSpareParts: dto.usedSpareParts ?? (dto.spareParts.length > 0),
+          updatedAt: new Date(),
+        },
+      });
+      if (dto.spareParts.length > 0) {
+        const transformedSpareParts = this.transformSparePartsData(dto.spareParts);
+        for (let i = 0; i < dto.spareParts.length; i++) {
+          const originalSp = dto.spareParts[i];
+          const transformedSp = transformedSpareParts[i];
+          await this.prisma.sparePart.create({
+            data: {
+              incidentId: id,
+              repairType: (transformedSp as any).repairType,
+              deviceName: (transformedSp as any).deviceName,
+              oldSerialNo: (transformedSp as any).oldSerialNo,
+              newSerialNo: (transformedSp as any).newSerialNo,
+              replacementType: (transformedSp as any).replacementType,
+              oldEquipmentId: originalSp.oldEquipmentId,
+              newEquipmentId: originalSp.newEquipmentId,
+              oldBrandModel: originalSp.oldDeviceName || originalSp.deviceName?.split(' → ')[0]?.trim(),
+              newBrandModel: (originalSp as any).newBrandModel || originalSp.newDeviceName,
+              componentName: originalSp.componentName,
+              oldComponentSerial: originalSp.oldComponentSerial,
+              newComponentSerial: originalSp.newComponentSerial,
+              parentEquipmentId: originalSp.parentEquipmentId,
+              notes: originalSp.notes,
+            },
+          });
+        }
+      }
     }
 
     const updated = await this.prisma.incident.update({

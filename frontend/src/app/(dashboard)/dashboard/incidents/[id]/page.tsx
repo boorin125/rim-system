@@ -608,20 +608,20 @@ export default function IncidentDetailPage() {
     }
   }
 
-  const handleConfirmClose = async () => {
+  const handleConfirmClose = async (sparePartsUpdate?: { usedSpareParts: boolean; spareParts: any[] }) => {
     try {
       const token = localStorage.getItem('token')
 
-      const response = await axios.post(
+      await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/incidents/${params.id}/confirm-close`,
-        {},
+        sparePartsUpdate ?? {},
         {
           headers: { Authorization: `Bearer ${token}` },
         }
       )
 
       toast.success('Incident closed successfully!')
-      await fetchIncident() // Refresh incident data
+      await fetchIncident()
       setShowConfirm(false)
     } catch (error: any) {
       throw new Error(

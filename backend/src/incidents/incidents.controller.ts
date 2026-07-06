@@ -22,7 +22,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
 import { LicenseGuard } from '../modules/license/license.guard';
-import { ResolveIncidentDto, UpdateResolveDto } from './dto/resolve-incident.dto';
+import { ResolveIncidentDto, UpdateResolveDto, ConfirmCloseDto } from './dto/resolve-incident.dto';
 import { ReopenIncidentDto } from './dto/reopen-incident.dto';
 import { SubmitResponseDto } from './dto/submit-response.dto';
 import { IncidentHistoryService } from './incident-history.service';
@@ -413,8 +413,8 @@ export class IncidentsController {
    */
   @Post(':id/confirm-close')
   @Roles(UserRole.HELP_DESK, UserRole.IT_MANAGER)
-  confirmClose(@Param('id') id: string, @Request() req) {
-    return this.incidentsService.confirmClose(id, req.user.id);
+  confirmClose(@Param('id') id: string, @Request() req, @Body() dto: ConfirmCloseDto) {
+    return this.incidentsService.confirmClose(id, req.user.id, dto);
   }
 
   /**
