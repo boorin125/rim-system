@@ -221,7 +221,6 @@ export default function ConfirmCloseModal({ isOpen, onClose, incident, onConfirm
                       {equipmentParts.length === 0 && <p className="text-xs text-gray-500 italic">ไม่มีรายการ</p>}
                       {spareParts.map((part, idx) => {
                         if (part.repairType !== 'EQUIPMENT_REPLACEMENT' && part.repairType !== undefined) return null;
-                        if (part.repairType === 'COMPONENT_REPLACEMENT') return null;
                         return (
                           <div key={idx} className="grid grid-cols-[1fr_1fr_auto] gap-2 mb-2 items-start">
                             <div className="space-y-1">
