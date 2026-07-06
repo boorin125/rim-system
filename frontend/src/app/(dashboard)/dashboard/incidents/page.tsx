@@ -436,7 +436,7 @@ export default function IncidentsPage() {
       const headers = Object.keys(exportData[0])
 
       // Build filename: Incident_[Status_][Category_][Province_]ddmmyyyy
-      const statusLabels: Record<string, string> = { PENDING: 'Pending', CLOSED: 'Closed', CANCELLED: 'Cancelled' }
+      const statusLabels: Record<string, string> = { PENDING: 'Pending', OPEN: 'Open', ASSIGNED: 'Assigned', IN_PROGRESS: 'InProgress', CLOSED: 'Closed', CANCELLED: 'Cancelled' }
       const parts = ['Incident']
       if (filterStatus !== 'ALL') parts.push(statusLabels[filterStatus] || filterStatus)
       if (filterCategory !== 'ALL') parts.push(filterCategory.replace(/[\s/\\]/g, ''))
@@ -623,7 +623,10 @@ export default function IncidentsPage() {
               className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 [&>option]:bg-slate-800 [&>option]:text-white"
             >
               <option value="ALL">All Status</option>
-              <option value="PENDING">Pending</option>
+              <option value="PENDING">Pending (ยกเว้น Closed/Cancelled)</option>
+              <option value="OPEN">Open</option>
+              <option value="ASSIGNED">Assigned</option>
+              <option value="IN_PROGRESS">In Progress</option>
               <option value="CLOSED">Closed</option>
               <option value="CANCELLED">Cancelled</option>
             </select>
