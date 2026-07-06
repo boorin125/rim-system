@@ -737,23 +737,26 @@ export default function IncidentsPage() {
                       <td className="py-3 px-3 md:py-4 md:px-6">
                         <div className="flex flex-col gap-1">
                           <span className={statusBadge.class}>{incident.status}</span>
-                          {incident.resolutionType && (
-                            <span className={`text-[10px] whitespace-nowrap ${
-                              incident.resolutionType === 'PHONE_SUPPORT' ? 'text-emerald-400'
+                          {(() => {
+                            const tech = incident.assignees?.[0]?.user || incident.assignee;
+                            const label = incident.resolutionType === 'PHONE_SUPPORT' ? 'Phone'
+                              : incident.resolutionType === 'REMOTE_SUPPORT' ? 'Remote'
+                              : incident.resolutionType ? 'Onsite' : null;
+                            const color = incident.resolutionType === 'PHONE_SUPPORT' ? 'text-emerald-400'
                               : incident.resolutionType === 'REMOTE_SUPPORT' ? 'text-blue-400'
-                              : 'text-amber-400'
-                            }`}>
-                              {incident.resolutionType === 'PHONE_SUPPORT' ? 'Phone'
-                                : incident.resolutionType === 'REMOTE_SUPPORT' ? 'Remote'
-                                : 'Onsite'}
-                              <span className="text-gray-400">
-                                {(() => {
-                                  const tech = incident.assignees?.[0]?.user || incident.assignee;
-                                  return tech ? ` · ${tech.firstName} ${tech.lastName}` : ' · No assign';
-                                })()}
+                              : incident.resolutionType ? 'text-amber-400' : 'text-gray-400';
+                            if (!label && !tech) return null;
+                            return (
+                              <span className={`text-[10px] whitespace-nowrap ${color}`}>
+                                {label}
+                                <span className="text-gray-400">
+                                  {label && tech ? ` · ${tech.firstName} ${tech.lastName}`
+                                    : !label && tech ? `${tech.firstName} ${tech.lastName}`
+                                    : ''}
+                                </span>
                               </span>
-                            </span>
-                          )}
+                            );
+                          })()}
                         </div>
                       </td>
                       <td className="hidden md:table-cell py-4 px-6">
