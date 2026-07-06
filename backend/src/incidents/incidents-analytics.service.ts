@@ -630,11 +630,11 @@ export class IncidentsAnalyticsService {
     const localDateKey = (d: Date) => d.toLocaleDateString('en-CA'); // 'YYYY-MM-DD' in local TZ
     const activityMap = new Map(activityLogs.map((a) => [localDateKey(a.date), a]));
 
-    // ── Incidents in range ─────────────────────────────────────────────────────
-    const incidents = await this.prisma.incident.findMany({
+    // ── All incidents for this tech (no date filter) for accurate carryover ─────
+    const allIncidents = await this.prisma.incident.findMany({
       where: {
         assignees: { some: { userId: technicianId } },
-        createdAt: { gte: fromDate, lte: toDate },
+        status: { not: 'CANCELLED' },
       },
       select: {
         id: true,
@@ -650,74 +650,79 @@ export class IncidentsAnalyticsService {
         slaDeadline: true,
         slaDefenses: { select: { status: true } },
       },
-      orderBy: { checkInAt: 'asc' },
     });
 
-    // Group incidents by local date (YYYY-MM-DD)
-    const incidentsByDay = new Map<string, typeof incidents>();
-    for (const inc of incidents) {
-      const key = localDateKey(inc.createdAt);
-      if (!incidentsByDay.has(key)) incidentsByDay.set(key, []);
-      incidentsByDay.get(key)!.push(inc);
-    }
-
-    // ── Pending incidents (assigned but not resolved) ─────────────────────────
-    const pendingIncidents = await this.prisma.incident.findMany({
-      where: {
-        assignees: { some: { userId: technicianId } },
-        status: { notIn: ['RESOLVED', 'CLOSED'] },
-      },
-      select: { createdAt: true },
-      orderBy: { createdAt: 'asc' },
-    });
+    // ── Current pending ────────────────────────────────────────────────────────
+    const pendingIncidents = allIncidents
+      .filter((i) => !['CLOSED', 'RESOLVED'].includes(i.status))
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
     const pendingCount = pendingIncidents.length;
     const now = new Date();
     const oldestPendingAgingDays = pendingCount > 0
       ? Math.floor((now.getTime() - pendingIncidents[0].createdAt.getTime()) / (1000 * 60 * 60 * 24))
       : null;
 
-    // ── Build daily rows (union of activity + incident days) ──────────────────
-    const allDays = new Set<string>([...activityMap.keys(), ...incidentsByDay.keys()]);
+    // ── Generate all days in date range ───────────────────────────────────────
+    const allDaysInRange: string[] = [];
+    const cursor = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate());
+    while (cursor <= toDate) {
+      allDaysInRange.push(localDateKey(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    // ── Build daily rows for every day in range ───────────────────────────────
     const dailyRows: any[] = [];
 
-    for (const day of Array.from(allDays).sort()) {
+    for (const day of allDaysInRange) {
+      const dayStart = parseLocal(day);
       const activity = activityMap.get(day);
-      const dayIncidents = incidentsByDay.get(day) || [];
 
-      // First check-in of the day
-      const checkedIn = dayIncidents.filter((i) => i.checkInAt);
-      checkedIn.sort((a, b) => a.checkInAt!.getTime() - b.checkInAt!.getTime());
-      const firstCheckIn = checkedIn[0]?.checkInAt ?? null;
-      const lastCheckIn = checkedIn[checkedIn.length - 1]?.checkInAt ?? null;
+      // Assigned today: incidents created on this day
+      const assignedToday = allIncidents.filter((i) => localDateKey(i.createdAt) === day);
 
-      const resolvedIncidents = dayIncidents.filter((i) =>
-        i.status === 'RESOLVED' || i.status === 'CLOSED'
+      // Closed today: incidents whose resolvedAt falls on this day
+      const closedToday = allIncidents.filter(
+        (i) => i.resolvedAt && ['CLOSED', 'RESOLVED'].includes(i.status) && localDateKey(i.resolvedAt) === day,
       );
-      const resolved = resolvedIncidents.length;
+
+      // Pending carryover: incidents created BEFORE this day that were still open at start of day
+      const pendingCarryover = allIncidents.filter((i) => {
+        if (i.createdAt >= dayStart) return false;
+        if (['CLOSED', 'RESOLVED'].includes(i.status) && i.resolvedAt && i.resolvedAt < dayStart) return false;
+        return true;
+      }).length;
+
+      const assigned = assignedToday.length;
+      const totalJobs = pendingCarryover + assigned;
+      const resolved = closedToday.length;
+
+      // Check-in data: any incident with checkInAt on this day
+      const dayCheckins = allIncidents.filter((i) => i.checkInAt && localDateKey(i.checkInAt) === day);
+      dayCheckins.sort((a, b) => a.checkInAt!.getTime() - b.checkInAt!.getTime());
+      const firstCheckIn = dayCheckins[0]?.checkInAt ?? null;
+      const lastCheckIn = dayCheckins[dayCheckins.length - 1]?.checkInAt ?? null;
 
       // Last resolve time of the day
-      const resolvedWithTime = resolvedIncidents.filter((i) => i.resolvedAt);
-      resolvedWithTime.sort((a, b) => a.resolvedAt!.getTime() - b.resolvedAt!.getTime());
-      const lastResolve = resolvedWithTime[resolvedWithTime.length - 1]?.resolvedAt ?? null;
+      const sortedClosed = [...closedToday].sort((a, b) => a.resolvedAt!.getTime() - b.resolvedAt!.getTime());
+      const lastResolve = sortedClosed[sortedClosed.length - 1]?.resolvedAt ?? null;
 
-      const slaRelevant = dayIncidents.filter((i) => i.jobType !== 'Project');
+      // SLA for incidents assigned today
+      const slaRelevant = assignedToday.filter((i) => i.jobType !== 'Project');
       const slaPass = slaRelevant.filter((i) => {
-        if (!i.resolvedAt) return false;          // ยังไม่ Resolve = ไม่ผ่าน
-        if (i.jobType === 'Adhoc') return true;   // Adhoc ไม่มี deadline = ผ่านเมื่อ Resolve แล้ว
-        if (!i.slaDeadline) return true;          // ไม่มี deadline แต่ Resolve แล้ว = ผ่าน
+        if (!i.resolvedAt) return false;
+        if (i.jobType === 'Adhoc') return true;
+        if (!i.slaDeadline) return true;
         if (i.resolvedAt <= i.slaDeadline) return true;
         return i.slaDefenses?.some((d: any) => d.status === 'APPROVED');
       }).length;
 
-      // Auto-logout at 22:00 if logged in but no manual logout
-      const effectiveLogout = activity?.logoutAt
-        ?? (activity?.loginAt ? new Date(`${day}T22:00:00+07:00`) : null);
-
       const slaTotal = slaRelevant.length;
       const slaPercent = slaTotal > 0 ? Math.round((slaPass / slaTotal) * 1000) / 10 : null;
 
-      // Total resolution time: sum of (resolvedAt - checkInAt) for each resolved job with both timestamps
-      const resolutionTimeMins = resolvedIncidents
+      const effectiveLogout = activity?.logoutAt
+        ?? (activity?.loginAt ? new Date(`${day}T22:00:00+07:00`) : null);
+
+      const resolutionTimeMins = closedToday
         .filter((i) => i.checkInAt && i.resolvedAt)
         .reduce((sum, i) => sum + (i.resolvedAt!.getTime() - i.checkInAt!.getTime()) / 60000, 0);
 
@@ -728,7 +733,9 @@ export class IncidentsAnalyticsService {
         firstCheckIn,
         lastCheckIn,
         lastResolve,
-        totalJobs: dayIncidents.length,
+        assigned,
+        pendingCarryover,
+        totalJobs,
         resolved,
         slaPass,
         slaTotal,
@@ -737,15 +744,12 @@ export class IncidentsAnalyticsService {
       });
     }
 
-    // Sort by first check-in time (nulls last), then by date
-    dailyRows.sort((a, b) => {
-      if (a.firstCheckIn && b.firstCheckIn) return new Date(a.firstCheckIn).getTime() - new Date(b.firstCheckIn).getTime();
-      if (a.firstCheckIn) return -1;
-      if (b.firstCheckIn) return 1;
-      return a.date.localeCompare(b.date);
-    });
+    // Sort by date ascending
+    dailyRows.sort((a, b) => a.date.localeCompare(b.date));
 
-    const responseCount = incidents.filter((i) => i.checkInAt !== null).length;
+    const responseCount = allIncidents.filter(
+      (i) => i.checkInAt !== null && allDaysInRange.includes(localDateKey(i.createdAt)),
+    ).length;
 
     return {
       technician: {

@@ -67,6 +67,8 @@ interface TechDetailRow {
   firstCheckIn: string | null
   lastCheckIn: string | null
   lastResolve: string | null
+  assigned: number
+  pendingCarryover: number
   totalJobs: number
   resolved: number
   slaPass: number
@@ -597,7 +599,7 @@ export default function ReportsPage() {
             return h > 0 ? `${h}h ${m}m` : `${m}m`
           }
 
-          const h = ['#', 'Date', 'Login', 'Logout', 'First Check-in', 'Last Check-in', 'Last Resolved', 'Total Jobs', 'Resolved', 'SLA Pass', 'SLA%', 'Resolution Time']
+          const h = ['#', 'Date', 'Login', 'Logout', 'First Check-in', 'Last Check-in', 'Last Closed', 'Assigned', 'Carry Over', 'Total Jobs', 'Closed', 'SLA Pass', 'SLA%', 'Resolution Time']
           const rows = data.dailyRows.map((row, idx) => [
             idx + 1,
             fmtDate(row.date),
@@ -606,6 +608,8 @@ export default function ReportsPage() {
             fmtDT(row.firstCheckIn),
             fmtDT(row.lastCheckIn),
             fmtDT(row.lastResolve),
+            row.assigned,
+            row.pendingCarryover,
             row.totalJobs,
             row.resolved,
             row.slaPass,
@@ -1564,27 +1568,27 @@ function TechnicianDetailCards({ data }: { data: TechDetailData }) {
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
         <div className="glass-card p-4 rounded-xl border border-slate-700/50">
           <p className="text-gray-400 text-xs font-medium mb-1">Active Days</p>
-          <p className="text-2xl font-bold text-white">{data.dailyRows.filter(r => r.totalJobs > 0 || r.loginAt).length}</p>
+          <p className="text-2xl font-bold text-white">{data.dailyRows.filter(r => r.assigned > 0 || r.resolved > 0 || r.loginAt).length}</p>
         </div>
-        <div className="glass-card p-4 rounded-xl border border-green-500/30">
-          <p className="text-gray-400 text-xs font-medium mb-1">Total Jobs</p>
-          <p className="text-2xl font-bold text-green-400">{data.dailyRows.reduce((s, r) => s + r.totalJobs, 0)}</p>
+        <div className="glass-card p-4 rounded-xl border border-blue-500/30">
+          <p className="text-gray-400 text-xs font-medium mb-1">Assigned (Period)</p>
+          <p className="text-2xl font-bold text-blue-400">{data.dailyRows.reduce((s, r) => s + r.assigned, 0)}</p>
         </div>
         <div className="glass-card p-4 rounded-xl border border-purple-500/30">
-          <p className="text-gray-400 text-xs font-medium mb-1">Avg Jobs/Day</p>
+          <p className="text-gray-400 text-xs font-medium mb-1">Avg Assigned/Day</p>
           {(() => {
-            const activeDays = data.dailyRows.filter(r => r.totalJobs > 0).length
-            const totalJobs = data.dailyRows.reduce((s, r) => s + r.totalJobs, 0)
-            const avg = activeDays > 0 ? (totalJobs / activeDays).toFixed(1) : '0'
+            const activeDays = data.dailyRows.filter(r => r.assigned > 0).length
+            const totalAssigned = data.dailyRows.reduce((s, r) => s + r.assigned, 0)
+            const avg = activeDays > 0 ? (totalAssigned / activeDays).toFixed(1) : '0'
             return <p className="text-2xl font-bold text-purple-400">{avg}</p>
           })()}
         </div>
-        <div className="glass-card p-4 rounded-xl border border-blue-500/30">
-          <p className="text-gray-400 text-xs font-medium mb-1">Resolved</p>
-          <p className="text-2xl font-bold text-blue-400">{data.dailyRows.reduce((s, r) => s + r.resolved, 0)}</p>
+        <div className="glass-card p-4 rounded-xl border border-green-500/30">
+          <p className="text-gray-400 text-xs font-medium mb-1">Closed (Period)</p>
+          <p className="text-2xl font-bold text-green-400">{data.dailyRows.reduce((s, r) => s + r.resolved, 0)}</p>
         </div>
         <div className="glass-card p-4 rounded-xl border border-orange-500/30">
-          <p className="text-gray-400 text-xs font-medium mb-1">Pending</p>
+          <p className="text-gray-400 text-xs font-medium mb-1">Pending (Now)</p>
           <div className="flex items-end justify-between">
             <p className="text-2xl font-bold text-orange-400">{data.pendingCount}</p>
             {data.oldestPendingAgingDays != null && (
