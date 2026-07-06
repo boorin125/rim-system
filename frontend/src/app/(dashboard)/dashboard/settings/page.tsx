@@ -322,6 +322,16 @@ const RELEASE_NOTES: {
   changes: { type: 'new' | 'improved' | 'fixed'; text: string }[]
 }[] = [
   {
+    version: '1.0.19',
+    date: '2026-07-06',
+    changes: [
+      { type: 'new',      text: 'Outsource: ปุ่มจ่ายเงิน Enable เฉพาะเมื่อเงื่อนไขครบ — งานปิดแล้ว + ยืนยัน Spare Parts + ยืนยันเอกสาร (Popup แจ้งขั้นตอนที่ยังขาด)' },
+      { type: 'new',      text: 'Incident List: เพิ่มตัวกรอง Open, Assigned, In Progress — Pending = ทุกสถานะยกเว้น Closed และ Cancelled' },
+      { type: 'new',      text: 'Report Technician Detail: คอลัมน์ Assigned / Carry Over / Total Jobs / Closed — แสดงทุกวันในช่วงที่เลือก แม้ไม่มี Check-in' },
+      { type: 'new',      text: 'Incident: Helpdesk สามารถแก้ไข Spare Parts ได้ตอน Confirm Close — ลด Reject กลับไปกลับมากรณีช่างใส่ข้อมูลตกหล่น' },
+    ],
+  },
+  {
     version: '1.0.18',
     date: '2026-06-23',
     changes: [
