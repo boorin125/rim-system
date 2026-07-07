@@ -1386,7 +1386,7 @@ SLA Breach Time: ${slaBreachText}`
       <BackButton href="/dashboard/incidents" label="กลับไปหน้า Incidents" />
 
       {/* Close Rejection Banner */}
-      {incident.closeRejectionNote && incident.status === 'IN_PROGRESS' && (
+      {incident.closeRejectionNote && (
         <div className="flex items-start gap-3 p-4 bg-red-900/30 border border-red-600/60 rounded-xl">
           <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
           <div className="min-w-0">

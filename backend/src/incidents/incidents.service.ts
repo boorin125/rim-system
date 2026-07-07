@@ -2779,10 +2779,6 @@ export class IncidentsService {
           resolvedAt: new Date(),
           resolvedById: userId,
           status: IncidentStatus.RESOLVED,
-          // Clear rejection note when tech re-resolves
-          closeRejectionNote: null,
-          closeRejectedAt: null,
-          closeRejectedById: null,
           updatedAt: new Date(),
         },
       });
@@ -3160,6 +3156,10 @@ export class IncidentsService {
       data: {
         techConfirmedAt: new Date(),
         techConfirmedById: userId,
+        // Clear rejection note when tech re-confirms after rejection
+        closeRejectionNote: null,
+        closeRejectedAt: null,
+        closeRejectedById: null,
         updatedAt: new Date(),
       },
       include: {
@@ -3637,11 +3637,10 @@ export class IncidentsService {
     const updated = await this.prisma.incident.update({
       where: { id },
       data: {
-        status: IncidentStatus.IN_PROGRESS,
         closeRejectionNote: reason,
         closeRejectedAt: new Date(),
         closeRejectedById: userId,
-        // Clear tech confirmation so tech must re-confirm after fixing
+        // Clear tech confirmation — tech must update data and re-confirm
         techConfirmedAt: null,
         techConfirmedById: null,
         updatedAt: new Date(),
@@ -3653,7 +3652,7 @@ export class IncidentsService {
       IncidentAction.CLOSE_REJECTED,
       userId,
       IncidentStatus.RESOLVED,
-      IncidentStatus.IN_PROGRESS,
+      IncidentStatus.RESOLVED,
       `ปฏิเสธการปิดงาน: ${reason}`,
     );
 
