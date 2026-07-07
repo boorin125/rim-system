@@ -56,6 +56,7 @@ model User {
   confirmedIncidents          Incident[]                   @relation("ConfirmedBy")
   reopenedIncidents           Incident[]                   @relation("LastReopenedBy")
   lastCheckedInIncidents      Incident[]                   @relation("LastCheckedInBy")
+  closeRejectedIncidents      Incident[]                   @relation("CloseRejectedBy")
   workRounds                  IncidentWorkRound[]          @relation("WorkRoundTechnician")
   respondedIncidents          Incident[]                   @relation("RespondedBy")
   comments                    Comment[]
@@ -380,6 +381,11 @@ model Incident {
   customerSignatureName String?   @map("customer_signature_name")
   customerSignedAt      DateTime? @map("customer_signed_at")
 
+  // Close Rejection (Helpdesk rejects technician's resolution)
+  closeRejectionNote String?   @map("close_rejection_note") @db.Text
+  closeRejectedAt    DateTime? @map("close_rejected_at")
+  closeRejectedById  Int?      @map("close_rejected_by_id")
+
   // Relations
   createdBy       User                    @relation("IncidentCreatedBy", fields: [createdById], references: [id])
   assignee        User?                   @relation("IncidentAssignedTo", fields: [assigneeId], references: [id])
@@ -388,6 +394,7 @@ model Incident {
   confirmedBy     User?                   @relation("ConfirmedBy", fields: [confirmedById], references: [id])
   lastReopenedBy  User?                   @relation("LastReopenedBy", fields: [lastReopenedById], references: [id])
   lastCheckedInBy User?                   @relation("LastCheckedInBy", fields: [lastCheckedInById], references: [id])
+  closeRejectedBy User?                   @relation("CloseRejectedBy", fields: [closeRejectedById], references: [id])
   equipment       Equipment?              @relation(fields: [equipmentId], references: [id])
   store           Store                   @relation(fields: [storeId], references: [id])
   relatedIncident Incident?               @relation("RelatedIncidents", fields: [relatedIncidentId], references: [id])
@@ -638,6 +645,7 @@ enum IncidentAction {
   RESOLUTION_UPDATED
   TECH_CONFIRMED
   CONFIRMED
+  CLOSE_REJECTED
   CLOSED
   REOPENED
   CANCELLED
@@ -668,6 +676,7 @@ enum NotificationType {
   INCIDENT_CHECKED_IN
   INCIDENT_RESOLVED
   INCIDENT_CONFIRMED
+  INCIDENT_CLOSE_REJECTED
   INCIDENT_REOPENED
   INCIDENT_CANCELLED
   COMMENT_ADDED

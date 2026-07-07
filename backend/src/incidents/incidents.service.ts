@@ -9,7 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateIncidentDto } from './dto/create-incident.dto';
 import { UpdateIncidentDto } from './dto/update-incident.dto';
 import { IncidentStatus, Priority, UserRole, IncidentAction, IncidentType, EquipmentStatus, EquipmentLogAction, EquipmentLogSource, RepairType, AuditModule, AuditAction, NotificationType, SlaDefenseStatus, SlaRegion } from '@prisma/client';
-import { ResolveIncidentDto, UpdateResolveDto, ConfirmCloseDto } from './dto/resolve-incident.dto';
+import { ResolveIncidentDto, UpdateResolveDto, ConfirmCloseDto, RejectCloseDto } from './dto/resolve-incident.dto';
 import { SubmitResponseDto } from './dto/submit-response.dto';
 import { IncidentHistoryService } from './incident-history.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -1228,6 +1228,9 @@ export class IncidentsService {
         childIncidents: {
           select: { id: true, ticketNumber: true, title: true, status: true, createdAt: true },
           orderBy: { createdAt: 'desc' as const },
+        },
+        closeRejectedBy: {
+          select: { id: true, firstName: true, lastName: true },
         },
       },
     });
@@ -2776,6 +2779,10 @@ export class IncidentsService {
           resolvedAt: new Date(),
           resolvedById: userId,
           status: IncidentStatus.RESOLVED,
+          // Clear rejection note when tech re-resolves
+          closeRejectionNote: null,
+          closeRejectedAt: null,
+          closeRejectedById: null,
           updatedAt: new Date(),
         },
       });
@@ -3603,6 +3610,74 @@ export class IncidentsService {
     } catch (emailError) {
       console.error('Failed to send email notification:', emailError);
       // Don't fail the entire operation if email fails
+    }
+
+    return updated;
+  }
+
+  /**
+   * Reject close: Helpdesk sends incident back to technician for revision
+   */
+  async rejectClose(id: string, userId: number, reason: string) {
+    const incident = await this.prisma.incident.findFirst({
+      where: { id },
+      include: {
+        assignees: { select: { userId: true } },
+      },
+    });
+
+    if (!incident) throw new NotFoundException(`ไม่พบ Incident ${id}`);
+
+    if (incident.status !== IncidentStatus.RESOLVED) {
+      throw new BadRequestException(
+        `Incident ต้องอยู่ในสถานะ "แก้ไขแล้ว" เพื่อปฏิเสธการปิดงาน สถานะปัจจุบัน: ${incident.status}`,
+      );
+    }
+
+    const updated = await this.prisma.incident.update({
+      where: { id },
+      data: {
+        status: IncidentStatus.IN_PROGRESS,
+        closeRejectionNote: reason,
+        closeRejectedAt: new Date(),
+        closeRejectedById: userId,
+        // Clear tech confirmation so tech must re-confirm after fixing
+        techConfirmedAt: null,
+        techConfirmedById: null,
+        updatedAt: new Date(),
+      },
+    });
+
+    await this.historyService.createHistory(
+      id,
+      IncidentAction.CLOSE_REJECTED,
+      userId,
+      IncidentStatus.RESOLVED,
+      IncidentStatus.IN_PROGRESS,
+      `ปฏิเสธการปิดงาน: ${reason}`,
+    );
+
+    await this.auditTrailService.logDirect({
+      module: AuditModule.INCIDENT,
+      action: AuditAction.STATUS_CHANGE,
+      entityType: 'Incident',
+      entityId: id,
+      userId,
+      description: `ปฏิเสธการปิด Incident ${incident.ticketNumber || id}: ${reason}`,
+    });
+
+    // Notify assigned technician(s)
+    const techIds = incident.assignees.map((a) => a.userId);
+    if (incident.assigneeId && !techIds.includes(incident.assigneeId)) {
+      techIds.push(incident.assigneeId);
+    }
+    for (const tid of techIds) {
+      await this.notificationsService.notifyCloseRejected(
+        tid,
+        id,
+        incident.ticketNumber,
+        reason,
+      );
     }
 
     return updated;

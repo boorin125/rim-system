@@ -172,6 +172,12 @@ export class ConfirmCloseDto {
   spareParts?: SparePartDto[];
 }
 
+export class RejectCloseDto {
+  @IsString()
+  @MinLength(5, { message: 'กรุณาระบุสาเหตุอย่างน้อย 5 ตัวอักษร' })
+  reason: string;
+}
+
 /**
  * Update Resolution DTO (before Help Desk confirms)
  */

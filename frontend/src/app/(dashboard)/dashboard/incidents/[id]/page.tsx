@@ -630,6 +630,22 @@ export default function IncidentDetailPage() {
     }
   }
 
+  const handleRejectClose = async (reason: string) => {
+    try {
+      const token = localStorage.getItem('token')
+      await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/incidents/${params.id}/reject-close`,
+        { reason },
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      toast.success('ส่งคืนงานให้ช่างแก้ไขแล้ว')
+      await fetchIncident()
+      setShowConfirm(false)
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Failed to reject closure')
+    }
+  }
+
   /**
    * Handle Reopen Incident
    * CLOSED → IN_PROGRESS
@@ -1368,6 +1384,23 @@ SLA Breach Time: ${slaBreachText}`
     <div className="space-y-6 animate-fade-in">
       {/* Back Button */}
       <BackButton href="/dashboard/incidents" label="กลับไปหน้า Incidents" />
+
+      {/* Close Rejection Banner */}
+      {incident.closeRejectionNote && incident.status === 'IN_PROGRESS' && (
+        <div className="flex items-start gap-3 p-4 bg-red-900/30 border border-red-600/60 rounded-xl">
+          <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-red-300">Helpdesk ปฏิเสธการปิดงาน — กรุณาแก้ไขข้อมูลแล้ว Resolve ใหม่</p>
+            <p className="text-sm text-red-200 mt-1 whitespace-pre-wrap">{incident.closeRejectionNote}</p>
+            {incident.closeRejectedAt && (
+              <p className="text-xs text-red-400/70 mt-1">
+                ปฏิเสธเมื่อ {new Date(incident.closeRejectedAt).toLocaleString('th-TH')}
+                {incident.closeRejectedBy && ` โดย ${incident.closeRejectedBy.firstName} ${incident.closeRejectedBy.lastName}`}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Title */}
       <div className="min-w-0">
@@ -2882,6 +2915,7 @@ SLA Breach Time: ${slaBreachText}`
           incidentEquipmentIds: incident.equipmentIds || [],
         }}
         onConfirm={handleConfirmClose}
+        onReject={handleRejectClose}
       />
 
       {/* Reopen Incident Modal */}

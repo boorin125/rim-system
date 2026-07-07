@@ -324,6 +324,21 @@ export class NotificationsService {
   /**
    * Helper: Notify incident reassignment
    */
+  async notifyCloseRejected(
+    technicianId: number,
+    incidentId: string,
+    ticketNumber: string,
+    reason: string,
+  ) {
+    return this.createNotification(
+      technicianId,
+      NotificationType.INCIDENT_CLOSE_REJECTED,
+      'Helpdesk ปฏิเสธการปิดงาน',
+      `Incident ${ticketNumber} ถูกปฏิเสธ: ${reason}`,
+      incidentId,
+    );
+  }
+
   async notifyIncidentReassigned(
     newAssigneeId: number,
     incidentId: string,

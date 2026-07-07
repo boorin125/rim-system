@@ -1,7 +1,7 @@
 // frontend/src/components/ConfirmCloseModal.tsx
 
 import { useState } from 'react';
-import { X, CheckCircle, AlertCircle, Clock, User, FileText, Image, ExternalLink, Pen, ArrowRightLeft, Cpu, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, CheckCircle, AlertCircle, Clock, User, FileText, Image, ExternalLink, Pen, ArrowRightLeft, Cpu, ChevronDown, ChevronUp, XCircle } from 'lucide-react';
 import { getPhotoUrl } from '@/utils/photoUtils';
 import PhotoViewerModal from './PhotoViewerModal';
 import SparePartForm, { SparePart as SparePartFormType } from './SparePartForm';
@@ -72,11 +72,17 @@ interface ConfirmCloseModalProps {
     incidentEquipmentIds?: number[];
   };
   onConfirm: (sparePartsUpdate?: { usedSpareParts: boolean; spareParts: any[] }) => Promise<void>;
+  onReject?: (reason: string) => Promise<void>;
 }
 
-export default function ConfirmCloseModal({ isOpen, onClose, incident, onConfirm }: ConfirmCloseModalProps) {
+export default function ConfirmCloseModal({ isOpen, onClose, incident, onConfirm, onReject }: ConfirmCloseModalProps) {
   const [isConfirming, setIsConfirming] = useState(false);
   const [error, setError] = useState('');
+
+  // Reject mode
+  const [isRejecting, setIsRejecting] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+  const [isSubmittingReject, setIsSubmittingReject] = useState(false);
 
   // Photo viewer
   const [showPhotoViewer, setShowPhotoViewer] = useState(false);
@@ -134,6 +140,19 @@ export default function ConfirmCloseModal({ isOpen, onClose, incident, onConfirm
     }
   };
 
+  const handleReject = async () => {
+    if (!rejectReason.trim() || rejectReason.trim().length < 5) return;
+    setIsSubmittingReject(true);
+    setError('');
+    try {
+      await onReject!(rejectReason.trim());
+      onClose();
+    } catch (err: any) {
+      setError(err.message || 'Failed to reject');
+    } finally {
+      setIsSubmittingReject(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -445,24 +464,75 @@ export default function ConfirmCloseModal({ isOpen, onClose, incident, onConfirm
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-slate-700/50 bg-slate-800/30 flex-shrink-0">
-          {editingSpareParts && (
-            <p className="text-xs text-amber-400 flex items-center gap-1">
-              <AlertCircle className="w-3.5 h-3.5" /> Spare Parts จะถูกอัพเดตพร้อมกับการปิดงาน
-            </p>
-          )}
-          <div className="flex gap-3 ml-auto">
-            <button onClick={onClose} disabled={isConfirming} className="px-4 py-2 text-gray-300 hover:bg-slate-700/50 rounded-lg font-medium transition-colors disabled:opacity-50">
-              Cancel
-            </button>
-            <button onClick={handleConfirm} disabled={isConfirming}
-              className="px-6 py-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2">
-              {isConfirming ? (
-                <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Confirming...</>
-              ) : (
-                <><CheckCircle className="w-4 h-4" /> Confirm & Close Incident</>
+        <div className="border-t border-slate-700/50 bg-slate-800/30 flex-shrink-0">
+          {/* Reject reason input — shown when isRejecting */}
+          {isRejecting && (
+            <div className="px-5 pt-4 pb-2">
+              <label className="block text-sm font-medium text-red-300 mb-2">
+                สาเหตุที่ปฏิเสธ <span className="text-red-400">*</span>
+                <span className="text-xs text-gray-400 font-normal ml-2">(แจ้งช่างว่าต้องแก้ไขอะไร)</span>
+              </label>
+              <textarea
+                value={rejectReason}
+                onChange={e => setRejectReason(e.target.value)}
+                placeholder="เช่น ข้อมูลสแปร์พาร์ทไม่ครบถ้วน กรุณาระบุ Serial Number ใหม่ให้ถูกต้อง..."
+                rows={3}
+                className="w-full px-3 py-2 bg-slate-700/70 border border-red-700/50 focus:border-red-500 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none resize-none"
+              />
+              {rejectReason.trim().length > 0 && rejectReason.trim().length < 5 && (
+                <p className="text-xs text-red-400 mt-1">กรุณาระบุอย่างน้อย 5 ตัวอักษร</p>
               )}
-            </button>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between gap-3 px-5 py-4">
+            {editingSpareParts && !isRejecting && (
+              <p className="text-xs text-amber-400 flex items-center gap-1">
+                <AlertCircle className="w-3.5 h-3.5" /> Spare Parts จะถูกอัพเดตพร้อมกับการปิดงาน
+              </p>
+            )}
+            <div className="flex gap-3 ml-auto">
+              {isRejecting ? (
+                <>
+                  <button onClick={() => { setIsRejecting(false); setRejectReason(''); setError(''); }}
+                    disabled={isSubmittingReject}
+                    className="px-4 py-2 text-gray-300 hover:bg-slate-700/50 rounded-lg font-medium transition-colors disabled:opacity-50">
+                    ยกเลิก
+                  </button>
+                  <button onClick={handleReject}
+                    disabled={isSubmittingReject || rejectReason.trim().length < 5}
+                    className="px-6 py-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2">
+                    {isSubmittingReject ? (
+                      <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> กำลังส่ง...</>
+                    ) : (
+                      <><XCircle className="w-4 h-4" /> ยืนยันปฏิเสธ</>
+                    )}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button onClick={onClose} disabled={isConfirming}
+                    className="px-4 py-2 text-gray-300 hover:bg-slate-700/50 rounded-lg font-medium transition-colors disabled:opacity-50">
+                    Cancel
+                  </button>
+                  {onReject && (
+                    <button onClick={() => { setIsRejecting(true); setError(''); }}
+                      disabled={isConfirming}
+                      className="px-5 py-2 bg-red-900/40 hover:bg-red-800/50 border border-red-700/50 text-red-300 hover:text-red-200 rounded-lg font-medium transition-all disabled:opacity-50 flex items-center gap-2">
+                      <XCircle className="w-4 h-4" /> ปฏิเสธ
+                    </button>
+                  )}
+                  <button onClick={handleConfirm} disabled={isConfirming}
+                    className="px-6 py-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2">
+                    {isConfirming ? (
+                      <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Confirming...</>
+                    ) : (
+                      <><CheckCircle className="w-4 h-4" /> Confirm & Close Incident</>
+                    )}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
