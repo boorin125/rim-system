@@ -1390,7 +1390,7 @@ SLA Breach Time: ${slaBreachText}`
         <div className="flex items-start gap-3 p-4 bg-red-900/30 border border-red-600/60 rounded-xl">
           <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-red-300">Helpdesk ปฏิเสธการปิดงาน — กรุณาแก้ไขข้อมูลแล้ว Resolve ใหม่</p>
+            <p className="text-sm font-semibold text-red-300">ถูกปฏิเสธการปิดงานเนื่องจากข้อมูลไม่ครบถ้วน กรุณาแก้ไขข้อมูลตามคำแนะนำ แล้วยืนยันปิดงานใหม่อีกครั้ง</p>
             <p className="text-sm text-red-200 mt-1 whitespace-pre-wrap">{incident.closeRejectionNote}</p>
             {incident.closeRejectedAt && (
               <p className="text-xs text-red-400/70 mt-1">
