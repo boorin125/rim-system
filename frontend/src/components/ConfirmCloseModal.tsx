@@ -519,7 +519,7 @@ export default function ConfirmCloseModal({ isOpen, onClose, incident, onConfirm
                     <button onClick={() => { setIsRejecting(true); setError(''); }}
                       disabled={isConfirming}
                       className="px-5 py-2 bg-red-900/40 hover:bg-red-800/50 border border-red-700/50 text-red-300 hover:text-red-200 rounded-lg font-medium transition-all disabled:opacity-50 flex items-center gap-2">
-                      <XCircle className="w-4 h-4" /> ปฏิเสธ
+                      <XCircle className="w-4 h-4" /> Reject
                     </button>
                   )}
                   <button onClick={handleConfirm} disabled={isConfirming}
