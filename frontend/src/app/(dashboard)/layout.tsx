@@ -125,10 +125,14 @@ function MaintenanceBanner() {
   const endTimeStr = end.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
 
   return (
-    <div className={`w-full px-4 py-1 text-xs font-medium flex items-center justify-center gap-1.5 ${isDuringMaintenance ? 'bg-red-600/90' : 'bg-amber-500/90'} text-white`}>
-      <Wrench className="w-3 h-3 flex-shrink-0" />
+    <div className={`w-full px-4 py-1.5 text-xs font-medium flex items-center justify-center gap-2 border-b ${
+      isDuringMaintenance
+        ? 'bg-red-900/40 border-red-600/60 text-red-200'
+        : 'bg-amber-900/40 border-amber-600/60 text-amber-200'
+    }`}>
+      <Wrench className={`w-3.5 h-3.5 flex-shrink-0 ${isDuringMaintenance ? 'text-red-400' : 'text-amber-400'}`} />
       <span className="truncate">
-        {isDuringMaintenance ? '🔴 กำลังปรับปรุง Server: ' : '⚠️ '}
+        {isDuringMaintenance ? 'กำลังปรับปรุง Server: ' : ''}
         แจ้งปรับปรุง Server วันที่ {dateStr} ช่วงเวลา {startTimeStr}-{endTimeStr} โปรดหลีกเลี่ยงการใช้งานโปรแกรมในเวลาดังกล่าว เพื่อป้องกันข้อมูลผิดพลาด
       </span>
     </div>
