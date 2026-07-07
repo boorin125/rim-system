@@ -324,6 +324,16 @@ const RELEASE_NOTES: {
   changes: { type: 'new' | 'improved' | 'fixed'; text: string }[]
 }[] = [
   {
+    version: '1.0.20',
+    date: '2026-07-07',
+    changes: [
+      { type: 'new',     text: 'Maintenance Banner: SUPER_ADMIN ตั้งช่วงเวลาปรับปรุง Server — Banner แสดงล่วงหน้า 24 ชม. และหายไปหลังสิ้นสุดเวลา' },
+      { type: 'new',     text: 'Reject Close: Helpdesk สามารถ Reject การปิดงาน พร้อมระบุเหตุผล — ช่างเห็น Banner แดงและปุ่ม Update Resolve' },
+      { type: 'fixed',   text: 'Dashboard รอยืนยันปิดงาน: แสดงเฉพาะงานที่ Technician กด Confirm แล้วเท่านั้น' },
+      { type: 'fixed',   text: 'Info: Version และ Build Date แสดงถูกต้องใน Settings > Info' },
+    ],
+  },
+  {
     version: '1.0.19',
     date: '2026-07-06',
     changes: [
