@@ -258,7 +258,7 @@ export default function DashboardPage() {
       if (confirmRes.status === 'fulfilled') {
         const d = confirmRes.value.data
         const list: Incident[] = d?.data ?? (Array.isArray(d) ? d : [])
-        setPendingConfirmList(list.slice(0, 8))
+        setPendingConfirmList(list.filter((inc: any) => inc.techConfirmedAt).slice(0, 8))
       }
       if (notifsRes.status === 'fulfilled') setNotifications(notifsRes.value.data ?? [])
       if (unreadRes.status === 'fulfilled') setUnreadCount(unreadRes.value.data?.count ?? 0)
