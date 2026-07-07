@@ -56,6 +56,8 @@ import {
   Copy,
   FolderOpen,
   Lock,
+  Wrench,
+  CalendarClock,
 } from 'lucide-react'
 import Link from 'next/link'
 import QRCode from 'qrcode'
@@ -67,7 +69,7 @@ import LicenseManagementModal from '@/components/LicenseManagementModal'
 import { getUserRoles } from '@/config/permissions'
 
 // Tab types
-type TabType = 'organization' | 'incident' | 'email' | 'sla' | 'service-report' | 'backup' | 'info' | 'theme' | 'mobile-app'
+type TabType = 'organization' | 'incident' | 'email' | 'sla' | 'service-report' | 'backup' | 'info' | 'theme' | 'mobile-app' | 'maintenance'
 
 // Organization Settings Interface
 interface OrganizationSettings {
@@ -595,6 +597,11 @@ export default function SettingsPage() {
   const [isUploadingSrLogo, setIsUploadingSrLogo] = useState(false)
   const srLogoInputRef = useRef<HTMLInputElement>(null)
 
+  // Maintenance State
+  const [maintenanceStart, setMaintenanceStart] = useState('')
+  const [maintenanceEnd, setMaintenanceEnd] = useState('')
+  const [isSavingMaintenance, setIsSavingMaintenance] = useState(false)
+
   // Theme State
   const themePresets = [
     { name: 'Slate', bgStart: '#0f172a', bgEnd: '#1e293b' },
@@ -925,11 +932,60 @@ export default function SettingsPage() {
       }))
     }
 
+    // Maintenance window (SUPER_ADMIN only)
+    if (userRoles.includes('SUPER_ADMIN') || true) {
+      try {
+        const mRes = await axios.get(`${api}/settings/maintenance`, { headers })
+        if (mRes.data) {
+          setMaintenanceStart(mRes.data.maintenanceStart ? new Date(mRes.data.maintenanceStart).toISOString().slice(0, 16) : '')
+          setMaintenanceEnd(mRes.data.maintenanceEnd ? new Date(mRes.data.maintenanceEnd).toISOString().slice(0, 16) : '')
+        }
+      } catch {}
+    }
+
     setIsLoading(false)
     fetchLicense()
   }
 
   const canManage = userRoles.includes('SUPER_ADMIN') || userRoles.includes('IT_MANAGER')
+
+  // ========================================
+  // MAINTENANCE WINDOW HANDLERS
+  // ========================================
+
+  const handleSaveMaintenance = async () => {
+    setIsSavingMaintenance(true)
+    try {
+      const token = localStorage.getItem('token')
+      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/settings/maintenance`, {
+        maintenanceStart: maintenanceStart ? new Date(maintenanceStart).toISOString() : null,
+        maintenanceEnd: maintenanceEnd ? new Date(maintenanceEnd).toISOString() : null,
+      }, { headers: { Authorization: `Bearer ${token}` } })
+      toast.success('บันทึกช่วงเวลาปรับปรุงเรียบร้อย')
+    } catch {
+      toast.error('บันทึกไม่สำเร็จ')
+    } finally {
+      setIsSavingMaintenance(false)
+    }
+  }
+
+  const handleClearMaintenance = async () => {
+    setIsSavingMaintenance(true)
+    try {
+      const token = localStorage.getItem('token')
+      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/settings/maintenance`, {
+        maintenanceStart: null,
+        maintenanceEnd: null,
+      }, { headers: { Authorization: `Bearer ${token}` } })
+      setMaintenanceStart('')
+      setMaintenanceEnd('')
+      toast.success('ล้างช่วงเวลาปรับปรุงเรียบร้อย')
+    } catch {
+      toast.error('ล้างไม่สำเร็จ')
+    } finally {
+      setIsSavingMaintenance(false)
+    }
+  }
 
   // ========================================
   // ORGANIZATION SETTINGS HANDLERS
@@ -2054,6 +2110,7 @@ export default function SettingsPage() {
     { id: 'backup' as TabType, label: 'Backup / Restore', icon: Database },
     { id: 'theme' as TabType, label: 'Theme', icon: Palette },
     { id: 'mobile-app' as TabType, label: 'Mobile App', icon: Smartphone },
+    ...(isSuperAdmin ? [{ id: 'maintenance' as TabType, label: 'Maintenance', icon: Wrench }] : []),
     { id: 'info' as TabType, label: 'Info', icon: Info },
   ]
 
@@ -4480,11 +4537,92 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* Info Tab */}
+        {/* Maintenance Tab */}
         {activeTab === 'mobile-app' && (
           <MobileAppTab />
         )}
 
+        {activeTab === 'maintenance' && (
+          <div className="space-y-6">
+            <div className="flex items-center space-x-3 mb-6">
+              <Wrench className="w-5 h-5 text-amber-400" />
+              <h2 className="text-lg font-semibold text-white">Maintenance Window</h2>
+            </div>
+
+            <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6 space-y-5">
+              <p className="text-sm text-slate-400">
+                ตั้งช่วงเวลาปรับปรุง Server — Banner จะแสดงล่วงหน้า 24 ชั่วโมง และหายไปหลังสิ้นสุดเวลา
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1.5">เริ่มต้น (Start)</label>
+                  <input
+                    type="datetime-local"
+                    value={maintenanceStart}
+                    onChange={e => setMaintenanceStart(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-600 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 [color-scheme:dark]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1.5">สิ้นสุด (End)</label>
+                  <input
+                    type="datetime-local"
+                    value={maintenanceEnd}
+                    onChange={e => setMaintenanceEnd(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-600 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 [color-scheme:dark]"
+                  />
+                </div>
+              </div>
+
+              {/* Live Preview */}
+              {maintenanceStart && maintenanceEnd && (() => {
+                const start = new Date(maintenanceStart)
+                const end = new Date(maintenanceEnd)
+                if (isNaN(start.getTime()) || isNaN(end.getTime())) return null
+                const dateStr = start.toLocaleDateString('th-TH', { day: 'numeric', month: 'numeric', year: 'numeric' })
+                const startTime = start.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+                const endTime = end.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+                const showFrom = new Date(start.getTime() - 24 * 60 * 60 * 1000)
+                return (
+                  <div className="space-y-2">
+                    <p className="text-xs text-slate-500">ตัวอย่าง Banner ที่จะแสดง:</p>
+                    <div className="flex items-start gap-2 p-3 bg-amber-900/30 border border-amber-600/60 rounded-lg">
+                      <Wrench className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                      <p className="text-sm text-amber-200">
+                        แจ้งปรับปรุง Server วันที่ {dateStr} ช่วงเวลา {startTime}-{endTime} โปรดหลีกเลี่ยงการใช้งานโปรแกรมในเวลาดังกล่าว เพื่อป้องกันข้อมูลผิดพลาด
+                      </p>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      Banner จะแสดงตั้งแต่ {showFrom.toLocaleString('th-TH')} จนถึง {end.toLocaleString('th-TH')}
+                    </p>
+                  </div>
+                )
+              })()}
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={handleSaveMaintenance}
+                  disabled={isSavingMaintenance || !maintenanceStart || !maintenanceEnd}
+                  className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+                >
+                  {isSavingMaintenance ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  บันทึก
+                </button>
+                <button
+                  onClick={handleClearMaintenance}
+                  disabled={isSavingMaintenance}
+                  className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  ล้างค่า
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Info Tab */}
         {activeTab === 'info' && (
           <div className="space-y-6">
             <div className="flex items-center space-x-3 mb-6">

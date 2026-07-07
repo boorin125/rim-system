@@ -661,6 +661,49 @@ export class SettingsService {
     }
   }
 
+  // ========================================
+  // MAINTENANCE WINDOW
+  // ========================================
+
+  async getMaintenanceWindow() {
+    const configs = await this.prisma.systemConfig.findMany({
+      where: { key: { in: ['maintenance_start', 'maintenance_end'] } },
+    });
+    const map = Object.fromEntries(configs.map((c) => [c.key, c.value]));
+    return {
+      maintenanceStart: map['maintenance_start'] || null,
+      maintenanceEnd: map['maintenance_end'] || null,
+    };
+  }
+
+  async saveMaintenanceWindow(data: { maintenanceStart?: string | null; maintenanceEnd?: string | null }) {
+    const ops: any[] = [];
+    if (data.maintenanceStart !== undefined) {
+      if (!data.maintenanceStart) {
+        ops.push(this.prisma.systemConfig.deleteMany({ where: { key: 'maintenance_start' } }));
+      } else {
+        ops.push(this.prisma.systemConfig.upsert({
+          where: { key: 'maintenance_start' },
+          create: { key: 'maintenance_start', value: data.maintenanceStart, category: 'system', description: 'Maintenance window start time (ISO)' },
+          update: { value: data.maintenanceStart },
+        }));
+      }
+    }
+    if (data.maintenanceEnd !== undefined) {
+      if (!data.maintenanceEnd) {
+        ops.push(this.prisma.systemConfig.deleteMany({ where: { key: 'maintenance_end' } }));
+      } else {
+        ops.push(this.prisma.systemConfig.upsert({
+          where: { key: 'maintenance_end' },
+          create: { key: 'maintenance_end', value: data.maintenanceEnd, category: 'system', description: 'Maintenance window end time (ISO)' },
+          update: { value: data.maintenanceEnd },
+        }));
+      }
+    }
+    if (ops.length > 0) await this.prisma.$transaction(ops);
+    return { message: 'Maintenance window saved successfully' };
+  }
+
   async saveIncidentSettings(data: { serviceWarrantyDays?: number; autoAssignOnsite?: boolean }) {
     const ops: Promise<any>[] = [];
 

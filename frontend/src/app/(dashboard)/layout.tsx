@@ -26,6 +26,7 @@ import {
   Lock,
   Sun,
   Moon,
+  Wrench,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import axios from 'axios'
@@ -88,6 +89,50 @@ function LicenseExpiredBanner() {
   )
 
   return null
+}
+
+function MaintenanceBanner() {
+  const [maintenanceStart, setMaintenanceStart] = useState<string | null>(null)
+  const [maintenanceEnd, setMaintenanceEnd] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetch = () => {
+      axios.get(`${process.env.NEXT_PUBLIC_API_URL}/settings/public/maintenance`)
+        .then(r => {
+          setMaintenanceStart(r.data.maintenanceStart || null)
+          setMaintenanceEnd(r.data.maintenanceEnd || null)
+        })
+        .catch(() => {})
+    }
+    fetch()
+    const t = setInterval(fetch, 60_000)
+    return () => clearInterval(t)
+  }, [])
+
+  if (!maintenanceStart || !maintenanceEnd) return null
+
+  const now = new Date()
+  const start = new Date(maintenanceStart)
+  const end = new Date(maintenanceEnd)
+  const showFrom = new Date(start.getTime() - 24 * 60 * 60 * 1000)
+
+  if (now < showFrom || now >= end) return null
+
+  const isDuringMaintenance = now >= start
+
+  const dateStr = start.toLocaleDateString('th-TH', { day: 'numeric', month: 'numeric', year: 'numeric' })
+  const startTimeStr = start.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+  const endTimeStr = end.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+
+  return (
+    <div className={`w-full px-4 py-1 text-xs font-medium flex items-center justify-center gap-1.5 ${isDuringMaintenance ? 'bg-red-600/90' : 'bg-amber-500/90'} text-white`}>
+      <Wrench className="w-3 h-3 flex-shrink-0" />
+      <span className="truncate">
+        {isDuringMaintenance ? '🔴 กำลังปรับปรุง Server: ' : '⚠️ '}
+        แจ้งปรับปรุง Server วันที่ {dateStr} ช่วงเวลา {startTimeStr}-{endTimeStr} โปรดหลีกเลี่ยงการใช้งานโปรแกรมในเวลาดังกล่าว เพื่อป้องกันข้อมูลผิดพลาด
+      </span>
+    </div>
+  )
 }
 
 export default function DashboardLayout({
@@ -714,6 +759,7 @@ export default function DashboardLayout({
       <div className="transition-all duration-300 lg:ml-64">
         {/* Top Navbar - FIXED (ไม่เคลื่อนไหว) */}
         <header className="fixed top-0 right-0 left-0 lg:left-64 z-30 glass-card border-b border-slate-700/50" style={chromeStyle}>
+          <MaintenanceBanner />
           <LicenseExpiredBanner />
           {profileIncompleteFields.length > 0 && (
             <div className="w-full px-4 py-1.5 text-xs font-medium flex items-center justify-between gap-2 bg-amber-500/95 text-white">

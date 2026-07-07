@@ -73,6 +73,23 @@ export class SettingsController {
   }
 
   /**
+   * Get maintenance window
+   */
+  @Get('maintenance')
+  async getMaintenanceWindow() {
+    return this.settingsService.getMaintenanceWindow();
+  }
+
+  /**
+   * Save maintenance window (SUPER_ADMIN only)
+   */
+  @Post('maintenance')
+  @Roles(UserRole.SUPER_ADMIN)
+  async saveMaintenanceWindow(@Body() data: { maintenanceStart?: string | null; maintenanceEnd?: string | null }) {
+    return this.settingsService.saveMaintenanceWindow(data);
+  }
+
+  /**
    * Get email settings
    */
   @Get('email')

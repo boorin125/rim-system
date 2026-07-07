@@ -13,6 +13,15 @@ export class SettingsPublicController {
    * Returns org name, logo path, and theme colors for Login/Register page.
    * No authentication required.
    */
+  /**
+   * GET /settings/public/maintenance
+   * Returns maintenance window for banner display. No auth required.
+   */
+  @Get('maintenance')
+  async getMaintenance() {
+    return this.settingsService.getMaintenanceWindow();
+  }
+
   @Get('branding')
   async getBranding() {
     const [org, theme] = await Promise.all([
