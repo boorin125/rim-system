@@ -4644,7 +4644,7 @@ export default function SettingsPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-400">Build Date</span>
-                    <span className="text-white">{systemInfo.buildDate}</span>
+                    <span className="text-white">{systemInfo.buildDate ? systemInfo.buildDate.slice(0, 10) : 'unknown'}</span>
                   </div>
                   {systemInfo.gitCommit && systemInfo.gitCommit !== 'unknown' && (
                     <div className="flex justify-between items-center">
