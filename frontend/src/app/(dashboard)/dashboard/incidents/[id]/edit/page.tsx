@@ -4,7 +4,7 @@
 import { formatStore } from '@/utils/formatStore'
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { ArrowLeft, Save } from 'lucide-react'
+import { ArrowLeft, Save, Search, X, CheckSquare } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import BackButton from '@/components/BackButton'
@@ -49,6 +49,8 @@ export default function EditIncidentPage() {
   const [priorities, setPriorities] = useState<SlaConfig[]>([])
   const [equipment, setEquipment] = useState<any[]>([])
   const [loadingEquipment, setLoadingEquipment] = useState(false)
+  const [selectedEquipmentIds, setSelectedEquipmentIds] = useState<number[]>([])
+  const [equipmentSearch, setEquipmentSearch] = useState('')
 
   const [formData, setFormData] = useState({
     title: '',
@@ -57,7 +59,6 @@ export default function EditIncidentPage() {
     category: '',
     jobType: '',
     storeId: '',
-    equipmentId: '',
   })
 
   useEffect(() => {
@@ -103,8 +104,13 @@ export default function EditIncidentPage() {
         category: incident.category || '',
         jobType: incident.jobType || '',
         storeId,
-        equipmentId: incident.equipmentId?.toString() || '',
       })
+
+      // Init selected equipment from incident (array takes priority over single)
+      const initIds: number[] = incident.equipmentIds?.length
+        ? incident.equipmentIds
+        : incident.equipmentId ? [incident.equipmentId] : []
+      setSelectedEquipmentIds(initIds)
 
       // Load equipment for this store
       if (storeId) {
@@ -137,8 +143,16 @@ export default function EditIncidentPage() {
   }
 
   const handleStoreChange = (storeId: string) => {
-    setFormData(prev => ({ ...prev, storeId, equipmentId: '' }))
+    setFormData(prev => ({ ...prev, storeId }))
+    setSelectedEquipmentIds([])
+    setEquipmentSearch('')
     fetchEquipmentByStore(storeId)
+  }
+
+  const toggleEquipment = (id: number) => {
+    setSelectedEquipmentIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    )
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -168,11 +182,8 @@ export default function EditIncidentPage() {
 
       if (formData.category) payload.category = formData.category
       if (formData.jobType) payload.jobType = formData.jobType
-      if (formData.equipmentId) {
-        payload.equipmentId = parseInt(formData.equipmentId)
-      } else {
-        payload.equipmentId = null
-      }
+      payload.equipmentIds = selectedEquipmentIds
+      payload.equipmentId = selectedEquipmentIds[0] ?? null
 
       await axios.patch(
         `${process.env.NEXT_PUBLIC_API_URL}/incidents/${params.id}`,
@@ -380,25 +391,72 @@ export default function EditIncidentPage() {
           </div>
 
           {/* Equipment */}
-          <div>
+          <div className="mt-4">
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              อุปกรณ์ที่เกี่ยวข้อง
+              อุปกรณ์ที่เกี่ยวข้อง {formData.jobType === 'MA' && <span className="text-red-400">*</span>}
+              <span className="text-xs text-gray-400 font-normal ml-2">(เลือกได้มากกว่า 1 อุปกรณ์)</span>
             </label>
-            <select
-              value={formData.equipmentId}
-              onChange={(e) => setFormData({ ...formData, equipmentId: e.target.value })}
-              disabled={!formData.storeId || loadingEquipment}
-              className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-            >
-              <option value="">
-                {loadingEquipment ? 'กำลังโหลด...' : !formData.storeId ? 'เลือกสาขาก่อน' : 'ไม่ระบุอุปกรณ์'}
-              </option>
-              {equipment.map((eq) => (
-                <option key={eq.id} value={eq.id}>
-                  {eq.name}{eq.serialNumber ? ` (S/N: ${eq.serialNumber})` : ''}
-                </option>
-              ))}
-            </select>
+            {!formData.storeId ? (
+              <p className="text-sm text-gray-500 py-3">เลือก Store ก่อน</p>
+            ) : loadingEquipment ? (
+              <p className="text-sm text-gray-500 py-3">กำลังโหลด...</p>
+            ) : equipment.length === 0 ? (
+              <p className="text-sm text-yellow-400 py-3">ไม่มีอุปกรณ์ในสาขานี้</p>
+            ) : (
+              <div className="border border-slate-600 rounded-lg overflow-hidden">
+                <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-600 bg-slate-800/60">
+                  <Search className="w-3.5 h-3.5 text-gray-500 shrink-0" />
+                  <input
+                    type="text"
+                    value={equipmentSearch}
+                    onChange={(e) => setEquipmentSearch(e.target.value)}
+                    placeholder="พิมพ์เพื่อค้นหาอุปกรณ์..."
+                    className="flex-1 bg-transparent text-sm text-white placeholder-gray-500 outline-none"
+                  />
+                  {equipmentSearch && (
+                    <button type="button" onClick={() => setEquipmentSearch('')} className="text-gray-500 hover:text-gray-300">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+                <div className="max-h-48 overflow-y-auto">
+                  {equipment
+                    .filter(eq => {
+                      const q = equipmentSearch.toLowerCase()
+                      return !q ||
+                        eq.name?.toLowerCase().includes(q) ||
+                        eq.serialNumber?.toLowerCase().includes(q) ||
+                        eq.category?.toLowerCase().includes(q) ||
+                        eq.position?.toLowerCase().includes(q)
+                    })
+                    .map((eq) => (
+                      <label
+                        key={eq.id}
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-slate-700/50 cursor-pointer border-b border-slate-700/40 last:border-b-0"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedEquipmentIds.includes(eq.id)}
+                          onChange={() => toggleEquipment(eq.id)}
+                          className="w-4 h-4 rounded accent-blue-500"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-white truncate">
+                            {eq.position ? `[${eq.position}] ` : ''}{eq.name}
+                          </p>
+                          <p className="text-xs text-gray-400">{eq.category} · S/N: {eq.serialNumber}</p>
+                        </div>
+                      </label>
+                    ))}
+                </div>
+              </div>
+            )}
+            {selectedEquipmentIds.length > 0 && (
+              <p className="text-xs text-green-400 mt-1.5 flex items-center gap-1">
+                <CheckSquare className="w-3.5 h-3.5" />
+                เลือกแล้ว {selectedEquipmentIds.length} อุปกรณ์
+              </p>
+            )}
           </div>
         </div>
 
