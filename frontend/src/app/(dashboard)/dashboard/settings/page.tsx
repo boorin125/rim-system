@@ -324,6 +324,14 @@ const RELEASE_NOTES: {
   changes: { type: 'new' | 'improved' | 'fixed'; text: string }[]
 }[] = [
   {
+    version: '1.0.21',
+    date: '2026-07-14',
+    changes: [
+      { type: 'new',      text: 'Email แจ้ง IT Manager ทุกครั้งที่มีรายการรออนุมัติ: Outsource Job, ขอยกเลิก Outsource, ขอลบ Store, ขอแก้ไข/ลบ KB' },
+      { type: 'improved', text: 'ข้อความแจ้งเตือน Store Code ซ้ำ: แสดง Banner แดงค้างหน้าจอ ต้องกด X ปิดเองก่อนแก้ไข (ทั้งหน้า Add และ Edit Store)' },
+    ],
+  },
+  {
     version: '1.0.20',
     date: '2026-07-07',
     changes: [
