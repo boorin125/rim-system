@@ -410,11 +410,9 @@ export default function CreateIncidentPage() {
         ...(formData.assignedToId && { assignedToId: parseInt(formData.assignedToId) }),
       }
 
-      if (formData.jobType === 'MA') {
+      if (selectedEquipmentIds.length > 0) {
         payload.equipmentIds = selectedEquipmentIds
         payload.equipmentId = selectedEquipmentIds[0]
-      } else if (formData.equipmentId) {
-        payload.equipmentId = parseInt(formData.equipmentId)
       }
 
       if (['Project', 'Adhoc'].includes(formData.jobType) && formData.scheduledAtDate && formData.scheduledAtTime) {
@@ -470,9 +468,7 @@ export default function CreateIncidentPage() {
       }
     }
 
-    const equipmentIds = formData.jobType === 'MA'
-      ? selectedEquipmentIds
-      : formData.equipmentId ? [parseInt(formData.equipmentId)] : []
+    const equipmentIds = selectedEquipmentIds
 
     if (equipmentIds.length > 0 && formData.storeId) {
       const token = localStorage.getItem('token')
@@ -839,13 +835,13 @@ export default function CreateIncidentPage() {
                   )}
                 </div>
 
-                {/* Equipment - conditional on job type */}
+                {/* Equipment - multi-select for all job types */}
                 <div>
-                  {formData.jobType === 'MA' ? (
-                    /* MA: multi-select checkbox list (required) */
+                  {true ? (
+                    /* All job types: multi-select checkbox list */
                     <>
                       <label className="block text-sm font-medium text-gray-300 mb-1">
-                        อุปกรณ์ที่เกี่ยวข้อง <span className="text-red-400">*</span>
+                        อุปกรณ์ที่เกี่ยวข้อง {formData.jobType === 'MA' && <span className="text-red-400">*</span>}
                         <span className="text-xs text-gray-400 font-normal ml-2">(เลือกได้มากกว่า 1 อุปกรณ์)</span>
                       </label>
                       {!selectedStore ? (
@@ -924,44 +920,6 @@ export default function CreateIncidentPage() {
                         <p className="text-xs text-green-400 mt-1.5 flex items-center gap-1">
                           <CheckSquare className="w-3.5 h-3.5" />
                           เลือกแล้ว {selectedEquipmentIds.length} อุปกรณ์
-                        </p>
-                      )}
-                    </>
-                  ) : (
-                    /* Other job types: single optional select */
-                    <>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
-                        อุปกรณ์ที่เกี่ยวข้อง (ไม่บังคับ)
-                      </label>
-                      <select
-                        value={formData.equipmentId}
-                        onChange={(e) => {
-                          const val = e.target.value
-                          setFormData({ ...formData, equipmentId: val })
-                          setDuplicateIncident(null)
-                          if (val && formData.storeId) {
-                            checkDuplicate([parseInt(val)], formData.storeId)
-                          }
-                        }}
-                        disabled={!selectedStore || equipment.length === 0}
-                        className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <option value="" className="bg-slate-800">
-                          {!selectedStore
-                            ? 'เลือก Store ก่อน'
-                            : equipment.length === 0
-                              ? 'ไม่มีอุปกรณ์ในสาขานี้'
-                              : '-- เลือกอุปกรณ์ --'}
-                        </option>
-                        {equipment.map((eq) => (
-                          <option key={eq.id} value={eq.id} className="bg-slate-800">
-                            {eq.position ? `[${eq.position}] ` : ''}{eq.name} - {eq.category} (S/N: {eq.serialNumber})
-                          </option>
-                        ))}
-                      </select>
-                      {selectedStore && equipment.length > 0 && !duplicateIncident && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          พบ {equipment.length} อุปกรณ์ในสาขานี้
                         </p>
                       )}
                     </>
