@@ -329,6 +329,7 @@ const RELEASE_NOTES: {
     changes: [
       { type: 'new',      text: 'Email แจ้ง IT Manager ทุกครั้งที่มีรายการรออนุมัติ: Outsource Job, ขอยกเลิก Outsource, ขอลบ Store, ขอแก้ไข/ลบ KB' },
       { type: 'improved', text: 'ข้อความแจ้งเตือน Store Code ซ้ำ: แสดง Banner แดงค้างหน้าจอ ต้องกด X ปิดเองก่อนแก้ไข (ทั้งหน้า Add และ Edit Store)' },
+      { type: 'fixed',   text: 'Spare Parts: แก้ไข error "Replacement type must be PERMANENT or TEMPORARY" เมื่อเพิ่มอะไหล่ชิ้นที่ 2 ขึ้นไป ทั้งใน Resolve และ Update Resolution' },
     ],
   },
   {
