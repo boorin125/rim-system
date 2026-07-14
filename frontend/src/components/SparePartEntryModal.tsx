@@ -41,7 +41,7 @@ function makeEmptyPart(): SparePart {
     newSerialNo: '',
     newBrand: '',
     newModel: '',
-    replacementType: '' as any,
+    replacementType: undefined,
     componentName: '',
     oldComponentSerial: '',
     newComponentSerial: '',

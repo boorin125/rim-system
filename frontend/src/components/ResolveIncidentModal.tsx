@@ -382,7 +382,7 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
             newBrand: part.newBrand || undefined,
             newModel: part.newModel || undefined,
             newEquipmentId: part.newEquipmentId || undefined,
-            replacementType: part.replacementType,
+            replacementType: part.replacementType || undefined,
             notes: part.notes || undefined,
           };
         });

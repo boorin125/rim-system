@@ -495,7 +495,7 @@ export default function UpdateResolveModal({
           newBrand: part.newBrand || undefined,
           newModel: part.newModel || undefined,
           newEquipmentId: part.newEquipmentId,
-          replacementType: part.replacementType,
+          replacementType: part.replacementType || undefined,
           // Component Replacement fields
           componentName: part.componentName,
           oldComponentSerial: part.oldComponentSerial,
