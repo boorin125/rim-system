@@ -8,6 +8,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { EmailService } from '../../email/email.service';
 import {
   CreateCategoryDto,
   UpdateCategoryDto,
@@ -59,7 +60,10 @@ function visibilityFilter(userRole: UserRole) {
 
 @Injectable()
 export class KnowledgeBaseService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly emailService: EmailService,
+  ) {}
 
   // ==========================================
   // CATEGORY METHODS
@@ -886,10 +890,17 @@ export class KnowledgeBaseService {
       },
     });
 
+    const requesterName = `${(request as any).requester?.firstName ?? ''} ${(request as any).requester?.lastName ?? ''}`.trim() || 'ผู้ใช้งาน';
     // Notify all IT Managers
     await this.notifyItManagers(
       `คำขอ${type === 'EDIT' ? 'แก้ไข' : 'ลบ'}บทความ: "${article.title}"`,
-      `${(request as any).requester?.firstName} ${(request as any).requester?.lastName} ขอ${type === 'EDIT' ? 'แก้ไข' : 'ลบ'}บทความ "${article.title}" — เหตุผล: ${reason}`,
+      `${requesterName} ขอ${type === 'EDIT' ? 'แก้ไข' : 'ลบ'}บทความ "${article.title}" — เหตุผล: ${reason}`,
+      {
+        approvalType: `คำขอ${type === 'EDIT' ? 'แก้ไข' : 'ลบ'}บทความ Knowledge Base — รออนุมัติ`,
+        requesterName,
+        details: `บทความ: "${article.title}"\nประเภท: ${type === 'EDIT' ? 'แก้ไข' : 'ลบ'}\nเหตุผล: ${reason}`,
+        approvalUrl: `/dashboard/knowledge-base`,
+      },
     );
 
     return { request, applied: false };
@@ -969,11 +980,15 @@ export class KnowledgeBaseService {
   }
 
   /** Notify all IT Managers (helper) */
-  private async notifyItManagers(title: string, message: string) {
+  private async notifyItManagers(
+    title: string,
+    message: string,
+    emailOpts?: { approvalType: string; requesterName: string; details: string; approvalUrl?: string },
+  ) {
     try {
       const managers = await this.prisma.user.findMany({
         where: { roles: { some: { role: { in: [UserRole.IT_MANAGER, UserRole.SUPER_ADMIN] } } }, status: 'ACTIVE' },
-        select: { id: true },
+        select: { id: true, email: true },
       });
       await Promise.all(
         managers.map((m) =>
@@ -982,6 +997,16 @@ export class KnowledgeBaseService {
           }),
         ),
       );
+      if (emailOpts) {
+        for (const m of managers) {
+          if (m.email) {
+            void this.emailService.sendApprovalRequestEmail({
+              to: m.email,
+              ...emailOpts,
+            });
+          }
+        }
+      }
     } catch {
       // notification failure should not break the main flow
     }

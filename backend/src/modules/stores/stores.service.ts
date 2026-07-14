@@ -3,6 +3,7 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditTrailService } from '../audit-trail/audit-trail.service';
+import { EmailService } from '../../email/email.service';
 import { AuditModule, AuditAction } from '@prisma/client';
 import { ExcelService, ParsedStoreRow } from './services/excel.service';
 import { ImportStoresDto } from './dto/import-stores.dto';
@@ -14,6 +15,7 @@ export class StoresService {
     private readonly prisma: PrismaService,
     private readonly excelService: ExcelService,
     private readonly auditTrailService: AuditTrailService,
+    private readonly emailService: EmailService,
   ) {}
 
   // ==========================================
@@ -319,7 +321,7 @@ export class StoresService {
         },
         status: 'ACTIVE',
       },
-      select: { id: true },
+      select: { id: true, email: true },
     });
 
     const requesterName = requester?.firstName && requester?.lastName
@@ -336,6 +338,17 @@ export class StoresService {
           message: `${requesterName} ส่งคำขอลบสาขา "${store.name}" (${store.storeCode}) เหตุผล: ${reason}`,
         })),
       });
+      for (const manager of itManagers) {
+        if (manager.email) {
+          void this.emailService.sendApprovalRequestEmail({
+            to: manager.email,
+            approvalType: 'คำขอลบสาขา — รออนุมัติ',
+            requesterName,
+            details: `สาขา: ${store.name} (${store.storeCode})\nเหตุผล: ${reason}`,
+            approvalUrl: `/dashboard/stores`,
+          });
+        }
+      }
     }
 
     // Audit trail

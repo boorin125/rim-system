@@ -857,6 +857,53 @@ export class EmailService {
   }
 
   /**
+   * Send approval request notification email to IT Managers
+   */
+  async sendApprovalRequestEmail(data: {
+    to: string;
+    approvalType: string;
+    requesterName: string;
+    details: string;
+    approvalUrl?: string;
+  }): Promise<void> {
+    try {
+      const config = await this.getSmtpConfig();
+      if (!config?.host) return;
+      const transporter = await this.createTransporter();
+      const appUrl = data.approvalUrl || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard`;
+      const html = `
+        <!DOCTYPE html><html><head><meta charset="utf-8"></head>
+        <body style="font-family:Arial,sans-serif;line-height:1.6;color:#e2e8f0;background-color:#0f172a;padding:20px;">
+          <div style="max-width:600px;margin:0 auto;background-color:#1e293b;border-radius:10px;padding:30px;border:1px solid #334155;">
+            <div style="text-align:center;padding-bottom:20px;border-bottom:2px solid #f59e0b;">
+              <h1 style="color:#f59e0b;margin:0;">🔔 รออนุมัติ — ${data.approvalType}</h1>
+              <p style="color:#94a3b8;margin:5px 0 0 0;">RIM - Rubjobb Incident Management</p>
+            </div>
+            <div style="margin-top:24px;">
+              <p style="color:#cbd5e1;">มีรายการรออนุมัติใหม่จาก <strong style="color:#f8fafc;">${data.requesterName}</strong></p>
+              <div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:16px;margin:16px 0;">
+                <p style="color:#cbd5e1;margin:0;white-space:pre-wrap;">${data.details}</p>
+              </div>
+              <div style="text-align:center;margin-top:24px;">
+                <a href="${appUrl}" style="display:inline-block;padding:12px 28px;background-color:#f59e0b;color:#0f172a;text-decoration:none;border-radius:8px;font-weight:bold;">
+                  ไปยังหน้าอนุมัติ
+                </a>
+              </div>
+            </div>
+          </div>
+        </body></html>`;
+      await transporter.sendMail({
+        from: `"${config.fromName}" <${config.fromEmail || config.user}>`,
+        to: data.to,
+        subject: `[รออนุมัติ] ${data.approvalType} — ${data.requesterName}`,
+        html,
+      });
+    } catch {
+      // email failure should not break main flow
+    }
+  }
+
+  /**
    * Generic send — used internally by other services (e.g. PatchService)
    */
   async sendEmail(data: { to: string; subject: string; html: string }): Promise<void> {

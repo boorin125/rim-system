@@ -7,9 +7,10 @@ import { ExcelService } from './services/excel.service';
 import { TemplateService } from './services/template.service';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { AuditTrailModule } from '../audit-trail/audit-trail.module';
+import { EmailModule } from '../../email/email.module';
 
 @Module({
-  imports: [PrismaModule, AuditTrailModule],
+  imports: [PrismaModule, AuditTrailModule, EmailModule],
   controllers: [StoresController],
   providers: [
     StoresService,

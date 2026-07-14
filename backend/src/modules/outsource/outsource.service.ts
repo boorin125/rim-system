@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../../notifications/notifications.service';
+import { EmailService } from '../../email/email.service';
 import { saveBase64Files } from '../../utils/file-storage';
 import {
   CreateOutsourceJobDto,
@@ -29,6 +30,7 @@ export class OutsourceService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
+    private readonly emailService: EmailService,
   ) {}
 
   /**
@@ -147,9 +149,10 @@ export class OutsourceService {
         roles: { some: { role: UserRole.IT_MANAGER } },
         status: 'ACTIVE',
       },
-      select: { id: true },
+      select: { id: true, email: true },
     });
 
+    const requesterName = `${job.postedBy.firstName} ${job.postedBy.lastName}`;
     for (const mgr of itManagers) {
       await this.notificationsService.createNotification(
         mgr.id,
@@ -159,6 +162,15 @@ export class OutsourceService {
         dto.incidentId,
         `/dashboard/outsource/${job.id}`,
       );
+      if (mgr.email) {
+        void this.emailService.sendApprovalRequestEmail({
+          to: mgr.email,
+          approvalType: 'งาน Outsource รออนุมัติ',
+          requesterName,
+          details: `Job Code: ${jobCode}\nชื่องาน: ${job.title}\nประเภท: ${jobType === 'DIRECT_ASSIGN' ? 'มอบหมายเจาะจง' : 'Marketplace'}\nสถานที่: ${job.location}`,
+          approvalUrl: `/dashboard/outsource/${job.id}`,
+        });
+      }
     }
 
     return job;
@@ -1614,6 +1626,25 @@ export class OutsourceService {
       job.incidentId,
       `/dashboard/outsource/${job.id}`,
     );
+
+    // Email IT Managers for cancel approval
+    const requester = await this.prisma.user.findUnique({ where: { id: userId }, select: { firstName: true, lastName: true } });
+    const requesterName = requester ? `${requester.firstName} ${requester.lastName}` : 'Supervisor';
+    const itMgrsForEmail = await this.prisma.user.findMany({
+      where: { roles: { some: { role: UserRole.IT_MANAGER } }, status: 'ACTIVE' },
+      select: { email: true },
+    });
+    for (const mgr of itMgrsForEmail) {
+      if (mgr.email) {
+        void this.emailService.sendApprovalRequestEmail({
+          to: mgr.email,
+          approvalType: 'ขอยกเลิกงาน Outsource — รออนุมัติ',
+          requesterName,
+          details: `Job Code: ${job.jobCode}\nเหตุผล: ${reason}`,
+          approvalUrl: `/dashboard/outsource/${job.id}`,
+        });
+      }
+    }
 
     return updatedJob;
   }

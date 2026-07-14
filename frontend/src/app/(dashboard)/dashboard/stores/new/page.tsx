@@ -15,6 +15,8 @@ import {
   FileText,
   Globe,
   Server,
+  AlertTriangle,
+  X,
 } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
@@ -141,9 +143,11 @@ export default function CreateStorePage() {
   const [formData, setFormData] = useState<StoreFormData>(initialFormData)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [activeTab, setActiveTab] = useState<'basic' | 'location' | 'network' | 'hours'>('basic')
+  const [duplicateError, setDuplicateError] = useState<string | null>(null)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
+    if (name === 'storeCode') setDuplicateError(null)
     setFormData(prev => ({ ...prev, [name]: name === 'storeCode' ? value.trim() : value }))
   }
 
@@ -191,7 +195,13 @@ export default function CreateStorePage() {
       router.push('/dashboard/stores')
     } catch (error: any) {
       console.error('Error creating store:', error)
-      toast.error(error.response?.data?.message || 'Failed to create store')
+      const msg: string = error.response?.data?.message || 'Failed to create store'
+      if (msg.toLowerCase().includes('already') || msg.toLowerCase().includes('ซ้ำ') || msg.toLowerCase().includes('duplicate') || msg.toLowerCase().includes('exist')) {
+        setDuplicateError(msg)
+        setActiveTab('basic')
+      } else {
+        toast.error(msg)
+      }
     } finally {
       setIsSubmitting(false)
     }
@@ -216,6 +226,25 @@ export default function CreateStorePage() {
           <p className="text-gray-400">Create a new store in the system</p>
         </div>
       </div>
+
+      {/* Duplicate Store Error Banner */}
+      {duplicateError && (
+        <div className="flex items-start gap-3 px-4 py-3 bg-red-900/40 border border-red-500/60 rounded-xl text-red-200">
+          <AlertTriangle className="w-5 h-5 flex-shrink-0 text-red-400 mt-0.5" />
+          <div className="flex-1">
+            <p className="font-semibold text-red-300">Store Code ซ้ำในระบบ</p>
+            <p className="text-sm mt-0.5">{duplicateError}</p>
+            <p className="text-xs mt-1 text-red-300/70">กรุณาแก้ไข Store Code ให้ถูกต้องก่อนบันทึก</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setDuplicateError(null)}
+            className="flex-shrink-0 text-red-400 hover:text-red-200 transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
