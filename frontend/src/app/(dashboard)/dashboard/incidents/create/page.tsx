@@ -837,13 +837,11 @@ export default function CreateIncidentPage() {
 
                 {/* Equipment - multi-select for all job types */}
                 <div>
-                  {true ? (
-                    /* All job types: multi-select checkbox list */
-                    <>
-                      <label className="block text-sm font-medium text-gray-300 mb-1">
-                        อุปกรณ์ที่เกี่ยวข้อง {formData.jobType === 'MA' && <span className="text-red-400">*</span>}
-                        <span className="text-xs text-gray-400 font-normal ml-2">(เลือกได้มากกว่า 1 อุปกรณ์)</span>
-                      </label>
+                  <>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">
+                      อุปกรณ์ที่เกี่ยวข้อง {formData.jobType === 'MA' && <span className="text-red-400">*</span>}
+                      <span className="text-xs text-gray-400 font-normal ml-2">(เลือกได้มากกว่า 1 อุปกรณ์)</span>
+                    </label>
                       {!selectedStore ? (
                         <p className="text-sm text-gray-500 py-3">เลือก Store ก่อน</p>
                       ) : equipment.length === 0 ? (
@@ -922,8 +920,7 @@ export default function CreateIncidentPage() {
                           เลือกแล้ว {selectedEquipmentIds.length} อุปกรณ์
                         </p>
                       )}
-                    </>
-                  )}
+                  </>
 
                   {/* Inline duplicate warning */}
                   {duplicateIncident && (
