@@ -21,6 +21,7 @@ export class StoresService {
   // ==========================================
 
   async create(data: any) {
+    data.storeCode = data.storeCode?.trim();
     // Check if store code already exists with ACTIVE or TEMPORARILY_CLOSED status
     const existingStore = await this.prisma.store.findFirst({
       where: {
@@ -225,6 +226,7 @@ export class StoresService {
     // Check if store exists
     await this.findOne(id);
 
+    if (data.storeCode) data.storeCode = data.storeCode.trim();
     if (data.province) {
       data.province = data.province.toUpperCase().trim();
     }

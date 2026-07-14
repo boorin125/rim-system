@@ -229,7 +229,7 @@ export default function EditStorePage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
+    setFormData(prev => ({ ...prev, [name]: name === 'storeCode' ? value.trim() : value }))
   }
 
   const validateForm = (): boolean => {
