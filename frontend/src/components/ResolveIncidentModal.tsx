@@ -34,7 +34,7 @@ export interface SparePart {
   newBrand?: string;
   newModel?: string;
   newEquipmentId?: number;  // ✅ Equipment ID ที่ใส่เข้าไป
-  replacementType: 'PERMANENT' | 'TEMPORARY';
+  replacementType?: 'PERMANENT' | 'TEMPORARY';
 
   // === COMPONENT_REPLACEMENT Fields ===
   componentName?: string;       // ชื่อชิ้นส่วน เช่น "Battery", "Power Supply"

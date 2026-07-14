@@ -51,7 +51,7 @@ export interface UpdateResolveData {
     newSerialNo: string;
     newBrand?: string;
     newModel?: string;
-    replacementType: 'PERMANENT' | 'TEMPORARY';
+    replacementType?: 'PERMANENT' | 'TEMPORARY';
     oldEquipmentId?: number;
     newEquipmentId?: number;
     componentName?: string;

@@ -26,7 +26,7 @@ export interface SparePart {
   newModel?: string;        // รุ่นของอุปกรณ์ใหม่
   newEquipmentId?: number;  // ✅ เชื่อมโยงกับ Equipment ที่ใส่เข้าไป
   // Replacement Type
-  replacementType: 'PERMANENT' | 'TEMPORARY';
+  replacementType?: 'PERMANENT' | 'TEMPORARY';
 
   // === COMPONENT_REPLACEMENT Fields ===
   // เปลี่ยนเฉพาะชิ้นส่วนภายใน (เช่น แบตเตอรี่ใน UPS)
