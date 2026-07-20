@@ -124,17 +124,31 @@ function MaintenanceBanner() {
   const startTimeStr = start.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
   const endTimeStr = end.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
 
+  const message = isDuringMaintenance
+    ? `⚠️ กำลังปรับปรุง Server — แจ้งปรับปรุง Server วันที่ ${dateStr} ช่วงเวลา ${startTimeStr}–${endTimeStr}  โปรดหลีกเลี่ยงการใช้งานโปรแกรมในเวลาดังกล่าว เพื่อป้องกันข้อมูลผิดพลาด`
+    : `📢 แจ้งปรับปรุง Server วันที่ ${dateStr} ช่วงเวลา ${startTimeStr}–${endTimeStr}  โปรดหลีกเลี่ยงการใช้งานโปรแกรมในเวลาดังกล่าว เพื่อป้องกันข้อมูลผิดพลาด`
+
   return (
-    <div className={`w-full px-4 py-1.5 text-xs font-medium flex items-center justify-center gap-2 border-b ${
+    <div className={`w-full py-1.5 text-xs font-semibold flex items-center gap-2 border-b overflow-hidden ${
       isDuringMaintenance
         ? 'bg-red-900/40 border-red-600/60 text-red-200'
         : 'bg-amber-900/40 border-amber-600/60 text-amber-200'
     }`}>
-      <Wrench className={`w-3.5 h-3.5 flex-shrink-0 ${isDuringMaintenance ? 'text-red-400' : 'text-amber-400'}`} />
-      <span className="truncate">
-        {isDuringMaintenance ? 'กำลังปรับปรุง Server: ' : ''}
-        แจ้งปรับปรุง Server วันที่ {dateStr} ช่วงเวลา {startTimeStr}-{endTimeStr} โปรดหลีกเลี่ยงการใช้งานโปรแกรมในเวลาดังกล่าว เพื่อป้องกันข้อมูลผิดพลาด
-      </span>
+      <style>{`
+        @keyframes rim-marquee {
+          0%   { transform: translateX(100vw); }
+          100% { transform: translateX(-100%); }
+        }
+      `}</style>
+      <Wrench className={`w-3.5 h-3.5 flex-shrink-0 ml-3 ${isDuringMaintenance ? 'text-red-400' : 'text-amber-400'}`} />
+      <div className="flex-1 overflow-hidden">
+        <span
+          className="inline-block whitespace-nowrap"
+          style={{ animation: 'rim-marquee 20s linear infinite', willChange: 'transform' }}
+        >
+          {message}
+        </span>
+      </div>
     </div>
   )
 }

@@ -324,6 +324,13 @@ const RELEASE_NOTES: {
   changes: { type: 'new' | 'improved' | 'fixed'; text: string }[]
 }[] = [
   {
+    version: '1.0.22',
+    date: '2026-07-20',
+    changes: [
+      { type: 'improved', text: 'Maintenance Banner: ข้อความวิ่งจากขวาไปซ้ายอัตโนมัติ (Marquee) แทนการแสดงข้อความตัดคำ' },
+    ],
+  },
+  {
     version: '1.0.21',
     date: '2026-07-14',
     changes: [
