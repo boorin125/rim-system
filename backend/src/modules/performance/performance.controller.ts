@@ -209,9 +209,10 @@ export class PerformanceController {
     @Query('jobTypes') jobTypes?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
+    @Query('allTime') allTime?: string,
   ) {
     const parsed = jobTypes ? jobTypes.split(',').map(s => s.trim()).filter(Boolean) : undefined;
-    return this.performanceService.getTopEquipment(period, limit ? parseInt(limit) : 10, parsed, from, to);
+    return this.performanceService.getTopEquipment(period, limit ? parseInt(limit) : 10, parsed, from, to, allTime === 'true');
   }
 
   /**

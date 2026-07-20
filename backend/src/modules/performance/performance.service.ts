@@ -1166,7 +1166,37 @@ export class PerformanceService {
   /**
    * Get Top N Equipment by Incident Count for a period
    */
-  async getTopEquipment(period?: string, limit = 10, jobTypes?: string[], from?: string, to?: string) {
+  async getTopEquipment(period?: string, limit = 10, jobTypes?: string[], from?: string, to?: string, allTime?: boolean) {
+    if (allTime) {
+      // All-time mode: group by individual Active equipment (no date filter)
+      const incidents = await this.prisma.incident.findMany({
+        where: {
+          equipmentId: { not: null },
+          equipment: { status: 'ACTIVE' },
+          ...(jobTypes?.length ? { jobType: { in: jobTypes } } : {}),
+        },
+        select: {
+          equipmentId: true,
+          equipment: { select: { name: true, brand: true, model: true, serialNumber: true } },
+        },
+      });
+
+      const countMap = new Map<number, { count: number; name: string }>();
+      for (const inc of incidents) {
+        if (!inc.equipmentId || !inc.equipment) continue;
+        const eq = inc.equipment;
+        const label = eq.name || [eq.brand, eq.model].filter(Boolean).join(' ') || 'ไม่ระบุ';
+        const entry = countMap.get(inc.equipmentId);
+        if (entry) entry.count++;
+        else countMap.set(inc.equipmentId, { count: 1, name: label });
+      }
+
+      return Array.from(countMap.values())
+        .sort((a, b) => b.count - a.count)
+        .slice(0, limit)
+        .map(({ name, count }) => ({ name, count }));
+    }
+
     const { startDate, endDate } = this.getDateRange(period, from, to);
 
     const incidents = await this.prisma.incident.findMany({

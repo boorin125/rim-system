@@ -365,7 +365,7 @@ export default function PerformancePage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isCalculating, setIsCalculating] = useState(false)
 
-  // Date range
+  // Date range helpers
   const today = () => {
     const n = new Date()
     return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`
@@ -374,8 +374,18 @@ export default function PerformancePage() {
     const n = new Date()
     return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-01`
   }
-  const [dateFrom, setDateFrom] = useState(firstOfMonth)
-  const [dateTo, setDateTo] = useState(today)
+  // pendingFrom/To = input value (not yet applied); refs = applied (used in API calls)
+  const [pendingFrom, setPendingFrom] = useState(firstOfMonth)
+  const [pendingTo, setPendingTo] = useState(today)
+  const dateFromRef = useRef(firstOfMonth())
+  const dateToRef = useRef(today())
+  const [loadTrigger, setLoadTrigger] = useState(0)
+
+  const applyDates = useCallback(() => {
+    dateFromRef.current = pendingFrom
+    dateToRef.current = pendingTo
+    setLoadTrigger(t => t + 1)
+  }, [pendingFrom, pendingTo])
 
   // Job Type filter (persisted)
   const [selectedJobTypes, setSelectedJobTypes] = useState<string[]>(() => {
@@ -491,6 +501,8 @@ export default function PerformancePage() {
     const cfg = { headers: { Authorization: `Bearer ${token}` } }
     const api = process.env.NEXT_PUBLIC_API_URL
     const jtParam = selectedJobTypes.length > 0 ? `&jobTypes=${selectedJobTypes.join(',')}` : ''
+    const dateFrom = dateFromRef.current
+    const dateTo = dateToRef.current
 
     try {
       // Technician: own data
@@ -522,8 +534,8 @@ export default function PerformancePage() {
           axios.get(`${api}/performance/ytd`, cfg).catch(() => null),
           axios.get(`${api}/performance/ytm`, cfg).catch(() => null),
           axios.get(`${api}/performance/yty`, cfg).catch(() => null),
-          axios.get(`${api}/performance/top-stores?from=${dateFrom}&to=${dateTo}&limit=10${jtParam}`, cfg).catch(() => null),
-          axios.get(`${api}/performance/top-equipment?from=${dateFrom}&to=${dateTo}&limit=10${jtParam}`, cfg).catch(() => null),
+          axios.get(`${api}/performance/top-stores?from=${dateFrom}&to=${dateTo}&limit=20${jtParam}`, cfg).catch(() => null),
+          axios.get(`${api}/performance/top-equipment?allTime=true&limit=10${jtParam}`, cfg).catch(() => null),
           axios.get(`${api}/performance/resolution-time?from=${dateFrom}&to=${dateTo}${jtParam}`, cfg).catch(() => null),
           axios.get(`${api}/performance/top-active-equipment?from=${dateFrom}&to=${dateTo}&limit=10${jtParam}`, cfg).catch(() => null),
           axios.get(`${api}/performance/equipment-repeat?from=${dateFrom}&to=${dateTo}${jtParam}`, cfg).catch(() => null),
@@ -550,25 +562,27 @@ export default function PerformancePage() {
     } finally {
       setIsLoading(false)
     }
-  }, [currentUser, dateFrom, dateTo, isTechnician, isSelfOnly, isManager, sortBy, selectedJobTypes, equipPeriodMode])
+  }, [currentUser, isTechnician, isSelfOnly, isManager, sortBy, selectedJobTypes, loadTrigger])
 
   useEffect(() => {
     if (currentUser) loadData()
   }, [currentUser, loadData])
 
-  // Calculate (Admin)
+  // Calculate (Admin) — apply pending dates first, then calculate, then reload
   const handleCalculate = async () => {
+    dateFromRef.current = pendingFrom
+    dateToRef.current = pendingTo
     setIsCalculating(true)
     try {
       const token = localStorage.getItem('token')
-      const derivedPeriod = dateFrom.substring(0, 7)
+      const derivedPeriod = pendingFrom.substring(0, 7)
       const res = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/performance/calculate?period=${derivedPeriod}`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       )
       toast.success(res.data.message || 'คำนวณ Performance สำเร็จ')
-      loadData()
+      setLoadTrigger(t => t + 1)
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'เกิดข้อผิดพลาด')
     } finally {
@@ -580,7 +594,7 @@ export default function PerformancePage() {
   const viewDetail = async (techId: number) => {
     try {
       const token = localStorage.getItem('token')
-      const derivedPeriod = dateFrom.substring(0, 7)
+      const derivedPeriod = dateFromRef.current.substring(0, 7)
       const res = await axios.get(
         `${process.env.NEXT_PUBLIC_API_URL}/performance/technicians/${techId}?period=${derivedPeriod}`,
         { headers: { Authorization: `Bearer ${token}` } }
@@ -711,20 +725,29 @@ export default function PerformancePage() {
           <div className="flex items-center gap-2">
             <input
               type="date"
-              value={dateFrom}
-              max={dateTo}
-              onChange={(e) => setDateFrom(e.target.value)}
+              value={pendingFrom}
+              max={pendingTo}
+              onChange={(e) => setPendingFrom(e.target.value)}
               className="px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <span className="text-gray-400 text-sm">—</span>
             <input
               type="date"
-              value={dateTo}
-              min={dateFrom}
+              value={pendingTo}
+              min={pendingFrom}
               max={today()}
-              onChange={(e) => setDateTo(e.target.value)}
+              onChange={(e) => setPendingTo(e.target.value)}
               className="px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+            {!canCalculate && (
+              <button
+                onClick={applyDates}
+                className="flex items-center gap-1.5 px-3 py-2 bg-slate-700 border border-slate-500 text-white rounded-lg text-sm hover:bg-slate-600 transition-colors"
+                title="Apply date range"
+              >
+                <RefreshCcw className="w-4 h-4" />
+              </button>
+            )}
           </div>
           {canCalculate && (
             <button
@@ -925,18 +948,16 @@ export default function PerformancePage() {
                     <ClipboardList className="w-4 h-4 text-blue-400" />
                     Top 10 Stores (Most Incidents)
                   </h3>
-                  <HorizontalBarChart
-                    data={topStores.map(s => ({ label: `${s.storeCode} ${s.storeName}`, value: s.count, resolved: s.resolved ?? 0, id: s.storeId }))}
-                    color="#3b82f6"
-                    onRowClick={async (item) => {
-                      if (!item.id) return
+                  <TopStoresTwoColumn
+                    stores={topStores}
+                    onStoreClick={async (store) => {
                       setStoreModal(true)
                       setLoadingStoreDetail(true)
                       try {
                         const token = localStorage.getItem('token')
                         const jtParam = selectedJobTypes.length > 0 ? `&jobTypes=${selectedJobTypes.join(',')}` : ''
                         const res = await axios.get(
-                          `${process.env.NEXT_PUBLIC_API_URL}/performance/store-incident-detail/${item.id}?from=${dateFrom}&to=${dateTo}${jtParam}`,
+                          `${process.env.NEXT_PUBLIC_API_URL}/performance/store-incident-detail/${store.storeId}?from=${dateFromRef.current}&to=${dateToRef.current}${jtParam}`,
                           { headers: { Authorization: `Bearer ${token}` } }
                         )
                         setStoreDetail(res.data)
@@ -950,18 +971,9 @@ export default function PerformancePage() {
                 <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
                   <h3 className="text-base font-semibold text-white flex items-center gap-2">
                     <Zap className="w-4 h-4 text-amber-400" />
-                    Top 10 Equipment (Most Incidents)
+                    Top 10 Equipment (ทุกเวลา — Active เท่านั้น)
                   </h3>
-                  <div className="flex rounded-lg overflow-hidden border border-slate-600 text-xs">
-                    {(['period', 'all'] as const).map((mode, i) => (
-                      <button
-                        key={mode}
-                        onClick={() => setEquipPeriodMode(mode)}
-                        className={`px-3 py-1.5 transition ${equipPeriodMode === mode ? 'text-white' : 'bg-slate-700 text-gray-400 hover:text-white'}`}
-                        style={equipPeriodMode === mode ? { backgroundColor: themeHighlight } : undefined}
-                      >{mode === 'period' ? 'Period' : 'ทั้งหมด'}</button>
-                    ))}
-                  </div>
+                  <span className="text-xs text-gray-500 bg-slate-700 px-2 py-1 rounded-lg">นับตั้งแต่เริ่มระบบ</span>
                 </div>
                 {topEquipment.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-10 gap-2 text-gray-500">
@@ -1122,7 +1134,7 @@ export default function PerformancePage() {
                   <div className="flex items-center justify-between gap-2">
                     <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                       <Clock className="w-5 h-5 text-cyan-400" />
-                      Help Desk Performance — {dateFrom} — {dateTo}
+                      Help Desk Performance — {dateFromRef.current} — {dateToRef.current}
                     </h3>
                     <button
                       onClick={() => setShowHdCriteria(v => !v)}
@@ -1267,7 +1279,7 @@ export default function PerformancePage() {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                       <Trophy className="w-5 h-5 text-yellow-400" />
-                      Leaderboard - {dateFrom} — {dateTo}
+                      Leaderboard - {dateFromRef.current} — {dateToRef.current}
                     </h3>
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-gray-400">เรียงตาม:</span>
@@ -1848,6 +1860,70 @@ function HorizontalBarChart({ data, color, onRowClick }: { data: { label: string
           )
         })}
       </svg>
+    </div>
+  )
+}
+
+// ==================== TOP STORES TWO-COLUMN ====================
+
+function TopStoresTwoColumn({
+  stores,
+  onStoreClick,
+}: {
+  stores: TopStoreEntry[]
+  onStoreClick?: (store: TopStoreEntry) => void
+}) {
+  if (stores.length === 0) return null
+
+  // Assign ranks with ties (standard competition ranking)
+  const maxCount = stores[0]?.count ?? 0
+  const ranked = stores.map(s => ({
+    ...s,
+    rank: stores.filter(o => o.count > s.count).length + 1,
+  }))
+
+  const left = ranked.slice(0, 10)
+  const right = ranked.slice(10, 20)
+  const maxVal = Math.max(...ranked.map(s => s.count), 1)
+
+  const Row = ({ s, highlight }: { s: typeof ranked[0]; highlight?: boolean }) => (
+    <div
+      key={s.storeId}
+      onClick={() => onStoreClick?.(s)}
+      className={`flex items-center gap-2 py-1.5 px-2 rounded-lg transition cursor-pointer hover:bg-slate-700/40 ${highlight ? 'bg-amber-500/5' : ''}`}
+    >
+      <span className={`text-xs font-bold w-5 text-center flex-shrink-0 ${s.rank === 1 ? 'text-amber-400' : 'text-gray-500'}`}>
+        {s.rank}
+      </span>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-1 mb-0.5">
+          <span className="text-xs text-blue-400 truncate hover:underline leading-tight">
+            {s.storeCode} {s.storeName}
+          </span>
+          <span className="text-xs font-bold text-white flex-shrink-0">{s.count}</span>
+        </div>
+        <div className="w-full h-1.5 bg-slate-700 rounded-full overflow-hidden">
+          <div
+            className="h-full rounded-full transition-all"
+            style={{
+              width: `${(s.count / maxVal) * 100}%`,
+              backgroundColor: s.rank === 1 ? '#f59e0b' : '#3b82f6',
+              opacity: 0.8,
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="grid grid-cols-2 gap-x-3 gap-y-0">
+      <div className="space-y-0.5">
+        {left.map(s => <Row key={s.storeId} s={s} highlight={s.rank === 1} />)}
+      </div>
+      <div className="space-y-0.5">
+        {right.map(s => <Row key={s.storeId} s={s} />)}
+      </div>
     </div>
   )
 }
