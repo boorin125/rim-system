@@ -210,6 +210,7 @@ interface TopEquipmentEntry {
 
 interface ActiveEquipmentEntry {
   equipmentId: number
+  equipmentName: string
   category: string
   brand: string
   model: string
@@ -1006,7 +1007,7 @@ export default function PerformancePage() {
                   <thead>
                     <tr className="text-gray-400 border-b border-slate-700">
                       <th className="text-left py-2 px-2 font-medium">#</th>
-                      <th className="text-left py-2 px-2 font-medium">Brand / Model / S/N</th>
+                      <th className="text-left py-2 px-2 font-medium">Equipment</th>
                       <th className="text-left py-2 px-2 font-medium">Store</th>
                       <th className="text-center py-2 px-2 font-medium">ครั้ง</th>
                       <th className="text-center py-2 px-2 font-medium">ล่าสุด</th>
@@ -1017,9 +1018,8 @@ export default function PerformancePage() {
                     {topActiveEquipment.map((eq, idx) => (
                       <tr key={eq.equipmentId} className="border-b border-slate-700/50 hover:bg-slate-700/30 transition">
                         <td className="py-2 px-2 text-gray-400">{idx + 1}</td>
-                        <td className="py-2 px-2 text-white">
-                          <div className="font-medium">{[eq.brand, eq.model].filter(Boolean).join(' ') || '-'}</div>
-                          <div className="text-xs text-gray-400">S/N: {eq.serialNumber || '-'}</div>
+                        <td className="py-2 px-2 text-white font-medium">
+                          {eq.equipmentName || [eq.brand, eq.model].filter(Boolean).join(' ') || '-'}
                         </td>
                         <td className="py-2 px-2 text-gray-300 text-xs">
                           {[eq.storeCode, eq.storeName].filter(Boolean).join(' ') || '-'}

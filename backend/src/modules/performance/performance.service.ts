@@ -1261,12 +1261,12 @@ export class PerformanceService {
         storeCode: true,
         storeName: true,
         equipment: {
-          select: { id: true, category: true, brand: true, model: true, serialNumber: true },
+          select: { id: true, name: true, category: true, brand: true, model: true, serialNumber: true },
         },
       },
     });
 
-    const map = new Map<number, { equipmentId: number; category: string; brand: string; model: string; serialNumber: string; storeCode: string; storeName: string; count: number; lastIncidentAt: Date }>();
+    const map = new Map<number, { equipmentId: number; equipmentName: string; category: string; brand: string; model: string; serialNumber: string; storeCode: string; storeName: string; count: number; lastIncidentAt: Date }>();
     for (const inc of incidents) {
       if (!inc.equipmentId || !inc.equipment) continue;
       const cur = map.get(inc.equipmentId);
@@ -1280,6 +1280,7 @@ export class PerformanceService {
       } else {
         map.set(inc.equipmentId, {
           equipmentId: inc.equipmentId,
+          equipmentName: inc.equipment.name || '',
           category: inc.equipment.category || '',
           brand: inc.equipment.brand || '',
           model: inc.equipment.model || '',
