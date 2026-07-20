@@ -142,6 +142,8 @@ export default function IncidentsPage() {
   const [categories, setCategories] = useState<string[]>([])
   const [filterProvince, setFilterProvince] = useState<string>(() => readFilter('filterProvince', 'ALL'))
   const [provinces, setProvinces] = useState<string[]>([])
+  const [filterTechnicianId, setFilterTechnicianId] = useState<string>(() => readFilter('filterTechnicianId', 'ALL'))
+  const [technicians, setTechnicians] = useState<{ id: number; name: string }[]>([])
   const isSuperAdmin = useRef(false)
   const isPureTech = useRef(false)
   const currentUserId = useRef<number | null>(null)
@@ -153,10 +155,10 @@ export default function IncidentsPage() {
     try {
       localStorage.setItem(FILTER_KEY, JSON.stringify({
         searchTerm, filterStatus, filterCategory, filterProvince,
-        sortField, sortOrder, currentPage,
+        filterTechnicianId, sortField, sortOrder, currentPage,
       }))
     } catch {}
-  }, [searchTerm, filterStatus, filterCategory, filterProvince, sortField, sortOrder, currentPage])
+  }, [searchTerm, filterStatus, filterCategory, filterProvince, filterTechnicianId, sortField, sortOrder, currentPage])
 
   // Theme highlight color
   const [sortActiveBg, setSortActiveBg] = useState('#3b82f6')
@@ -183,7 +185,7 @@ export default function IncidentsPage() {
   // Reset page when filters change (not search — handled by debounce above)
   useEffect(() => {
     setCurrentPage(1)
-  }, [filterStatus, filterCategory, filterProvince, sortField, sortOrder])
+  }, [filterStatus, filterCategory, filterProvince, filterTechnicianId, sortField, sortOrder])
 
   // Mount: restore cache + kick off all fetches in parallel
   useEffect(() => {
@@ -213,6 +215,7 @@ export default function IncidentsPage() {
     fetchSlaConfigs()
     fetchCategories()
     fetchProvinces()
+    if (!isPureTech.current) fetchTechnicians()
   }, [])
 
   // Auto-poll every 30s (silent — no spinner) for real-time monitor display
@@ -229,7 +232,7 @@ export default function IncidentsPage() {
     if (isFirstRender.current) { isFirstRender.current = false; return }
     if (isSuperAdmin.current) { setIsLoading(false); return }
     fetchIncidents()
-  }, [currentPage, debouncedSearch, filterStatus, filterCategory, filterProvince, sortField, sortOrder])
+  }, [currentPage, debouncedSearch, filterStatus, filterCategory, filterProvince, filterTechnicianId, sortField, sortOrder])
 
   const buildParams = (overrides?: Record<string, any>) => {
     const params: Record<string, any> = {
@@ -256,6 +259,11 @@ export default function IncidentsPage() {
 
     if (filterCategory !== 'ALL') params.category = filterCategory
     if (filterProvince !== 'ALL') params.province = filterProvince
+
+    // Technician filter: only available to non-pure-technician users
+    if (!isPureTech.current && filterTechnicianId !== 'ALL') {
+      params.assigneeId = filterTechnicianId
+    }
 
     return { ...params, ...overrides }
   }
@@ -350,6 +358,20 @@ export default function IncidentsPage() {
         setProvinces(res.data)
         try { sessionStorage.setItem('provinces_cache', JSON.stringify(res.data)) } catch {}
       }
+    } catch {}
+  }
+
+  const fetchTechnicians = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/users?role=TECHNICIAN&status=ACTIVE`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const list = (res.data || []).map((u: any) => ({
+        id: u.id,
+        name: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim(),
+      }))
+      setTechnicians(list)
     } catch {}
   }
 
@@ -644,6 +666,15 @@ export default function IncidentsPage() {
               options={provinces}
               placeholder="All Province"
             />
+
+            {!isPureTech.current && technicians.length > 0 && (
+              <SearchableSelect
+                value={filterTechnicianId === 'ALL' ? 'ALL' : (technicians.find(t => String(t.id) === filterTechnicianId)?.name ?? 'ALL')}
+                onChange={(v) => setFilterTechnicianId(v === 'ALL' ? 'ALL' : String(technicians.find(t => t.name === v)?.id ?? 'ALL'))}
+                options={technicians.map(t => t.name)}
+                placeholder="All Technician"
+              />
+            )}
           </div>
         </div>
 

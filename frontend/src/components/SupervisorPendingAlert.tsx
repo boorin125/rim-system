@@ -43,9 +43,9 @@ const PRIORITY_COLORS: Record<string, { bg: string; text: string; border: string
 }
 const STATUS_LABELS: Record<string, string> = {
   OPEN: 'เปิด', ASSIGNED: 'มอบหมายแล้ว', IN_PROGRESS: 'กำลังดำเนินการ',
-  PENDING: 'รอดำเนินการ', RESOLVED: 'แก้ไขแล้ว', OUTSOURCED: 'Outsource',
+  PENDING: 'รอดำเนินการ', RESOLVED: 'รอยืนยันปิดงาน', OUTSOURCED: 'Outsource',
 }
-const ACTIVE_STATUSES = ['OPEN', 'ASSIGNED', 'IN_PROGRESS', 'PENDING', 'OUTSOURCED']
+const ACTIVE_STATUSES = ['OPEN', 'ASSIGNED', 'IN_PROGRESS', 'PENDING', 'OUTSOURCED', 'RESOLVED']
 
 export default function SupervisorPendingAlert({ userId, onDismiss }: Props) {
   const router = useRouter()
@@ -110,8 +110,11 @@ export default function SupervisorPendingAlert({ userId, onDismiss }: Props) {
     try {
       const token = localStorage.getItem('token')
       const response = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/incidents?limit=200&page=1`,
-        { headers: { Authorization: `Bearer ${token}` } }
+        `${process.env.NEXT_PUBLIC_API_URL}/incidents`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { statusGroup: 'PENDING', limit: 500, page: 1 },
+        }
       )
       const all: PendingIncident[] = response.data?.data || response.data || []
       const pending = all
