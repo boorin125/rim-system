@@ -583,6 +583,12 @@ export class PerformanceService {
     const slaPercent = slaRelevantCompleted.length > 0
       ? Math.round((slaPass / slaRelevantCompleted.length) * 10000) / 100
       : 0;
+    // jobs that failed SLA but were saved by an approved defense
+    const slaDefenseApproved = slaRelevantCompleted.filter(i => {
+      if (!i.slaDeadline || !i.resolvedAt) return false;
+      if (i.resolvedAt <= i.slaDeadline) return false;
+      return (i as any).slaDefenses?.some((d: any) => d.status === SlaDefenseStatus.APPROVED);
+    }).length;
 
     // Count by job type
     const byJobType: Record<string, number> = {};
@@ -604,6 +610,7 @@ export class PerformanceService {
       slaPass,
       slaFail,
       slaPercent,
+      slaDefenseApproved,
       byJobType,
     };
   }
@@ -613,7 +620,7 @@ export class PerformanceService {
    */
   async getSlaTrend(months = 12, jobTypes?: string[]) {
     const now = new Date();
-    const result: { period: string; slaPercent: number; total: number; slaPass: number; slaFail: number }[] = [];
+    const result: { period: string; slaPercent: number; total: number; slaPass: number; slaFail: number; slaDefenseApproved: number }[] = [];
 
     for (let i = months - 1; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -640,8 +647,13 @@ export class PerformanceService {
       }).length;
       const slaFail = total - slaPass;
       const slaPercent = total > 0 ? Math.round((slaPass / total) * 10000) / 100 : 0;
+      const slaDefenseApproved = relevant.filter(inc => {
+        if (!inc.slaDeadline || !inc.resolvedAt) return false;
+        if (inc.resolvedAt <= inc.slaDeadline) return false;
+        return (inc as any).slaDefenses?.some((d: any) => d.status === SlaDefenseStatus.APPROVED);
+      }).length;
 
-      result.push({ period, slaPercent, total, slaPass, slaFail });
+      result.push({ period, slaPercent, total, slaPass, slaFail, slaDefenseApproved });
     }
 
     return result;

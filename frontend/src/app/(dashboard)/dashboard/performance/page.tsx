@@ -182,6 +182,7 @@ interface IncidentStats {
   slaPass: number
   slaFail: number
   slaPercent: number
+  slaDefenseApproved: number
   byJobType?: Record<string, number>
 }
 
@@ -191,6 +192,7 @@ interface SlaTrendEntry {
   total: number
   slaPass: number
   slaFail: number
+  slaDefenseApproved?: number
 }
 
 interface TopStoreEntry {
@@ -848,8 +850,11 @@ export default function PerformancePage() {
             const prev = slaTrend.length >= 2 ? slaTrend[slaTrend.length - 2] : null
             const ytdSla = ytdEntries.length > 0 ? ytdEntries.reduce((s, d) => s + d.slaPercent, 0) / ytdEntries.length : null
             const ytdTotal = ytdEntries.reduce((s, d) => s + d.slaPass + d.slaFail, 0)
+            const ytdDefense = ytdEntries.reduce((s, d) => s + (d.slaDefenseApproved ?? 0), 0)
             const curSla = incidentStats?.slaPercent ?? cur.slaPercent
             const curTotal = incidentStats ? (incidentStats.slaPass + incidentStats.slaFail) : (cur.slaPass + cur.slaFail)
+            const curDefense = incidentStats?.slaDefenseApproved ?? (cur.slaDefenseApproved ?? 0)
+            const prevDefense = prev?.slaDefenseApproved ?? 0
             return (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 <SlaMetricCard
@@ -859,6 +864,7 @@ export default function PerformancePage() {
                   total={prev ? prev.slaPass + prev.slaFail : 0}
                   variant="previous"
                   slaByPriority={resolutionTimeStats?.prevSlaByPriority ?? undefined}
+                  defenseApproved={prevDefense}
                 />
                 <SlaMetricCard
                   icon={Activity} title="Current Month"
@@ -868,6 +874,7 @@ export default function PerformancePage() {
                   variant="current"
                   prevSla={prev ? prev.slaPercent : null}
                   slaByPriority={resolutionTimeStats?.slaByPriority}
+                  defenseApproved={curDefense}
                 />
                 <SlaMetricCard
                   icon={BarChart3} title="YTD"
@@ -875,6 +882,7 @@ export default function PerformancePage() {
                   slaPercent={ytdSla}
                   total={ytdTotal}
                   variant="yearly"
+                  defenseApproved={ytdDefense}
                 />
                 <ResolutionTimeCard data={resolutionTimeStats} />
               </div>
@@ -891,6 +899,7 @@ export default function PerformancePage() {
                     percent={incidentStats.slaPercent}
                     pass={incidentStats.slaPass}
                     total={incidentStats.slaPass + incidentStats.slaFail}
+                    defenseApproved={incidentStats.slaDefenseApproved ?? 0}
                   />
                 </div>
               )}
@@ -1978,6 +1987,7 @@ function SlaMetricCard({
   variant,
   prevSla,
   slaByPriority,
+  defenseApproved = 0,
 }: {
   icon: React.ElementType
   title: string
@@ -1987,6 +1997,7 @@ function SlaMetricCard({
   variant: 'previous' | 'current' | 'yearly'
   prevSla?: number | null
   slaByPriority?: SlaByPriorityItem[] | null
+  defenseApproved?: number
 }) {
   const pct = slaPercent ?? 0
   const slaColor = pct >= 95 ? 'text-emerald-400' : pct >= 80 ? 'text-yellow-400' : 'text-red-400'
@@ -2014,7 +2025,15 @@ function SlaMetricCard({
       <p className={`text-4xl font-bold ${slaPercent !== null ? slaColor : 'text-gray-600'}`}>
         {slaPercent !== null ? `${pct.toFixed(2)}%` : '-'}
       </p>
-      <p className="text-xs text-gray-500 mt-0.5 mb-1">SLA Compliance</p>
+      <div className="flex items-center gap-2 mt-0.5 mb-1">
+        <p className="text-xs text-gray-500">SLA Compliance</p>
+        {defenseApproved > 0 && (
+          <span className="flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/20">
+            <ShieldCheck className="w-2.5 h-2.5" />
+            {defenseApproved} defended
+          </span>
+        )}
+      </div>
 
       {/* Per-SLA breakdown rows */}
       {slaByPriority && slaByPriority.length > 0 ? (
@@ -2299,10 +2318,11 @@ function SlaLineChart({ data }: { data: SlaTrendEntry[] }) {
           {data.map((d, i) => {
             const cx = getX(i)
             const cy = getY(d.slaPercent)
+            const hasDefense = (d.slaDefenseApproved ?? 0) > 0
             const label = `${d.slaPercent}%`
             const labelAnchor = i === 0 ? 'start' : i === data.length - 1 ? 'end' : 'middle'
             const labelX = i === 0 ? cx + 4 : i === data.length - 1 ? cx - 4 : cx
-            const labelY = Math.max(cy - 28, 14)
+            const labelY = Math.max(cy - (hasDefense ? 42 : 28), 14)
             return (
               <g key={d.period}>
                 {/* % label */}
@@ -2310,10 +2330,24 @@ function SlaLineChart({ data }: { data: SlaTrendEntry[] }) {
                   fontSize="13" fontWeight="700">
                   {label}
                 </text>
+                {/* Defense badge — shield icon above dot */}
+                {hasDefense && (
+                  <g>
+                    <rect x={cx - 20} y={cy - 38} width={40} height={16} rx="8"
+                      fill="#f59e0b" opacity="0.9" />
+                    <text x={cx} y={cy - 27} textAnchor="middle" fill="#1c1917"
+                      fontSize="9" fontWeight="800">
+                      🛡 {d.slaDefenseApproved}
+                    </text>
+                  </g>
+                )}
                 {/* Dot glow */}
-                <circle cx={cx} cy={cy} r="9" fill={dotFill} opacity="0.15" />
+                <circle cx={cx} cy={cy} r="9" fill={hasDefense ? '#f59e0b' : dotFill} opacity="0.2" />
                 {/* Dot */}
-                <circle cx={cx} cy={cy} r="5.5" fill={dotFill} stroke={dotStroke} strokeWidth="2.5" />
+                <circle cx={cx} cy={cy} r="5.5"
+                  fill={hasDefense ? '#f59e0b' : dotFill}
+                  stroke={hasDefense ? '#78350f' : dotStroke}
+                  strokeWidth="2.5" />
                 {/* X axis label */}
                 <text x={cx} y={height - 8} textAnchor="middle" fill={axisTextColor} fontSize="13" fontWeight="500">
                   {fmtPeriod(d.period)}
@@ -2722,7 +2756,7 @@ function StatCard({ icon: Icon, label, value, color, className }: {
   )
 }
 
-function SlaGaugeCard({ percent, pass, total }: { percent: number; pass: number; total: number }) {
+function SlaGaugeCard({ percent, pass, total, defenseApproved = 0 }: { percent: number; pass: number; total: number; defenseApproved?: number }) {
   const [isDark, setIsDark] = useState(() =>
     typeof window === 'undefined' || !document.documentElement.classList.contains('light')
   )
@@ -2792,11 +2826,21 @@ function SlaGaugeCard({ percent, pass, total }: { percent: number; pass: number;
           </text>
         </svg>
 
-        {/* Stats row — Pass left, Total right */}
+        {/* Stats row */}
         <div className="w-full flex justify-between items-center px-1 mt-1">
           <div className="text-left">
             <p className="text-3xl font-bold text-emerald-400">{pass}</p>
             <p className="text-xs text-gray-500 uppercase tracking-wider">Pass</p>
+            {defenseApproved > 0 && (
+              <p className="text-xs text-amber-400 mt-0.5 flex items-center gap-1">
+                <ShieldCheck className="w-3 h-3" />
+                incl. {defenseApproved} defended
+              </p>
+            )}
+          </div>
+          <div className="text-center">
+            <p className="text-3xl font-bold text-red-400">{total - pass}</p>
+            <p className="text-xs text-gray-500 uppercase tracking-wider">Fail</p>
           </div>
           <div className="text-right">
             <p className="text-3xl font-bold text-gray-400">{total}</p>

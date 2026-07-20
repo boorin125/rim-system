@@ -328,6 +328,10 @@ const RELEASE_NOTES: {
     date: '2026-07-20',
     changes: [
       { type: 'improved', text: 'Maintenance Banner: ข้อความวิ่งจากขวาไปซ้ายอัตโนมัติ (Marquee) แทนการแสดงข้อความตัดคำ' },
+      { type: 'improved', text: 'Performance: SLA Achievement Card แสดงจำนวนงานที่ผ่าน SLA จากการ Defense แยกออกมา (incl. X defended)' },
+      { type: 'improved', text: 'Performance: กราฟ Monthly SLA Compliance แสดง Badge สีทองบนเดือนที่มีการ Defense อนุมัติ' },
+      { type: 'improved', text: 'Performance: Card Previous/Current/YTD แสดง Badge จำนวน Defense ที่อนุมัติแล้ว' },
+      { type: 'fixed',    text: 'SLA Defense: ทุกสถิติ SLA ในระบบ (Performance, Reports, Dashboard) นับงานที่ได้รับอนุมัติ Defense เป็นผ่าน SLA แล้ว' },
     ],
   },
   {

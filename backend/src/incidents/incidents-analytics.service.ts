@@ -211,32 +211,35 @@ export class IncidentsAnalyticsService {
   async getSlaPerformance(user: any, from?: string, to?: string) {
     const where = this.buildWhereClause(user, from, to);
 
-    const [total, metSla, breachedSla, averageResolutionTime] = await Promise.all([
-      this.prisma.incident.count({ where }),
-      this.prisma.incident.count({
-        where: {
-          ...where,
-          resolvedAt: { not: null },
-          OR: [
-            { slaDeadline: null },
-            {
-              AND: [
-                { slaDeadline: { not: null } },
-                { resolvedAt: { lte: this.prisma.incident.fields.slaDeadline } },
-              ],
-            },
-          ],
-        },
-      }),
-      this.prisma.incident.count({
-        where: {
-          ...where,
-          slaDeadline: { not: null },
-          resolvedAt: { not: null, gt: this.prisma.incident.fields.slaDeadline },
+    const [allIncidents, averageResolutionTime] = await Promise.all([
+      this.prisma.incident.findMany({
+        where: { ...where, resolvedAt: { not: null } },
+        select: {
+          jobType: true,
+          slaDeadline: true,
+          resolvedAt: true,
+          slaDefenses: { select: { status: true } },
         },
       }),
       this.calculateAverageResolutionTime(where),
     ]);
+
+    const total = await this.prisma.incident.count({ where });
+
+    // SLA pass: no deadline, Adhoc, resolved on time, OR approved defense
+    const metSla = allIncidents.filter((i) => {
+      if (!i.slaDeadline) return true;
+      if (i.jobType === 'Adhoc') return true;
+      if (i.resolvedAt && i.resolvedAt <= i.slaDeadline) return true;
+      return (i as any).slaDefenses?.some((d: any) => d.status === SlaDefenseStatus.APPROVED);
+    }).length;
+
+    // SLA breach: had deadline, resolved late, and no approved defense
+    const breachedSla = allIncidents.filter((i) => {
+      if (!i.slaDeadline || !i.resolvedAt) return false;
+      if (i.resolvedAt <= i.slaDeadline) return false;
+      return !(i as any).slaDefenses?.some((d: any) => d.status === SlaDefenseStatus.APPROVED);
+    }).length;
 
     return {
       total,
