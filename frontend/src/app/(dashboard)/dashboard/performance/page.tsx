@@ -1873,57 +1873,47 @@ function TopStoresTwoColumn({
   stores: TopStoreEntry[]
   onStoreClick?: (store: TopStoreEntry) => void
 }) {
-  if (stores.length === 0) return null
+  // Only show stores with more than 1 incident
+  const filtered = stores.filter(s => s.count > 1)
 
-  // Assign ranks with ties (standard competition ranking)
-  const maxCount = stores[0]?.count ?? 0
-  const ranked = stores.map(s => ({
-    ...s,
-    rank: stores.filter(o => o.count > s.count).length + 1,
-  }))
-
-  const left = ranked.slice(0, 10)
-  const right = ranked.slice(10, 20)
-  const maxVal = Math.max(...ranked.map(s => s.count), 1)
-
-  const Row = ({ s, highlight }: { s: typeof ranked[0]; highlight?: boolean }) => (
-    <div
-      key={s.storeId}
-      onClick={() => onStoreClick?.(s)}
-      className={`flex items-center gap-2 py-1.5 px-2 rounded-lg transition cursor-pointer hover:bg-slate-700/40 ${highlight ? 'bg-amber-500/5' : ''}`}
-    >
-      <span className={`text-xs font-bold w-5 text-center flex-shrink-0 ${s.rank === 1 ? 'text-amber-400' : 'text-gray-500'}`}>
-        {s.rank}
-      </span>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between gap-1 mb-0.5">
-          <span className="text-xs text-blue-400 truncate hover:underline leading-tight">
-            {s.storeCode} {s.storeName}
-          </span>
-          <span className="text-xs font-bold text-white flex-shrink-0">{s.count}</span>
-        </div>
-        <div className="w-full h-1.5 bg-slate-700 rounded-full overflow-hidden">
-          <div
-            className="h-full rounded-full transition-all"
-            style={{
-              width: `${(s.count / maxVal) * 100}%`,
-              backgroundColor: s.rank === 1 ? '#f59e0b' : '#3b82f6',
-              opacity: 0.8,
-            }}
-          />
-        </div>
-      </div>
+  if (filtered.length === 0) return (
+    <div className="flex flex-col items-center justify-center py-10 gap-2 text-gray-500">
+      <ClipboardList className="w-8 h-8 opacity-30" />
+      <p className="text-sm">ไม่มีร้านที่มีงานมากกว่า 1 งานในช่วงเวลานี้</p>
     </div>
   )
 
+  const left = filtered.slice(0, 10)
+  const right = filtered.slice(10, 20)
+
+  const toChartData = (items: TopStoreEntry[]) =>
+    items.map(s => ({
+      label: `${s.storeCode} ${s.storeName}`,
+      value: s.count,
+      resolved: s.resolved ?? 0,
+      id: s.storeId,
+    }))
+
   return (
-    <div className="grid grid-cols-2 gap-x-3 gap-y-0">
-      <div className="space-y-0.5">
-        {left.map(s => <Row key={s.storeId} s={s} highlight={s.rank === 1} />)}
-      </div>
-      <div className="space-y-0.5">
-        {right.map(s => <Row key={s.storeId} s={s} />)}
-      </div>
+    <div className={`grid gap-x-4 ${right.length > 0 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+      <HorizontalBarChart
+        data={toChartData(left)}
+        color="#3b82f6"
+        onRowClick={onStoreClick ? (item) => {
+          const store = left.find(s => s.storeId === item.id)
+          if (store) onStoreClick(store)
+        } : undefined}
+      />
+      {right.length > 0 && (
+        <HorizontalBarChart
+          data={toChartData(right)}
+          color="#3b82f6"
+          onRowClick={onStoreClick ? (item) => {
+            const store = right.find(s => s.storeId === item.id)
+            if (store) onStoreClick(store)
+          } : undefined}
+        />
+      )}
     </div>
   )
 }
