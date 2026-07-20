@@ -16,9 +16,10 @@ import { AuditTrailModule } from '../modules/audit-trail/audit-trail.module';
 import { RatingsModule } from '../modules/ratings/ratings.module';
 import { PmModule } from '../modules/pm/pm.module';
 import { LicenseModule } from '../modules/license/license.module';
+import { PerformanceModule } from '../modules/performance/performance.module';
 
 @Module({
-  imports: [PrismaModule, NotificationsModule, EmailModule, SlaModule, SettingsModule, AuditTrailModule, RatingsModule, PmModule, LicenseModule],
+  imports: [PrismaModule, NotificationsModule, EmailModule, SlaModule, SettingsModule, AuditTrailModule, RatingsModule, PmModule, LicenseModule, PerformanceModule],
   providers: [IncidentsService, IncidentHistoryService, SlaMonitorService, IncidentsAnalyticsService],
   controllers: [IncidentsController, IncidentsAnalyticsController, IncidentsPublicController, ServiceReportPublicController],
   exports: [IncidentHistoryService],

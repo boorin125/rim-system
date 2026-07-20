@@ -19,6 +19,7 @@ import { SettingsService } from '../settings/settings.service';
 import { AuditTrailService } from '../modules/audit-trail/audit-trail.service';
 import { RatingsService } from '../modules/ratings/ratings.service';
 import { PmService } from '../modules/pm/pm.service';
+import { PerformanceService } from '../modules/performance/performance.service';
 import { addWatermark } from '../utils/image-watermark';
 import { saveBase64Files } from '../utils/file-storage';
 import * as fs from 'fs/promises';
@@ -36,6 +37,7 @@ export class IncidentsService {
     private auditTrailService: AuditTrailService,
     private ratingsService: RatingsService,
     private pmService: PmService,
+    private performanceService: PerformanceService,
   ) {}
 
   /**
@@ -4357,7 +4359,7 @@ export class IncidentsService {
     const defense = await this.prisma.slaDefense.findUnique({
       where: { id: defenseId },
       include: {
-        incident: { select: { id: true, ticketNumber: true, title: true } },
+        incident: { select: { id: true, ticketNumber: true, title: true, createdAt: true } },
         technician: { select: { id: true, firstName: true, lastName: true } },
       },
     });
@@ -4393,6 +4395,15 @@ export class IncidentsService {
       `${defense.incident.ticketNumber} - ${defense.incident.title} : คำขอ Defend SLA ${resultText}${reviewNote ? ` (${reviewNote})` : ''}`,
       defense.incidentId,
     );
+
+    // Recalculate technician performance score so the leaderboard reflects the defense decision
+    try {
+      const d = defense.incident.createdAt;
+      const period = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      await this.performanceService.calculatePerformance(defense.technicianId, period);
+    } catch (_) {
+      // Non-critical — score will be recalculated on next manual trigger
+    }
 
     return updated;
   }
