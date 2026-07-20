@@ -324,6 +324,13 @@ const RELEASE_NOTES: {
   changes: { type: 'new' | 'improved' | 'fixed'; text: string }[]
 }[] = [
   {
+    version: '1.0.23',
+    date: '2026-07-20',
+    changes: [
+      { type: 'fixed', text: 'SLA Defense: อนุมัติ/ปฏิเสธ Defense แล้ว คะแนน Technician Leaderboard อัพเดตทันที (ไม่ต้อง Recalculate มือ)' },
+    ],
+  },
+  {
     version: '1.0.22',
     date: '2026-07-20',
     changes: [
