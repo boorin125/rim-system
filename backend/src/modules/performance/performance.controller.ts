@@ -351,9 +351,10 @@ export class PerformanceController {
     @Query('jobTypes') jobTypes?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
+    @Query('allTime') allTime?: string,
   ) {
     const parsed = jobTypes ? jobTypes.split(',').map(s => s.trim()).filter(Boolean) : undefined;
-    return this.performanceService.getEquipmentRepeatIncidents(period, parsed, from, to);
+    return this.performanceService.getEquipmentRepeatIncidents(period, parsed, from, to, allTime === 'true');
   }
 
   /** Equipment Name+Store incident detail */

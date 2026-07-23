@@ -278,6 +278,9 @@ export class OutsourceService {
           },
         });
 
+        // Reset check-in state before assigning outsource tech
+        await this.resetIncidentCheckInState(job.incidentId);
+
         // Update incident
         await this.prisma.incident.update({
           where: { id: job.incidentId },
@@ -966,6 +969,9 @@ export class OutsourceService {
         },
       },
     });
+
+    // Reset check-in state before assigning outsource tech
+    await this.resetIncidentCheckInState(job.incidentId);
 
     // Assign technician to the incident (same as insource)
     await this.prisma.incident.update({
@@ -1679,10 +1685,11 @@ export class OutsourceService {
       },
     });
 
-    // Revert incident status back to OPEN
+    // Reset incident: clear all assignee + check-in data, revert to OPEN
+    await this.resetIncidentCheckInState(job.incidentId);
     await this.prisma.incident.update({
       where: { id: job.incidentId },
-      data: { status: 'OPEN' },
+      data: { status: 'OPEN', assigneeId: null },
     });
 
     // Notify the requester (Supervisor who requested the cancellation)
@@ -1698,6 +1705,14 @@ export class OutsourceService {
     }
 
     return updatedJob;
+  }
+
+  private async resetIncidentCheckInState(incidentId: string) {
+    await this.prisma.incidentAssignee.deleteMany({ where: { incidentId } });
+    await this.prisma.incident.update({
+      where: { id: incidentId },
+      data: { checkInAt: null, checkInLatitude: null, checkInLongitude: null },
+    });
   }
 
   /**

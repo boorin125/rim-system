@@ -539,7 +539,7 @@ export default function PerformancePage() {
           axios.get(`${api}/performance/top-equipment?allTime=true&limit=10${jtParam}`, cfg).catch(() => null),
           axios.get(`${api}/performance/resolution-time?from=${dateFrom}&to=${dateTo}${jtParam}`, cfg).catch(() => null),
           axios.get(`${api}/performance/top-active-equipment?from=${dateFrom}&to=${dateTo}&limit=10${jtParam}`, cfg).catch(() => null),
-          axios.get(`${api}/performance/equipment-repeat?from=${dateFrom}&to=${dateTo}${jtParam}`, cfg).catch(() => null),
+          axios.get(`${api}/performance/equipment-repeat?allTime=true${jtParam}`, cfg).catch(() => null),
           axios.get(`${api}/performance/helpdesk-stats?from=${dateFrom}&to=${dateTo}${jtParam}`, cfg).catch(() => null),
           axios.get(`${api}/performance/helpdesk-leaderboard?from=${dateFrom}&to=${dateTo}${jtParam}`, cfg).catch(() => null),
         ]
@@ -1058,11 +1058,12 @@ export default function PerformancePage() {
             <h3 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-orange-400" />
               Equipment Duplicate Problems
+              <span className="ml-auto text-xs font-normal text-gray-400">(ทั้งเวลา — Active เท่านั้น)</span>
             </h3>
             {repeatEquipment.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 gap-2 text-gray-500">
                 <AlertTriangle className="w-8 h-8 opacity-30" />
-                <p className="text-sm">ไม่พบอุปกรณ์ที่แจ้งซ่อมซ้ำเกินเกณฑ์ในช่วงเวลานี้</p>
+                <p className="text-sm">ไม่พบอุปกรณ์ที่แจ้งซ่อมซ้ำ ≥ 3 ครั้ง</p>
               </div>
             ) : (
               <div className="overflow-x-auto">

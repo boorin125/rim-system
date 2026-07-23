@@ -1734,6 +1734,9 @@ model IncidentWorkRound {
   afterPhotos        String[] @default([]) @map("after_photos")
   signedReportPhotos String[] @default([]) @map("signed_report_photos")
 
+  progressNote   String?   @map("progress_note")
+  progressNoteAt DateTime? @map("progress_note_at")
+
   createdAt DateTime @default(now()) @map("created_at")
 
   incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)

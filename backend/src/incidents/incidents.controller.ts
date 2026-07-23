@@ -184,6 +184,22 @@ export class IncidentsController {
     return this.incidentsService.getWorkRounds(id);
   }
 
+  @Post(':id/start-next-round')
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK)
+  startNextRound(@Param('id') id: string, @Request() req: any) {
+    return this.incidentsService.startNextRound(id, req.user.id);
+  }
+
+  @Patch(':id/update-progress')
+  @Roles(UserRole.TECHNICIAN)
+  updateWorkProgress(
+    @Param('id') id: string,
+    @Body('progressNote') progressNote: string,
+    @Request() req: any,
+  ) {
+    return this.incidentsService.updateWorkProgress(id, req.user.id, progressNote);
+  }
+
   @Get(':id')
   @Roles(
     UserRole.IT_MANAGER,

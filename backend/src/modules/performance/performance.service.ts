@@ -1339,15 +1339,15 @@ export class PerformanceService {
   // ──────────────────────────────────────────────────
   // BOX 2: Equipment Name in Store with >2 Incidents
   // ──────────────────────────────────────────────────
-  async getEquipmentRepeatIncidents(period?: string, jobTypes?: string[], from?: string, to?: string) {
+  async getEquipmentRepeatIncidents(period?: string, jobTypes?: string[], from?: string, to?: string, allTime?: boolean) {
     const { startDate, endDate } = this.getDateRange(period, from, to);
 
     const incidents = await this.prisma.incident.findMany({
       where: {
-        createdAt: { gte: startDate, lte: endDate },
+        ...(allTime ? {} : { createdAt: { gte: startDate, lte: endDate } }),
         equipmentId: { not: null },
         equipment: { status: 'ACTIVE' },
-        resolvedAt: { not: null },
+        status: { notIn: ['CANCELLED'] },
         ...(jobTypes?.length ? { jobType: { in: jobTypes } } : {}),
       },
       select: {

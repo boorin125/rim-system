@@ -1987,6 +1987,57 @@ export class IncidentsService {
     return rounds;
   }
 
+  async startNextRound(id: string, userId: number) {
+    const incident = await this.prisma.incident.findFirst({ where: { id } });
+    if (!incident) throw new NotFoundException(`ไม่พบ Incident ${id}`);
+    if (incident.status !== IncidentStatus.IN_PROGRESS) {
+      throw new BadRequestException('สามารถเริ่มรอบใหม่ได้เฉพาะ Incident ที่อยู่ระหว่างดำเนินการเท่านั้น');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      // Increment reopenCount → new roundNumber
+      await tx.incident.update({
+        where: { id },
+        data: {
+          status: IncidentStatus.ASSIGNED,
+          reopenCount: { increment: 1 },
+          checkInAt: null,
+          checkInLatitude: null,
+          checkInLongitude: null,
+          updatedAt: new Date(),
+        },
+      });
+      // Clear checkedInAt for all current assignees so they can check-in again
+      await tx.incidentAssignee.updateMany({
+        where: { incidentId: id },
+        data: { checkedInAt: null, checkInLatitude: null, checkInLongitude: null },
+      });
+    });
+
+    return this.findOne(id, userId);
+  }
+
+  async updateWorkProgress(id: string, userId: number, progressNote: string) {
+    const incident = await this.prisma.incident.findFirst({ where: { id } });
+    if (!incident) throw new NotFoundException(`ไม่พบ Incident ${id}`);
+    if (incident.status !== IncidentStatus.IN_PROGRESS) {
+      throw new BadRequestException('สามารถบันทึกความคืบหน้าได้เฉพาะ Incident ที่อยู่ระหว่างดำเนินการ');
+    }
+    const isAssigned = await this.isAssignedToIncident(id, userId);
+    if (!isAssigned && incident.assigneeId !== userId) {
+      throw new ForbiddenException('เฉพาะช่างที่รับผิดชอบงานนี้เท่านั้น');
+    }
+
+    const roundNumber = (incident.reopenCount ?? 0) + 1;
+    await this.prisma.incidentWorkRound.upsert({
+      where: { incidentId_roundNumber: { incidentId: id, roundNumber } },
+      create: { incidentId: id, roundNumber, technicianId: userId, progressNote, progressNoteAt: new Date() },
+      update: { progressNote, progressNoteAt: new Date() },
+    });
+
+    return { success: true };
+  }
+
   async reopen(id: string, reopenReason: string, assignTo: number | undefined, userId: number, reopenReportedAt?: string) {
     const original = await this.prisma.incident.findFirst({
       where: { id },
@@ -2328,12 +2379,13 @@ export class IncidentsService {
       );
     }
 
-    // Check if this user already checked in
-    const myAssignment = await this.prisma.incidentAssignee.findUnique({
-      where: { incidentId_userId: { incidentId: id, userId } },
+    // Check if already checked in for CURRENT round (not all-time)
+    const currentRoundNumber = (incident.reopenCount ?? 0) + 1;
+    const currentRound = await this.prisma.incidentWorkRound.findUnique({
+      where: { incidentId_roundNumber: { incidentId: id, roundNumber: currentRoundNumber } },
     });
-    if (myAssignment?.checkedInAt) {
-      throw new BadRequestException('คุณได้ Check-in ไปแล้ว');
+    if (currentRound?.checkInAt) {
+      throw new BadRequestException('คุณได้ Check-in ในรอบนี้ไปแล้ว');
     }
 
     // Validate max 5 photos
