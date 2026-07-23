@@ -4,11 +4,13 @@ import { X, Upload, Trash2, Camera, Mic, MicOff, FileText, CheckCircle, FlipHori
 import SparePartEntryModal from './SparePartEntryModal';
 import { compressImages } from '@/utils/imageUtils';
 import CropModal from './CropModal';
+import axios from 'axios';
 
 interface ResolveIncidentModalProps {
   isOpen: boolean;
   onClose: () => void;
   onResolve: (data: ResolveIncidentData) => Promise<void>;
+  onProgressSaved?: () => void;  // callback after save-progress-and-reopen
   incidentId: string;
   storeId?: number;
   incidentEquipmentIds?: number[];
@@ -66,6 +68,7 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
   isOpen,
   onClose,
   onResolve,
+  onProgressSaved,
   incidentId,
   storeId,
   incidentEquipmentIds,
@@ -81,6 +84,7 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
   const [sparePartEntryOpen, setSparePartEntryOpen] = useState(false);
   const [editingPart, setEditingPart] = useState<SparePart | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSavingProgress, setIsSavingProgress] = useState(false);
   const [error, setError] = useState('');
 
   // Signed SR photos
@@ -319,6 +323,66 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
     URL.revokeObjectURL(previewUrls[index]);
     setAfterPhotos(prev => prev.filter((_, i) => i !== index));
     setPreviewUrls(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Handle save-progress-and-reopen
+  const handleSaveProgress = async () => {
+    if (isListening && recognitionRef.current) { recognitionRef.current.stop(); setIsListening(false); }
+    if (!resolutionNote.trim() && !usedSpareParts) {
+      setError('กรุณากรอกรายละเอียดหรือระบุ Spare Parts');
+      contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    if (usedSpareParts && spareParts.length === 0) {
+      setError('กรุณาเพิ่มรายการ Spare Parts อย่างน้อย 1 รายการ');
+      return;
+    }
+    if (usedSpareParts) {
+      for (let i = 0; i < spareParts.length; i++) {
+        const part = spareParts[i];
+        if (part.repairType === 'COMPONENT_REPLACEMENT') {
+          if (!part.parentEquipmentId && !part.parentEquipmentName?.trim()) { setError(`อะไหล่ #${i + 1}: กรุณาเลือกอุปกรณ์หลัก`); return; }
+          if (!part.componentName?.trim()) { setError(`อะไหล่ #${i + 1}: กรุณาระบุชื่อชิ้นส่วน`); return; }
+          if (!part.oldComponentSerial?.trim()) { setError(`อะไหล่ #${i + 1}: กรุณาระบุ Serial เดิม`); return; }
+          if (!part.newComponentSerial?.trim()) { setError(`อะไหล่ #${i + 1}: กรุณาระบุ Serial ใหม่`); return; }
+        } else {
+          if (!part.oldDeviceName?.trim()) { setError(`อะไหล่ #${i + 1}: กรุณาระบุชื่ออุปกรณ์เดิม`); return; }
+          if (!part.oldSerialNo?.trim()) { setError(`อะไหล่ #${i + 1}: กรุณาระบุ Serial No. เดิม`); return; }
+          const effectiveNewName = [part.newBrand, part.newModel].filter(Boolean).join(' ') || part.newDeviceName;
+          if (!effectiveNewName?.trim()) { setError(`อะไหล่ #${i + 1}: กรุณาระบุชื่ออุปกรณ์ใหม่`); return; }
+          if (!part.newSerialNo?.trim()) { setError(`อะไหล่ #${i + 1}: กรุณาระบุ Serial No. ใหม่`); return; }
+          if (!part.replacementType) { setError(`อะไหล่ #${i + 1}: กรุณาเลือกประเภทการเปลี่ยน (ถาวร/ชั่วคราว)`); return; }
+        }
+      }
+    }
+
+    setIsSavingProgress(true);
+    setError('');
+    try {
+      let sparePartsData: any[] | undefined;
+      if (usedSpareParts && spareParts.length > 0) {
+        sparePartsData = spareParts.map((part) => {
+          if (part.repairType === 'COMPONENT_REPLACEMENT') {
+            return { repairType: part.repairType, componentName: part.componentName, oldComponentSerial: part.oldComponentSerial, newComponentSerial: part.newComponentSerial, parentEquipmentId: part.parentEquipmentId || undefined, notes: part.notes || undefined };
+          }
+          const newDeviceName = [part.newBrand, part.newModel].filter(Boolean).join(' ') || part.newDeviceName;
+          return { repairType: part.repairType, oldDeviceName: part.oldDeviceName, oldSerialNo: part.oldSerialNo, oldEquipmentId: part.oldEquipmentId || undefined, newDeviceName, newSerialNo: part.newSerialNo, newBrand: part.newBrand || undefined, newModel: part.newModel || undefined, newEquipmentId: part.newEquipmentId || undefined, replacementType: part.replacementType || undefined, notes: part.notes || undefined };
+        });
+      }
+      const token = localStorage.getItem('token');
+      await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/incidents/${incidentId}/save-progress-and-reopen`,
+        { resolutionNote: resolutionNote.trim(), usedSpareParts, spareParts: sparePartsData },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      handleClose();
+      onProgressSaved?.();
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || 'บันทึกไม่สำเร็จ';
+      setError(Array.isArray(msg) ? msg.join(', ') : msg);
+    } finally {
+      setIsSavingProgress(false);
+    }
   };
 
   // Handle submit
@@ -808,14 +872,27 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
         <div className="shrink-0 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 sm:gap-3 px-4 py-3 sm:p-6 border-t border-slate-700/50 bg-slate-800/30">
           <button
             onClick={handleClose}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isSavingProgress}
             className="w-full sm:w-auto px-6 py-3 sm:py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl sm:rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
           >
             ยกเลิก
           </button>
+          {onProgressSaved && (
+            <button
+              onClick={handleSaveProgress}
+              disabled={isSubmitting || isSavingProgress}
+              className="w-full sm:w-auto px-6 py-3 sm:py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl sm:rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm font-medium"
+            >
+              {isSavingProgress ? (
+                <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /><span>กำลังบันทึก...</span></>
+              ) : (
+                <span>บันทึกความคืบหน้า</span>
+              )}
+            </button>
+          )}
           <button
             onClick={handleSubmit}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isSavingProgress}
             className="w-full sm:w-auto px-6 py-3 sm:py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl sm:rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm font-medium"
           >
             {isSubmitting ? (

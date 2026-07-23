@@ -2150,6 +2150,99 @@ export class IncidentsService {
     return { success: true };
   }
 
+  async saveProgressAndReopen(id: string, userId: number, dto: SaveRoundProgressDto) {
+    const incident = await this.prisma.incident.findFirst({ where: { id } });
+    if (!incident) throw new NotFoundException(`ไม่พบ Incident ${id}`);
+    if (incident.status !== IncidentStatus.IN_PROGRESS) {
+      throw new BadRequestException('สามารถบันทึกความคืบหน้าได้เฉพาะ Incident ที่อยู่ระหว่างดำเนินการ');
+    }
+    const isAssigned = await this.isAssignedToIncident(id, userId);
+    if (!isAssigned && incident.assigneeId !== userId) {
+      throw new ForbiddenException('เฉพาะช่างที่รับผิดชอบงานนี้เท่านั้น');
+    }
+
+    const roundNumber = (incident.reopenCount ?? 0) + 1;
+    const currentRound = await this.prisma.incidentWorkRound.findUnique({
+      where: { incidentId_roundNumber: { incidentId: id, roundNumber } },
+    });
+    if (!currentRound?.checkInAt) {
+      throw new BadRequestException('ต้อง Check-In ก่อนบันทึกความคืบหน้า');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      // 1. Save progress note to WorkRound
+      await tx.incidentWorkRound.upsert({
+        where: { incidentId_roundNumber: { incidentId: id, roundNumber } },
+        create: { incidentId: id, roundNumber, technicianId: userId, progressNote: dto.resolutionNote || 'SAVED', progressNoteAt: new Date() },
+        update: { progressNote: dto.resolutionNote || 'SAVED', progressNoteAt: new Date() },
+      });
+
+      // 2. Save spare parts for this round
+      await tx.sparePart.deleteMany({ where: { incidentId: id, roundNumber } });
+      if (dto.usedSpareParts && dto.spareParts?.length) {
+        const transformed = this.transformSparePartsData(dto.spareParts);
+        for (let i = 0; i < dto.spareParts.length; i++) {
+          const orig = dto.spareParts[i];
+          const t = transformed[i];
+          await tx.sparePart.create({
+            data: {
+              incidentId: id,
+              roundNumber,
+              repairType: (t.repairType as RepairType) || RepairType.EQUIPMENT_REPLACEMENT,
+              deviceName: t.deviceName,
+              oldSerialNo: t.oldSerialNo,
+              newSerialNo: t.newSerialNo,
+              newBrand: orig.newBrand || null,
+              newModel: orig.newModel || null,
+              notes: t.notes,
+              oldEquipmentId: orig.oldEquipmentId || null,
+              newEquipmentId: orig.newEquipmentId || null,
+              componentName: t.componentName || null,
+              oldComponentSerial: t.oldComponentSerial || null,
+              newComponentSerial: t.newComponentSerial || null,
+              parentEquipmentId: orig.parentEquipmentId || null,
+            },
+          });
+        }
+      }
+
+      // 3. Mark OutsourceJob COMPLETED for this round if applicable
+      const techUser = await tx.user.findUnique({ where: { id: userId }, select: { technicianType: true } });
+      if (techUser?.technicianType === 'OUTSOURCE') {
+        await tx.outsourceJob.updateMany({
+          where: { incidentId: id, roundNumber, awardedToId: userId, status: 'IN_PROGRESS' },
+          data: { status: 'COMPLETED', completedAt: new Date() },
+        });
+      }
+
+      // 4. Reopen: reset to OPEN, increment reopenCount, clear checkIn
+      await tx.incident.update({
+        where: { id },
+        data: {
+          status: IncidentStatus.OPEN,
+          reopenCount: { increment: 1 },
+          checkInAt: null,
+          checkInLatitude: null,
+          checkInLongitude: null,
+          usedSpareParts: dto.usedSpareParts ? true : incident.usedSpareParts,
+          updatedAt: new Date(),
+        },
+      });
+      await tx.incidentAssignee.updateMany({
+        where: { incidentId: id },
+        data: { checkedInAt: null, checkInLatitude: null, checkInLongitude: null },
+      });
+
+      await this.historyService.createHistory(
+        id, IncidentAction.UPDATED, userId,
+        IncidentStatus.IN_PROGRESS, IncidentStatus.OPEN,
+        `บันทึกความคืบหน้ารอบที่ ${roundNumber} และเปิดรอบซ่อมใหม่${dto.usedSpareParts && dto.spareParts?.length ? ` (Spare Parts ${dto.spareParts.length} รายการ)` : ''}`,
+      );
+    });
+
+    return this.findOne(id, userId);
+  }
+
   async reopen(id: string, reopenReason: string, assignTo: number | undefined, userId: number, reopenReportedAt?: string) {
     const original = await this.prisma.incident.findFirst({
       where: { id },

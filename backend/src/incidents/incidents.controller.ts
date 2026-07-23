@@ -200,6 +200,16 @@ export class IncidentsController {
     return this.incidentsService.saveRoundProgress(id, req.user.id, dto);
   }
 
+  @Post(':id/save-progress-and-reopen')
+  @Roles(UserRole.TECHNICIAN)
+  saveProgressAndReopen(
+    @Param('id') id: string,
+    @Body() dto: SaveRoundProgressDto,
+    @Request() req: any,
+  ) {
+    return this.incidentsService.saveProgressAndReopen(id, req.user.id, dto);
+  }
+
   @Get(':id')
   @Roles(
     UserRole.IT_MANAGER,

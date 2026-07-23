@@ -38,7 +38,6 @@ import {
   ChevronRight,
   ArrowRightLeft,
   Cpu,
-  RefreshCcw,
 } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
@@ -55,7 +54,6 @@ import UpdateResolveModal from '@/components/UpdateResolveModal'
 import ConfirmCloseModal from '@/components/ConfirmCloseModal'
 import ReopenIncidentModal from '@/components/ReopenIncidentModal'
 import AddBeforePhotosModal from '@/components/AddBeforePhotosModal'
-import SaveRoundProgressModal from '@/components/SaveRoundProgressModal'
 import CommentSection from '@/components/CommentSection'
 import IncidentTimeline from '@/components/IncidentTimeline'
 import PhotoViewerModal from '@/components/PhotoViewerModal'
@@ -132,9 +130,6 @@ export default function IncidentDetailPage() {
   const [kbCategoryId, setKbCategoryId] = useState<number | null>(null)
   const [selectedKbArticle, setSelectedKbArticle] = useState<any>(null)
   const [showKbArticleModal, setShowKbArticleModal] = useState(false)
-  const [showSaveRoundModal, setShowSaveRoundModal] = useState(false)
-  const [showNextRoundConfirm, setShowNextRoundConfirm] = useState(false)
-  const [nextRoundSubmitting, setNextRoundSubmitting] = useState(false)
 
   useEffect(() => {
     // Get current user
@@ -540,28 +535,6 @@ export default function IncidentDetailPage() {
    * Handle Resolve Incident
    * IN_PROGRESS → RESOLVED
    */
-  const handleSaveRoundProgressDone = () => {
-    fetchIncident()
-  }
-
-  const handleStartNextRound = async () => {
-    setNextRoundSubmitting(true)
-    try {
-      const token = localStorage.getItem('token')
-      await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/incidents/${params.id}/start-next-round`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } },
-      )
-      setShowNextRoundConfirm(false)
-      fetchIncident()
-    } catch (err: any) {
-      alert(err?.response?.data?.message || 'เริ่มรอบซ่อมใหม่ไม่สำเร็จ')
-    } finally {
-      setNextRoundSubmitting(false)
-    }
-  }
-
   const handleResolve = async (data: any) => {
     try {
       const token = localStorage.getItem('token')
@@ -1168,30 +1141,16 @@ SLA Breach Time: ${slaBreachText}`
     isAssignedToMe &&
     !hasCheckedIn
 
-  // Resolve - TECHNICIAN ที่ถูก assign คนไหนก็ resolve ได้
+  // Resolve - TECHNICIAN ที่ถูก assign
   const isPmIncident = incident?.jobType === 'Preventive Maintenance'
   const pmSigned = !!pmStoreSignedAt || pmSignedDocsCount > 0
-  const currentRoundHasProgressNote = !!currentWorkRound?.progressNote
 
   const canResolve =
     incident?.status === 'IN_PROGRESS' &&
     hasTechnicianRole &&
     isAssignedToMe &&
-    !currentRoundHasProgressNote &&  // Option B: blocked until Supervisor starts next round
+    hasCheckedIn &&
     (!isPmIncident || (!!pmPerformedAt && pmSigned))  // PM: must Submit PM + sign/upload doc
-
-  // บันทึกความคืบหน้า — Tech ที่ assigned + IN_PROGRESS + check-in แล้ว
-  const canUpdateProgress =
-    incident?.status === 'IN_PROGRESS' &&
-    hasTechnicianRole &&
-    isAssignedToMe &&
-    hasCheckedIn
-
-  // เริ่มรอบซ่อมใหม่ — Supervisor / IT Manager / HelpDesk + IN_PROGRESS + Tech ต้องบันทึกความคืบหน้าก่อน
-  const canStartNextRound =
-    incident?.status === 'IN_PROGRESS' &&
-    currentRoundHasProgressNote &&
-    (hasRole('SUPERVISOR') || hasRole('IT_MANAGER') || hasRole('HELP_DESK'))
 
   // Add Before Photos - TECHNICIAN ที่ถูก assign, สถานะ IN_PROGRESS หรือ RESOLVED, รูปยังไม่ครบ 5
   const currentBeforePhotosCount = incident?.beforePhotos?.length || 0
@@ -1486,18 +1445,6 @@ SLA Breach Time: ${slaBreachText}`
             <button onClick={() => setShowAddBeforePhotos(true)}
               className="w-full sm:w-auto sm:min-w-[130px] flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-600 hover:bg-slate-700 text-white rounded-lg transition duration-200 text-sm font-medium">
               <Camera className="w-4 h-4 shrink-0" /><span>เพิ่มรูปก่อนทำ ({currentBeforePhotosCount}/5)</span>
-            </button>
-          )}
-          {canUpdateProgress && (
-            <button onClick={() => setShowSaveRoundModal(true)}
-              className="w-full sm:w-auto sm:min-w-[130px] flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition duration-200 text-sm font-medium">
-              <Edit3 className="w-4 h-4 shrink-0" /><span>บันทึกความคืบหน้า</span>
-            </button>
-          )}
-          {canStartNextRound && (
-            <button onClick={() => setShowNextRoundConfirm(true)}
-              className="w-full sm:w-auto sm:min-w-[130px] flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition duration-200 text-sm font-medium">
-              <RefreshCcw className="w-4 h-4 shrink-0" /><span>เริ่มรอบซ่อมใหม่</span>
             </button>
           )}
           {canResolve && (
@@ -2810,50 +2757,6 @@ SLA Breach Time: ${slaBreachText}`
         </div>
       )}
 
-      {/* Save Round Progress Modal */}
-      <SaveRoundProgressModal
-        isOpen={showSaveRoundModal}
-        onClose={() => setShowSaveRoundModal(false)}
-        onSaved={handleSaveRoundProgressDone}
-        incidentId={incident.id}
-        roundNumber={currentRoundNumber}
-        storeId={incident.storeId}
-        incidentEquipmentIds={incident.equipmentIds}
-        initialNote={currentWorkRound?.progressNote && currentWorkRound.progressNote !== 'SAVED' ? currentWorkRound.progressNote : ''}
-        initialSpareParts={currentWorkRound?.spareParts || []}
-      />
-
-      {/* Start Next Round Confirm Modal */}
-      {showNextRoundConfirm && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="glass-card p-6 rounded-2xl max-w-md w-full">
-            <h3 className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
-              <RefreshCcw className="w-5 h-5 text-purple-400" />
-              เริ่มรอบซ่อมใหม่ (รอบที่ {currentRoundNumber + 1})
-            </h3>
-            <p className="text-sm text-gray-400 mb-4">
-              ระบบจะรีเซ็ตสถานะ Check-In สำหรับรอบนี้ ช่างจะสามารถ Check-In และปิดงานในรอบใหม่ได้
-              ประวัติรอบที่ {currentRoundNumber} จะยังคงอยู่
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowNextRoundConfirm(false)}
-                className="flex-1 px-4 py-2 bg-slate-700 text-gray-300 rounded-lg text-sm hover:bg-slate-600"
-              >
-                ยกเลิก
-              </button>
-              <button
-                onClick={handleStartNextRound}
-                disabled={nextRoundSubmitting}
-                className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium disabled:opacity-50"
-              >
-                {nextRoundSubmitting ? 'กำลังดำเนินการ...' : 'ยืนยัน เริ่มรอบใหม่'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Timeline */}
       <IncidentTimeline incidentId={incident.id} />
 
@@ -2988,6 +2891,7 @@ SLA Breach Time: ${slaBreachText}`
         onClose={() => setShowResolve(false)}
         incidentId={incident.id}
         onResolve={handleResolve}
+        onProgressSaved={() => { setShowResolve(false); fetchIncident(); }}
         storeId={incident.store?.id}
         incidentEquipmentIds={incident.equipmentIds || []}
         onlineSRToken={incident.serviceReportToken}
