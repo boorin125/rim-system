@@ -1187,9 +1187,10 @@ SLA Breach Time: ${slaBreachText}`
     isAssignedToMe &&
     hasCheckedIn
 
-  // เริ่มรอบซ่อมใหม่ — Supervisor / IT Manager / HelpDesk + IN_PROGRESS
+  // เริ่มรอบซ่อมใหม่ — Supervisor / IT Manager / HelpDesk + IN_PROGRESS + Tech ต้องบันทึกความคืบหน้าก่อน
   const canStartNextRound =
     incident?.status === 'IN_PROGRESS' &&
+    currentRoundHasProgressNote &&
     (hasRole('SUPERVISOR') || hasRole('IT_MANAGER') || hasRole('HELP_DESK'))
 
   // Add Before Photos - TECHNICIAN ที่ถูก assign, สถานะ IN_PROGRESS หรือ RESOLVED, รูปยังไม่ครบ 5
