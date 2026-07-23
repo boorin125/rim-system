@@ -1188,10 +1188,13 @@ SLA Breach Time: ${slaBreachText}`
   // Resolve - TECHNICIAN ที่ถูก assign คนไหนก็ resolve ได้
   const isPmIncident = incident?.jobType === 'Preventive Maintenance'
   const pmSigned = !!pmStoreSignedAt || pmSignedDocsCount > 0
+  const currentRoundHasProgressNote = !!currentWorkRound?.progressNote
+
   const canResolve =
     incident?.status === 'IN_PROGRESS' &&
     hasTechnicianRole &&
     isAssignedToMe &&
+    !currentRoundHasProgressNote &&  // Option B: blocked until Supervisor starts next round
     (!isPmIncident || (!!pmPerformedAt && pmSigned))  // PM: must Submit PM + sign/upload doc
 
   // บันทึกความคืบหน้า — Tech ที่ assigned + IN_PROGRESS + check-in แล้ว

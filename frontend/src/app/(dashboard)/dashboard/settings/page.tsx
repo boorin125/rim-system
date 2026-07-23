@@ -324,6 +324,18 @@ const RELEASE_NOTES: {
   changes: { type: 'new' | 'improved' | 'fixed'; text: string }[]
 }[] = [
   {
+    version: '1.0.23',
+    date: '2026-07-23',
+    changes: [
+      { type: 'fixed',    text: 'Reassign Fix: เมื่อ Reassign ช่างจาก Inhouse → Outsource หรือ ยกเลิก Outsource กลับมา Inhouse ระบบ Reset Check-In เพื่อให้ช่างใหม่ Check-In ได้ใหม่' },
+      { type: 'new',      text: 'รอบซ่อมที่ 2 (Second Visit): ช่างสามารถกด "บันทึกความคืบหน้า" เพื่อบันทึกสถานะกลางคันได้ จากนั้น Supervisor กด "เริ่มรอบซ่อมใหม่" เพื่อให้ช่าง Check-In รอบ 2 และปิดงานได้ — ประวัติทุกรอบถูกเก็บไว้' },
+      { type: 'improved', text: 'Incident List ช่อง Search: เพิ่ม Debounce 800ms + พิมพ์อย่างน้อย 2 ตัวถึงค้นหา + กด Enter เพื่อค้นทันที + ปุ่มล้างค่า + Spinner แสดงขณะโหลด' },
+      { type: 'improved', text: 'Incident List: เพิ่มตัวกรอง Technician สำหรับ Admin/Manager/Supervisor/Helpdesk' },
+      { type: 'improved', text: 'Performance — Equipment ซ่อมซ้ำ: ดึงข้อมูลตั้งแต่เริ่มระบบ (ไม่จำกัดช่วงเวลา) และรวมงานทุกสถานะ ยกเว้น Cancelled' },
+      { type: 'fixed',    text: 'Dashboard Popup งานค้าง: นับรวมงานสถานะ Resolved (รอยืนยันปิดงาน) ด้วย' },
+    ],
+  },
+  {
     version: '1.0.22',
     date: '2026-07-20',
     changes: [
