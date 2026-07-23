@@ -72,17 +72,19 @@ export class OutsourceService {
       throw new NotFoundException(`ไม่พบ Incident ID: ${dto.incidentId}`);
     }
 
-    // Prevent duplicate: check if active outsource job already exists for this incident
+    // Allow one active OutsourceJob per incident per round
+    const roundNumber = (incident.reopenCount ?? 0) + 1;
     const existingJob = await this.prisma.outsourceJob.findFirst({
       where: {
         incidentId: dto.incidentId,
+        roundNumber,
         status: { notIn: ['CANCELLED'] },
       },
     });
 
     if (existingJob) {
       throw new BadRequestException(
-        `Incident นี้มีงาน Outsource อยู่แล้ว (${existingJob.jobCode}) ไม่สามารถสร้างซ้ำได้`,
+        `รอบซ่อมที่ ${roundNumber} มีงาน Outsource อยู่แล้ว (${existingJob.jobCode}) ไม่สามารถสร้างซ้ำได้`,
       );
     }
 
@@ -112,6 +114,7 @@ export class OutsourceService {
     const job = await this.prisma.outsourceJob.create({
       data: {
         incidentId: dto.incidentId,
+        roundNumber,
         jobCode,
         title: dto.title,
         description: dto.description,

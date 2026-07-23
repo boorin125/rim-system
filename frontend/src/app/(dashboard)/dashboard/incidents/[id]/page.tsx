@@ -55,6 +55,7 @@ import UpdateResolveModal from '@/components/UpdateResolveModal'
 import ConfirmCloseModal from '@/components/ConfirmCloseModal'
 import ReopenIncidentModal from '@/components/ReopenIncidentModal'
 import AddBeforePhotosModal from '@/components/AddBeforePhotosModal'
+import SaveRoundProgressModal from '@/components/SaveRoundProgressModal'
 import CommentSection from '@/components/CommentSection'
 import IncidentTimeline from '@/components/IncidentTimeline'
 import PhotoViewerModal from '@/components/PhotoViewerModal'
@@ -131,9 +132,7 @@ export default function IncidentDetailPage() {
   const [kbCategoryId, setKbCategoryId] = useState<number | null>(null)
   const [selectedKbArticle, setSelectedKbArticle] = useState<any>(null)
   const [showKbArticleModal, setShowKbArticleModal] = useState(false)
-  const [showProgressModal, setShowProgressModal] = useState(false)
-  const [progressNote, setProgressNote] = useState('')
-  const [progressSubmitting, setProgressSubmitting] = useState(false)
+  const [showSaveRoundModal, setShowSaveRoundModal] = useState(false)
   const [showNextRoundConfirm, setShowNextRoundConfirm] = useState(false)
   const [nextRoundSubmitting, setNextRoundSubmitting] = useState(false)
 
@@ -541,24 +540,8 @@ export default function IncidentDetailPage() {
    * Handle Resolve Incident
    * IN_PROGRESS → RESOLVED
    */
-  const handleUpdateProgress = async () => {
-    if (!progressNote.trim()) return
-    setProgressSubmitting(true)
-    try {
-      const token = localStorage.getItem('token')
-      await axios.patch(
-        `${process.env.NEXT_PUBLIC_API_URL}/incidents/${params.id}/update-progress`,
-        { progressNote: progressNote.trim() },
-        { headers: { Authorization: `Bearer ${token}` } },
-      )
-      setShowProgressModal(false)
-      setProgressNote('')
-      fetchIncident()
-    } catch (err: any) {
-      alert(err?.response?.data?.message || 'บันทึกความคืบหน้าไม่สำเร็จ')
-    } finally {
-      setProgressSubmitting(false)
-    }
+  const handleSaveRoundProgressDone = () => {
+    fetchIncident()
   }
 
   const handleStartNextRound = async () => {
@@ -1505,7 +1488,7 @@ SLA Breach Time: ${slaBreachText}`
             </button>
           )}
           {canUpdateProgress && (
-            <button onClick={() => setShowProgressModal(true)}
+            <button onClick={() => setShowSaveRoundModal(true)}
               className="w-full sm:w-auto sm:min-w-[130px] flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition duration-200 text-sm font-medium">
               <Edit3 className="w-4 h-4 shrink-0" /><span>บันทึกความคืบหน้า</span>
             </button>
@@ -1756,9 +1739,15 @@ SLA Breach Time: ${slaBreachText}`
                     <div>
                       <div className="flex items-center gap-3 flex-wrap">
                         <span className="text-sm font-mono text-blue-400">{oj.jobCode}</span>
+                        {oj.roundNumber > 1 && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30">รอบ {oj.roundNumber}</span>
+                        )}
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${osStatusColors[oj.status] || 'bg-gray-500/20 text-gray-400 border-gray-500/30'}`}>
                           {osStatusLabels[oj.status] || oj.status}
                         </span>
+                        {oj.paymentStatus === 'PAID' && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">จ่ายแล้ว</span>
+                        )}
                       </div>
                       <p className="text-white font-medium mt-1">{oj.title}</p>
                       <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-400">
@@ -2358,17 +2347,41 @@ SLA Breach Time: ${slaBreachText}`
                       <div className="col-span-2"><span className="text-gray-500">GPS: </span><span className="text-gray-300">{round.checkInLatitude.toFixed(5)}, {round.checkInLongitude?.toFixed(5)}</span></div>
                     )}
                   </div>
-                  {round.progressNote && (
+                  {/* Draft progress note (บันทึกความคืบหน้า ยังไม่ปิดงาน) */}
+                  {round.progressNoteAt && !round.resolvedAt && round.progressNote && round.progressNote !== 'SAVED' && (
                     <div className="mb-3">
                       <p className="text-xs text-blue-400 mb-1 flex items-center gap-1">
                         <Edit3 className="w-3 h-3" />
-                        ความคืบหน้า {round.progressNoteAt ? `(${formatDateTime(round.progressNoteAt)})` : ''}
+                        บันทึกความคืบหน้า {`(${formatDateTime(round.progressNoteAt)})`}
                       </p>
                       <p className="text-sm text-gray-300 bg-blue-900/20 border border-blue-500/20 rounded-lg p-3 whitespace-pre-wrap">{round.progressNote}</p>
                     </div>
                   )}
+                  {/* Final resolution note */}
                   {round.resolutionNote && (
                     <p className="text-sm text-gray-300 bg-slate-800/50 rounded-lg p-3 mb-3 whitespace-pre-wrap">{round.resolutionNote}</p>
+                  )}
+                  {/* Spare Parts per round */}
+                  {round.spareParts && round.spareParts.length > 0 && (
+                    <div className="mb-3">
+                      <p className="text-xs text-gray-500 mb-2 flex items-center gap-1">
+                        <ArrowRightLeft className="w-3 h-3" />
+                        Spare Parts รอบนี้ ({round.spareParts.length} รายการ)
+                        {round.progressNoteAt && !round.resolvedAt && <span className="text-yellow-400/70 ml-1">(ยังไม่ปิดงาน)</span>}
+                      </p>
+                      <div className="space-y-1.5">
+                        {round.spareParts.map((sp: any, si: number) => (
+                          <div key={sp.id || si} className="text-xs bg-white/5 border border-white/10 rounded-lg px-3 py-2">
+                            {sp.repairType === 'COMPONENT_REPLACEMENT' ? (
+                              <span className="text-purple-300">{sp.componentName}: {sp.oldComponentSerial} → {sp.newComponentSerial}</span>
+                            ) : (
+                              <span className="text-blue-300">{sp.deviceName || sp.oldSerialNo} → {sp.newSerialNo}</span>
+                            )}
+                            {sp.notes && <span className="text-gray-500 ml-2">({sp.notes})</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   )}
                   {/* Photos per round */}
                   {(round.beforePhotos?.length > 0 || round.afterPhotos?.length > 0 || round.signedReportPhotos?.length > 0) && (
@@ -2796,39 +2809,18 @@ SLA Breach Time: ${slaBreachText}`
         </div>
       )}
 
-      {/* Progress Note Modal */}
-      {showProgressModal && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="glass-card p-6 rounded-2xl max-w-md w-full">
-            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <Edit3 className="w-5 h-5 text-blue-400" />
-              บันทึกความคืบหน้า (รอบที่ {currentRoundNumber})
-            </h3>
-            <textarea
-              value={progressNote}
-              onChange={(e) => setProgressNote(e.target.value)}
-              placeholder="บันทึกสิ่งที่ทำไปแล้ว ปัญหาที่พบ หรือสิ่งที่ต้องดำเนินการต่อ..."
-              rows={5}
-              className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
-            />
-            <div className="flex gap-3 mt-4">
-              <button
-                onClick={() => { setShowProgressModal(false); setProgressNote('') }}
-                className="flex-1 px-4 py-2 bg-slate-700 text-gray-300 rounded-lg text-sm hover:bg-slate-600"
-              >
-                ยกเลิก
-              </button>
-              <button
-                onClick={handleUpdateProgress}
-                disabled={progressSubmitting || !progressNote.trim()}
-                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium disabled:opacity-50"
-              >
-                {progressSubmitting ? 'กำลังบันทึก...' : 'บันทึก'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Save Round Progress Modal */}
+      <SaveRoundProgressModal
+        isOpen={showSaveRoundModal}
+        onClose={() => setShowSaveRoundModal(false)}
+        onSaved={handleSaveRoundProgressDone}
+        incidentId={incident.id}
+        roundNumber={currentRoundNumber}
+        storeId={incident.storeId}
+        incidentEquipmentIds={incident.equipmentIds}
+        initialNote={currentWorkRound?.progressNote && currentWorkRound.progressNote !== 'SAVED' ? currentWorkRound.progressNote : ''}
+        initialSpareParts={currentWorkRound?.spareParts || []}
+      />
 
       {/* Start Next Round Confirm Modal */}
       {showNextRoundConfirm && (

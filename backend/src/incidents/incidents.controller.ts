@@ -22,7 +22,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
 import { LicenseGuard } from '../modules/license/license.guard';
-import { ResolveIncidentDto, UpdateResolveDto, ConfirmCloseDto, RejectCloseDto } from './dto/resolve-incident.dto';
+import { ResolveIncidentDto, UpdateResolveDto, ConfirmCloseDto, RejectCloseDto, SaveRoundProgressDto } from './dto/resolve-incident.dto';
 import { ReopenIncidentDto } from './dto/reopen-incident.dto';
 import { SubmitResponseDto } from './dto/submit-response.dto';
 import { IncidentHistoryService } from './incident-history.service';
@@ -190,14 +190,14 @@ export class IncidentsController {
     return this.incidentsService.startNextRound(id, req.user.id);
   }
 
-  @Patch(':id/update-progress')
+  @Post(':id/save-round-progress')
   @Roles(UserRole.TECHNICIAN)
-  updateWorkProgress(
+  saveRoundProgress(
     @Param('id') id: string,
-    @Body('progressNote') progressNote: string,
+    @Body() dto: SaveRoundProgressDto,
     @Request() req: any,
   ) {
-    return this.incidentsService.updateWorkProgress(id, req.user.id, progressNote);
+    return this.incidentsService.saveRoundProgress(id, req.user.id, dto);
   }
 
   @Get(':id')

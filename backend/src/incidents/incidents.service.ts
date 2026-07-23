@@ -9,7 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateIncidentDto } from './dto/create-incident.dto';
 import { UpdateIncidentDto } from './dto/update-incident.dto';
 import { IncidentStatus, Priority, UserRole, IncidentAction, IncidentType, EquipmentStatus, EquipmentLogAction, EquipmentLogSource, RepairType, AuditModule, AuditAction, NotificationType, SlaDefenseStatus, SlaRegion } from '@prisma/client';
-import { ResolveIncidentDto, UpdateResolveDto, ConfirmCloseDto, RejectCloseDto } from './dto/resolve-incident.dto';
+import { ResolveIncidentDto, UpdateResolveDto, ConfirmCloseDto, RejectCloseDto, SaveRoundProgressDto } from './dto/resolve-incident.dto';
 import { SubmitResponseDto } from './dto/submit-response.dto';
 import { IncidentHistoryService } from './incident-history.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -1218,12 +1218,14 @@ export class IncidentsService {
             budgetMax: true,
             agreedPrice: true,
             postedAt: true,
+            roundNumber: true,
+            paymentStatus: true,
             awardedTo: {
               select: { id: true, firstName: true, lastName: true },
             },
             _count: { select: { bids: true } },
           },
-          orderBy: { postedAt: 'desc' },
+          orderBy: { roundNumber: 'asc' },
         },
         relatedIncident: {
           select: { id: true, ticketNumber: true, title: true, status: true },
@@ -1975,16 +1977,26 @@ export class IncidentsService {
   }
 
   async getWorkRounds(id: string) {
-    const rounds = await this.prisma.incidentWorkRound.findMany({
-      where: { incidentId: id },
-      orderBy: { roundNumber: 'asc' },
-      include: {
-        technician: {
-          select: { id: true, firstName: true, lastName: true, avatarPath: true, technicianType: true },
+    const [rounds, spareParts] = await Promise.all([
+      this.prisma.incidentWorkRound.findMany({
+        where: { incidentId: id },
+        orderBy: { roundNumber: 'asc' },
+        include: {
+          technician: {
+            select: { id: true, firstName: true, lastName: true, avatarPath: true, technicianType: true },
+          },
         },
-      },
-    });
-    return rounds;
+      }),
+      this.prisma.sparePart.findMany({
+        where: { incidentId: id },
+        orderBy: { createdAt: 'asc' },
+      }),
+    ]);
+
+    return rounds.map((r) => ({
+      ...r,
+      spareParts: spareParts.filter((sp) => sp.roundNumber === r.roundNumber),
+    }));
   }
 
   async startNextRound(id: string, userId: number) {
@@ -2033,6 +2045,106 @@ export class IncidentsService {
       where: { incidentId_roundNumber: { incidentId: id, roundNumber } },
       create: { incidentId: id, roundNumber, technicianId: userId, progressNote, progressNoteAt: new Date() },
       update: { progressNote, progressNoteAt: new Date() },
+    });
+
+    return { success: true };
+  }
+
+  async saveRoundProgress(id: string, userId: number, dto: SaveRoundProgressDto) {
+    const incident = await this.prisma.incident.findFirst({ where: { id } });
+    if (!incident) throw new NotFoundException(`ไม่พบ Incident ${id}`);
+    if (incident.status !== IncidentStatus.IN_PROGRESS) {
+      throw new BadRequestException('สามารถบันทึกความคืบหน้าได้เฉพาะ Incident ที่อยู่ระหว่างดำเนินการ');
+    }
+    const isAssigned = await this.isAssignedToIncident(id, userId);
+    if (!isAssigned && incident.assigneeId !== userId) {
+      throw new ForbiddenException('เฉพาะช่างที่รับผิดชอบงานนี้เท่านั้น');
+    }
+
+    const roundNumber = (incident.reopenCount ?? 0) + 1;
+    const currentRound = await this.prisma.incidentWorkRound.findUnique({
+      where: { incidentId_roundNumber: { incidentId: id, roundNumber } },
+    });
+    if (!currentRound?.checkInAt) {
+      throw new BadRequestException('ต้อง Check-In ก่อนบันทึกความคืบหน้า');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      // Save progress note as flag + draft resolution note
+      await tx.incidentWorkRound.upsert({
+        where: { incidentId_roundNumber: { incidentId: id, roundNumber } },
+        create: {
+          incidentId: id,
+          roundNumber,
+          technicianId: userId,
+          progressNote: dto.resolutionNote || 'SAVED',
+          progressNoteAt: new Date(),
+        },
+        update: {
+          progressNote: dto.resolutionNote || 'SAVED',
+          progressNoteAt: new Date(),
+        },
+      });
+
+      // Delete existing spare parts for this round, then recreate
+      await tx.sparePart.deleteMany({ where: { incidentId: id, roundNumber } });
+      if (dto.usedSpareParts && dto.spareParts?.length) {
+        const transformed = this.transformSparePartsData(dto.spareParts);
+        for (let i = 0; i < dto.spareParts.length; i++) {
+          const orig = dto.spareParts[i];
+          const t = transformed[i];
+          await tx.sparePart.create({
+            data: {
+              incidentId: id,
+              roundNumber,
+              repairType: (t.repairType as RepairType) || RepairType.EQUIPMENT_REPLACEMENT,
+              deviceName: t.deviceName,
+              oldSerialNo: t.oldSerialNo,
+              newSerialNo: t.newSerialNo,
+              newBrand: orig.newBrand || null,
+              newModel: orig.newModel || null,
+              notes: t.notes,
+              oldEquipmentId: orig.oldEquipmentId || null,
+              newEquipmentId: orig.newEquipmentId || null,
+              componentName: t.componentName || null,
+              oldComponentSerial: t.oldComponentSerial || null,
+              newComponentSerial: t.newComponentSerial || null,
+              parentEquipmentId: t.parentEquipmentId || null,
+            },
+          });
+        }
+      }
+
+      // If outsource tech: mark OutsourceJob for this round as COMPLETED
+      const techUser = await tx.user.findUnique({
+        where: { id: userId },
+        select: { technicianType: true },
+      });
+      if (techUser?.technicianType === 'OUTSOURCE') {
+        await tx.outsourceJob.updateMany({
+          where: {
+            incidentId: id,
+            roundNumber,
+            awardedToId: userId,
+            status: 'IN_PROGRESS',
+          },
+          data: { status: 'COMPLETED', completedAt: new Date() },
+        });
+      }
+
+      // Update incident usedSpareParts flag
+      if (dto.usedSpareParts && dto.spareParts?.length) {
+        await tx.incident.update({
+          where: { id },
+          data: { usedSpareParts: true },
+        });
+      }
+
+      await this.historyService.createHistory(
+        id, IncidentAction.UPDATED, userId,
+        IncidentStatus.IN_PROGRESS, IncidentStatus.IN_PROGRESS,
+        `บันทึกความคืบหน้า รอบที่ ${roundNumber}${dto.usedSpareParts && dto.spareParts?.length ? ` (Spare Parts ${dto.spareParts.length} รายการ)` : ''}`,
+      );
     });
 
     return { success: true };
@@ -2839,7 +2951,11 @@ export class IncidentsService {
       });
 
       // ✅ Create spare parts with transformed data and update Equipment
+      const resolveRoundNumber = (incident.reopenCount ?? 0) + 1;
       if (dto.usedSpareParts && dto.spareParts) {
+        // Delete any draft spare parts saved by saveRoundProgress for this round
+        await prisma.sparePart.deleteMany({ where: { incidentId: id, roundNumber: resolveRoundNumber } });
+
         const transformedSpareParts = this.transformSparePartsData(dto.spareParts);
 
         // Process each spare part with equipment tracking
@@ -2851,6 +2967,7 @@ export class IncidentsService {
           await prisma.sparePart.create({
             data: {
               incidentId: id,
+              roundNumber: resolveRoundNumber,
               repairType: (transformedSp.repairType as RepairType) || RepairType.EQUIPMENT_REPLACEMENT,
               deviceName: transformedSp.deviceName,
               oldSerialNo: transformedSp.oldSerialNo,
@@ -3090,14 +3207,15 @@ export class IncidentsService {
         data: updateData,
       });
 
-      // ✅ Update spare parts with transformed data
+      // ✅ Update spare parts with transformed data (current round only)
+      const updateRoundNumber = (incident.reopenCount ?? 0) + 1;
       if (dto.spareParts !== undefined) {
-        // Delete old spare parts (no equipment rollback — sync is deferred to confirmClose)
+        // Delete current round's spare parts only — preserve previous rounds' records
         await prisma.sparePart.deleteMany({
-          where: { incidentId: id },
+          where: { incidentId: id, roundNumber: updateRoundNumber },
         });
 
-        // Create new spare parts
+        // Create new spare parts for current round
         if (dto.spareParts.length > 0) {
           const transformedSpareParts = this.transformSparePartsData(dto.spareParts);
 
@@ -3108,6 +3226,7 @@ export class IncidentsService {
             await prisma.sparePart.create({
               data: {
                 incidentId: id,
+                roundNumber: updateRoundNumber,
                 repairType: (transformedSp.repairType as RepairType) || RepairType.EQUIPMENT_REPLACEMENT,
                 deviceName: transformedSp.deviceName,
                 oldSerialNo: transformedSp.oldSerialNo,
@@ -3299,9 +3418,10 @@ export class IncidentsService {
       );
     }
 
-    // If Helpdesk provided updated spare parts, replace them before closing
+    // If Helpdesk provided updated spare parts, replace current round's spare parts before closing
+    const confirmRoundNumber = (incident.reopenCount ?? 0) + 1;
     if (dto && dto.spareParts !== undefined) {
-      await this.prisma.sparePart.deleteMany({ where: { incidentId: id } });
+      await this.prisma.sparePart.deleteMany({ where: { incidentId: id, roundNumber: confirmRoundNumber } });
       await this.prisma.incident.update({
         where: { id },
         data: {
@@ -3317,6 +3437,7 @@ export class IncidentsService {
           await this.prisma.sparePart.create({
             data: {
               incidentId: id,
+              roundNumber: confirmRoundNumber,
               repairType: ((transformedSp as any).repairType as RepairType) || RepairType.EQUIPMENT_REPLACEMENT,
               deviceName: (transformedSp as any).deviceName,
               oldSerialNo: (transformedSp as any).oldSerialNo,

@@ -427,8 +427,9 @@ model Incident {
 }
 
 model SparePart {
-  id         Int    @id @default(autoincrement())
-  incidentId String @map("incident_id")
+  id          Int    @id @default(autoincrement())
+  incidentId  String @map("incident_id")
+  roundNumber Int    @default(1) @map("round_number")
 
   // Repair Type - ประเภทการซ่อม
   repairType RepairType @default(EQUIPMENT_REPLACEMENT) @map("repair_type")
@@ -975,9 +976,10 @@ model TechnicianPerformanceScore {
 // ========================================
 
 model OutsourceJob {
-  id         Int    @id @default(autoincrement())
-  incidentId String @map("incident_id")
-  jobCode    String @unique @map("job_code") // OUT-YYYYMMDD-XXXX
+  id          Int    @id @default(autoincrement())
+  incidentId  String @map("incident_id")
+  roundNumber Int    @default(1) @map("round_number")
+  jobCode     String @unique @map("job_code") // OUT-YYYYMMDD-XXXX
 
   // Job Details
   title          String

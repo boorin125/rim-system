@@ -172,6 +172,24 @@ export class ConfirmCloseDto {
   spareParts?: SparePartDto[];
 }
 
+/**
+ * Save Round Progress DTO — บันทึกความคืบหน้า (note + spare parts) โดยไม่ปิดงาน
+ */
+export class SaveRoundProgressDto {
+  @IsOptional()
+  @IsString()
+  resolutionNote?: string;
+
+  @IsBoolean()
+  usedSpareParts: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SparePartDto)
+  spareParts?: SparePartDto[];
+}
+
 export class RejectCloseDto {
   @IsString()
   @MinLength(5, { message: 'กรุณาระบุสาเหตุอย่างน้อย 5 ตัวอักษร' })
