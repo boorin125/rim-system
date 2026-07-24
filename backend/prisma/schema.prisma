@@ -1064,6 +1064,9 @@ model OutsourceJob {
   documentsReceivedAt     DateTime? @map("documents_received_at")
   documentsReceivedById   Int?      @map("documents_received_by_id")
 
+  // Terms of Service Agreement
+  tosAgreedAt DateTime? @map("tos_agreed_at")
+
   // Cancellation
   cancellationReason        String?   @map("cancellation_reason") @db.Text
   cancellationRequestedAt   DateTime? @map("cancellation_requested_at")

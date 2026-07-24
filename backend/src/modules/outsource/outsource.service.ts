@@ -956,7 +956,7 @@ export class OutsourceService {
       throw new ForbiddenException('เฉพาะช่าง Outsource เท่านั้นที่สามารถรับงานได้');
     }
 
-    // Update outsource job: AWARDED + assigned
+    // Update outsource job: AWARDED + assigned + TOS agreed
     const updatedJob = await this.prisma.outsourceJob.update({
       where: { id: jobId },
       data: {
@@ -964,6 +964,7 @@ export class OutsourceService {
         awardedToId: technicianId,
         awardedAt: new Date(),
         technicianTypeAtAward: technician.technicianType,
+        tosAgreedAt: new Date(),
       },
       include: {
         incident: { include: { store: true } },
@@ -1113,6 +1114,7 @@ export class OutsourceService {
       where: { id: jobId },
       data: {
         status: 'IN_PROGRESS',
+        tosAgreedAt: job.tosAgreedAt ?? new Date(),
       },
     });
   }

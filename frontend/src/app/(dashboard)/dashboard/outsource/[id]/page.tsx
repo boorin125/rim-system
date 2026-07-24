@@ -87,6 +87,9 @@ export default function OutsourceJobDetailPage() {
   const [paymentBlockedReasons, setPaymentBlockedReasons] = useState<string[]>([])
   const [showCancel, setShowCancel] = useState(false)
   const [showReject, setShowReject] = useState(false)
+  const [showTOS, setShowTOS] = useState(false)
+  const [tosChecked, setTosChecked] = useState(false)
+  const [acceptingJob, setAcceptingJob] = useState(false)
 
   useEffect(() => {
     const userStr = localStorage.getItem('user')
@@ -182,12 +185,14 @@ export default function OutsourceJobDetailPage() {
   }
 
   const handleAcceptJob = async () => {
-    if (!confirm('ยืนยันรับงานนี้? เมื่อรับแล้วจะถูกมอบหมายเป็นผู้ดูแล Incident นี้')) return
+    setAcceptingJob(true)
     try {
       await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/outsource/jobs/${jobId}/accept`, {}, config())
       toast.success('รับงานสำเร็จ! งานจะปรากฏใน Incident ของคุณ')
+      setShowTOS(false)
       fetchJob()
     } catch (e: any) { toast.error(e.response?.data?.message || 'เกิดข้อผิดพลาด') }
+    finally { setAcceptingJob(false) }
   }
 
   const handleConfirmCancel = async () => {
@@ -447,7 +452,7 @@ export default function OutsourceJobDetailPage() {
             )}
           </div>
           <button
-            onClick={handleAcceptJob}
+            onClick={() => { setTosChecked(false); setShowTOS(true) }}
             className="w-full px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition flex items-center justify-center gap-2 font-medium"
           >
             <CheckCircle2 className="h-5 w-5" /> ยอมรับเงื่อนไขและรับงาน
@@ -600,6 +605,64 @@ export default function OutsourceJobDetailPage() {
       {showPaymentBlocked && <PaymentBlockedModal reasons={paymentBlockedReasons} onClose={() => setShowPaymentBlocked(false)} />}
       {showCancel && <CancelModal onConfirm={handleCancel} onClose={() => setShowCancel(false)} />}
       {showReject && <RejectModal onConfirm={handleReject} onClose={() => setShowReject(false)} />}
+
+      {/* TOS Modal */}
+      {showTOS && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-slate-800 rounded-2xl border border-slate-700 w-full max-w-lg mx-4 shadow-2xl flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
+              <h2 className="text-lg font-semibold text-white">เงื่อนไขการรับงาน Outsource</h2>
+              <button onClick={() => setShowTOS(false)} className="text-slate-400 hover:text-white transition">✕</button>
+            </div>
+            <div className="p-6 overflow-y-auto space-y-3 flex-1">
+              <p className="text-sm text-slate-300 mb-4">กรุณาอ่านและยอมรับเงื่อนไขต่อไปนี้ก่อนรับงาน</p>
+              {[
+                'ยืนยันเข้าดำเนินงานภายในวัน-เวลาที่ระบุในใบงาน',
+                'คืนอะไหล่ที่ไม่ได้ใช้ครบถ้วนพร้อมเอกสารรับส่ง',
+                'ส่งใบงานและภาพถ่ายประกอบภายใน 3 วันทำการหลังซ่อมเสร็จ',
+                'รับผิดชอบแก้ไขงานซ้ำโดยไม่คิดค่าแรงเพิ่ม หากปัญหาเดิมเกิดขึ้นภายใน 7 วัน',
+                'ยินยอมให้บริษัทยกเลิกงานและมอบหมายผู้อื่นหากไม่ตอบสนองภายใน 1 ชั่วโมงนับจากได้รับมอบหมาย',
+                'ยินยอมให้บริษัทยกเลิกงานและมอบหมายผู้อื่นแทน หากงานไม่แล้วเสร็จและไม่มีกำหนดการเข้าแก้ไขที่ชัดเจน',
+              ].map((term, i) => (
+                <div key={i} className="flex gap-3 text-sm text-slate-200 bg-slate-700/40 rounded-lg px-4 py-3">
+                  <span className="text-blue-400 font-bold shrink-0">{i + 1}.</span>
+                  <span>{term}</span>
+                </div>
+              ))}
+            </div>
+            <div className="px-6 py-4 border-t border-slate-700 space-y-4">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={tosChecked}
+                  onChange={e => setTosChecked(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-slate-500 accent-blue-500"
+                />
+                <span className="text-sm text-slate-300">ข้าพเจ้าได้อ่านและยอมรับเงื่อนไขทั้งหมดข้างต้น</span>
+              </label>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowTOS(false)}
+                  className="flex-1 px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition text-sm font-medium"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  onClick={handleAcceptJob}
+                  disabled={!tosChecked || acceptingJob}
+                  className="flex-1 px-4 py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg transition text-sm font-medium flex items-center justify-center gap-2"
+                >
+                  {acceptingJob ? (
+                    <><span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full inline-block"></span> กำลังรับงาน...</>
+                  ) : (
+                    <><CheckCircle2 className="h-4 w-4" /> ยืนยันรับงาน</>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
