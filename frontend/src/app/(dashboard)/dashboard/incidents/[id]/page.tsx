@@ -1508,7 +1508,7 @@ SLA Breach Time: ${slaBreachText}`
         {/* RIGHT: Management buttons */}
         <div className="flex flex-col sm:flex-row sm:flex-wrap sm:justify-end gap-2">
           {/* Assign + Outsource */}
-          {canAssign && !incident.assignee && incident?.resolutionType === 'ONSITE' && (
+          {canAssign && !incident.assignee && !incident.assignees?.length && incident?.resolutionType === 'ONSITE' && (
             incident.status === 'PENDING' || incident.status === 'OPEN'
           ) && !(incident.outsourceJobs?.some((oj: any) => oj.status !== 'CANCELLED')) && (
             <>
@@ -2891,7 +2891,7 @@ SLA Breach Time: ${slaBreachText}`
         onClose={() => setShowResolve(false)}
         incidentId={incident.id}
         onResolve={handleResolve}
-        onProgressSaved={() => { setShowResolve(false); fetchIncident(); }}
+        onProgressSaved={() => { setShowResolve(false); router.push('/dashboard/incidents'); }}
         storeId={incident.store?.id}
         incidentEquipmentIds={incident.equipmentIds || []}
         onlineSRToken={incident.serviceReportToken}
