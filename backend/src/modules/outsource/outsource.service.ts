@@ -1623,7 +1623,7 @@ export class OutsourceService {
       job.awardedToId,
       'INCIDENT_CANCELLED',
       'Supervisor ขอยกเลิกงาน Outsource',
-      `Supervisor ขอยกเลิกงาน ${job.jobCode}: ${reason} — กรุณายืนยัน หรือ IT Manager สามารถอนุมัติแทนได้`,
+      `Supervisor ขอยกเลิกงาน ${job.jobCode}: ${reason} — รอ IT Manager อนุมัติการยกเลิก`,
       job.incidentId,
     );
 
@@ -1659,7 +1659,8 @@ export class OutsourceService {
   }
 
   /**
-   * Confirm cancel (Outsource technician who owns the job, or IT Manager)
+   * Confirm cancel — IT Manager only
+   * Supervisor requests cancel, IT Manager approves. Outsource tech is notified but cannot approve.
    */
   async confirmCancel(jobId: number, userId: number, userRoles: string[] = []) {
     const job = await this.prisma.outsourceJob.findUnique({
@@ -1675,8 +1676,8 @@ export class OutsourceService {
     }
 
     const isITManager = userRoles.includes('IT_MANAGER');
-    if (!isITManager && job.awardedToId !== userId) {
-      throw new BadRequestException('เฉพาะช่างที่ได้รับมอบหมายหรือ IT Manager เท่านั้นที่สามารถอนุมัติการยกเลิกได้');
+    if (!isITManager) {
+      throw new BadRequestException('เฉพาะ IT Manager เท่านั้นที่สามารถอนุมัติการยกเลิกได้');
     }
 
     const updatedJob = await this.prisma.outsourceJob.update({
@@ -1697,12 +1698,22 @@ export class OutsourceService {
 
     // Notify the requester (Supervisor who requested the cancellation)
     if (job.cancellationRequestedById) {
-      const confirmerLabel = isITManager ? 'IT Manager' : 'Outsource';
       await this.notificationsService.createNotification(
         job.cancellationRequestedById,
         'SYSTEM_ALERT',
-        'อนุมัติการยกเลิกงาน Outsource แล้ว',
-        `${confirmerLabel} อนุมัติยกเลิกงาน ${job.jobCode} แล้ว — Incident กลับสู่สถานะ OPEN`,
+        'IT Manager อนุมัติการยกเลิกงาน Outsource แล้ว',
+        `IT Manager อนุมัติยกเลิกงาน ${job.jobCode} แล้ว — Incident กลับสู่สถานะ OPEN`,
+        job.incidentId,
+      );
+    }
+
+    // Notify the outsource technician that their job was cancelled
+    if (job.awardedToId) {
+      await this.notificationsService.createNotification(
+        job.awardedToId,
+        'INCIDENT_CANCELLED',
+        'งาน Outsource ถูกยกเลิกแล้ว',
+        `IT Manager อนุมัติยกเลิกงาน ${job.jobCode} แล้ว — งานสิ้นสุด`,
         job.incidentId,
       );
     }

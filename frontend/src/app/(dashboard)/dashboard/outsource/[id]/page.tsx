@@ -293,7 +293,7 @@ export default function OutsourceJobDetailPage() {
               <Trash2 className="h-4 w-4" /> ขอยกเลิก
             </button>
           )}
-          {(isTechnician && isAwarded || isITManager) && job.status === 'PENDING_CANCEL' && (
+          {isITManager && job.status === 'PENDING_CANCEL' && (
             <button onClick={handleConfirmCancel} className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm transition flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4" /> อนุมัติยกเลิก
             </button>
@@ -341,7 +341,7 @@ export default function OutsourceJobDetailPage() {
             <div>
               <h3 className="text-orange-400 font-semibold">Supervisor ขอยกเลิกงาน — รอการอนุมัติ</h3>
               <p className="text-sm text-gray-300 mt-1">
-                รอการอนุมัติจาก Outsource เจ้าของงาน หรือ IT Manager
+                รอการอนุมัติจาก IT Manager
               </p>
               {job.cancellationReason && (
                 <p className="text-sm text-white mt-2 bg-slate-700/50 rounded-lg p-3">
