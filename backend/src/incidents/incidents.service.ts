@@ -2215,11 +2215,12 @@ export class IncidentsService {
         });
       }
 
-      // 4. Reopen: reset to OPEN, increment reopenCount, clear checkIn
+      // 4. Reopen: reset to OPEN, increment reopenCount, clear assignment
       await tx.incident.update({
         where: { id },
         data: {
           status: IncidentStatus.OPEN,
+          assigneeId: null,
           reopenCount: { increment: 1 },
           checkInAt: null,
           checkInLatitude: null,
@@ -2228,10 +2229,8 @@ export class IncidentsService {
           updatedAt: new Date(),
         },
       });
-      await tx.incidentAssignee.updateMany({
-        where: { incidentId: id },
-        data: { checkedInAt: null, checkInLatitude: null, checkInLongitude: null },
-      });
+      // Remove all assignees so incident is truly unassigned (ready for new assignment)
+      await tx.incidentAssignee.deleteMany({ where: { incidentId: id } });
 
       await this.historyService.createHistory(
         id, IncidentAction.UPDATED, userId,
