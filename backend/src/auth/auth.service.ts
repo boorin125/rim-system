@@ -1,5 +1,5 @@
 // src/auth/auth.service.ts
-import { Injectable, UnauthorizedException, BadRequestException, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, ConflictException, NotFoundException, InternalServerErrorException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
@@ -53,14 +53,16 @@ export class AuthService {
     });
 
     if (existingUser) {
-      throw new BadRequestException('Email already registered');
+      throw new ConflictException('อีเมลนี้ถูกใช้งานแล้ว กรุณาใช้อีเมลอื่น');
     }
 
     // Hash password
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 
     // Create user with READ_ONLY role and PENDING status (requires approval by IT Manager)
-    const user = await this.prisma.user.create({
+    let user: any;
+    try {
+    user = await this.prisma.user.create({
       data: {
         username: dto.email.split('@')[0],
         email: dto.email,
@@ -77,6 +79,14 @@ export class AuthService {
         roles: true,
       },
     });
+    } catch (error: any) {
+      if (error.code === 'P2002') {
+        const target = error.meta?.target?.[0];
+        if (target === 'username') throw new ConflictException('ชื่อผู้ใช้นี้ถูกใช้งานแล้ว กรุณาใช้อีเมลอื่น');
+        throw new ConflictException('ข้อมูลซ้ำกับที่มีอยู่ในระบบ กรุณาใช้อีเมลอื่น');
+      }
+      throw error;
+    }
 
     // Notify all IT_MANAGER users about new registration requiring approval
     await this.notifyITManagersAboutNewUser(user);
