@@ -2948,7 +2948,9 @@ SLA Breach Time: ${slaBreachText}`
           technician: incident.assignedTo,
           resolutionNote: incident.resolutionNote,
           usedSpareParts: incident.usedSpareParts,
-          spareParts: incident.spareParts,
+          spareParts: incident.spareParts?.filter(
+            (sp: any) => sp.roundNumber === currentRoundNumber
+          ),
           beforePhotos: incident.beforePhotos,
           afterPhotos: incident.afterPhotos,
           signedReportPhotos: incident.signedReportPhotos,

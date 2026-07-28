@@ -185,7 +185,7 @@ export class IncidentsService {
             oldComponentSerial: true, newComponentSerial: true,
             newBrand: true, newModel: true,
             oldEquipmentId: true, newEquipmentId: true,
-            parentEquipmentId: true,
+            parentEquipmentId: true, roundNumber: true,
           },
         },
       },
