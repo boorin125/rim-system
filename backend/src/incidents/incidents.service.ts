@@ -1396,6 +1396,18 @@ export class IncidentsService {
         data: {
           assigneeId: technicianIds[0], // backward compat
           status: IncidentStatus.ASSIGNED,
+          // Clear previous tech's data so new tech starts clean
+          checkInAt: null,
+          checkInLatitude: null,
+          checkInLongitude: null,
+          lastCheckedInById: null,
+          beforePhotos: [],
+          afterPhotos: [],
+          resolutionNote: null,
+          resolvedById: null,
+          resolvedAt: null,
+          respondedAt: null,
+          respondedById: null,
           ...(scheduledAt && { scheduledAt }),
           ...(scheduleReason && { scheduledReason: scheduleReason }),
           ...(newSlaDeadline && { slaDeadline: newSlaDeadline }),
@@ -1415,6 +1427,10 @@ export class IncidentsService {
           },
         },
       });
+
+      // Delete incomplete current work round so new tech starts clean
+      const roundNumber = (incident.reopenCount ?? 0) + 1;
+      await tx.incidentWorkRound.deleteMany({ where: { incidentId: id, roundNumber } });
 
       // Clear old assignees and create new
       await tx.incidentAssignee.deleteMany({ where: { incidentId: id } });
