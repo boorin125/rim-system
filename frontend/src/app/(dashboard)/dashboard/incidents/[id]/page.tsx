@@ -2328,11 +2328,20 @@ SLA Breach Time: ${slaBreachText}`
                         {round.spareParts.map((sp: any, si: number) => (
                           <div key={sp.id || si} className="text-xs bg-white/5 border border-white/10 rounded-lg px-3 py-2">
                             {sp.repairType === 'COMPONENT_REPLACEMENT' ? (
-                              <span className="text-purple-300">{sp.componentName}: {sp.oldComponentSerial} → {sp.newComponentSerial}</span>
+                              <span className="text-purple-300">
+                                {sp.parentEquipmentName || '-'}  {sp.componentName}:  S/N {sp.oldComponentSerial || 'N/A'} → S/N {sp.newComponentSerial || 'N/A'}
+                              </span>
                             ) : (
-                              <span className="text-blue-300">{sp.deviceName || sp.oldSerialNo} → {sp.newSerialNo}</span>
+                              <span className="text-blue-300">
+                                {sp.equipmentName || sp.deviceName || '-'}
+                                {sp.oldBrandModel ? <span className="text-gray-400">  {sp.oldBrandModel}</span> : null}
+                                <span className="text-gray-400">  S/N {sp.oldSerialNo || 'N/A'}</span>
+                                <span className="text-gray-500 mx-1.5">→</span>
+                                {sp.newBrandModel || '-'}
+                                <span className="text-gray-400">  S/N {sp.newSerialNo || 'N/A'}</span>
+                                <span className="text-gray-500 ml-2">(Type: PERMANENT)</span>
+                              </span>
                             )}
-                            {sp.notes && <span className="text-gray-500 ml-2">({sp.notes})</span>}
                           </div>
                         ))}
                       </div>

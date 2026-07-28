@@ -1293,6 +1293,7 @@ export class IncidentsService {
             equipmentName: oldEquip?.name ||
               (sp.deviceName?.includes(' → ') ? sp.deviceName.split(' → ')[0]?.trim() : sp.deviceName) || '',
             parentEquipmentName: parentEquip?.name || '',
+            oldBrandModel: [oldEquip?.brand, oldEquip?.model].filter(Boolean).join(' ') || '',
             newBrandModel: [sp.newBrand, sp.newModel].filter(Boolean).join(' ') || legacyNew || '',
           };
         });
@@ -2009,9 +2010,39 @@ export class IncidentsService {
       }),
     ]);
 
+    // Enrich spare parts with equipment names and brand/model info
+    const equipIds = spareParts
+      .flatMap((sp) => [sp.oldEquipmentId, sp.parentEquipmentId])
+      .filter((id): id is number => id != null);
+    const equipMap = new Map<number, { name: string; brand: string | null; model: string | null }>();
+    if (equipIds.length > 0) {
+      const equips = await this.prisma.equipment.findMany({
+        where: { id: { in: equipIds } },
+        select: { id: true, name: true, brand: true, model: true },
+      });
+      equips.forEach((e) => equipMap.set(e.id, e));
+    }
+
+    const enrichedParts = spareParts.map((sp) => {
+      const oldEquip = sp.oldEquipmentId ? (equipMap.get(sp.oldEquipmentId) ?? null) : null;
+      const parentEquip = sp.parentEquipmentId ? (equipMap.get(sp.parentEquipmentId) ?? null) : null;
+      const legacyNew = (sp.deviceName as string)?.includes(' → ')
+        ? (sp.deviceName as string).split(' → ')[1]?.trim() : '';
+      return {
+        ...sp,
+        equipmentName: oldEquip?.name ||
+          ((sp.deviceName as string)?.includes(' → ')
+            ? (sp.deviceName as string).split(' → ')[0]?.trim()
+            : sp.deviceName) || '',
+        oldBrandModel: [oldEquip?.brand, oldEquip?.model].filter(Boolean).join(' ') || '',
+        newBrandModel: [sp.newBrand, sp.newModel].filter(Boolean).join(' ') || legacyNew || '',
+        parentEquipmentName: parentEquip?.name || '',
+      };
+    });
+
     return rounds.map((r) => ({
       ...r,
-      spareParts: spareParts.filter((sp) => sp.roundNumber === r.roundNumber),
+      spareParts: enrichedParts.filter((sp) => sp.roundNumber === r.roundNumber),
     }));
   }
 
