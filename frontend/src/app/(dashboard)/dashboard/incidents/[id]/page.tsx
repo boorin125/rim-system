@@ -1655,7 +1655,11 @@ SLA Breach Time: ${slaBreachText}`
             งาน Outsource ที่เชื่อมโยง
           </h2>
           <div className="space-y-3">
-            {incident.outsourceJobs.map((oj: any) => {
+            {[...incident.outsourceJobs]
+              .sort((a: any, b: any) => a.id - b.id)
+              .map((oj: any, i: number) => ({ ...oj, _displayRound: i + 1 }))
+              .reverse()
+              .map((oj: any) => {
               const osStatusColors: Record<string, string> = {
                 OPEN: 'bg-green-500/20 text-green-400 border-green-500/30',
                 AWARDED: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
@@ -1687,9 +1691,7 @@ SLA Breach Time: ${slaBreachText}`
                     <div>
                       <div className="flex items-center gap-3 flex-wrap">
                         <span className="text-sm font-mono text-blue-400">{oj.jobCode}</span>
-                        {oj.roundNumber > 1 && (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30">รอบ {oj.roundNumber}</span>
-                        )}
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30">รอบ {oj._displayRound}</span>
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${osStatusColors[oj.status] || 'bg-gray-500/20 text-gray-400 border-gray-500/30'}`}>
                           {osStatusLabels[oj.status] || oj.status}
                         </span>
