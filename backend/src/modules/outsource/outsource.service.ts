@@ -1727,10 +1727,13 @@ export class OutsourceService {
    * Get active OutsourceJob for an incident (non-cancelled/paid)
    */
   async getByIncidentId(incidentId: string) {
+    // Only return jobs that are still "active" (blocking reassignment).
+    // COMPLETED and beyond (DOCUMENT_SUBMITTED, VERIFIED, PAID) mean the tech's
+    // work is done and the job should not be cancelled or interfered with.
     return this.prisma.outsourceJob.findFirst({
       where: {
         incidentId,
-        status: { notIn: ['CANCELLED', 'PAID', 'REJECTED'] },
+        status: { in: ['DRAFT', 'PENDING_APPROVAL', 'OPEN', 'BIDDING_CLOSED', 'PENDING_CANCEL', 'AWARDED', 'IN_PROGRESS'] },
       },
       select: { id: true, jobCode: true, status: true, awardedToId: true },
       orderBy: { createdAt: 'desc' },

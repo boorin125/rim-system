@@ -3667,8 +3667,11 @@ export class IncidentsService {
       },
     });
 
-    // ✅ Sync Equipment records now that Helpdesk has confirmed close
-    const spareParts = await this.prisma.sparePart.findMany({ where: { incidentId: id } });
+    // ✅ Sync Equipment records for the CURRENT round only.
+    // Previous rounds already had Equipment synced via saveProgressAndReopen.
+    const spareParts = await this.prisma.sparePart.findMany({
+      where: { incidentId: id, roundNumber: confirmRoundNumber },
+    });
     for (const sp of spareParts) {
       const originalSp = {
         oldEquipmentId: sp.oldEquipmentId,

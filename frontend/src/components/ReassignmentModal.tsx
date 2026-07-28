@@ -165,7 +165,7 @@ export default function ReassignmentModal({ isOpen, onClose, incident, onSuccess
     }
 
     if (!isUnassigning && activeOutsourceJob) {
-      const hasCheckIn = activeOutsourceJob.status === 'STARTED'
+      const hasCheckIn = activeOutsourceJob.status === 'IN_PROGRESS' || activeOutsourceJob.status === 'PENDING_CANCEL'
       if (hasCheckIn) {
         setConfirmScenario({ type: 'request-cancel-checkedin', jobCode: activeOutsourceJob.jobCode })
       } else {
