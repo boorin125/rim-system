@@ -1621,10 +1621,10 @@ export class IncidentsService {
         },
       });
 
-      // Delete incomplete WorkRound (no resolvedAt) so new tech gets a clean round
+      // Delete current work round so new tech starts clean (regardless of resolvedAt)
       const roundNumber = (incident.reopenCount ?? 0) + 1;
       await tx.incidentWorkRound.deleteMany({
-        where: { incidentId: id, roundNumber, resolvedAt: null },
+        where: { incidentId: id, roundNumber },
       });
 
       // Clear old assignees and create new

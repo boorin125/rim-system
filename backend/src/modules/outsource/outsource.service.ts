@@ -1782,10 +1782,26 @@ export class OutsourceService {
   }
 
   private async resetIncidentCheckInState(incidentId: string) {
+    const incident = await this.prisma.incident.findUnique({
+      where: { id: incidentId },
+      select: { reopenCount: true },
+    });
+    const roundNumber = (incident?.reopenCount ?? 0) + 1;
+
+    // Delete incomplete current work round (clears before/after photos + check-in data)
+    await this.prisma.incidentWorkRound.deleteMany({
+      where: { incidentId, roundNumber, resolvedAt: null },
+    });
     await this.prisma.incidentAssignee.deleteMany({ where: { incidentId } });
     await this.prisma.incident.update({
       where: { id: incidentId },
-      data: { checkInAt: null, checkInLatitude: null, checkInLongitude: null },
+      data: {
+        checkInAt: null,
+        checkInLatitude: null,
+        checkInLongitude: null,
+        beforePhotos: [],
+        afterPhotos: [],
+      },
     });
   }
 
