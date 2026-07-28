@@ -49,6 +49,7 @@ interface ReassignmentModalProps {
 type ConfirmScenario =
   | { type: 'outsource-redirect'; hasExistingJob: boolean; jobCode?: string }
   | { type: 'force-cancel-existing'; jobCode: string }
+  | { type: 'request-cancel-checkedin'; jobCode: string }
   | { type: 'multi-assign'; count: number }
 
 export default function ReassignmentModal({ isOpen, onClose, incident, onSuccess }: ReassignmentModalProps) {
@@ -164,7 +165,12 @@ export default function ReassignmentModal({ isOpen, onClose, incident, onSuccess
     }
 
     if (!isUnassigning && activeOutsourceJob) {
-      setConfirmScenario({ type: 'force-cancel-existing', jobCode: activeOutsourceJob.jobCode })
+      const hasCheckIn = activeOutsourceJob.status === 'STARTED'
+      if (hasCheckIn) {
+        setConfirmScenario({ type: 'request-cancel-checkedin', jobCode: activeOutsourceJob.jobCode })
+      } else {
+        setConfirmScenario({ type: 'force-cancel-existing', jobCode: activeOutsourceJob.jobCode })
+      }
       return
     }
 
@@ -224,6 +230,18 @@ export default function ReassignmentModal({ isOpen, onClose, incident, onSuccess
           config()
         )
         toast.success('ยกเลิก Outsource และมอบหมาย Inhouse สำเร็จ')
+        onSuccess()
+        onClose()
+        return
+      }
+
+      if (confirmScenario.type === 'request-cancel-checkedin') {
+        await axios.post(
+          `${process.env.NEXT_PUBLIC_API_URL}/outsource/jobs/${activeOutsourceJob!.id}/cancel`,
+          { reason },
+          config()
+        )
+        toast.success('ส่งคำขอยกเลิกงาน Outsource ให้ IT Manager อนุมัติแล้ว — รอ Approval ก่อนมอบหมายใหม่')
         onSuccess()
         onClose()
         return
@@ -292,6 +310,24 @@ export default function ReassignmentModal({ isOpen, onClose, incident, onSuccess
             </div>
           )}
 
+          {confirmScenario.type === 'request-cancel-checkedin' && (
+            <div className="space-y-3 mb-6">
+              <p className="text-gray-300">
+                งาน Outsource <span className="text-amber-400 font-semibold">{confirmScenario.jobCode}</span> มีการ Check-in แล้ว
+              </p>
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
+                <p className="text-sm text-amber-300">
+                  ต้องส่งคำขอยกเลิกให้ <span className="font-semibold">IT Manager อนุมัติ</span> — งานจะยังไม่ถูกมอบหมายใหม่จนกว่า IT Manager จะอนุมัติ
+                </p>
+              </div>
+              <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+                <p className="text-sm text-blue-300">
+                  หลัง IT Manager อนุมัติการยกเลิก Incident จะกลับสู่สถานะ <span className="font-semibold">OPEN</span> แล้วจึง Assign Tech ใหม่ได้
+                </p>
+              </div>
+            </div>
+          )}
+
           {confirmScenario.type === 'multi-assign' && (
             <div className="space-y-3 mb-6">
               <p className="text-gray-300">
@@ -317,13 +353,17 @@ export default function ReassignmentModal({ isOpen, onClose, incident, onSuccess
               className={`flex-1 px-4 py-2 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2 ${
                 confirmScenario.type === 'multi-assign'
                   ? 'bg-orange-600 hover:bg-orange-700'
-                  : 'bg-amber-600 hover:bg-amber-700'
+                  : confirmScenario.type === 'request-cancel-checkedin'
+                    ? 'bg-amber-600 hover:bg-amber-700'
+                    : 'bg-amber-600 hover:bg-amber-700'
               }`}
             >
               {isSubmitting ? (
                 <><div className="spinner-sm"></div> กำลังดำเนินการ...</>
               ) : confirmScenario.type === 'outsource-redirect' ? (
                 <><ExternalLink className="w-4 h-4" /> ยืนยัน — ไปหน้า Outsource</>
+              ) : confirmScenario.type === 'request-cancel-checkedin' ? (
+                <><Check className="w-4 h-4" /> ส่งคำขอยกเลิก</>
               ) : (
                 <><Check className="w-4 h-4" /> ยืนยัน</>
               )}
