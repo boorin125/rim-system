@@ -3842,7 +3842,10 @@ export class IncidentsService {
           : [];
 
         // Enrich spare parts with equipment data (name/position, brand, model) for email display
-        let emailSpareParts: any[] = updated.spareParts || [];
+        // Only include spare parts from the closing round (not previous saveProgressAndReopen rounds)
+        let emailSpareParts: any[] = (updated.spareParts || []).filter(
+          (sp: any) => sp.roundNumber == null || sp.roundNumber === confirmRoundNumber,
+        );
         if (emailSpareParts.length > 0) {
           const equipIds = emailSpareParts
             .flatMap((sp: any) => [sp.oldEquipmentId, sp.newEquipmentId, sp.parentEquipmentId])
@@ -4063,8 +4066,11 @@ export class IncidentsService {
     const ratingLink = ratingToken ? `${frontendUrl}/rate/${ratingToken}` : null;
     const serviceReportLink = serviceReportToken ? `${frontendUrl}/service-report/${serviceReportToken}` : null;
 
-    // Enrich spare parts
-    let emailSpareParts: any[] = incident.spareParts || [];
+    // Enrich spare parts — only current (closing) round
+    const resendRoundNumber = (incident.reopenCount ?? 0) + 1;
+    let emailSpareParts: any[] = (incident.spareParts || []).filter(
+      (sp: any) => sp.roundNumber == null || sp.roundNumber === resendRoundNumber,
+    );
     if (emailSpareParts.length > 0) {
       const equipIds = emailSpareParts
         .flatMap((sp: any) => [sp.oldEquipmentId, sp.newEquipmentId, sp.parentEquipmentId])

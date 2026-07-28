@@ -49,6 +49,7 @@ export class IncidentsPublicController {
         },
         spareParts: {
           select: {
+            roundNumber: true,
             deviceName: true,
             oldSerialNo: true,
             newSerialNo: true,
@@ -88,8 +89,11 @@ export class IncidentsPublicController {
     const organizationName = orgCfgMap['organization_name'] || 'Incident Management';
     const organizationLogo = orgCfgMap['organization_logo'] || '';
 
-    // Enrich spare parts with Equipment DB data
-    const rawParts = incident.spareParts;
+    // Enrich spare parts with Equipment DB data — only closing round
+    const closingRound = (incident.reopenCount ?? 0) + 1;
+    const rawParts = incident.spareParts.filter(
+      (sp: any) => sp.roundNumber == null || sp.roundNumber === closingRound,
+    );
     const equipIds = rawParts
       .flatMap((sp: any) => [sp.oldEquipmentId, sp.parentEquipmentId])
       .filter(Boolean) as number[];
