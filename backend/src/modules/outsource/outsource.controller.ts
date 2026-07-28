@@ -193,6 +193,29 @@ export class OutsourceController {
   }
 
   /**
+   * Get active OutsourceJob for an incident
+   */
+  @Get('jobs/by-incident/:incidentId')
+  @Roles(UserRole.IT_MANAGER, UserRole.HELP_DESK, UserRole.SUPERVISOR)
+  async getByIncident(@Param('incidentId') incidentId: string) {
+    return this.outsourceService.getByIncidentId(incidentId);
+  }
+
+  /**
+   * Force-cancel job immediately (Supervisor — no IT Manager approval needed)
+   */
+  @Post('jobs/:id/force-cancel')
+  @Roles(UserRole.SUPERVISOR, UserRole.IT_MANAGER)
+  @HttpCode(HttpStatus.OK)
+  async forceCancel(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req,
+    @Body('reason') reason: string,
+  ) {
+    return this.outsourceService.forceCancel(id, req.user.id, reason);
+  }
+
+  /**
    * Cancel job
    */
   @Post('jobs/:id/cancel')

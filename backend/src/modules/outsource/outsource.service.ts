@@ -1723,6 +1723,64 @@ export class OutsourceService {
     return updatedJob;
   }
 
+  /**
+   * Get active OutsourceJob for an incident (non-cancelled/paid)
+   */
+  async getByIncidentId(incidentId: string) {
+    return this.prisma.outsourceJob.findFirst({
+      where: {
+        incidentId,
+        status: { notIn: ['CANCELLED', 'PAID', 'REJECTED'] },
+      },
+      select: { id: true, jobCode: true, status: true, awardedToId: true },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /**
+   * Force-cancel an OutsourceJob immediately (Supervisor, no IT Manager approval needed)
+   * Used when reassigning from Outsource to Inhouse or Outsource to new Outsource
+   */
+  async forceCancel(jobId: number, userId: number, reason: string) {
+    const job = await this.prisma.outsourceJob.findUnique({ where: { id: jobId } });
+    if (!job) throw new NotFoundException(`ไม่พบงาน Outsource ID: ${jobId}`);
+    if (['PAID', 'CANCELLED'].includes(job.status)) {
+      throw new BadRequestException('งานนี้ยกเลิกไม่ได้แล้ว');
+    }
+
+    const updatedJob = await this.prisma.outsourceJob.update({
+      where: { id: jobId },
+      data: {
+        status: 'CANCELLED',
+        cancellationReason: reason,
+        cancellationRequestedById: userId,
+        cancellationRequestedAt: new Date(),
+        cancellationConfirmedAt: new Date(),
+        cancellationConfirmedById: userId,
+      },
+    });
+
+    // Reset incident state
+    await this.resetIncidentCheckInState(job.incidentId);
+    await this.prisma.incident.update({
+      where: { id: job.incidentId },
+      data: { status: 'OPEN', assigneeId: null },
+    });
+
+    // Notify tech if job was awarded
+    if (job.awardedToId) {
+      await this.notificationsService.createNotification(
+        job.awardedToId,
+        'INCIDENT_CANCELLED',
+        'งาน Outsource ถูกยกเลิก',
+        `Supervisor ยกเลิกงาน ${job.jobCode}: ${reason}`,
+        job.incidentId,
+      );
+    }
+
+    return updatedJob;
+  }
+
   private async resetIncidentCheckInState(incidentId: string) {
     await this.prisma.incidentAssignee.deleteMany({ where: { incidentId } });
     await this.prisma.incident.update({
