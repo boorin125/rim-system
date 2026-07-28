@@ -2149,12 +2149,17 @@ SLA Breach Time: ${slaBreachText}`
             {incident.resolutionNote}
           </p>
           
-          {/* Spare Parts (if any) */}
-          {incident.usedSpareParts && incident.spareParts && incident.spareParts.length > 0 && (
+          {/* Spare Parts (if any) — show only the closing round's parts */}
+          {(() => {
+            const closingRoundParts = (incident.spareParts || []).filter(
+              (p: any) => p.roundNumber == null || p.roundNumber === currentRoundNumber
+            )
+            if (!incident.usedSpareParts || closingRoundParts.length === 0) return null
+            return (
             <div className="mt-4 pt-4 border-t border-green-500/20 space-y-4">
 
               {/* ── ตาราง เปลี่ยนอุปกรณ์ (EQUIPMENT_REPLACEMENT) ── */}
-              {incident.spareParts.some((p: any) => p.repairType === 'EQUIPMENT_REPLACEMENT' || !p.repairType) && (
+              {closingRoundParts.some((p: any) => p.repairType === 'EQUIPMENT_REPLACEMENT' || !p.repairType) && (
                 <div>
                   <h3 className="text-sm font-semibold text-green-400 mb-2 flex items-center gap-1.5">
                     <ArrowRightLeft className="w-3.5 h-3.5" />รายการเปลี่ยนอุปกรณ์
@@ -2173,7 +2178,7 @@ SLA Breach Time: ${slaBreachText}`
                         </tr>
                       </thead>
                       <tbody>
-                        {incident.spareParts
+                        {closingRoundParts
                           .filter((p: any) => p.repairType === 'EQUIPMENT_REPLACEMENT' || !p.repairType)
                           .map((part: any, index: number) => {
                             const deviceName = part.equipmentName || part.deviceName?.split(' → ')[0]?.trim() || '-'
@@ -2205,7 +2210,7 @@ SLA Breach Time: ${slaBreachText}`
               )}
 
               {/* ── ตาราง เปลี่ยนชิ้นส่วน (COMPONENT_REPLACEMENT) ── */}
-              {incident.spareParts.some((p: any) => p.repairType === 'COMPONENT_REPLACEMENT') && (
+              {closingRoundParts.some((p: any) => p.repairType === 'COMPONENT_REPLACEMENT') && (
                 <div>
                   <h3 className="text-sm font-semibold text-purple-400 mb-2 flex items-center gap-1.5">
                     <Cpu className="w-3.5 h-3.5" />รายการเปลี่ยนชิ้นส่วน
@@ -2221,7 +2226,7 @@ SLA Breach Time: ${slaBreachText}`
                         </tr>
                       </thead>
                       <tbody>
-                        {incident.spareParts
+                        {closingRoundParts
                           .filter((p: any) => p.repairType === 'COMPONENT_REPLACEMENT')
                           .map((part: any, index: number) => (
                             <tr key={index} className="border-b border-slate-700/30">
@@ -2246,7 +2251,7 @@ SLA Breach Time: ${slaBreachText}`
               )}
 
             </div>
-          )}
+          )})()}
         </div>
       )}
 
