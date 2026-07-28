@@ -2255,6 +2255,38 @@ export class IncidentsService {
       );
     });
 
+    // Sync Equipment records for replaced spare parts (same as Helpdesk confirm close)
+    // Equipment IS replaced even if the job isn't finished yet
+    if (dto.usedSpareParts && dto.spareParts?.length) {
+      const savedSpareParts = await this.prisma.sparePart.findMany({
+        where: { incidentId: id, roundNumber },
+      });
+      for (const sp of savedSpareParts) {
+        const originalSp = {
+          oldEquipmentId: sp.oldEquipmentId,
+          newEquipmentId: sp.newEquipmentId,
+          newBrand: (sp as any).newBrand || null,
+          newModel: (sp as any).newModel || null,
+          newDeviceName: sp.deviceName?.includes(' → ')
+            ? sp.deviceName.split(' → ')[1]?.trim()
+            : sp.deviceName,
+          parentEquipmentId: sp.parentEquipmentId,
+          componentName: sp.componentName,
+          oldComponentSerial: sp.oldComponentSerial,
+          newComponentSerial: sp.newComponentSerial,
+        };
+        const transformedSp = {
+          repairType: sp.repairType,
+          oldSerialNo: sp.oldSerialNo,
+          newSerialNo: sp.newSerialNo,
+        };
+        await this.syncEquipmentFromSparePart(
+          this.prisma, originalSp, transformedSp,
+          incident.storeId, incident.ticketNumber, userId, id,
+        );
+      }
+    }
+
     return this.findOne(id, userId);
   }
 
