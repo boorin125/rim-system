@@ -1510,7 +1510,7 @@ SLA Breach Time: ${slaBreachText}`
           {/* Assign + Outsource */}
           {canAssign && !incident.assignee && !incident.assignees?.length && incident?.resolutionType === 'ONSITE' && (
             incident.status === 'PENDING' || incident.status === 'OPEN'
-          ) && !(incident.outsourceJobs?.some((oj: any) => oj.status !== 'CANCELLED')) && (
+          ) && (
             <>
               <button
                 onClick={() => { setAssignMode('assign'); setAssignModalOpen(true) }}
