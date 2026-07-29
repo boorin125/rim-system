@@ -1087,6 +1087,8 @@ SLA Breach Time: ${slaBreachText}`
 
   // Assign permission - SUPERVISOR or IT_MANAGER
   const canAssign = hasRole('SUPERVISOR') || hasRole('IT_MANAGER')
+  // True when incident needs a new tech assignment (ONSITE requested OR reopened from previous round)
+  const needsNewAssignment = incident?.resolutionType === 'ONSITE' || ((incident?.reopenCount ?? 0) > 0)
 
   // Reassign permission - SUPERVISOR only, not for CLOSED/CANCELLED/RESOLVED
   const canRequestReassign =
@@ -1285,15 +1287,17 @@ SLA Breach Time: ${slaBreachText}`
   // Helpdesk guidance
   const getHelpdeskGuidance = (): { message: string; type: 'info' | 'warning' } | null => {
     if (!isHelpDesk) return null
-    if ((incident?.status === 'OPEN' || incident?.status === 'PENDING') && !incident?.resolutionType) {
+    if ((incident?.status === 'OPEN' || incident?.status === 'PENDING') && !incident?.resolutionType && (incident?.reopenCount ?? 0) === 0) {
       return {
         message: 'กรุณาเลือกวิธีดำเนินการ: Phone Support, Remote Support หรือ Request Onsite',
         type: 'info',
       }
     }
-    if ((incident?.status === 'OPEN' || incident?.status === 'PENDING') && incident?.resolutionType === 'ONSITE') {
+    if ((incident?.status === 'OPEN' || incident?.status === 'PENDING') && needsNewAssignment) {
       return {
-        message: 'รอ Supervisor มอบหมายช่างเทคนิค Onsite',
+        message: (incident?.reopenCount ?? 0) > 0
+          ? `รอ Supervisor มอบหมายช่างเทคนิค (รอบที่ ${(incident.reopenCount ?? 0) + 1})`
+          : 'รอ Supervisor มอบหมายช่างเทคนิค Onsite',
         type: 'info',
       }
     }
@@ -1508,7 +1512,7 @@ SLA Breach Time: ${slaBreachText}`
         {/* RIGHT: Management buttons */}
         <div className="flex flex-col sm:flex-row sm:flex-wrap sm:justify-end gap-2">
           {/* Assign + Outsource */}
-          {canAssign && !incident.assignee && !incident.assignees?.length && incident?.resolutionType === 'ONSITE' && (
+          {canAssign && !incident.assignee && !incident.assignees?.length && needsNewAssignment && (
             incident.status === 'PENDING' || incident.status === 'OPEN'
           ) && (
             <>
