@@ -2337,8 +2337,7 @@ SLA Breach Time: ${slaBreachText}`
                                 {sp.oldBrandModel ? <span className="text-gray-400">  {sp.oldBrandModel}</span> : null}
                                 <span className="text-gray-400">  S/N {sp.oldSerialNo || 'N/A'}</span>
                                 <span className="text-gray-500 mx-1.5">→</span>
-                                {sp.newBrandModel || '-'}
-                                <span className="text-gray-400">  S/N {sp.newSerialNo || 'N/A'}</span>
+                                <span className="text-blue-300 font-medium">{sp.newBrandModel || '-'}  S/N {sp.newSerialNo || 'N/A'}</span>
                                 <span className="text-gray-500 ml-2">(Type: PERMANENT)</span>
                               </span>
                             )}
