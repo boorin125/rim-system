@@ -77,6 +77,7 @@ export default function IncidentDetailPage() {
   const [assignModalOpen, setAssignModalOpen] = useState(false)
   const [assignMode, setAssignMode] = useState<'assign' | 'reassign'>('assign')
   const [showReassignmentModal, setShowReassignmentModal] = useState(false)
+  const [showRequestOnsiteModal, setShowRequestOnsiteModal] = useState(false)
   
   // ✅ STEP 2: เพิ่ม states สำหรับ workflow modals
   const [showResponse, setShowResponse] = useState(false)
@@ -723,9 +724,10 @@ export default function IncidentDetailPage() {
   }
 
   // Handle Request Onsite
-  const handleRequestOnsite = async () => {
-    if (!confirm('ต้องการส่งงานให้ Supervisor มอบหมายช่างเทคนิค Onsite หรือไม่?')) return
+  const handleRequestOnsite = () => setShowRequestOnsiteModal(true)
 
+  const doRequestOnsite = async () => {
+    setShowRequestOnsiteModal(false)
     try {
       const token = localStorage.getItem('token')
       await axios.post(
@@ -3017,6 +3019,33 @@ SLA Breach Time: ${slaBreachText}`
         initialIndex={photoViewerIndex}
         title={photoViewerTitle}
       />
+
+      {/* Request Onsite Confirm Modal */}
+      {showRequestOnsiteModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="glass-card rounded-2xl max-w-md w-full p-6 animate-fade-in">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-violet-500/20 flex items-center justify-center">
+                <MapPin className="w-5 h-5 text-violet-400" />
+              </div>
+              <h3 className="text-base font-semibold text-white">ยืนยัน Request Onsite</h3>
+            </div>
+            <p className="text-sm text-gray-300 mb-6">ต้องการส่งงานให้ Supervisor มอบหมายช่างเทคนิค Onsite หรือไม่?</p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowRequestOnsiteModal(false)}
+                className="px-5 py-2 bg-slate-700 hover:bg-slate-600 text-gray-300 rounded-lg transition text-sm">
+                ยกเลิก
+              </button>
+              <button
+                onClick={doRequestOnsite}
+                className="px-5 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition text-sm font-medium">
+                ยืนยัน
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
