@@ -237,11 +237,16 @@ export class BackupService {
   }
 
   /**
-   * Generate checksum for file
+   * Generate checksum for file using streaming to avoid OOM on large files
    */
-  private generateChecksum(filePath: string): string {
-    const fileBuffer = fs.readFileSync(filePath);
-    return crypto.createHash('md5').update(fileBuffer).digest('hex');
+  private generateChecksum(filePath: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const hash = crypto.createHash('md5');
+      const stream = fs.createReadStream(filePath);
+      stream.on('data', (chunk) => hash.update(chunk));
+      stream.on('end', () => resolve(hash.digest('hex')));
+      stream.on('error', reject);
+    });
   }
 
   /**
@@ -304,6 +309,7 @@ export class BackupService {
    * preHashedPassword: already-hashed password to embed directly (used by scheduled backups)
    */
   private async executeBackup(backupId: number, password?: string, preHashedPassword?: string) {
+    let filePath: string | undefined;
     try {
       // Update status to running
       await this.prisma.backupJob.update({
@@ -315,7 +321,7 @@ export class BackupService {
         where: { id: backupId },
         include: {
           schedule: {
-            select: { storageType: true, externalPath: true },
+            select: { storageType: true, externalPath: true, retentionDays: true },
           },
         },
       });
@@ -400,7 +406,7 @@ export class BackupService {
         ? backup.customName.replace(/[\s/\\:*?"<>|]/g, '_')
         : backup.jobCode;
       const fileName = baseName + '.tar';
-      const filePath = path.join(backupDir, fileName);
+      filePath = path.join(backupDir, fileName);
 
       const passwordHash = preHashedPassword || (password ? await bcrypt.hash(password, 10) : undefined);
 
@@ -466,7 +472,11 @@ export class BackupService {
 
       // Get file size
       const stats = fs.statSync(filePath);
-      const checksum = this.generateChecksum(filePath);
+      const checksum = await this.generateChecksum(filePath);
+
+      // Compute expiry from schedule retention_days; fall back to 30 days
+      const retentionDays = backup.schedule?.retentionDays ?? 30;
+      const expiresAt = new Date(Date.now() + retentionDays * 24 * 60 * 60 * 1000);
 
       // Update backup job as completed
       await this.prisma.backupJob.update({
@@ -480,7 +490,7 @@ export class BackupService {
           fileSize: BigInt(stats.size),
           checksum,
           totalRecords,
-          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+          expiresAt,
         },
       });
 
@@ -504,6 +514,10 @@ export class BackupService {
         }
       }
     } catch (error: any) {
+      // Delete partially-created tar file so it doesn't accumulate on disk
+      if (filePath) {
+        try { fs.unlinkSync(filePath); } catch { /* file may not exist yet */ }
+      }
       // Update as failed
       await this.prisma.backupJob.update({
         where: { id: backupId },
