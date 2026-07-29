@@ -286,7 +286,7 @@ export default function PublicIncidentPage() {
                                   <td className="py-2 px-3 text-gray-400 border border-slate-700/30">{sp.oldBrandModel || '-'}</td>
                                   <td className="py-2 px-3 text-gray-400 font-mono text-xs border border-slate-700/30">{sp.oldSerialNo || '-'}</td>
                                   <td className="py-2 px-3 text-gray-300 border border-slate-700/30">{sp.newBrandModel || '-'}</td>
-                                  <td className="py-2 px-3 text-emerald-400 font-mono text-xs border border-slate-700/30">{sp.newSerialNo || '-'}</td>
+                                  <td className="py-2 px-3 text-gray-300 border border-slate-700/30">{sp.newSerialNo || '-'}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -321,7 +321,7 @@ export default function PublicIncidentPage() {
                                   <td className="py-2 px-3 text-gray-400 border border-slate-700/30">{sp.componentName || '-'}</td>
                                   <td className="py-2 px-3 text-gray-400 font-mono text-xs border border-slate-700/30">{sp.oldComponentSerial || '-'}</td>
                                   <td className="py-2 px-3 text-gray-300 border border-slate-700/30">{sp.componentName || '-'}</td>
-                                  <td className="py-2 px-3 text-emerald-400 font-mono text-xs border border-slate-700/30">{sp.newComponentSerial || '-'}</td>
+                                  <td className="py-2 px-3 text-gray-300 border border-slate-700/30">{sp.newComponentSerial || '-'}</td>
                                 </tr>
                               ))}
                             </tbody>

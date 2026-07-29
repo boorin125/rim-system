@@ -325,14 +325,20 @@ const RELEASE_NOTES: {
 }[] = [
   {
     version: '1.0.23',
-    date: '2026-07-23',
+    date: '2026-07-29',
     changes: [
       { type: 'fixed',    text: 'Reassign Fix: เมื่อ Reassign ช่างจาก Inhouse → Outsource หรือ ยกเลิก Outsource กลับมา Inhouse ระบบ Reset Check-In เพื่อให้ช่างใหม่ Check-In ได้ใหม่' },
-      { type: 'new',      text: 'รอบซ่อมที่ 2 (Second Visit): ช่างสามารถกด "บันทึกความคืบหน้า" เพื่อบันทึกสถานะกลางคันได้ จากนั้น Supervisor กด "เริ่มรอบซ่อมใหม่" เพื่อให้ช่าง Check-In รอบ 2 และปิดงานได้ — ประวัติทุกรอบถูกเก็บไว้' },
+      { type: 'new',      text: 'รอบซ่อมที่ 2+ (Second Visit): ช่างกด "บันทึกความคืบหน้า" ได้ — Supervisor เห็นงานและ Assign ใหม่ได้ทันที (auto ตั้งเป็น Request Onsite รอบใหม่)' },
       { type: 'improved', text: 'Incident List ช่อง Search: เพิ่ม Debounce 800ms + พิมพ์อย่างน้อย 2 ตัวถึงค้นหา + กด Enter เพื่อค้นทันที + ปุ่มล้างค่า + Spinner แสดงขณะโหลด' },
       { type: 'improved', text: 'Incident List: เพิ่มตัวกรอง Technician สำหรับ Admin/Manager/Supervisor/Helpdesk' },
       { type: 'improved', text: 'Performance — Equipment ซ่อมซ้ำ: ดึงข้อมูลตั้งแต่เริ่มระบบ (ไม่จำกัดช่วงเวลา) และรวมงานทุกสถานะ ยกเว้น Cancelled' },
       { type: 'fixed',    text: 'Dashboard Popup งานค้าง: นับรวมงานสถานะ Resolved (รอยืนยันปิดงาน) ด้วย' },
+      { type: 'new',      text: 'Spare Parts แบบ Multi-Round: บันทึก Spare Parts แยกต่อรอบซ่อม — Email ปิดงาน, Public View, และ Dashboard แสดงเฉพาะรอบที่ปิดงาน' },
+      { type: 'new',      text: 'Outsource TOS Modal: ช่าง Outsource ต้องยอมรับข้อตกลง 6 ข้อก่อนรับงาน' },
+      { type: 'new',      text: 'Outsource Cancel Flow: IT Manager อนุมัติ/ปฏิเสธคำขอยกเลิก Outsource ได้โดยตรง ช่างได้รับแจ้งเตือนหลังอนุมัติ' },
+      { type: 'improved', text: 'Timeline: เพิ่ม Label ภาษาไทยและ Icon สำหรับทุก Action รวมถึงการ Reassign ทุก Path (IH↔OS, IH↔IH, OS↔OS)' },
+      { type: 'improved', text: 'Outsource Confirm Modals: เปลี่ยน native browser confirm() เป็น Dialog สไตล์ Dark Theme (Approve Job, Confirm Cancel, Request Onsite)' },
+      { type: 'fixed',    text: 'Backup: แก้ Bug Disk เต็ม — เปลี่ยน Checksum เป็น Streaming MD5 (ไม่โหลดไฟล์ทั้งหมดเข้า RAM) + ลบไฟล์อัตโนมัติเมื่อ Backup ล้มเหลว' },
     ],
   },
   {
