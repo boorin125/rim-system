@@ -2269,11 +2269,12 @@ export class IncidentsService {
         });
       }
 
-      // 4. Reopen: reset to OPEN, increment reopenCount, clear assignment
+      // 4. Reopen: reset to OPEN with ONSITE, increment reopenCount, clear assignment
       await tx.incident.update({
         where: { id },
         data: {
           status: IncidentStatus.OPEN,
+          resolutionType: 'ONSITE',
           assigneeId: null,
           reopenCount: { increment: 1 },
           checkInAt: null,
