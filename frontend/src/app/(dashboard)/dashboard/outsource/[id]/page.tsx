@@ -87,6 +87,8 @@ export default function OutsourceJobDetailPage() {
   const [paymentBlockedReasons, setPaymentBlockedReasons] = useState<string[]>([])
   const [showCancel, setShowCancel] = useState(false)
   const [showReject, setShowReject] = useState(false)
+  const [showApprove, setShowApprove] = useState(false)
+  const [showConfirmCancel, setShowConfirmCancel] = useState(false)
   const [showTOS, setShowTOS] = useState(false)
   const [tosChecked, setTosChecked] = useState(false)
   const [acceptingJob, setAcceptingJob] = useState(false)
@@ -196,7 +198,6 @@ export default function OutsourceJobDetailPage() {
   }
 
   const handleConfirmCancel = async () => {
-    if (!confirm('ยืนยันยกเลิกงานนี้? การยกเลิกจะทำให้ Incident กลับสู่สถานะ OPEN')) return
     try {
       await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/outsource/jobs/${jobId}/confirm-cancel`, {}, config())
       toast.success('ยืนยันยกเลิกงานสำเร็จ')
@@ -205,7 +206,6 @@ export default function OutsourceJobDetailPage() {
   }
 
   const handleApprove = async () => {
-    if (!confirm('ยืนยันอนุมัติงาน Outsource นี้?')) return
     try {
       await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/outsource/jobs/${jobId}/approve`, { action: 'APPROVED' }, config())
       toast.success('อนุมัติงานสำเร็จ')
@@ -275,7 +275,7 @@ export default function OutsourceJobDetailPage() {
           {/* IT Manager: Approve / Reject */}
           {isITManager && job.status === 'PENDING_APPROVAL' && (
             <>
-              <button onClick={handleApprove} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm transition flex items-center gap-2">
+              <button onClick={() => setShowApprove(true)} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm transition flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4" /> อนุมัติ
               </button>
               <button onClick={() => setShowReject(true)} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm transition flex items-center gap-2">
@@ -299,7 +299,7 @@ export default function OutsourceJobDetailPage() {
             </button>
           )}
           {isITManager && job.status === 'PENDING_CANCEL' && (
-            <button onClick={handleConfirmCancel} className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm transition flex items-center gap-2">
+            <button onClick={() => setShowConfirmCancel(true)} className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm transition flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4" /> อนุมัติยกเลิก
             </button>
           )}
@@ -605,6 +605,8 @@ export default function OutsourceJobDetailPage() {
       {showPaymentBlocked && <PaymentBlockedModal reasons={paymentBlockedReasons} onClose={() => setShowPaymentBlocked(false)} />}
       {showCancel && <CancelModal onConfirm={handleCancel} onClose={() => setShowCancel(false)} />}
       {showReject && <RejectModal onConfirm={handleReject} onClose={() => setShowReject(false)} />}
+      {showApprove && <ConfirmActionModal title="อนุมัติงาน Outsource" message="ยืนยันอนุมัติงาน Outsource นี้?" confirmLabel="อนุมัติ" confirmClass="bg-emerald-600 hover:bg-emerald-700" onConfirm={() => { setShowApprove(false); handleApprove() }} onClose={() => setShowApprove(false)} />}
+      {showConfirmCancel && <ConfirmActionModal title="อนุมัติยกเลิกงาน" message="ยืนยันยกเลิกงานนี้? การยกเลิกจะทำให้ Incident กลับสู่สถานะ OPEN" confirmLabel="ยืนยันยกเลิก" confirmClass="bg-orange-600 hover:bg-orange-700" onConfirm={() => { setShowConfirmCancel(false); handleConfirmCancel() }} onClose={() => setShowConfirmCancel(false)} />}
 
       {/* TOS Modal */}
       {showTOS && (
@@ -668,6 +670,23 @@ export default function OutsourceJobDetailPage() {
 }
 
 // ─── Modal Components ─────────────────────────────────────────────
+
+function ConfirmActionModal({ title, message, confirmLabel, confirmClass, onConfirm, onClose }: {
+  title: string; message: string; confirmLabel: string; confirmClass: string;
+  onConfirm: () => void; onClose: () => void;
+}) {
+  return (
+    <ModalWrapper title={title} onClose={onClose}>
+      <div className="p-6">
+        <p className="text-gray-300 text-sm">{message}</p>
+      </div>
+      <div className="p-6 border-t border-slate-700 flex justify-end gap-3">
+        <button onClick={onClose} className="px-5 py-2 bg-slate-700 hover:bg-slate-600 text-gray-300 rounded-lg transition text-sm">ยกเลิก</button>
+        <button onClick={onConfirm} className={`px-5 py-2 text-white rounded-lg transition text-sm font-medium ${confirmClass}`}>{confirmLabel}</button>
+      </div>
+    </ModalWrapper>
+  )
+}
 
 function ModalWrapper({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
   return (
