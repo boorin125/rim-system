@@ -23,7 +23,8 @@ import {
   SubmitDocumentsDto,
   ConfirmSparePartsDto,
 } from './dto';
-import { OutsourceJobStatus, BidStatus, TechnicianType, UserRole, NotificationType } from '@prisma/client';
+import { OutsourceJobStatus, BidStatus, TechnicianType, UserRole, NotificationType, IncidentAction, IncidentStatus } from '@prisma/client';
+import { IncidentHistoryService } from '../../incidents/incident-history.service';
 
 @Injectable()
 export class OutsourceService {
@@ -31,6 +32,7 @@ export class OutsourceService {
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
     private readonly emailService: EmailService,
+    private readonly historyService: IncidentHistoryService,
   ) {}
 
   /**
@@ -284,6 +286,12 @@ export class OutsourceService {
         // Reset check-in state before assigning outsource tech
         await this.resetIncidentCheckInState(job.incidentId);
 
+        // Fetch current incident state for history recording
+        const prevIncident = await this.prisma.incident.findUnique({
+          where: { id: job.incidentId },
+          select: { status: true, assigneeId: true },
+        });
+
         // Update incident
         await this.prisma.incident.update({
           where: { id: job.incidentId },
@@ -292,6 +300,20 @@ export class OutsourceService {
             assigneeId: job.awardedToId,
           },
         });
+
+        // Record incident history — REASSIGNED if incident already had an assignee
+        const techName = `${updatedJob.awardedTo?.firstName} ${updatedJob.awardedTo?.lastName}`;
+        const isReassign = !!prevIncident?.assigneeId;
+        await this.historyService.createHistory(
+          job.incidentId.toString(),
+          isReassign ? IncidentAction.REASSIGNED : IncidentAction.ASSIGNED,
+          userId,
+          prevIncident?.status as IncidentStatus,
+          IncidentStatus.ASSIGNED,
+          isReassign
+            ? `Reassigned to Outsource tech ${techName}`
+            : `Assigned to Outsource tech ${techName}`,
+        );
 
         // Create IncidentAssignee record so the job appears in technician's "My Incidents"
         await this.prisma.incidentAssignee.upsert({
@@ -985,6 +1007,21 @@ export class OutsourceService {
         assigneeId: technicianId,
       },
     });
+
+    // Record incident history — REASSIGNED if previously assigned to someone
+    const prevInc = job.incident as any;
+    const isAcceptReassign = !!prevInc?.assigneeId;
+    const acceptTechName = `${technician.firstName} ${technician.lastName}`;
+    await this.historyService.createHistory(
+      job.incidentId.toString(),
+      isAcceptReassign ? IncidentAction.REASSIGNED : IncidentAction.ASSIGNED,
+      technicianId,
+      prevInc?.status as IncidentStatus,
+      IncidentStatus.ASSIGNED,
+      isAcceptReassign
+        ? `Reassigned to Outsource tech ${acceptTechName}`
+        : `Assigned to Outsource tech ${acceptTechName}`,
+    );
 
     // Create IncidentAssignee record so the job appears in technician's "My Incidents"
     await this.prisma.incidentAssignee.upsert({

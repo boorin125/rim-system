@@ -6,9 +6,10 @@ import { OutsourceService } from './outsource.service';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { NotificationsModule } from '../../notifications/notifications.module';
 import { EmailModule } from '../../email/email.module';
+import { IncidentsModule } from '../../incidents/incidents.module';
 
 @Module({
-  imports: [PrismaModule, NotificationsModule, EmailModule],
+  imports: [PrismaModule, NotificationsModule, EmailModule, IncidentsModule],
   controllers: [OutsourceController],
   providers: [OutsourceService],
   exports: [OutsourceService],

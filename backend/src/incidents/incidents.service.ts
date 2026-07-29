@@ -1342,7 +1342,7 @@ export class IncidentsService {
    * Assign incident to technician
    * Only SUPERVISOR can assign
    */
-  async assign(id: string, technicianIds: number[], userId: number, scheduledAt?: Date, scheduleReason?: string) {
+  async assign(id: string, technicianIds: number[], userId: number, scheduledAt?: Date, scheduleReason?: string, isReassignment = false, reassignReason?: string) {
     const incident = await this.prisma.incident.findFirst({
       where: { id },
       include: { store: { select: { slaRegion: true } } },
@@ -1450,13 +1450,16 @@ export class IncidentsService {
     const scheduleNote = scheduledAt
       ? ` (กำหนดเวลา: ${scheduledAt.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' })} ${scheduledAt.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}${scheduleReason ? ` | เหตุผล: ${scheduleReason}` : ''})`
       : '';
+    const assignHistoryDetails = isReassignment
+      ? `Reassigned to ${techNames}${reassignReason ? `. Reason: ${reassignReason}` : ''}`
+      : `Assigned to ${techNames}${scheduleNote}`;
     await this.historyService.createHistory(
       id,
-      IncidentAction.ASSIGNED,
+      isReassignment ? IncidentAction.REASSIGNED : IncidentAction.ASSIGNED,
       userId,
       incident.status,
       IncidentStatus.ASSIGNED,
-      `Assigned to ${techNames}${scheduleNote}`,
+      assignHistoryDetails,
     );
 
     // Audit trail

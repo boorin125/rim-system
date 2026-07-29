@@ -225,10 +225,11 @@ export default function ReassignmentModal({ isOpen, onClose, incident, onSuccess
           config()
         )
         // force-cancel already sets incident to OPEN with no assignees,
-        // so use assign (not reassign) which works on OPEN incidents
+        // so use assign (not reassign) which works on OPEN incidents,
+        // but flag it as isReassignment so backend records REASSIGNED history
         await axios.post(
           `${process.env.NEXT_PUBLIC_API_URL}/incidents/${incident.id}/assign`,
-          { technicianIds: selectedTechnicianIds },
+          { technicianIds: selectedTechnicianIds, isReassignment: true, reassignReason: reason },
           config()
         )
         toast.success('ยกเลิก Outsource และมอบหมาย Inhouse สำเร็จ')

@@ -249,12 +249,14 @@ export class IncidentsController {
     @Body('technicianIds') technicianIds: number[],
     @Body('scheduledAt') scheduledAt: string,
     @Body('scheduleReason') scheduleReason: string,
+    @Body('isReassignment') isReassignment: boolean,
+    @Body('reassignReason') reassignReason: string,
     @Request() req,
   ) {
     // Support both single (backward compat) and array
     const ids = technicianIds || (technicianId ? [technicianId] : []);
     const scheduledDate = scheduledAt ? new Date(scheduledAt) : undefined;
-    return this.incidentsService.assign(id, ids, req.user.id, scheduledDate, scheduleReason || undefined);
+    return this.incidentsService.assign(id, ids, req.user.id, scheduledDate, scheduleReason || undefined, !!isReassignment, reassignReason || undefined);
   }
 
   /**
