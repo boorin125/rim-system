@@ -927,13 +927,15 @@ export class IncidentsService {
       ];
     }
 
-    // SUPERVISOR: Only see incidents with resolutionType = ONSITE or already past OPEN status
+    // SUPERVISOR: Only see incidents with resolutionType = ONSITE or already past OPEN status,
+    // or reopened incidents (e.g. outsource saveProgressAndReopen → OPEN with reopenCount > 0)
     if (this.hasOnlyRole(user, UserRole.SUPERVISOR)) {
       if (!where.AND) where.AND = [];
       (where.AND as any[]).push({
         OR: [
           { resolutionType: 'ONSITE' },
           { status: { in: ['ASSIGNED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'CANCELLED'] } },
+          { status: IncidentStatus.OPEN, reopenCount: { gt: 0 } },
         ],
       });
     }
@@ -1093,13 +1095,15 @@ export class IncidentsService {
       where.assignees = { some: { userId: user.id } };
     }
 
-    // SUPERVISOR: Only see incidents with resolutionType = ONSITE or already past OPEN status
+    // SUPERVISOR: Only see incidents with resolutionType = ONSITE or already past OPEN status,
+    // or reopened incidents (e.g. outsource saveProgressAndReopen → OPEN with reopenCount > 0)
     if (this.hasOnlyRole(user, UserRole.SUPERVISOR)) {
       if (!where.AND) where.AND = [];
       (where.AND as any[]).push({
         OR: [
           { resolutionType: 'ONSITE' },
           { status: { in: ['ASSIGNED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'CANCELLED'] } },
+          { status: IncidentStatus.OPEN, reopenCount: { gt: 0 } },
         ],
       });
     }
