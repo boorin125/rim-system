@@ -64,6 +64,7 @@ export class ServiceReportPublicController {
         },
         spareParts: {
           select: {
+            roundNumber: true,
             deviceName: true,
             oldSerialNo: true,
             newSerialNo: true,
@@ -164,7 +165,13 @@ export class ServiceReportPublicController {
       // Recover pre-update brand/model for old equipment via EquipmentLog
       // (syncEquipmentFromSparePart may overwrite oldEquipment.brand/model on UPDATED path)
       spareParts: await (async () => {
-        const oldEquipIds = (incident.spareParts as any[])
+        // Only show spare parts from the closing round
+        const closingRound = (incident.reopenCount ?? 0) + 1;
+        const closingRoundParts = (incident.spareParts as any[]).filter(
+          sp => (sp as any).roundNumber == null || (sp as any).roundNumber === closingRound,
+        );
+
+        const oldEquipIds = closingRoundParts
           .filter(sp => (sp as any).oldEquipment?.id)
           .map(sp => (sp as any).oldEquipment.id);
         const equipLogs = oldEquipIds.length > 0
@@ -176,7 +183,7 @@ export class ServiceReportPublicController {
           : [];
         const logOldValueMap = new Map(equipLogs.map(l => [l.equipmentId, l.oldValue as any]));
 
-        return (incident.spareParts as any[]).map(sp => {
+        return closingRoundParts.map(sp => {
           const s = sp as any;
           const logOld = s.oldEquipment?.id ? logOldValueMap.get(s.oldEquipment.id) : null;
           const oldBrand = logOld?.brand !== undefined ? logOld.brand : s.oldEquipment?.brand;
