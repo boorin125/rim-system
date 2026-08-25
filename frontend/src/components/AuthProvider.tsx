@@ -190,7 +190,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   // pathname as a dependency, which eliminates the timer-reset-on-navigation
   // race that caused a spurious "Session หมดอายุแล้ว" toast right after login.
   useEffect(() => {
-    const checkTokenValidity = () => {
+    const checkTokenValidity = async () => {
       // Skip while on public pages
       if (publicPaths.some(p => window.location.pathname.includes(p))) return
 
@@ -206,7 +206,29 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
       if (sessionExpiresAt) {
         const msLeft = new Date(sessionExpiresAt).getTime() - Date.now()
         if (msLeft <= 0) {
-          handleLogoutRef.current('Session หมดอายุแล้ว กรุณาเข้าสู่ระบบใหม่')
+          // sessionExpiresAt appears expired — try a silent refresh first.
+          // This handles clock-skew or stale localStorage values that can
+          // produce false positives right after login.
+          if (!refreshToken) {
+            handleLogoutRef.current('Session หมดอายุแล้ว กรุณาเข้าสู่ระบบใหม่')
+            return
+          }
+          try {
+            const res = await axios.post(
+              `${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`,
+              { refreshToken },
+              { headers: { 'Content-Type': 'application/json' } }
+            )
+            const { accessToken, refreshToken: newRT, sessionExpiresAt: newSEA, user } = res.data
+            localStorage.setItem('token', accessToken)
+            localStorage.setItem('refreshToken', newRT)
+            localStorage.setItem('user', JSON.stringify(user))
+            if (newSEA) localStorage.setItem('sessionExpiresAt', newSEA)
+            // Refresh succeeded → session still valid → no logout
+          } catch {
+            // Refresh failed → session truly expired
+            handleLogoutRef.current('Session หมดอายุแล้ว กรุณาเข้าสู่ระบบใหม่')
+          }
         }
       }
     }

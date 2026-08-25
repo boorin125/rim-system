@@ -122,12 +122,14 @@ const conditionColor: Record<string, string> = {
 function EquipmentCard({
   record,
   canEdit,
+  canEditPhotos,
   onUpdated,
   brandSuggestions,
   modelSuggestions,
 }: {
   record: PmEquipmentRecord
   canEdit: boolean
+  canEditPhotos: boolean
   onUpdated: (updated: PmEquipmentRecord) => void
   brandSuggestions: string[]
   modelSuggestions: string[]
@@ -241,7 +243,7 @@ function EquipmentCard({
   }
 
   const uploadPhotos = async (files: FileList, type: 'before' | 'after') => {
-    if (!canEdit) return
+    if (!canEditPhotos) return
     const setter = type === 'before' ? setUploadingBefore : setUploadingAfter
     try {
       setter(true)
@@ -263,7 +265,7 @@ function EquipmentCard({
   }
 
   const removePhoto = async (type: 'before' | 'after', index: number) => {
-    if (!canEdit) return
+    if (!canEditPhotos) return
     const currentPhotos = type === 'before' ? record.beforePhotos : record.afterPhotos
     const filtered = currentPhotos.filter((_, i) => i !== index)
     // Optimistic update — remove immediately from UI
@@ -345,7 +347,7 @@ function EquipmentCard({
               label="รูปก่อน PM"
               photos={record.beforePhotos}
               uploading={uploadingBefore}
-              canEdit={canEdit}
+              canEdit={canEditPhotos}
               onUpload={(files) => uploadPhotos(files, 'before')}
               onRemove={(i) => removePhoto('before', i)}
               accentColor="blue"
@@ -355,7 +357,7 @@ function EquipmentCard({
               label="รูปหลัง PM"
               photos={record.afterPhotos}
               uploading={uploadingAfter}
-              canEdit={canEdit}
+              canEdit={canEditPhotos}
               onUpload={(files) => uploadPhotos(files, 'after')}
               onRemove={(i) => removePhoto('after', i)}
               accentColor="green"
@@ -1319,6 +1321,7 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
             key={record.id}
             record={record}
             canEdit={canEdit && !pmRecord.performedAt}
+            canEditPhotos={canEdit}
             onUpdated={handleEquipmentUpdated}
             brandSuggestions={brandSuggestions}
             modelSuggestions={modelSuggestions}
