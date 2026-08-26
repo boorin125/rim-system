@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import axios from 'axios'
 import SignaturePad from 'signature_pad'
+import { getPhotoUrl } from '@/utils/photoUtils'
 
 interface PmEquipmentItem {
   equipment: {
@@ -135,6 +136,16 @@ export default function InventorySignPage() {
       const t = setTimeout(initSignaturePad, 100)
       return () => clearTimeout(t)
     }
+  }, [data, isSigned, initSignaturePad])
+
+  // Reinit canvas after visual viewport changes (keyboard open/close) so touch coords stay aligned
+  useEffect(() => {
+    if (!data || isSigned) return
+    const reinitIfEmpty = () => {
+      if (signaturePadRef.current?.isEmpty()) initSignaturePad()
+    }
+    window.visualViewport?.addEventListener('resize', reinitIfEmpty)
+    return () => window.visualViewport?.removeEventListener('resize', reinitIfEmpty)
   }, [data, isSigned, initSignaturePad])
 
   // Inline clear
@@ -397,7 +408,7 @@ export default function InventorySignPage() {
                     )}
                     {rec.beforePhotos?.[0] && (
                       <img
-                        src={rec.beforePhotos[0]}
+                        src={getPhotoUrl(rec.beforePhotos[0])}
                         alt=""
                         className="w-12 h-12 object-cover rounded-lg border border-gray-600"
                       />
