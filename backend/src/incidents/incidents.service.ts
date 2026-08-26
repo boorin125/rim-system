@@ -894,7 +894,13 @@ export class IncidentsService {
     // They will be notified when Helpdesk requests onsite support.
     // EXCEPTION: Preventive Maintenance — auto-create PmRecord + set ONSITE + notify supervisors immediately.
     if (createIncidentDto.jobType === 'Preventive Maintenance') {
-      await this.pmService.createPmRecord(id, createIncidentDto.storeId);
+      try {
+        await this.pmService.createPmRecord(id, createIncidentDto.storeId);
+      } catch (err) {
+        // PM record creation failed — rollback the incident (and cascaded history/audit rows)
+        await this.prisma.incident.delete({ where: { id } }).catch(() => {});
+        throw err;
+      }
 
       await this.prisma.incident.update({
         where: { id },

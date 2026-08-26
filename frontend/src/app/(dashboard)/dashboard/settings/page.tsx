@@ -324,6 +324,15 @@ const RELEASE_NOTES: {
   changes: { type: 'new' | 'improved' | 'fixed'; text: string }[]
 }[] = [
   {
+    version: '1.0.24',
+    date: '2026-08-26',
+    changes: [
+      { type: 'fixed',    text: 'PM Photos: Technician สามารถลบ/แก้ไขรูปภาพอุปกรณ์ PM ได้หลัง Helpdesk Reject การปิดงาน (ก่อนหน้านี้ปุ่ม X หายไปหลัง Submit PM)' },
+      { type: 'fixed',    text: 'PM Create: ถ้าสร้าง PM Record ล้มเหลว ระบบจะ Rollback Incident อัตโนมัติ ไม่ทิ้ง Incident ค้างโดยไม่มี PM Record' },
+      { type: 'fixed',    text: 'Auth: เพิ่ม Silent Token Refresh ก่อน Logout — ป้องกัน Logout หลอกจาก Clock Skew หรือ Stale Session ใน LocalStorage' },
+    ],
+  },
+  {
     version: '1.0.23',
     date: '2026-07-29',
     changes: [
