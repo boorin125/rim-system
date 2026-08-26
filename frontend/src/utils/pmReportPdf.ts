@@ -240,11 +240,14 @@ export async function generatePmReportPDF(data: PmReportData): Promise<void> {
     // Equipment details row
     doc.setTextColor(60, 60, 60)
     doc.setFontSize(7.5)
+    const effectiveBrand = eq.updatedBrand || eq.brand || ''
+    const effectiveModel = eq.updatedModel || eq.model || ''
+    const effectiveSerial = eq.updatedSerial || eq.serialNumber
+    const brandModel = [effectiveBrand, effectiveModel].filter(Boolean).join(' ')
     const details = [
       `Category: ${eq.category}`,
-      `S/N: ${eq.serialNumber}`,
-      eq.brand ? `Brand: ${eq.updatedBrand || eq.brand}` : '',
-      eq.model ? `Model: ${eq.updatedModel || eq.model}` : '',
+      brandModel,
+      `S/N: ${effectiveSerial}`,
     ]
       .filter(Boolean)
       .join('   ')
