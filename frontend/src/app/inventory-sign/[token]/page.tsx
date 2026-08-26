@@ -378,7 +378,7 @@ export default function InventorySignPage() {
                       <p className="text-gray-500 text-xs ml-4">
                         {[rec.updatedBrand || rec.equipment.brand, rec.updatedModel || rec.equipment.model]
                           .filter(Boolean)
-                          .join(' / ')}
+                          .join(' ')}
                       </p>
                     )}
                     {rec.comment && (

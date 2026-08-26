@@ -1556,7 +1556,7 @@ export default function StoreDetailPage() {
                       </span>
                     </div>
                     <p className="text-sm text-gray-400">{item.category}</p>
-                    {item.brand && <p className="text-xs text-gray-500 mt-1">{item.brand}{item.model ? ` / ${item.model}` : ''}</p>}
+                    {item.brand && <p className="text-xs text-gray-500 mt-1">{item.brand}{item.model ? ` ${item.model}` : ''}</p>}
                     {item.serialNumber && (
                       <p className="text-xs text-gray-500 mt-1 font-mono">SN: {item.serialNumber}</p>
                     )}

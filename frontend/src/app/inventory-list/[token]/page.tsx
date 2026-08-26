@@ -227,7 +227,7 @@ export default function InventoryListPage() {
                     <div className="text-gray-400 text-[10px]">{eq.category}</div>
                   </td>
                   <td className="px-2 py-2 border border-gray-200 text-gray-600 align-middle">
-                    {[brand, model].filter(Boolean).join(' / ') || '-'}
+                    {[brand, model].filter(Boolean).join(' ') || '-'}
                   </td>
                   <td className="px-2 py-2 border border-gray-200 text-gray-600 align-middle">{serial || '-'}</td>
                   <td className="px-1 py-1 border border-gray-200 text-center align-middle">
