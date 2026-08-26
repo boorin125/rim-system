@@ -330,7 +330,16 @@ export class PmService {
         } else {
           if (rec.updatedBrand) { updateData.brand = rec.updatedBrand; changes.push(`Brand: ${current.brand} → ${rec.updatedBrand}`); }
           if (rec.updatedModel) { updateData.model = rec.updatedModel; changes.push(`Model: ${current.model} → ${rec.updatedModel}`); }
-          if (rec.updatedSerial) { updateData.serialNumber = rec.updatedSerial; changes.push(`Serial: ${current.serialNumber} → ${rec.updatedSerial}`); }
+          if (rec.updatedSerial && rec.updatedSerial !== current.serialNumber) {
+            const serialConflict = await tx.equipment.findFirst({
+              where: { serialNumber: rec.updatedSerial, id: { not: rec.equipmentId } },
+              select: { id: true },
+            });
+            if (!serialConflict) {
+              updateData.serialNumber = rec.updatedSerial;
+              changes.push(`Serial: ${current.serialNumber} → ${rec.updatedSerial}`);
+            }
+          }
         }
 
         // Condition → auto-update Equipment.status
