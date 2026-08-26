@@ -2360,7 +2360,7 @@ SLA Breach Time: ${slaBreachText}`
                           <p className="text-xs text-gray-500 mb-1">รูปก่อนซ่อม ({round.beforePhotos.length})</p>
                           <div className="flex flex-wrap gap-2">
                             {round.beforePhotos.map((p: string, i: number) => (
-                              <img key={i} src={`${apiBase}/${p}`} className="h-16 w-16 object-cover rounded-lg cursor-pointer" onClick={() => openPhotoViewer(round.beforePhotos.map(getPhotoUrl), i, `รอบที่ ${round.roundNumber} — รูปก่อนซ่อม`)} onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                              <img key={i} src={getPhotoUrl(p)} className="h-16 w-16 object-cover rounded-lg cursor-pointer" onClick={() => openPhotoViewer(round.beforePhotos.map(getPhotoUrl), i, `รอบที่ ${round.roundNumber} — รูปก่อนซ่อม`)} onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
                             ))}
                           </div>
                         </div>
@@ -2370,7 +2370,7 @@ SLA Breach Time: ${slaBreachText}`
                           <p className="text-xs text-gray-500 mb-1">รูปหลังซ่อม ({round.afterPhotos.length})</p>
                           <div className="flex flex-wrap gap-2">
                             {round.afterPhotos.map((p: string, i: number) => (
-                              <img key={i} src={`${apiBase}/${p}`} className="h-16 w-16 object-cover rounded-lg cursor-pointer" onClick={() => openPhotoViewer(round.afterPhotos.map(getPhotoUrl), i, `รอบที่ ${round.roundNumber} — รูปหลังซ่อม`)} onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                              <img key={i} src={getPhotoUrl(p)} className="h-16 w-16 object-cover rounded-lg cursor-pointer" onClick={() => openPhotoViewer(round.afterPhotos.map(getPhotoUrl), i, `รอบที่ ${round.roundNumber} — รูปหลังซ่อม`)} onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
                             ))}
                           </div>
                         </div>
