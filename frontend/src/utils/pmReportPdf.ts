@@ -356,12 +356,7 @@ export async function generatePmReportPDF(data: PmReportData): Promise<void> {
   doc.rect(marginL, boxTop, colW, boxH)
   doc.rect(marginL + colW, boxTop, colW, boxH)
 
-  // Inner signature lines
   const lineY = boxTop + 8 + sigImgH + 2  // boxTop + 30
-  doc.setDrawColor(180, 180, 180)
-  doc.setLineWidth(0.3)
-  doc.line(marginL + 8, lineY, marginL + colW - 8, lineY)
-  doc.line(marginL + colW + 8, lineY, marginL + colW * 2 - 8, lineY)
 
   // ── Technician column (left) ──
   doc.setFont(font, 'normal')
@@ -391,7 +386,7 @@ export async function generatePmReportPDF(data: PmReportData): Promise<void> {
   doc.setFont(font, 'bold')
   doc.setFontSize(7)
   doc.setTextColor(50, 50, 50)
-  doc.text(`(${data.technicianName || '____________________________________________'})`, marginL + colW / 2, lineY + 4, { align: 'center' })
+  doc.text(`(${data.technicianName || '_______________________________________________________'})`, marginL + colW / 2, lineY + 4, { align: 'center' })
   doc.setFont(font, 'normal')
   doc.setFontSize(6)
   doc.setTextColor(120, 120, 120)
@@ -435,7 +430,7 @@ export async function generatePmReportPDF(data: PmReportData): Promise<void> {
   doc.setFont(font, 'bold')
   doc.setFontSize(7)
   doc.setTextColor(50, 50, 50)
-  doc.text(`(${data.storeSignerName || '____________________________________________'})`, rightX + colW / 2, lineY + 4, { align: 'center' })
+  doc.text(`(${data.storeSignerName || '_______________________________________________________'})`, rightX + colW / 2, lineY + 4, { align: 'center' })
   doc.setFont(font, 'normal')
   doc.setFontSize(6)
   doc.setTextColor(120, 120, 120)
