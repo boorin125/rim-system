@@ -16,6 +16,13 @@ export const getPhotoUrl = (photo: string): string => {
 
   // Already a full URL
   if (photo.startsWith('http://') || photo.startsWith('https://')) {
+    // Fix legacy URLs stored without /uploads/ prefix (e.g. https://host/incidents/... → https://host/uploads/incidents/...)
+    try {
+      const url = new URL(photo)
+      if (!url.pathname.startsWith('/uploads/')) {
+        return `${url.origin}/uploads${url.pathname}`
+      }
+    } catch {}
     return photo
   }
 
