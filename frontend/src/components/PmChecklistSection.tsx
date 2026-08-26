@@ -117,6 +117,21 @@ const conditionColor: Record<string, string> = {
   REPLACED: 'text-red-400 border-red-500 bg-red-500/10',
 }
 
+function findSimilarSuggestion(typed: string, suggestions: string[]): string | null {
+  if (!typed.trim()) return null
+  const norm = (s: string) =>
+    s.toLowerCase().replace(/[^a-z0-9]/g, ' ').trim().split(/\s+/).filter(Boolean)
+  if (suggestions.some(s => s.toLowerCase() === typed.toLowerCase().trim())) return null
+  const typedTokens = norm(typed)
+  if (typedTokens.length === 0) return null
+  const matches = suggestions.filter(s => {
+    const suggStr = norm(s).join(' ')
+    return typedTokens.every(t => suggStr.includes(t))
+  })
+  if (matches.length === 0) return null
+  return matches.sort((a, b) => a.length - b.length)[0]
+}
+
 // ─── Equipment Record Card ────────────────────────────────────────────────────
 
 function EquipmentCard({
@@ -148,6 +163,11 @@ function EquipmentCard({
   const [saving, setSaving] = useState(false)
   const [uploadingBefore, setUploadingBefore] = useState(false)
   const [uploadingAfter, setUploadingAfter] = useState(false)
+  const [didYouMean, setDidYouMean] = useState<{
+    field: 'updatedBrand' | 'updatedModel'
+    typed: string
+    suggestion: string
+  } | null>(null)
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
 
   // Lazy-load photos when card is expanded for the first time
@@ -226,6 +246,7 @@ function EquipmentCard({
 
   const handleHasChangesToggle = (value: boolean) => {
     setHasChanges(value)
+    setDidYouMean(null)
     if (!value) {
       const next = { ...local, updatedBrand: '', updatedModel: '', updatedSerial: '' }
       setLocal(next)
@@ -240,6 +261,22 @@ function EquipmentCard({
     // condition: save immediately
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => saveTextFields(next), 300)
+  }
+
+  const handleBlurCheck = (field: 'updatedBrand' | 'updatedModel', value: string) => {
+    if (!value.trim() || !canEdit) return
+    const suggestions = field === 'updatedBrand' ? brandSuggestions : modelSuggestions
+    const suggestion = findSimilarSuggestion(value, suggestions)
+    if (suggestion) setDidYouMean({ field, typed: value, suggestion })
+  }
+
+  const handleConfirmSuggestion = () => {
+    if (!didYouMean) return
+    const next = { ...local, [didYouMean.field]: didYouMean.suggestion }
+    setLocal(next)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    saveTextFields(next)
+    setDidYouMean(null)
   }
 
   const uploadPhotos = async (files: FileList, type: 'before' | 'after') => {
@@ -471,6 +508,7 @@ function EquipmentCard({
                       list={`brands-${record.id}`}
                       value={local.updatedBrand}
                       onChange={(e) => handleFieldChange('updatedBrand', e.target.value)}
+                      onBlur={(e) => handleBlurCheck('updatedBrand', e.target.value)}
                       disabled={!canEdit}
                       placeholder="Brand"
                       className={`w-full px-2 py-1 bg-slate-700/50 border rounded-lg text-white text-[10px] placeholder-gray-500 focus:outline-none focus:border-blue-500 disabled:opacity-60 ${!local.updatedBrand ? 'border-red-500/60' : 'border-slate-600'}`}
@@ -479,6 +517,7 @@ function EquipmentCard({
                       list={`models-${record.id}`}
                       value={local.updatedModel}
                       onChange={(e) => handleFieldChange('updatedModel', e.target.value)}
+                      onBlur={(e) => handleBlurCheck('updatedModel', e.target.value)}
                       disabled={!canEdit}
                       placeholder="Model"
                       className={`w-full px-2 py-1 bg-slate-700/50 border rounded-lg text-white text-[10px] placeholder-gray-500 focus:outline-none focus:border-blue-500 disabled:opacity-60 ${!local.updatedModel ? 'border-red-500/60' : 'border-slate-600'}`}
@@ -491,6 +530,31 @@ function EquipmentCard({
                       className={`w-full px-2 py-1 bg-slate-700/50 border rounded-lg text-white text-[10px] placeholder-gray-500 focus:outline-none focus:border-blue-500 disabled:opacity-60 ${!local.updatedSerial ? 'border-red-500/60' : 'border-slate-600'}`}
                     />
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* Did you mean? */}
+            {didYouMean && (
+              <div className="flex items-center gap-2 p-2.5 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                <span className="text-[11px] text-blue-300 flex-1 leading-snug">
+                  💡 คุณหมายถึง{' '}
+                  <strong className="text-white">&ldquo;{didYouMean.suggestion}&rdquo;</strong>{' '}
+                  ใช่หรือไม่?
+                </span>
+                <div className="flex gap-1.5 flex-shrink-0">
+                  <button
+                    onClick={handleConfirmSuggestion}
+                    className="px-2.5 py-1 bg-blue-500 hover:bg-blue-600 text-white text-[10px] rounded-lg font-medium transition-colors"
+                  >
+                    ใช่
+                  </button>
+                  <button
+                    onClick={() => setDidYouMean(null)}
+                    className="px-2.5 py-1 bg-slate-600 hover:bg-slate-500 text-gray-300 text-[10px] rounded-lg transition-colors"
+                  >
+                    ไม่
+                  </button>
                 </div>
               </div>
             )}
