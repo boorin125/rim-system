@@ -70,9 +70,11 @@ export default function InventorySignPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSigned, setIsSigned] = useState(false)
 
-  // Inline signature pad
+  // Inline canvas — custom drawing (no SignaturePad) so getBoundingClientRect() is always fresh per event
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const signaturePadRef = useRef<SignaturePad | null>(null)
+  const inlineCtxRef = useRef<CanvasRenderingContext2D | null>(null)
+  const inlineIsDrawingRef = useRef(false)
+  const inlineHasDrawingRef = useRef(false)
 
   // Fullscreen signature
   const fsCanvasRef = useRef<HTMLCanvasElement>(null)
@@ -111,48 +113,95 @@ export default function InventorySignPage() {
     }
   }, [])
 
-  // Init inline signature pad
-  const initSignaturePad = useCallback(() => {
-    if (canvasRef.current && !isSigned) {
-      const canvas = canvasRef.current
-      const ratio = window.devicePixelRatio || 1
-      // Use getBoundingClientRect so the scale factor matches exactly what SignaturePad uses at draw time
-      const rect = canvas.getBoundingClientRect()
-      const w = rect.width || canvas.offsetWidth
-      const h = rect.height || canvas.offsetHeight
-      canvas.width = Math.round(w * ratio)
-      canvas.height = Math.round(h * ratio)
-      canvas.style.width = w + 'px'
-      canvas.style.height = h + 'px'
-      signaturePadRef.current = new SignaturePad(canvas, {
-        minWidth: 1,
-        maxWidth: 3,
-        penColor: '#1e40af',
-        backgroundColor: 'rgb(255,255,255)',
-      })
-    }
+  // Init inline canvas
+  const initInlineCanvas = useCallback(() => {
+    const canvas = canvasRef.current
+    if (!canvas || isSigned) return
+    const rect = canvas.getBoundingClientRect()
+    const w = rect.width || canvas.offsetWidth
+    const h = rect.height || canvas.offsetHeight
+    if (!w || !h) return
+    const ratio = window.devicePixelRatio || 1
+    canvas.width = Math.round(w * ratio)
+    canvas.height = Math.round(h * ratio)
+    canvas.style.width = w + 'px'
+    canvas.style.height = h + 'px'
+    const ctx = canvas.getContext('2d')!
+    ctx.fillStyle = 'rgb(255,255,255)'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    ctx.strokeStyle = '#1e40af'
+    ctx.fillStyle = '#1e40af'
+    ctx.lineWidth = 2.5 * ratio
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    inlineCtxRef.current = ctx
+    inlineHasDrawingRef.current = false
   }, [isSigned])
 
   useEffect(() => {
     if (data && !isSigned) {
-      const t = setTimeout(initSignaturePad, 300)
+      const t = setTimeout(initInlineCanvas, 300)
       return () => clearTimeout(t)
     }
-  }, [data, isSigned, initSignaturePad])
+  }, [data, isSigned, initInlineCanvas])
 
-  // Reinit canvas after visual viewport changes (keyboard open/close) so touch coords stay aligned
+  // Reinit canvas after visual viewport changes (keyboard open/close)
   useEffect(() => {
     if (!data || isSigned) return
     const reinitIfEmpty = () => {
-      if (signaturePadRef.current?.isEmpty()) initSignaturePad()
+      if (!inlineHasDrawingRef.current) initInlineCanvas()
     }
     window.visualViewport?.addEventListener('resize', reinitIfEmpty)
     return () => window.visualViewport?.removeEventListener('resize', reinitIfEmpty)
-  }, [data, isSigned, initSignaturePad])
+  }, [data, isSigned, initInlineCanvas])
+
+  // Canvas point — reads getBoundingClientRect() at event time (always accurate)
+  const getCanvasPt = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current!
+    const rect = canvas.getBoundingClientRect()
+    return {
+      x: (e.clientX - rect.left) * (canvas.width / rect.width),
+      y: (e.clientY - rect.top) * (canvas.height / rect.height),
+    }
+  }
+
+  const handleCanvasPtrDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const ctx = inlineCtxRef.current
+    if (!ctx) return
+    e.currentTarget.setPointerCapture(e.pointerId)
+    inlineIsDrawingRef.current = true
+    inlineHasDrawingRef.current = true
+    const pt = getCanvasPt(e)
+    ctx.beginPath()
+    ctx.moveTo(pt.x, pt.y)
+  }
+
+  const handleCanvasPtrMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const ctx = inlineCtxRef.current
+    if (!inlineIsDrawingRef.current || !ctx) return
+    const pt = getCanvasPt(e)
+    ctx.lineTo(pt.x, pt.y)
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.moveTo(pt.x, pt.y)
+  }
+
+  const handleCanvasPtrUp = () => {
+    inlineIsDrawingRef.current = false
+    inlineCtxRef.current?.beginPath()
+  }
 
   // Inline clear
   const handleClearSignature = () => {
-    signaturePadRef.current?.clear()
+    const canvas = canvasRef.current
+    const ctx = inlineCtxRef.current
+    if (canvas && ctx) {
+      ctx.fillStyle = 'rgb(255,255,255)'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      ctx.strokeStyle = '#1e40af'
+      ctx.fillStyle = '#1e40af'
+      inlineHasDrawingRef.current = false
+    }
     setFsSignatureDataUrl(null)
   }
 
@@ -222,8 +271,8 @@ export default function InventorySignPage() {
     }
     const signatureData =
       fsSignatureDataUrl ||
-      (signaturePadRef.current && !signaturePadRef.current.isEmpty()
-        ? signaturePadRef.current.toDataURL('image/png')
+      (inlineHasDrawingRef.current
+        ? canvasRef.current?.toDataURL('image/png') ?? null
         : null)
     if (!signatureData) {
       alert('กรุณาเซ็นลายมือชื่อก่อนยืนยัน')
@@ -441,7 +490,10 @@ export default function InventorySignPage() {
                   <div className="bg-white rounded-xl overflow-hidden border-2 border-gray-600">
                     <canvas
                       ref={canvasRef}
-                      style={{ width: '100%', height: '160px', touchAction: 'none' }}
+                      onPointerDown={handleCanvasPtrDown}
+                      onPointerMove={handleCanvasPtrMove}
+                      onPointerUp={handleCanvasPtrUp}
+                      style={{ width: '100%', height: '160px', touchAction: 'none', cursor: 'crosshair' }}
                       className="block"
                     />
                   </div>
