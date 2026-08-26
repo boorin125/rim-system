@@ -116,10 +116,12 @@ export default function InventorySignPage() {
     if (canvasRef.current && !isSigned) {
       const canvas = canvasRef.current
       const ratio = window.devicePixelRatio || 1
-      const w = canvas.offsetWidth
-      const h = canvas.offsetHeight
-      canvas.width = w * ratio
-      canvas.height = h * ratio
+      // Use getBoundingClientRect so the scale factor matches exactly what SignaturePad uses at draw time
+      const rect = canvas.getBoundingClientRect()
+      const w = rect.width || canvas.offsetWidth
+      const h = rect.height || canvas.offsetHeight
+      canvas.width = Math.round(w * ratio)
+      canvas.height = Math.round(h * ratio)
       canvas.style.width = w + 'px'
       canvas.style.height = h + 'px'
       signaturePadRef.current = new SignaturePad(canvas, {
@@ -133,7 +135,7 @@ export default function InventorySignPage() {
 
   useEffect(() => {
     if (data && !isSigned) {
-      const t = setTimeout(initSignaturePad, 100)
+      const t = setTimeout(initSignaturePad, 300)
       return () => clearTimeout(t)
     }
   }, [data, isSigned, initSignaturePad])
