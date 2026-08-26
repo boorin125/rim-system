@@ -102,6 +102,14 @@ async function cropToSquare(base64: string): Promise<string> {
 }
 
 export async function generatePmReportPDF(data: PmReportData): Promise<void> {
+  // Sort equipment alphabetically by name
+  data = {
+    ...data,
+    equipmentRecords: [...data.equipmentRecords].sort((a, b) =>
+      (a.name || '').localeCompare(b.name || '', 'th'),
+    ),
+  }
+
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const font = await loadSarabunFont(doc)
 

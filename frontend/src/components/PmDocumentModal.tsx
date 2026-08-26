@@ -134,7 +134,9 @@ export function PmReportModal({
 
         {/* Equipment Records */}
         <div className="space-y-6">
-          {data.equipmentRecords.map((rec, idx) => {
+          {[...data.equipmentRecords]
+            .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'th'))
+            .map((rec, idx) => {
             const brand = rec.updatedBrand || rec.brand
             const model = rec.updatedModel || rec.model
             const serial = rec.updatedSerial || rec.serialNumber
