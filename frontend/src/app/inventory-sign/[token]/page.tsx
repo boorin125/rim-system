@@ -69,6 +69,7 @@ export default function InventorySignPage() {
   const [signerName, setSignerName] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSigned, setIsSigned] = useState(false)
+  const [countdown, setCountdown] = useState(3)
 
   // Inline canvas — custom drawing (no SignaturePad) so getBoundingClientRect() is always fresh per event
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -112,6 +113,23 @@ export default function InventorySignPage() {
       window.removeEventListener('orientationchange', check)
     }
   }, [])
+
+  // Countdown + auto-close after signing
+  useEffect(() => {
+    if (!isSigned) return
+    setCountdown(3)
+    const interval = setInterval(() => {
+      setCountdown((c) => {
+        if (c <= 1) {
+          clearInterval(interval)
+          window.history.back()
+          return 0
+        }
+        return c - 1
+      })
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [isSigned])
 
   // Init inline canvas
   const initInlineCanvas = useCallback(() => {
@@ -346,6 +364,11 @@ export default function InventorySignPage() {
                 hour: '2-digit',
                 minute: '2-digit',
               })}
+            </p>
+          )}
+          {countdown > 0 && (
+            <p className="text-gray-500 text-xs mt-4">
+              กลับอัตโนมัติใน {countdown} วินาที...
             </p>
           )}
         </div>
