@@ -213,7 +213,9 @@ export default function InventoryListPage() {
             </tr>
           </thead>
           <tbody>
-            {data.equipmentRecords.map((rec, idx) => {
+            {[...data.equipmentRecords]
+              .sort((a, b) => (a.equipment.name || '').localeCompare(b.equipment.name || '', 'th'))
+              .map((rec, idx) => {
               const eq = rec.equipment
               const brand = rec.updatedBrand || eq.brand
               const model = rec.updatedModel || eq.model

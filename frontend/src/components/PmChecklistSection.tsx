@@ -1227,17 +1227,19 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
       storeSignature: pmData.storeSignature,
       storeSignerName: pmData.storeSignerName,
       storeSignedAt: pmData.storeSignedAt,
-      equipment: pmData.equipmentRecords.map((r, idx) => ({
-        no: idx + 1,
-        name: r.name,
-        category: r.category,
-        serialNumber: r.updatedSerial || r.serialNumber,
-        brand: r.updatedBrand || r.brand,
-        model: r.updatedModel || r.model,
-        condition: r.condition,
-        comment: r.comment,
-        photo: r.afterPhotos[0],
-      })),
+      equipment: [...pmData.equipmentRecords]
+        .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'th'))
+        .map((r, idx) => ({
+          no: idx + 1,
+          name: r.name,
+          category: r.category,
+          serialNumber: r.updatedSerial || r.serialNumber,
+          brand: r.updatedBrand || r.brand,
+          model: r.updatedModel || r.model,
+          condition: r.condition,
+          comment: r.comment,
+          photo: r.afterPhotos[0],
+        })),
     })
     setShowInventoryModal(true)
   }
