@@ -78,6 +78,14 @@ export async function generateInventoryListPDF(data: InventoryListData): Promise
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const font = await loadSarabunFont(doc)
 
+  // Sort equipment alphabetically by name, then re-number
+  data = {
+    ...data,
+    equipment: [...data.equipment]
+      .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'th'))
+      .map((eq, idx) => ({ ...eq, no: idx + 1 })),
+  }
+
   const pageW = 210
   const pageH = 297
   const marginL = 10
@@ -156,17 +164,16 @@ export async function generateInventoryListPDF(data: InventoryListData): Promise
   y += 8
 
   // ── Table ─────────────────────────────────────────────────────────────────
-  // ROW_H=26: page 1 (y=47): 47+9×26=281 < 292 ✓  pages 2+ (y=21): 21+10×26=281 < 292 ✓
-  // Both page types end at y≈281, 11 mm above footer — balanced layout.
-  const ROWS_PER_PAGE_P1 = 9   // page 1 has taller header → 9 rows
-  const ROWS_PER_PAGE    = 10  // pages 2+ → 10 rows
-  const ROW_H = 26
+  // ROW_H=29: page 1 (y=47): 47+8×29=279 < 292 ✓  pages 2+ (y=21): 21+8×29=253 < 292 ✓
+  const ROWS_PER_PAGE_P1 = 8
+  const ROWS_PER_PAGE    = 8
+  const ROW_H = 29
   let isFirstPage = true
 
   const cols = [
     { label: 'ลำดับ',        w: 8,   align: 'center' as const },
     { label: 'ชื่ออุปกรณ์',   w: 50,  align: 'left'   as const },
-    { label: 'Brand / Model', w: 45,  align: 'left'   as const },
+    { label: 'Brand / Model',  w: 45,  align: 'left'   as const },
     { label: 'Serial No.',    w: 32,  align: 'left'   as const },
     { label: 'รูปอุปกรณ์',   w: 30,  align: 'center' as const },
     { label: 'Recheck',       w: 25,  align: 'center' as const },
