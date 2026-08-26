@@ -325,13 +325,18 @@ const RELEASE_NOTES: {
 }[] = [
   {
     version: '1.0.24',
-    date: '2026-08-26',
+    date: '2026-08-27',
     changes: [
       { type: 'new',      text: 'PM Checklist — Barcode Scanner: กดปุ่มกล้องข้างช่อง Serial No. เพื่อสแกน Barcode/QR Code แบบ Real-time ผ่านกล้องมือถือ' },
       { type: 'new',      text: 'PM Checklist — Photo to Text (OCR): ถ่ายรูปป้าย Serial No. → Tesseract.js แปลงเป็นตัวอักษรอัตโนมัติ พร้อมแก้ไขได้ก่อนยืนยัน' },
       { type: 'new',      text: 'PM Checklist — Did you mean?: พิมพ์ Brand/Model แล้วคลิกออก → ระบบแนะนำชื่อที่ใกล้เคียงในฐานข้อมูล กดยืนยันเพื่อเติมค่าอัตโนมัติ' },
+      { type: 'new',      text: 'PM Submit — Serial Conflict Detection: ตรวจ Serial No. ที่ซ้ำก่อน Submit แสดง Card สีแดง + Modal ยืนยันพร้อมรายการที่ซ้ำ ถ้ายืนยันระบบข้าม Serial ที่ซ้ำโดยอัตโนมัติ' },
       { type: 'improved', text: 'PM Checklist — Filter Model: ช่อง Model แสดงเฉพาะ Model ที่อยู่ภายใต้ Brand ที่เลือกไว้ (ไม่แสดงทุก Model ปะปนกัน)' },
-      { type: 'improved', text: 'Inventory List PDF: นำ "/" ระหว่าง Brand และ Model ออก เช่น "Fortinet FortiGate 30G" แทน "Fortinet / FortiGate 30G"' },
+      { type: 'improved', text: 'Inventory List PDF: นำ "/" ระหว่าง Brand และ Model ออก, เรียงอุปกรณ์ตามตัวอักษร (Thai-aware), 8 รายการต่อหน้า' },
+      { type: 'improved', text: 'PM Report PDF: แสดง Brand+Model และ Serial No. ล่าสุด (updatedBrand/Model/Serial), เรียงอุปกรณ์ตามตัวอักษร, Signature placeholder กว้างขึ้น (55 ขีด)' },
+      { type: 'improved', text: 'Inventory List & PM Report (web): เรียงรายการอุปกรณ์ตามตัวอักษร (Thai-aware) เหมือน PDF' },
+      { type: 'improved', text: 'Digital Sign Page: แสดงเฉพาะกล่องลงนาม (ไม่แสดงรายการอุปกรณ์) + กลับอัตโนมัติ 3 วินาทีหลังเซ็นสำเร็จ' },
+      { type: 'fixed',    text: 'Photos: แก้ URL รูปภาพเก่าที่ไม่มี /uploads/ prefix ทำให้รูปในประวัติการซ่อม, PM Equipment, และหน้าอื่นๆ แสดงถูกต้อง' },
       { type: 'fixed',    text: 'PM Photos: Technician สามารถลบ/แก้ไขรูปภาพอุปกรณ์ PM ได้หลัง Helpdesk Reject การปิดงาน (ก่อนหน้านี้ปุ่ม X หายไปหลัง Submit PM)' },
       { type: 'fixed',    text: 'PM Create: ถ้าสร้าง PM Record ล้มเหลว ระบบจะ Rollback Incident อัตโนมัติ ไม่ทิ้ง Incident ค้างโดยไม่มี PM Record' },
       { type: 'fixed',    text: 'Auth: เพิ่ม Silent Token Refresh ก่อน Logout — ป้องกัน Logout หลอกจาก Clock Skew หรือ Stale Session ใน LocalStorage' },
