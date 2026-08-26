@@ -367,59 +367,6 @@ export default function InventorySignPage() {
       </div>
 
       <div className="max-w-lg mx-auto px-4 py-5 space-y-4">
-        {/* Equipment List */}
-        <div className="bg-gray-900 rounded-2xl overflow-hidden border border-gray-700">
-          <div className="px-4 py-3 bg-gray-800 flex items-center justify-between">
-            <h2 className="text-white text-sm font-semibold">รายการอุปกรณ์</h2>
-            <span className="text-gray-400 text-xs">{data.equipmentRecords.length} รายการ</span>
-          </div>
-          <div className="divide-y divide-gray-800">
-            {data.equipmentRecords.map((rec, idx) => (
-              <div key={idx} className="px-4 py-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-purple-400 text-xs font-mono">{idx + 1}.</span>
-                      <p className="text-white text-sm font-medium truncate">{rec.equipment.name}</p>
-                    </div>
-                    <p className="text-gray-500 text-xs ml-4">
-                      {rec.equipment.category} — S/N: {rec.updatedSerial || rec.equipment.serialNumber}
-                    </p>
-                    {(rec.updatedBrand || rec.equipment.brand) && (
-                      <p className="text-gray-500 text-xs ml-4">
-                        {[rec.updatedBrand || rec.equipment.brand, rec.updatedModel || rec.equipment.model]
-                          .filter(Boolean)
-                          .join(' ')}
-                      </p>
-                    )}
-                    {rec.comment && (
-                      <p className="text-gray-400 text-xs ml-4 mt-1 italic">{rec.comment}</p>
-                    )}
-                  </div>
-                  <div className="flex flex-col items-end gap-1">
-                    {rec.condition && (
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full border ${
-                          conditionColor[rec.condition] ?? 'text-gray-400 border-gray-600'
-                        }`}
-                      >
-                        {conditionTh[rec.condition] ?? rec.condition}
-                      </span>
-                    )}
-                    {rec.beforePhotos?.[0] && (
-                      <img
-                        src={getPhotoUrl(rec.beforePhotos[0])}
-                        alt=""
-                        className="w-12 h-12 object-cover rounded-lg border border-gray-600"
-                      />
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
         {/* Signature Section */}
         <div className="bg-gray-900 rounded-2xl border border-gray-700 overflow-hidden">
           <div className="px-4 py-3 bg-gray-800">
