@@ -199,6 +199,40 @@ export class PmService {
   }
 
   /**
+   * Check which equipment records in this PM have updatedSerial that conflicts with another equipment.
+   */
+  async getSerialConflicts(incidentId: string) {
+    const record = await this.prisma.pmRecord.findUnique({
+      where: { incidentId },
+      include: {
+        equipmentRecords: {
+          where: { updatedSerial: { not: null } },
+          include: { equipment: { select: { id: true, name: true, serialNumber: true } } },
+        },
+      },
+    });
+    if (!record) return [];
+
+    const conflicts: { equipmentId: number; name: string; updatedSerial: string; conflictWith: string }[] = [];
+    for (const rec of record.equipmentRecords) {
+      if (!rec.updatedSerial || rec.updatedSerial === rec.equipment.serialNumber) continue;
+      const conflict = await this.prisma.equipment.findFirst({
+        where: { serialNumber: rec.updatedSerial, id: { not: rec.equipmentId } },
+        select: { id: true, name: true },
+      });
+      if (conflict) {
+        conflicts.push({
+          equipmentId: rec.equipmentId,
+          name: rec.equipment.name,
+          updatedSerial: rec.updatedSerial,
+          conflictWith: conflict.name,
+        });
+      }
+    }
+    return conflicts;
+  }
+
+  /**
    * Get a single PmEquipmentRecord with full photo data (used for lazy loading).
    */
   async getEquipmentRecord(recordId: number) {

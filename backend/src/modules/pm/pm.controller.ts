@@ -82,6 +82,16 @@ export class PmController {
   }
 
   /**
+   * GET /pm/incident/:incidentId/serial-conflicts
+   * Check which equipment records have updatedSerial conflicting with another equipment.
+   */
+  @Get('incident/:incidentId/serial-conflicts')
+  @Roles(UserRole.TECHNICIAN, UserRole.SUPERVISOR, UserRole.IT_MANAGER, UserRole.SUPER_ADMIN)
+  getSerialConflicts(@Param('incidentId') incidentId: string) {
+    return this.pmService.getSerialConflicts(incidentId);
+  }
+
+  /**
    * POST /pm/incident/:incidentId/submit
    * Finalize PM — apply equipment updates, set Store.lastPmAt.
    */

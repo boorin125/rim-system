@@ -143,6 +143,7 @@ function EquipmentCard({
   brandSuggestions,
   modelSuggestions,
   brandModels,
+  hasSerialConflict,
 }: {
   record: PmEquipmentRecord
   canEdit: boolean
@@ -151,6 +152,7 @@ function EquipmentCard({
   brandSuggestions: string[]
   modelSuggestions: string[]
   brandModels: Record<string, string[]>
+  hasSerialConflict?: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
   const [loadingPhotos, setLoadingPhotos] = useState(false)
@@ -337,7 +339,9 @@ function EquipmentCard({
   return (
     <div
       className={`border rounded-xl transition-colors ${
-        hasConflict
+        hasSerialConflict
+          ? 'border-red-500/70 bg-red-500/10'
+          : hasConflict
           ? 'border-yellow-500/60 bg-yellow-500/5'
           : isComplete
           ? 'border-green-500/40 bg-green-500/5'
@@ -371,7 +375,8 @@ function EquipmentCard({
             ก่อน {beforeCount}รูป / หลัง {afterCount}รูป
           </span>
           {saving && <Save className="w-3 h-3 text-blue-400 animate-pulse" />}
-          {hasConflict && <AlertTriangle className="w-4 h-4 text-yellow-400" />}
+          {hasSerialConflict && <AlertTriangle className="w-4 h-4 text-red-400" />}
+          {hasConflict && !hasSerialConflict && <AlertTriangle className="w-4 h-4 text-yellow-400" />}
           {expanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
         </div>
       </button>
@@ -791,6 +796,10 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
   const [brandSuggestions, setBrandSuggestions] = useState<string[]>([])
   const [modelSuggestions, setModelSuggestions] = useState<string[]>([])
   const [brandModels, setBrandModels] = useState<Record<string, string[]>>({})
+  const [serialConflictIds, setSerialConflictIds] = useState<Set<number>>(new Set())
+  const [serialConflictModal, setSerialConflictModal] = useState<{
+    conflicts: { equipmentId: number; name: string; updatedSerial: string; conflictWith: string }[]
+  } | null>(null)
 
   useEffect(() => {
     const token = localStorage.getItem('token')
@@ -953,6 +962,26 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
       toast.error(`กรุณากรอก Brand, Model, Serial No. ให้ครบทุกช่อง: ${names}`)
       return
     }
+    // Check serial conflicts before submitting
+    try {
+      const token = localStorage.getItem('token')
+      const conflictRes = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/pm/incident/${incidentId}/serial-conflicts`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      )
+      const conflicts = conflictRes.data ?? []
+      if (conflicts.length > 0) {
+        setSerialConflictIds(new Set(conflicts.map((c: any) => c.equipmentId)))
+        setSerialConflictModal({ conflicts })
+        return
+      }
+    } catch {
+      // If check fails, proceed anyway — backend will skip conflicts
+    }
+    await doSubmitPm()
+  }
+
+  const doSubmitPm = async () => {
     try {
       setSubmitting(true)
       const token = localStorage.getItem('token')
@@ -967,6 +996,8 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
       } else {
         toast.success('Submit PM สำเร็จ! ข้อมูล Inventory อัพเดตแล้ว')
       }
+      setSerialConflictIds(new Set())
+      setSerialConflictModal(null)
       await fetchPmRecord()
       onPmSubmitted?.()
     } catch (e: any) {
@@ -1414,6 +1445,7 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
             brandSuggestions={brandSuggestions}
             modelSuggestions={modelSuggestions}
             brandModels={brandModels}
+            hasSerialConflict={serialConflictIds.has(record.equipment.id)}
           />
         ))}
       </div>
@@ -1666,6 +1698,42 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
         }}
         onCancel={() => { setCropSrc(null); setShowSignedDocChoice(false) }}
       />
+    )}
+
+    {/* Serial Conflict Confirmation Modal */}
+    {serialConflictModal && (
+      <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+        <div className="bg-slate-800 border border-red-500/50 rounded-2xl p-6 max-w-md w-full space-y-4">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="w-6 h-6 text-red-400 flex-shrink-0" />
+            <h3 className="text-white font-semibold text-base">Serial No. ซ้ำในระบบ</h3>
+          </div>
+          <p className="text-gray-300 text-sm">รายการต่อไปนี้มี Serial No. ที่ซ้ำกับอุปกรณ์อื่นในระบบ หากยืนยัน Serial No. ใหม่จะถูกข้าม (ไม่บันทึก)</p>
+          <ul className="space-y-2">
+            {serialConflictModal.conflicts.map((c) => (
+              <li key={c.equipmentId} className="bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2 text-sm">
+                <p className="text-white font-medium">{c.name}</p>
+                <p className="text-red-300 text-xs mt-0.5">S/N <span className="font-mono">{c.updatedSerial}</span> ซ้ำกับ: {c.conflictWith}</p>
+              </li>
+            ))}
+          </ul>
+          <div className="flex gap-3 pt-1">
+            <button
+              onClick={() => { setSerialConflictModal(null); setSerialConflictIds(new Set()) }}
+              className="flex-1 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-sm font-medium transition-colors"
+            >
+              ยกเลิก
+            </button>
+            <button
+              onClick={() => { setSerialConflictModal(null); doSubmitPm() }}
+              disabled={submitting}
+              className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-xl text-sm font-medium transition-colors"
+            >
+              {submitting ? 'กำลัง Submit...' : 'ยืนยัน Submit PM'}
+            </button>
+          </div>
+        </div>
+      </div>
     )}
 
     </>
