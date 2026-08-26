@@ -20,6 +20,7 @@ import {
   Download,
 } from 'lucide-react'
 import { generatePmReportPDF, PmReportData } from '@/utils/pmReportPdf'
+import SerialScannerButton from '@/components/SerialScanner'
 import { generateInventoryListPDF, InventoryListData } from '@/utils/inventoryListPdf'
 import { compressImages } from '@/utils/imageUtils'
 import { PmReportModal, InventoryListModal } from '@/components/PmDocumentModal'
@@ -530,13 +531,21 @@ function EquipmentCard({
                       placeholder="Model"
                       className={`w-full px-2 py-1 bg-slate-700/50 border rounded-lg text-white text-[10px] placeholder-gray-500 focus:outline-none focus:border-blue-500 disabled:opacity-60 ${!local.updatedModel ? 'border-red-500/60' : 'border-slate-600'}`}
                     />
-                    <input
-                      value={local.updatedSerial}
-                      onChange={(e) => handleFieldChange('updatedSerial', e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
-                      disabled={!canEdit}
-                      placeholder="SERIAL NO."
-                      className={`w-full px-2 py-1 bg-slate-700/50 border rounded-lg text-white text-[10px] placeholder-gray-500 focus:outline-none focus:border-blue-500 disabled:opacity-60 ${!local.updatedSerial ? 'border-red-500/60' : 'border-slate-600'}`}
-                    />
+                    <div className="flex items-center gap-0.5">
+                      <input
+                        value={local.updatedSerial}
+                        onChange={(e) => handleFieldChange('updatedSerial', e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+                        disabled={!canEdit}
+                        placeholder="SERIAL NO."
+                        className={`flex-1 min-w-0 px-2 py-1 bg-slate-700/50 border rounded-lg text-white text-[10px] placeholder-gray-500 focus:outline-none focus:border-blue-500 disabled:opacity-60 ${!local.updatedSerial ? 'border-red-500/60' : 'border-slate-600'}`}
+                      />
+                      {canEdit && (
+                        <SerialScannerButton
+                          onResult={(v) => { handleFieldChange('updatedSerial', v); setDidYouMean(null) }}
+                          disabled={!canEdit}
+                        />
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
