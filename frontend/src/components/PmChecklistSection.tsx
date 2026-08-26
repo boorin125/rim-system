@@ -141,6 +141,7 @@ function EquipmentCard({
   onUpdated,
   brandSuggestions,
   modelSuggestions,
+  brandModels,
 }: {
   record: PmEquipmentRecord
   canEdit: boolean
@@ -148,6 +149,7 @@ function EquipmentCard({
   onUpdated: (updated: PmEquipmentRecord) => void
   brandSuggestions: string[]
   modelSuggestions: string[]
+  brandModels: Record<string, string[]>
 }) {
   const [expanded, setExpanded] = useState(false)
   const [loadingPhotos, setLoadingPhotos] = useState(false)
@@ -263,9 +265,15 @@ function EquipmentCard({
     debounceRef.current = setTimeout(() => saveTextFields(next), 300)
   }
 
+  // Filter models to only those belonging to the selected brand
+  const filteredModelSuggestions =
+    local.updatedBrand && brandModels[local.updatedBrand]
+      ? brandModels[local.updatedBrand]
+      : modelSuggestions
+
   const handleBlurCheck = (field: 'updatedBrand' | 'updatedModel', value: string) => {
     if (!value.trim() || !canEdit) return
-    const suggestions = field === 'updatedBrand' ? brandSuggestions : modelSuggestions
+    const suggestions = field === 'updatedBrand' ? brandSuggestions : filteredModelSuggestions
     const suggestion = findSimilarSuggestion(value, suggestions)
     if (suggestion) setDidYouMean({ field, typed: value, suggestion })
   }
@@ -482,7 +490,7 @@ function EquipmentCard({
                   {brandSuggestions.map(b => <option key={b} value={b} />)}
                 </datalist>
                 <datalist id={`models-${record.id}`}>
-                  {modelSuggestions.map(m => <option key={m} value={m} />)}
+                  {filteredModelSuggestions.map((m: string) => <option key={m} value={m} />)}
                 </datalist>
                 {/* Column headers */}
                 <div className="grid grid-cols-[1fr_1fr_1.4fr] gap-1.5 pl-12">
@@ -773,11 +781,16 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
 
   const [brandSuggestions, setBrandSuggestions] = useState<string[]>([])
   const [modelSuggestions, setModelSuggestions] = useState<string[]>([])
+  const [brandModels, setBrandModels] = useState<Record<string, string[]>>({})
 
   useEffect(() => {
     const token = localStorage.getItem('token')
     axios.get(`${process.env.NEXT_PUBLIC_API_URL}/equipment/suggestions`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => { setBrandSuggestions(r.data.brands ?? []); setModelSuggestions(r.data.models ?? []) })
+      .then(r => {
+        setBrandSuggestions(r.data.brands ?? [])
+        setModelSuggestions(r.data.models ?? [])
+        setBrandModels(r.data.brandModels ?? {})
+      })
       .catch(() => {})
   }, [])
 
@@ -1389,6 +1402,7 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
             onUpdated={handleEquipmentUpdated}
             brandSuggestions={brandSuggestions}
             modelSuggestions={modelSuggestions}
+            brandModels={brandModels}
           />
         ))}
       </div>
