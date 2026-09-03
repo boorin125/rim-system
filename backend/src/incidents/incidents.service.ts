@@ -4018,6 +4018,16 @@ export class IncidentsService {
       );
     }
 
+    const isPm = incident.jobType === 'Preventive Maintenance';
+
+    // For PM: reset pmRecord.performedAt so tech can edit and re-submit
+    if (isPm) {
+      const pmRecord = await this.prisma.pmRecord.findFirst({ where: { incidentId: id } });
+      if (pmRecord) {
+        await this.prisma.pmRecord.update({ where: { id: pmRecord.id }, data: { performedAt: null } });
+      }
+    }
+
     const updated = await this.prisma.incident.update({
       where: { id },
       data: {
@@ -4027,6 +4037,8 @@ export class IncidentsService {
         // Clear tech confirmation — tech must update data and re-confirm
         techConfirmedAt: null,
         techConfirmedById: null,
+        // PM: go back to IN_PROGRESS so tech can edit checklist again
+        ...(isPm ? { status: IncidentStatus.IN_PROGRESS } : {}),
         updatedAt: new Date(),
       },
     });
@@ -4036,7 +4048,7 @@ export class IncidentsService {
       IncidentAction.CLOSE_REJECTED,
       userId,
       IncidentStatus.RESOLVED,
-      IncidentStatus.RESOLVED,
+      isPm ? IncidentStatus.IN_PROGRESS : IncidentStatus.RESOLVED,
       `ปฏิเสธการปิดงาน: ${reason}`,
     );
 

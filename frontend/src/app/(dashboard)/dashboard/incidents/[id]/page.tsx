@@ -2267,6 +2267,13 @@ SLA Breach Time: ${slaBreachText}`
           incidentId={incident.id}
           ticketNumber={incident.ticketNumber || `INC-${incident.id}`}
           canEdit={isAssignedToMe}
+          canHelpdeskEdit={
+            (isHelpDesk || hasRole('IT_MANAGER')) &&
+            incident.status === 'RESOLVED' &&
+            !!incident.techConfirmedAt &&
+            incident.status !== 'CLOSED'
+          }
+          techConfirmedAt={incident.techConfirmedAt ?? null}
           currentUserId={currentUserId}
           onPmSubmitted={() => fetchIncident()}
           onPmLoaded={({ performedAt, storeSignedAt, signedInventoryPhotosCount }) => {

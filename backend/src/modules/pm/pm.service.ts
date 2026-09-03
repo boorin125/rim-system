@@ -311,7 +311,6 @@ export class PmService {
       include: { equipmentRecords: true },
     });
     if (!pmRecord) throw new NotFoundException('ไม่พบ PM Record');
-    if (pmRecord.performedAt) throw new BadRequestException('PM นี้ถูก Submit ไปแล้ว');
 
     // Validate all equipment records have at least 1 before + 1 after photo
     const incomplete = pmRecord.equipmentRecords.filter(
