@@ -349,15 +349,11 @@ export default function MapView({ checkins, technicianLocations = [] }: MapViewP
         className="h-full w-full rounded-2xl"
         style={{ background: '#f8fafc' }}
       >
-        {/* Light theme tiles - CartoDB Positron (white bg, black text) */}
+        {/* OpenStreetMap tiles — free, no API key required */}
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"
-        />
-        {/* Thailand labels on top layer */}
-        <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png"
-          pane="overlayPane"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          maxZoom={19}
         />
 
         {/* Thailand regions overlay */}
