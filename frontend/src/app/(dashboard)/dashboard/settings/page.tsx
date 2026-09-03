@@ -328,8 +328,11 @@ const RELEASE_NOTES: {
     date: '2026-09-03',
     changes: [
       { type: 'improved', text: 'PM Checklist (Mobile) — แตะช่อง Brand/Model/Serial ช่องที่แตะจะขยาย ช่องอื่นย่อลง เพื่อให้อ่านและพิมพ์ได้ง่ายบนหน้าจอมือถือ' },
+      { type: 'improved', text: 'PM Checklist — Technician สามารถกด "แก้ไขข้อมูล" เพื่อแก้ไขรูป สภาพ Comment และข้อมูลอุปกรณ์หลัง Submit PM แล้ว Re-submit ได้เรื่อยๆ จนกว่าจะยืนยันปิดงาน' },
+      { type: 'improved', text: 'PM Checklist — Helpdesk สามารถแก้ไขข้อมูลอุปกรณ์ขณะรีวิว และ Reject เพื่อส่งกลับให้ Tech แก้ไขได้' },
       { type: 'improved', text: 'Equipment Picture — เมื่อ Confirm Closed งาน PM รูป After ของแต่ละอุปกรณ์จะบันทึกลง Equipment Picture โดยอัตโนมัติ' },
       { type: 'fixed',    text: 'Equipment Picture — แก้ URL รูปภาพอุปกรณ์จาก PM ที่แสดงไม่ถูกต้อง (ขาด /uploads/ prefix)' },
+      { type: 'fixed',    text: 'Digital Sign — แก้ตำแหน่งลายเซ็นเบี้ยวบนมือถือ (อยู่บนขวาแทนที่จะอยู่ตรงตำแหน่งที่วาด)' },
     ],
   },
   {

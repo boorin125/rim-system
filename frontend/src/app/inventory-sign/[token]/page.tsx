@@ -139,17 +139,15 @@ export default function InventorySignPage() {
     const w = rect.width || canvas.offsetWidth
     const h = rect.height || canvas.offsetHeight
     if (!w || !h) return
-    const ratio = window.devicePixelRatio || 1
-    canvas.width = Math.round(w * ratio)
-    canvas.height = Math.round(h * ratio)
-    canvas.style.width = w + 'px'
-    canvas.style.height = h + 'px'
+    // No DPR scaling — internal size = CSS size so getCanvasPt needs no scale factor
+    canvas.width = Math.round(w)
+    canvas.height = Math.round(h)
     const ctx = canvas.getContext('2d')!
     ctx.fillStyle = 'rgb(255,255,255)'
     ctx.fillRect(0, 0, canvas.width, canvas.height)
     ctx.strokeStyle = '#1e40af'
     ctx.fillStyle = '#1e40af'
-    ctx.lineWidth = 2.5 * ratio
+    ctx.lineWidth = 2.5
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
     inlineCtxRef.current = ctx
@@ -173,13 +171,13 @@ export default function InventorySignPage() {
     return () => window.visualViewport?.removeEventListener('resize', reinitIfEmpty)
   }, [data, isSigned, initInlineCanvas])
 
-  // Canvas point — reads getBoundingClientRect() at event time (always accurate)
+  // Canvas point — 1:1 mapping since internal size = CSS size (no DPR scaling)
   const getCanvasPt = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current!
     const rect = canvas.getBoundingClientRect()
     return {
-      x: (e.clientX - rect.left) * (canvas.width / rect.width),
-      y: (e.clientY - rect.top) * (canvas.height / rect.height),
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
     }
   }
 
