@@ -333,6 +333,8 @@ const RELEASE_NOTES: {
       { type: 'improved', text: 'Equipment Picture — เมื่อ Confirm Closed งาน PM รูป After ของแต่ละอุปกรณ์จะบันทึกลง Equipment Picture โดยอัตโนมัติ' },
       { type: 'fixed',    text: 'Equipment Picture — แก้ URL รูปภาพอุปกรณ์จาก PM ที่แสดงไม่ถูกต้อง (ขาด /uploads/ prefix)' },
       { type: 'fixed',    text: 'Digital Sign — แก้ตำแหน่งลายเซ็นเบี้ยวบนมือถือ (อยู่บนขวาแทนที่จะอยู่ตรงตำแหน่งที่วาด)' },
+      { type: 'improved', text: 'PM Close Flow — ขั้นตอนปิดงาน PM ลดเหลือขั้นตอนเดียว: เมื่อ Submit PM และ Digital Sign ครบ Technician กด "ยืนยันปิดงาน" ได้เลย (ไม่ต้องผ่าน Resolve Incident อีกต่อไป)' },
+      { type: 'improved', text: 'Resolve Incident — ปุ่ม "บันทึกความคืบหน้า" ย้ายมาด้านซ้ายและเปลี่ยนเป็น Text Link สีส้ม เพื่อให้ปุ่มปิดงานเด่นชัดขึ้น' },
     ],
   },
   {
