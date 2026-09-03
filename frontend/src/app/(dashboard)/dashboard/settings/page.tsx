@@ -324,6 +324,15 @@ const RELEASE_NOTES: {
   changes: { type: 'new' | 'improved' | 'fixed'; text: string }[]
 }[] = [
   {
+    version: '1.0.25',
+    date: '2026-09-03',
+    changes: [
+      { type: 'improved', text: 'PM Checklist (Mobile) — แตะช่อง Brand/Model/Serial ช่องที่แตะจะขยาย ช่องอื่นย่อลง เพื่อให้อ่านและพิมพ์ได้ง่ายบนหน้าจอมือถือ' },
+      { type: 'improved', text: 'Equipment Picture — เมื่อ Confirm Closed งาน PM รูป After ของแต่ละอุปกรณ์จะบันทึกลง Equipment Picture โดยอัตโนมัติ' },
+      { type: 'fixed',    text: 'Equipment Picture — แก้ URL รูปภาพอุปกรณ์จาก PM ที่แสดงไม่ถูกต้อง (ขาด /uploads/ prefix)' },
+    ],
+  },
+  {
     version: '1.0.24',
     date: '2026-08-27',
     changes: [
