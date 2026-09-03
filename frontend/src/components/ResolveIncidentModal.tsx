@@ -869,41 +869,45 @@ const ResolveIncidentModal: React.FC<ResolveIncidentModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="shrink-0 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 sm:gap-3 px-4 py-3 sm:p-6 border-t border-slate-700/50 bg-slate-800/30">
-          <button
-            onClick={handleClose}
-            disabled={isSubmitting || isSavingProgress}
-            className="w-full sm:w-auto px-6 py-3 sm:py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl sm:rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
-          >
-            ยกเลิก
-          </button>
-          {onProgressSaved && (
-            <button
-              onClick={handleSaveProgress}
-              disabled={isSubmitting || isSavingProgress}
-              className="w-full sm:w-auto px-6 py-3 sm:py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl sm:rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm font-medium"
-            >
-              {isSavingProgress ? (
-                <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /><span>กำลังบันทึก...</span></>
-              ) : (
-                <span>บันทึกความคืบหน้า</span>
+        <div className="shrink-0 px-4 py-3 sm:p-6 border-t border-slate-700/50 bg-slate-800/30">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+            {/* Left: progress link — bottom on mobile, left on desktop */}
+            <div className="order-last sm:order-first sm:mr-auto">
+              {onProgressSaved && (
+                <button
+                  onClick={handleSaveProgress}
+                  disabled={isSubmitting || isSavingProgress}
+                  className="text-sm text-orange-400 underline hover:text-orange-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSavingProgress ? 'กำลังบันทึก...' : 'บันทึกความคืบหน้า'}
+                </button>
               )}
-            </button>
-          )}
-          <button
-            onClick={handleSubmit}
-            disabled={isSubmitting || isSavingProgress}
-            className="w-full sm:w-auto px-6 py-3 sm:py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl sm:rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm font-medium"
-          >
-            {isSubmitting ? (
-              <>
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                <span>กำลังบันทึก...</span>
-              </>
-            ) : (
-              <span>ยืนยันปิดงาน</span>
-            )}
-          </button>
+            </div>
+            {/* Right: action buttons */}
+            <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3">
+              <button
+                onClick={handleClose}
+                disabled={isSubmitting || isSavingProgress}
+                className="w-full sm:w-auto px-6 py-3 sm:py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl sm:rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={isSubmitting || isSavingProgress}
+                className="w-full sm:w-auto px-6 py-3 sm:py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl sm:rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm font-medium"
+              >
+                {isSubmitting ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>กำลังบันทึก...</span>
+                  </>
+                ) : (
+                  <span>ยืนยันปิดงาน</span>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>,
