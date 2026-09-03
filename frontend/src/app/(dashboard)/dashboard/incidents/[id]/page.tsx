@@ -1145,16 +1145,16 @@ SLA Breach Time: ${slaBreachText}`
     isAssignedToMe &&
     !hasCheckedIn
 
-  // Resolve - TECHNICIAN ที่ถูก assign
+  // Resolve - TECHNICIAN ที่ถูก assign (PM ข้ามขั้นตอน Resolve → ใช้ Tech Confirm โดยตรง)
   const isPmIncident = incident?.jobType === 'Preventive Maintenance'
   const pmSigned = !!pmStoreSignedAt || pmSignedDocsCount > 0
 
   const canResolve =
+    !isPmIncident &&   // PM skips this step — tech-confirm handles resolve+confirm in one step
     incident?.status === 'IN_PROGRESS' &&
     hasTechnicianRole &&
     isAssignedToMe &&
-    hasCheckedIn &&
-    (!isPmIncident || (!!pmPerformedAt && pmSigned))  // PM: must Submit PM + sign/upload doc
+    hasCheckedIn
 
   // Add Before Photos - TECHNICIAN ที่ถูก assign, สถานะ IN_PROGRESS หรือ RESOLVED, รูปยังไม่ครบ 5
   const currentBeforePhotosCount = incident?.beforePhotos?.length || 0
@@ -1187,12 +1187,17 @@ SLA Breach Time: ${slaBreachText}`
     (incident?.status === 'OPEN' || incident?.status === 'PENDING') &&
     !incident?.resolutionType
 
-  // Tech Confirm Resolve - TECHNICIAN ที่ assign, RESOLVED, ยังไม่ได้ tech confirm (รวม IT_MANAGER+TECH)
+  // Tech Confirm Resolve - TECHNICIAN ที่ assign, ยังไม่ได้ tech confirm
+  // PM: รับ IN_PROGRESS (เมื่อ Submit PM + sign ครบ) → backend auto-resolve + confirm ในครั้งเดียว
+  // Non-PM: ต้องเป็น RESOLVED ก่อน
   const canTechConfirm =
-    incident?.status === 'RESOLVED' &&
     hasTechnicianRole &&
     isAssignedToMe &&
-    !incident?.techConfirmedAt
+    !incident?.techConfirmedAt &&
+    (
+      incident?.status === 'RESOLVED' ||  // normal flow
+      (isPmIncident && incident?.status === 'IN_PROGRESS' && !!pmPerformedAt && pmSigned && hasCheckedIn)  // PM direct confirm
+    )
 
   // Confirm & Close - HELP_DESK หรือ IT_MANAGER AND tech must have confirmed
   const canConfirm =
@@ -1250,7 +1255,13 @@ SLA Breach Time: ${slaBreachText}`
         }
         if (isPmIncident && pmPerformedAt && !pmSigned) {
           return {
-            message: '✍️ Submit PM แล้ว — กรุณา Digital Sign หรืออัพโหลดเอกสารใบงาน เพื่อ Resolve ได้',
+            message: '✍️ Submit PM แล้ว — กรุณา Digital Sign หรืออัพโหลดเอกสารใบงาน แล้วกด "ยืนยันปิดงาน"',
+            type: 'info',
+          }
+        }
+        if (isPmIncident && pmPerformedAt && pmSigned) {
+          return {
+            message: '✅ PM เสร็จสมบูรณ์ — กด "ยืนยันปิดงาน" เพื่อส่งให้ Helpdesk ตรวจสอบ',
             type: 'info',
           }
         }

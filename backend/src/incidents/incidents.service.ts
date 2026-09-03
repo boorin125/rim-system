@@ -3493,7 +3493,23 @@ export class IncidentsService {
       throw new NotFoundException(`ไม่พบ Incident ${id}`);
     }
 
-    if (incident.status !== IncidentStatus.RESOLVED) {
+    const isPmIncident = incident.jobType === 'Preventive Maintenance';
+
+    // PM in IN_PROGRESS: validate PM conditions then auto-resolve + confirm in one step
+    if (isPmIncident && incident.status === IncidentStatus.IN_PROGRESS) {
+      const pmRecord = await this.prisma.pmRecord.findFirst({
+        where: { incidentId: id },
+      });
+      if (!pmRecord?.performedAt) {
+        throw new BadRequestException('กรุณา Submit PM ก่อนยืนยันปิดงาน');
+      }
+      const isSigned =
+        !!pmRecord.storeSignedAt ||
+        (pmRecord.signedInventoryPhoto !== null && pmRecord.signedInventoryPhoto !== '[]' && pmRecord.signedInventoryPhoto !== '');
+      if (!isSigned) {
+        throw new BadRequestException('กรุณารอลายเซ็นหรืออัปโหลดเอกสารก่อนยืนยันปิดงาน');
+      }
+    } else if (incident.status !== IncidentStatus.RESOLVED) {
       throw new BadRequestException(
         `Incident ต้องอยู่ในสถานะ "แก้ไขแล้ว" เพื่อยืนยัน สถานะปัจจุบัน: ${incident.status}`,
       );
@@ -3510,16 +3526,27 @@ export class IncidentsService {
       throw new BadRequestException('ช่างเทคนิคยืนยันการปิดงานแล้ว');
     }
 
+    const now = new Date();
     const updated = await this.prisma.incident.update({
       where: { id },
       data: {
-        techConfirmedAt: new Date(),
+        // PM in IN_PROGRESS: auto-resolve + confirm simultaneously
+        ...(isPmIncident && incident.status === IncidentStatus.IN_PROGRESS
+          ? {
+              status: IncidentStatus.RESOLVED,
+              resolvedAt: now,
+              resolvedById: userId,
+              resolutionType: 'ONSITE',
+              resolutionNote: 'Preventive Maintenance Completed',
+            }
+          : {}),
+        techConfirmedAt: now,
         techConfirmedById: userId,
         // Clear rejection note when tech re-confirms after rejection
         closeRejectionNote: null,
         closeRejectedAt: null,
         closeRejectedById: null,
-        updatedAt: new Date(),
+        updatedAt: now,
       },
       include: {
         store: true,
@@ -3538,9 +3565,11 @@ export class IncidentsService {
       id,
       IncidentAction.TECH_CONFIRMED,
       userId,
+      incident.status as IncidentStatus, // fromStatus (IN_PROGRESS for PM direct-confirm)
       IncidentStatus.RESOLVED,
-      IncidentStatus.RESOLVED,
-      'Technician confirmed resolve',
+      isPmIncident && incident.status === IncidentStatus.IN_PROGRESS
+        ? 'PM Completed — ช่างเทคนิคยืนยันปิดงาน'
+        : 'Technician confirmed resolve',
     );
 
     // Audit
