@@ -166,6 +166,7 @@ function EquipmentCard({
     updatedSerial: record.updatedSerial ?? '',
   })
   const [saving, setSaving] = useState(false)
+  const [focusedField, setFocusedField] = useState<'brand' | 'model' | 'serial' | null>(null)
   const [uploadingBefore, setUploadingBefore] = useState(false)
   const [uploadingAfter, setUploadingAfter] = useState(false)
   const [didYouMean, setDidYouMean] = useState<{
@@ -498,61 +499,76 @@ function EquipmentCard({
                 <datalist id={`models-${record.id}`}>
                   {filteredModelSuggestions.map((m: string) => <option key={m} value={m} />)}
                 </datalist>
-                {/* Column headers */}
-                <div className="grid grid-cols-[1fr_1fr_1.4fr] gap-1.5 pl-12">
-                  <p className="text-[10px] text-gray-500">Brand <span className="text-red-400">*</span></p>
-                  <p className="text-[10px] text-gray-500">Model <span className="text-red-400">*</span></p>
-                  <p className="text-[10px] text-gray-500">Serial No. <span className="text-red-400">*</span></p>
-                </div>
-                {/* Current data row */}
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] text-gray-500 w-10 flex-shrink-0 font-medium">Current</span>
-                  <div className="grid grid-cols-[1fr_1fr_1.4fr] gap-1.5 flex-1">
-                    <p className="text-[10px] text-white truncate">{record.equipment.brand || '-'}</p>
-                    <p className="text-[10px] text-white truncate">{record.equipment.model || '-'}</p>
-                    <p className="text-[10px] text-white break-all">{record.equipment.serialNumber || '-'}</p>
-                  </div>
-                </div>
-                <div className="border-t border-slate-600/50" />
-                {/* New data inputs */}
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] text-gray-500 w-10 flex-shrink-0 font-medium">New</span>
-                  <div className="grid grid-cols-[1fr_1fr_1.4fr] gap-1.5 flex-1">
-                    <input
-                      list={`brands-${record.id}`}
-                      value={local.updatedBrand}
-                      onChange={(e) => handleFieldChange('updatedBrand', e.target.value)}
-                      onBlur={(e) => handleBlurCheck('updatedBrand', e.target.value)}
-                      disabled={!canEdit}
-                      placeholder="Brand"
-                      className={`w-full px-2 py-1 bg-slate-700/50 border rounded-lg text-white text-[10px] placeholder-gray-500 focus:outline-none focus:border-blue-500 disabled:opacity-60 ${!local.updatedBrand ? 'border-red-500/60' : 'border-slate-600'}`}
-                    />
-                    <input
-                      list={`models-${record.id}`}
-                      value={local.updatedModel}
-                      onChange={(e) => handleFieldChange('updatedModel', e.target.value)}
-                      onBlur={(e) => handleBlurCheck('updatedModel', e.target.value)}
-                      disabled={!canEdit}
-                      placeholder="Model"
-                      className={`w-full px-2 py-1 bg-slate-700/50 border rounded-lg text-white text-[10px] placeholder-gray-500 focus:outline-none focus:border-blue-500 disabled:opacity-60 ${!local.updatedModel ? 'border-red-500/60' : 'border-slate-600'}`}
-                    />
-                    <div className="flex items-center gap-0.5">
-                      <input
-                        value={local.updatedSerial}
-                        onChange={(e) => handleFieldChange('updatedSerial', e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
-                        disabled={!canEdit}
-                        placeholder="SERIAL NO."
-                        className={`flex-1 min-w-0 px-2 py-1 bg-slate-700/50 border rounded-lg text-white text-[10px] placeholder-gray-500 focus:outline-none focus:border-blue-500 disabled:opacity-60 ${!local.updatedSerial ? 'border-red-500/60' : 'border-slate-600'}`}
-                      />
-                      {canEdit && (
-                        <SerialScannerButton
-                          onResult={(v) => { handleFieldChange('updatedSerial', v); setDidYouMean(null) }}
-                          disabled={!canEdit}
-                        />
-                      )}
-                    </div>
-                  </div>
-                </div>
+                {/* Column headers — cols expand/shrink with focused field */}
+                {(() => {
+                  const colClass =
+                    focusedField === 'brand'  ? 'grid-cols-[2fr_0.6fr_0.8fr]' :
+                    focusedField === 'model'  ? 'grid-cols-[0.6fr_2fr_0.8fr]' :
+                    focusedField === 'serial' ? 'grid-cols-[0.6fr_0.6fr_2fr]'  :
+                                               'grid-cols-[1fr_1fr_1.4fr]'
+                  return (
+                    <>
+                      <div className={`grid ${colClass} gap-1.5 pl-12 transition-all duration-200`}>
+                        <p className="text-[10px] text-gray-500 truncate">Brand <span className="text-red-400">*</span></p>
+                        <p className="text-[10px] text-gray-500 truncate">Model <span className="text-red-400">*</span></p>
+                        <p className="text-[10px] text-gray-500 truncate">Serial No. <span className="text-red-400">*</span></p>
+                      </div>
+                      {/* Current data row */}
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-gray-500 w-10 flex-shrink-0 font-medium">Current</span>
+                        <div className={`grid ${colClass} gap-1.5 flex-1 transition-all duration-200`}>
+                          <p className="text-[10px] text-white truncate">{record.equipment.brand || '-'}</p>
+                          <p className="text-[10px] text-white truncate">{record.equipment.model || '-'}</p>
+                          <p className="text-[10px] text-white break-all">{record.equipment.serialNumber || '-'}</p>
+                        </div>
+                      </div>
+                      <div className="border-t border-slate-600/50" />
+                      {/* New data inputs */}
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-gray-500 w-10 flex-shrink-0 font-medium">New</span>
+                        <div className={`grid ${colClass} gap-1.5 flex-1 transition-all duration-200`}>
+                          <input
+                            list={`brands-${record.id}`}
+                            value={local.updatedBrand}
+                            onChange={(e) => handleFieldChange('updatedBrand', e.target.value)}
+                            onFocus={() => setFocusedField('brand')}
+                            onBlur={(e) => { setFocusedField(null); handleBlurCheck('updatedBrand', e.target.value) }}
+                            disabled={!canEdit}
+                            placeholder="Brand"
+                            className={`w-full px-2 py-1 bg-slate-700/50 border rounded-lg text-white text-[10px] placeholder-gray-500 focus:outline-none focus:border-blue-500 disabled:opacity-60 ${!local.updatedBrand ? 'border-red-500/60' : 'border-slate-600'}`}
+                          />
+                          <input
+                            list={`models-${record.id}`}
+                            value={local.updatedModel}
+                            onChange={(e) => handleFieldChange('updatedModel', e.target.value)}
+                            onFocus={() => setFocusedField('model')}
+                            onBlur={(e) => { setFocusedField(null); handleBlurCheck('updatedModel', e.target.value) }}
+                            disabled={!canEdit}
+                            placeholder="Model"
+                            className={`w-full px-2 py-1 bg-slate-700/50 border rounded-lg text-white text-[10px] placeholder-gray-500 focus:outline-none focus:border-blue-500 disabled:opacity-60 ${!local.updatedModel ? 'border-red-500/60' : 'border-slate-600'}`}
+                          />
+                          <div className="flex items-center gap-0.5">
+                            <input
+                              value={local.updatedSerial}
+                              onChange={(e) => handleFieldChange('updatedSerial', e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+                              onFocus={() => setFocusedField('serial')}
+                              onBlur={() => setFocusedField(null)}
+                              disabled={!canEdit}
+                              placeholder="SERIAL NO."
+                              className={`flex-1 min-w-0 px-2 py-1 bg-slate-700/50 border rounded-lg text-white text-[10px] placeholder-gray-500 focus:outline-none focus:border-blue-500 disabled:opacity-60 ${!local.updatedSerial ? 'border-red-500/60' : 'border-slate-600'}`}
+                            />
+                            {canEdit && (
+                              <SerialScannerButton
+                                onResult={(v) => { handleFieldChange('updatedSerial', v); setDidYouMean(null) }}
+                                disabled={!canEdit}
+                              />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )
+                })()}
               </div>
             )}
 

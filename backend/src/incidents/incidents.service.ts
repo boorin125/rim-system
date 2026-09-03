@@ -3743,6 +3743,23 @@ export class IncidentsService {
       );
     }
 
+    // PM: sync after-photos → equipment.imagePath on confirmed close
+    if (incident.jobType === 'Preventive Maintenance') {
+      const pmRecord = await this.prisma.pmRecord.findFirst({
+        where: { incidentId: id },
+        include: { equipmentRecords: { select: { equipmentId: true, afterPhotos: true } } },
+      });
+      if (pmRecord) {
+        for (const rec of pmRecord.equipmentRecords) {
+          if (rec.afterPhotos && rec.afterPhotos.length > 0) {
+            const lastPhoto = rec.afterPhotos[rec.afterPhotos.length - 1] as string;
+            const imagePath = lastPhoto.startsWith('/uploads/') ? lastPhoto : `/uploads/${lastPhoto}`;
+            await this.prisma.equipment.update({ where: { id: rec.equipmentId }, data: { imagePath } });
+          }
+        }
+      }
+    }
+
     // Audit trail
     await this.auditTrailService.logDirect({
       module: AuditModule.INCIDENT,

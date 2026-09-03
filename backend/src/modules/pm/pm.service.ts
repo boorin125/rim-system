@@ -392,9 +392,10 @@ export class PmService {
           changes.push(`Status: MAINTENANCE → ACTIVE (ผ่านการตรวจสอบ)`);
         }
 
-        // Update equipment photo with latest after photo from PM
+        // Update equipment photo with latest after photo from PM (ensure /uploads/ prefix)
         if (rec.afterPhotos && rec.afterPhotos.length > 0) {
-          updateData.imagePath = rec.afterPhotos[rec.afterPhotos.length - 1];
+          const lastPhoto = rec.afterPhotos[rec.afterPhotos.length - 1];
+          updateData.imagePath = lastPhoto.startsWith('/uploads/') ? lastPhoto : `/uploads/${lastPhoto}`;
           changes.push('รูปอุปกรณ์อัพเดตจาก PM');
         }
 
