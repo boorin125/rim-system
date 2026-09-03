@@ -15,7 +15,6 @@ import {
   PenLine,
 } from 'lucide-react'
 import axios from 'axios'
-import SignaturePad from 'signature_pad'
 import { getPhotoUrl } from '@/utils/photoUtils'
 
 interface PmEquipmentItem {
@@ -77,9 +76,11 @@ export default function InventorySignPage() {
   const inlineIsDrawingRef = useRef(false)
   const inlineHasDrawingRef = useRef(false)
 
-  // Fullscreen signature
+  // Fullscreen signature — custom drawing (no SignaturePad, same approach as inline)
   const fsCanvasRef = useRef<HTMLCanvasElement>(null)
-  const fsSignaturePadRef = useRef<SignaturePad | null>(null)
+  const fsCtxRef = useRef<CanvasRenderingContext2D | null>(null)
+  const fsIsDrawingRef = useRef(false)
+  const fsHasDrawingRef = useRef(false)
   const [isFullscreenSign, setIsFullscreenSign] = useState(false)
   const [fsSignatureDataUrl, setFsSignatureDataUrl] = useState<string | null>(null)
   const [isMobilePortrait, setIsMobilePortrait] = useState(false)
@@ -224,22 +225,60 @@ export default function InventorySignPage() {
   // ─── Fullscreen signature ─────────────────────────────────────────────────
 
   const initFsCanvas = () => {
-    if (fsCanvasRef.current) {
-      const canvas = fsCanvasRef.current
-      const ratio = Math.max(window.devicePixelRatio || 1, 1)
-      const w = window.innerWidth
-      const h = window.innerHeight - 140
-      canvas.width = w * ratio
-      canvas.height = h * ratio
-      canvas.style.width = w + 'px'
-      canvas.style.height = h + 'px'
-      fsSignaturePadRef.current = new SignaturePad(canvas, {
-        backgroundColor: 'rgb(255, 255, 255)',
-        penColor: 'rgb(0, 0, 200)',
-        minWidth: 1.5,
-        maxWidth: 3,
-      })
-    }
+    const canvas = fsCanvasRef.current
+    if (!canvas) return
+    // Read actual rendered dimensions — no DPR scaling, no guessing
+    const rect = canvas.getBoundingClientRect()
+    const w = rect.width || canvas.offsetWidth
+    const h = rect.height || canvas.offsetHeight
+    if (!w || !h) return
+    canvas.width = Math.round(w)
+    canvas.height = Math.round(h)
+    const ctx = canvas.getContext('2d')!
+    ctx.fillStyle = 'rgb(255, 255, 255)'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    ctx.strokeStyle = '#1e40af'
+    ctx.fillStyle = '#1e40af'
+    ctx.lineWidth = 2.5
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    fsCtxRef.current = ctx
+    fsHasDrawingRef.current = false
+  }
+
+  const getFsCanvasPt = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = fsCanvasRef.current!
+    const rect = canvas.getBoundingClientRect()
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top }
+  }
+
+  const handleFsPtrDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const ctx = fsCtxRef.current
+    if (!ctx) return
+    e.currentTarget.setPointerCapture(e.pointerId)
+    fsIsDrawingRef.current = true
+    fsHasDrawingRef.current = true
+    const pt = getFsCanvasPt(e)
+    ctx.beginPath()
+    ctx.arc(pt.x, pt.y, 1, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.beginPath()
+    ctx.moveTo(pt.x, pt.y)
+  }
+
+  const handleFsPtrMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const ctx = fsCtxRef.current
+    if (!fsIsDrawingRef.current || !ctx) return
+    const pt = getFsCanvasPt(e)
+    ctx.lineTo(pt.x, pt.y)
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.moveTo(pt.x, pt.y)
+  }
+
+  const handleFsPtrUp = () => {
+    fsIsDrawingRef.current = false
+    fsCtxRef.current?.beginPath()
   }
 
   const openFullscreenSign = async () => {
@@ -258,8 +297,7 @@ export default function InventorySignPage() {
   }
 
   const closeFullscreenSign = async () => {
-    fsSignaturePadRef.current?.off()
-    fsSignaturePadRef.current = null
+    fsCtxRef.current = null
     setIsFullscreenSign(false)
     try {
       if ((screen.orientation as any).unlock) (screen.orientation as any).unlock()
@@ -268,14 +306,20 @@ export default function InventorySignPage() {
   }
 
   const confirmFullscreenSign = () => {
-    if (fsSignaturePadRef.current && !fsSignaturePadRef.current.isEmpty()) {
-      setFsSignatureDataUrl(fsSignaturePadRef.current.toDataURL('image/png'))
+    if (fsHasDrawingRef.current && fsCanvasRef.current) {
+      setFsSignatureDataUrl(fsCanvasRef.current.toDataURL('image/png'))
     }
     closeFullscreenSign()
   }
 
   const clearFullscreenSign = () => {
-    fsSignaturePadRef.current?.clear()
+    const canvas = fsCanvasRef.current
+    const ctx = fsCtxRef.current
+    if (canvas && ctx) {
+      ctx.fillStyle = 'rgb(255, 255, 255)'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      fsHasDrawingRef.current = false
+    }
   }
 
   // ─── Submit ───────────────────────────────────────────────────────────────
@@ -402,7 +446,11 @@ export default function InventorySignPage() {
       <div className="flex-1 relative">
         <canvas
           ref={fsCanvasRef}
-          className="absolute inset-0 w-full h-full touch-none"
+          className="absolute inset-0 w-full h-full touch-none cursor-crosshair"
+          onPointerDown={handleFsPtrDown}
+          onPointerMove={handleFsPtrMove}
+          onPointerUp={handleFsPtrUp}
+          onPointerLeave={handleFsPtrUp}
         />
       </div>
       <div className="px-4 py-3 bg-gray-100 border-t border-gray-300">
