@@ -1,6 +1,7 @@
 // app/(dashboard)/dashboard/equipment/page.tsx - Equipment Management
 'use client'
 
+import { getPhotoUrl } from '@/utils/photoUtils'
 import { formatStore } from '@/utils/formatStore'
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
@@ -142,6 +143,8 @@ export default function EquipmentPage() {
   const lastSearchRef = useRef('')
   const lastFilterKeyRef = useRef('')
   const fetchSeqRef = useRef(0)
+  // Equipment ids whose image failed to load (missing file) → show "No Pic"
+  const [brokenImages, setBrokenImages] = useState<Set<number>>(new Set())
 
   const itemsPerPage = 12
 
@@ -795,14 +798,15 @@ export default function EquipmentPage() {
 
                     {/* Picture */}
                     <td className="px-6 py-4">
-                      {item.imagePath ? (
+                      {item.imagePath && !brokenImages.has(item.id) ? (
                         <div
                           className="relative group w-12 h-12 cursor-pointer"
-                          onClick={e => { e.stopPropagation(); setPreviewImage(`${(process.env.NEXT_PUBLIC_API_URL || '').replace('/api', '')}${item.imagePath}`) }}
+                          onClick={e => { e.stopPropagation(); setPreviewImage(getPhotoUrl(item.imagePath)) }}
                         >
                           <img
-                            src={`${(process.env.NEXT_PUBLIC_API_URL || '').replace('/api', '')}${item.imagePath}`}
+                            src={getPhotoUrl(item.imagePath)}
                             alt={item.name}
+                            onError={() => setBrokenImages(prev => new Set(prev).add(item.id))}
                             className="w-12 h-12 object-cover rounded-lg border border-slate-600"
                           />
                           <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-lg transition">
@@ -810,7 +814,9 @@ export default function EquipmentPage() {
                           </div>
                         </div>
                       ) : (
-                        <span className="text-gray-600 text-xs">-</span>
+                        <div className="w-12 h-12 flex items-center justify-center rounded-lg border border-dashed border-slate-600 text-[10px] text-gray-500">
+                          No Pic
+                        </div>
                       )}
                     </td>
 

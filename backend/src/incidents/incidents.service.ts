@@ -4603,10 +4603,15 @@ export class IncidentsService {
           oldSerialNo: sp.oldSerialNo,
           newSerialNo: sp.newSerialNo,
         };
-        await this.syncEquipmentFromSparePart(
-          this.prisma, originalSp, transformedSp,
-          incident.storeId, incident.ticketNumber, userId, id,
-        );
+        // Incident is already CLOSED — a sync failure must not turn the close into a 500
+        try {
+          await this.syncEquipmentFromSparePart(
+            this.prisma, originalSp, transformedSp,
+            incident.storeId, incident.ticketNumber, userId, id,
+          );
+        } catch (err) {
+          console.error(`[Direct Close] Equipment sync failed for ${incident.ticketNumber} (spare part ${sp.id}):`, err);
+        }
       }
     }
 
@@ -4637,6 +4642,11 @@ export class IncidentsService {
       'Incident Closed',
       `${incident.ticketNumber} - ${incident.title} ถูกปิดแล้ว (${resolutionType === 'PHONE_SUPPORT' ? 'Phone Support' : 'Remote Support'})`,
       id,
+    );
+
+    // Closure email (same as Helpdesk confirm close) — runs in background, never fails the close
+    this.resendCloseEmail(id, userId).catch((err) =>
+      console.error(`[Direct Close] Failed to send closure email for ${incident.ticketNumber}:`, err),
     );
 
     return updated;

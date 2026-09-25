@@ -334,6 +334,8 @@ const RELEASE_NOTES: {
       { type: 'improved', text: 'Performance Equipment Duplicate Problems — นับตาม S/N ของอุปกรณ์ที่ถูกแจ้งซ่อมมากกว่า 2 ครั้ง (ตั้งแต่เริ่มมีข้อมูล ไม่นับงาน PM) เรียงจากจำนวนครั้งมากไปน้อย แสดง 15 รายการแรก' },
       { type: 'new',      text: 'Performance Equipment Duplicate Problems — ปุ่ม View all ดูทั้งหมดพร้อมค้นหา และ Export Excel; หน้า Detail แสดงทุกงานที่มีการใช้อุปกรณ์ S/N นั้น พร้อมสถานะงาน' },
       { type: 'new',      text: 'ปิดงานโดย Helpdesk (Phone/Remote Support) — เพิ่มรูปภาพ (สูงสุด 20 รูป) และข้อมูล Spare Parts / เปลี่ยนอุปกรณ์ได้เหมือน Technician โดยไม่ต้อง Check-in; ข้อมูลอุปกรณ์ Sync เข้า Equipment ทันทีเมื่อปิดงาน' },
+      { type: 'new',      text: 'ปิดงานโดย Helpdesk — ส่งอีเมลปิดงานอัตโนมัติ (เหมือนการ Confirm Close ปกติ)' },
+      { type: 'fixed',    text: 'Equipment — แก้รูปอุปกรณ์ที่แสดงไม่ได้ (path เก่าไม่มี /uploads/) และแสดง "No Pic" เมื่อไม่มีรูปหรือไฟล์รูปหาย' },
     ],
   },
   {

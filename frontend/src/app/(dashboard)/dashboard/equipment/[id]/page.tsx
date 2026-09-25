@@ -42,6 +42,7 @@ import axios from 'axios'
 import { compressImage } from '@/utils/imageUtils'
 import toast from 'react-hot-toast'
 import BackButton from '@/components/BackButton'
+import { getPhotoUrl } from '@/utils/photoUtils'
 import { canPerformAction, getUserRoles } from '@/config/permissions'
 import { useThemeHighlight } from '@/hooks/useThemeHighlight'
 
@@ -112,6 +113,7 @@ export default function EquipmentDetailPage() {
   const [categories, setCategories] = useState<{ id: number; name: string; icon?: string; color: string }[]>([])
   const [imageUploading, setImageUploading] = useState(false)
   const [showImageLightbox, setShowImageLightbox] = useState(false)
+  const [imageBroken, setImageBroken] = useState(false)
 
   useEffect(() => {
     // Get current user
@@ -212,6 +214,7 @@ export default function EquipmentDetailPage() {
         { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' } }
       )
       setEquipment((prev: any) => ({ ...prev, imagePath: res.data.imagePath }))
+      setImageBroken(false)
       toast.success('อัปโหลดรูปสำเร็จ')
     } catch {
       toast.error('ไม่สามารถอัปโหลดรูปได้')
@@ -577,10 +580,11 @@ export default function EquipmentDetailPage() {
                 </label>
               )}
             </div>
-            {equipment.imagePath ? (
+            {equipment.imagePath && !imageBroken ? (
               <div className="relative group cursor-pointer" onClick={() => setShowImageLightbox(true)}>
                 <img
-                  src={`${(process.env.NEXT_PUBLIC_API_URL || '').replace('/api', '')}${equipment.imagePath}`}
+                  src={getPhotoUrl(equipment.imagePath)}
+                  onError={() => setImageBroken(true)}
                   alt="Equipment"
                   className="w-full h-52 object-cover rounded-xl border border-slate-700/50"
                 />
@@ -597,7 +601,7 @@ export default function EquipmentDetailPage() {
           </div>
 
           {/* Image Lightbox */}
-          {showImageLightbox && equipment.imagePath && (
+          {showImageLightbox && equipment.imagePath && !imageBroken && (
             <div
               className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
               onClick={() => setShowImageLightbox(false)}
@@ -606,7 +610,7 @@ export default function EquipmentDetailPage() {
                 <X className="w-7 h-7" />
               </button>
               <img
-                src={`${(process.env.NEXT_PUBLIC_API_URL || '').replace('/api', '')}${equipment.imagePath}`}
+                src={getPhotoUrl(equipment.imagePath)}
                 alt="Equipment"
                 className="max-w-[90vw] max-h-[90vh] object-contain rounded-xl shadow-2xl"
                 onClick={e => e.stopPropagation()}
