@@ -3781,8 +3781,9 @@ export class IncidentsService {
       if (pmRecord) {
         for (const rec of pmRecord.equipmentRecords) {
           if (rec.afterPhotos && rec.afterPhotos.length > 0) {
-            const lastPhoto = rec.afterPhotos[rec.afterPhotos.length - 1] as string;
-            const imagePath = lastPhoto.startsWith('/uploads/') ? lastPhoto : `/uploads/${lastPhoto}`;
+            // Use the first after photo — same one shown in Inventory List
+            const firstPhoto = rec.afterPhotos[0] as string;
+            const imagePath = firstPhoto.startsWith('/uploads/') ? firstPhoto : `/uploads/${firstPhoto}`;
             await this.prisma.equipment.update({ where: { id: rec.equipmentId }, data: { imagePath } });
           }
         }
