@@ -324,6 +324,19 @@ const RELEASE_NOTES: {
   changes: { type: 'new' | 'improved' | 'fixed'; text: string }[]
 }[] = [
   {
+    version: '1.0.26',
+    date: '2026-09-25',
+    changes: [
+      { type: 'fixed',    text: 'Equipment Picture — เมื่อปิดงาน PM ระบบใช้รูป "หลัง PM" รูปแรก (รูปเดียวกับที่แสดงใน Inventory List) บันทึกเป็นรูปอุปกรณ์ แทนรูปสุดท้าย' },
+      { type: 'improved', text: 'Resolve Incident — งานที่ถูก Helpdesk Reject แล้ว Technician ยังกด "บันทึกความคืบหน้า" ได้ในหน้า Update Resolution เพื่อเปิดรอบซ่อมใหม่' },
+      { type: 'improved', text: 'Equipment — กด Back จากหน้า Equipment Detail จะกลับมาที่หน้าและ Filter เดิมก่อนเข้าไปดู (ไม่กลับไปหน้าแรก)' },
+      { type: 'fixed',    text: 'Equipment — Filter สถานะประกันโหลดข้อมูลใหม่ทันทีเมื่อเปลี่ยน และเปลี่ยน Filter แล้วกลับไปหน้า 1' },
+      { type: 'improved', text: 'Performance Equipment Duplicate Problems — นับตาม S/N ของอุปกรณ์ที่ถูกแจ้งซ่อมมากกว่า 2 ครั้ง (ตั้งแต่เริ่มมีข้อมูล ไม่นับงาน PM) เรียงจากจำนวนครั้งมากไปน้อย แสดง 15 รายการแรก' },
+      { type: 'new',      text: 'Performance Equipment Duplicate Problems — ปุ่ม View all ดูทั้งหมดพร้อมค้นหา และ Export Excel; หน้า Detail แสดงทุกงานที่มีการใช้อุปกรณ์ S/N นั้น พร้อมสถานะงาน' },
+      { type: 'new',      text: 'ปิดงานโดย Helpdesk (Phone/Remote Support) — เพิ่มรูปภาพ (สูงสุด 20 รูป) และข้อมูล Spare Parts / เปลี่ยนอุปกรณ์ได้เหมือน Technician โดยไม่ต้อง Check-in; ข้อมูลอุปกรณ์ Sync เข้า Equipment ทันทีเมื่อปิดงาน' },
+    ],
+  },
+  {
     version: '1.0.25',
     date: '2026-09-03',
     changes: [

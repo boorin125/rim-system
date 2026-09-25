@@ -36,9 +36,12 @@ import {
   Lightbulb,
   ChevronDown,
   HardDrive,
+  Download,
   AlertTriangle,
 } from 'lucide-react'
 import { getUserRoles, getAccessLevel } from '@/config/permissions'
+import * as XLSX from 'xlsx'
+import { formatStore } from '@/utils/formatStore'
 
 function useThemeHighlight() {
   const [color, setColor] = useState('#3b82f6')
@@ -222,8 +225,9 @@ interface ActiveEquipmentEntry {
 }
 
 interface RepeatEquipmentEntry {
+  equipmentIds: number[]
   equipmentName: string
-  storeId: number
+  category: string
   storeCode: string
   storeName: string
   brand: string
@@ -250,6 +254,7 @@ interface RepeatIncidentRow {
   incidentNo: string
   store: string
   title: string
+  status?: string
   resolution: string
   resolvedAt: string | null
   technicianName: string
@@ -428,8 +433,44 @@ export default function PerformancePage() {
 
   // Box 2: Repeat Equipment in Store
   const [repeatEquipment, setRepeatEquipment] = useState<RepeatEquipmentEntry[]>([])
-  const [repeatEquipDetail, setRepeatEquipDetail] = useState<{ equipmentName: string; storeId: number; brand: string; model: string; serialNumber: string; incidents: RepeatIncidentRow[] } | null>(null)
+  const [repeatEquipDetail, setRepeatEquipDetail] = useState<{ equipmentName: string; brand: string; model: string; serialNumber: string; incidents: RepeatIncidentRow[] } | null>(null)
   const [repeatEquipModal, setRepeatEquipModal] = useState(false)
+  const [repeatViewAll, setRepeatViewAll] = useState(false)
+  const [repeatSearch, setRepeatSearch] = useState('')
+
+  const openRepeatDetail = async (eq: RepeatEquipmentEntry) => {
+    setLoadingRepeatDetail(true)
+    setRepeatEquipModal(true)
+    try {
+      const token = localStorage.getItem('token')
+      const jt = selectedJobTypes.length > 0 ? `&jobTypes=${selectedJobTypes.join(',')}` : ''
+      const res = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/performance/equipment-repeat-detail?equipmentIds=${eq.equipmentIds.join(',')}${jt}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      )
+      setRepeatEquipDetail(res.data)
+    } catch { setRepeatEquipDetail(null) }
+    finally { setLoadingRepeatDetail(false) }
+  }
+
+  const exportRepeatEquipment = () => {
+    const fmt = (d: string) => new Date(d).toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    const rows = repeatEquipment.map((eq, i) => ({
+      '#': i + 1,
+      'Equipment': eq.equipmentName,
+      'Category': eq.category || '',
+      'Brand': eq.brand !== '-' ? eq.brand : '',
+      'Model': eq.model !== '-' ? eq.model : '',
+      'S/N': eq.serialNumber !== '-' ? eq.serialNumber : '',
+      'Store': formatStore({ storeCode: eq.storeCode, name: eq.storeName }, ''),
+      'จำนวนครั้ง': eq.count,
+      'แจ้งล่าสุด': fmt(eq.lastIncidentAt),
+    }))
+    const ws = XLSX.utils.json_to_sheet(rows)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Equipment Duplicate')
+    XLSX.writeFile(wb, `equipment-duplicate-problems-${new Date().toISOString().slice(0, 10)}.xlsx`)
+  }
   const [loadingRepeatDetail, setLoadingRepeatDetail] = useState(false)
 
   // Equipment boxes period mode
@@ -1022,7 +1063,7 @@ export default function PerformancePage() {
                           {eq.equipmentName || [eq.brand, eq.model].filter(Boolean).join(' ') || '-'}
                         </td>
                         <td className="py-2 px-2 text-gray-300 text-xs">
-                          {[eq.storeCode, eq.storeName].filter(Boolean).join(' ') || '-'}
+                          {formatStore({ storeCode: eq.storeCode, name: eq.storeName }, '-')}
                         </td>
                         <td className="py-2 px-2 text-center">
                           <span className="px-2 py-0.5 bg-red-500/20 text-red-400 rounded-full text-xs font-semibold">{eq.count}</span>
@@ -1058,7 +1099,7 @@ export default function PerformancePage() {
             <h3 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-orange-400" />
               Equipment Duplicate Problems
-              <span className="ml-auto text-xs font-normal text-gray-400">(ทั้งเวลา — Active เท่านั้น)</span>
+              <span className="ml-auto text-xs font-normal text-gray-400">(แจ้งซ่อม &gt; 2 ครั้ง ตั้งแต่เริ่มมีข้อมูล — Active เท่านั้น)</span>
             </h3>
             {repeatEquipment.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 gap-2 text-gray-500">
@@ -1066,51 +1107,16 @@ export default function PerformancePage() {
                 <p className="text-sm">ไม่พบอุปกรณ์ที่แจ้งซ่อมซ้ำ ≥ 3 ครั้ง</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[480px]">
-                  <thead>
-                    <tr className="text-gray-400 border-b border-slate-700">
-                      <th className="text-left py-2 px-2 font-medium">Equipment</th>
-                      <th className="text-left py-2 px-2 font-medium">Brand / Model / S/N</th>
-                      <th className="text-center py-2 px-2 font-medium">ครั้ง</th>
-                      <th className="text-center py-2 px-2 font-medium">ล่าสุด</th>
-                      <th className="text-center py-2 px-2 font-medium"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {repeatEquipment.map((eq, idx) => (
-                      <tr key={`${eq.equipmentName}-${eq.storeId}`} className="border-b border-slate-700/50 hover:bg-slate-700/30 transition">
-                        <td className="py-2 px-2 text-white font-medium">{eq.equipmentName}</td>
-                        <td className="py-2 px-2 text-white">
-                          <div>{[eq.brand, eq.model].filter(v => v && v !== '-').join(' ') || '-'}</div>
-                          {eq.serialNumber && eq.serialNumber !== '-' && <div className="text-xs text-gray-400">S/N: {eq.serialNumber}</div>}
-                        </td>
-                        <td className="py-2 px-2 text-center">
-                          <span className="px-2 py-0.5 bg-orange-500/20 text-orange-400 rounded-full text-xs font-semibold">{eq.count}</span>
-                        </td>
-                        <td className="py-2 px-2 text-center text-gray-400 text-xs">
-                          {new Date(eq.lastIncidentAt).toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: '2-digit' })}
-                        </td>
-                        <td className="py-2 px-2 text-center">
-                          <button
-                            onClick={async () => {
-                              setLoadingRepeatDetail(true)
-                              setRepeatEquipModal(true)
-                              try {
-                                const token = localStorage.getItem('token')
-                                const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/performance/equipment-repeat-detail?equipmentName=${encodeURIComponent(eq.equipmentName)}&storeId=${eq.storeId}`, { headers: { Authorization: `Bearer ${token}` } })
-                                setRepeatEquipDetail(res.data)
-                              } catch { setRepeatEquipDetail(null) }
-                              finally { setLoadingRepeatDetail(false) }
-                            }}
-                            className="text-xs px-2 py-1 rounded-lg bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 transition"
-                          >Detail</button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <>
+                <RepeatEquipmentTable rows={repeatEquipment.slice(0, 15)} onDetail={openRepeatDetail} />
+                <div className="flex items-center justify-between mt-3">
+                  <span className="text-xs text-gray-400">แสดง {Math.min(15, repeatEquipment.length)} จาก {repeatEquipment.length} รายการ</span>
+                  <button
+                    onClick={() => { setRepeatSearch(''); setRepeatViewAll(true) }}
+                    className="text-xs px-3 py-1.5 rounded-lg bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 transition"
+                  >View all</button>
+                </div>
+              </>
             )}
           </div>
           </div>{/* end grid Box1+Box2 */}
@@ -1583,9 +1589,51 @@ export default function PerformancePage() {
         </div>
       )}
 
-      {/* Box 2 Modal: Repeat Equipment in Store Detail */}
-      {repeatEquipModal && (
+      {/* Box 2 Modal: View all duplicate equipment */}
+      {repeatViewAll && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-5 border-b border-slate-700/50 flex flex-wrap items-center gap-3">
+              <h2 className="text-lg font-semibold text-white flex items-center gap-2 mr-auto">
+                <AlertTriangle className="w-5 h-5 text-orange-400" />
+                Equipment Duplicate Problems — ทั้งหมด ({repeatEquipment.length})
+              </h2>
+              <input
+                type="text"
+                value={repeatSearch}
+                onChange={(e) => setRepeatSearch(e.target.value)}
+                placeholder="ค้นหา ชื่อ / S/N / สาขา..."
+                className="px-3 py-1.5 bg-slate-900 border border-slate-600 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 w-56"
+              />
+              <button
+                onClick={exportRepeatEquipment}
+                className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white transition"
+              >
+                <Download className="w-4 h-4" /> Export Excel
+              </button>
+              <button onClick={() => setRepeatViewAll(false)} className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-slate-700/50">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="overflow-y-auto p-4">
+              <RepeatEquipmentTable
+                showStore
+                rows={repeatEquipment.filter((eq) => {
+                  const q = repeatSearch.trim().toLowerCase()
+                  if (!q) return true
+                  return [eq.equipmentName, eq.brand, eq.model, eq.serialNumber, eq.storeCode, eq.storeName]
+                    .some((v) => (v || '').toLowerCase().includes(q))
+                })}
+                onDetail={openRepeatDetail}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Box 2 Modal: Incidents that used this equipment S/N */}
+      {repeatEquipModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
           <div className="bg-slate-800 rounded-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
             <div className="p-5 border-b border-slate-700/50 flex items-center justify-between">
               <div>
@@ -1621,6 +1669,7 @@ export default function PerformancePage() {
                       <th className="text-left py-3 px-3 font-medium">Ticket No.</th>
                       <th className="text-left py-3 px-3 font-medium">Store</th>
                       <th className="text-left py-3 px-3 font-medium">Title</th>
+                      <th className="text-left py-3 px-3 font-medium">Status</th>
                       <th className="text-left py-3 px-3 font-medium">Resolution</th>
                       <th className="text-left py-3 px-3 font-medium">Resolved Date</th>
                       <th className="text-left py-3 px-3 font-medium">Technician</th>
@@ -1636,6 +1685,7 @@ export default function PerformancePage() {
                         <td className="py-2.5 px-3 text-orange-400 font-mono text-xs">{row.incidentNo || '-'}</td>
                         <td className="py-2.5 px-3 text-gray-300 whitespace-nowrap">{row.store || '-'}</td>
                         <td className="py-2.5 px-3 text-white">{row.title || '-'}</td>
+                        <td className="py-2.5 px-3 text-gray-300 text-xs whitespace-nowrap">{row.status || '-'}</td>
                         <td className="py-2.5 px-3 text-gray-300 max-w-[200px] truncate" title={row.resolution}>{row.resolution || '-'}</td>
                         <td className="py-2.5 px-3 text-gray-300 whitespace-nowrap">
                           {row.resolvedAt ? new Date(row.resolvedAt).toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '-'}
@@ -1650,6 +1700,58 @@ export default function PerformancePage() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ==================== EQUIPMENT DUPLICATE TABLE ====================
+
+function RepeatEquipmentTable({ rows, onDetail, showStore = false }: {
+  rows: RepeatEquipmentEntry[]
+  onDetail: (eq: RepeatEquipmentEntry) => void
+  showStore?: boolean
+}) {
+  if (rows.length === 0) return <div className="py-8 text-center text-sm text-gray-400">ไม่พบรายการ</div>
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm min-w-[480px]">
+        <thead>
+          <tr className="text-gray-400 border-b border-slate-700">
+            <th className="text-left py-2 px-2 font-medium">Equipment</th>
+            <th className="text-left py-2 px-2 font-medium">Brand / Model / S/N</th>
+            {showStore && <th className="text-left py-2 px-2 font-medium">Store</th>}
+            <th className="text-center py-2 px-2 font-medium">ครั้ง</th>
+            <th className="text-center py-2 px-2 font-medium">ล่าสุด</th>
+            <th className="text-center py-2 px-2 font-medium"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((eq) => (
+            <tr key={eq.equipmentIds.join('-')} className="border-b border-slate-700/50 hover:bg-slate-700/30 transition">
+              <td className="py-2 px-2 text-white font-medium">{eq.equipmentName}</td>
+              <td className="py-2 px-2 text-white">
+                <div>{[eq.brand, eq.model].filter(v => v && v !== '-').join(' ') || '-'}</div>
+                {eq.serialNumber && eq.serialNumber !== '-' && <div className="text-xs text-gray-400">S/N: {eq.serialNumber}</div>}
+              </td>
+              {showStore && (
+                <td className="py-2 px-2 text-gray-300 whitespace-nowrap">{formatStore({ storeCode: eq.storeCode, name: eq.storeName }, '-')}</td>
+              )}
+              <td className="py-2 px-2 text-center">
+                <span className="px-2 py-0.5 bg-orange-500/20 text-orange-400 rounded-full text-xs font-semibold">{eq.count}</span>
+              </td>
+              <td className="py-2 px-2 text-center text-gray-400 text-xs">
+                {new Date(eq.lastIncidentAt).toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+              </td>
+              <td className="py-2 px-2 text-center">
+                <button
+                  onClick={() => onDetail(eq)}
+                  className="text-xs px-2 py-1 rounded-lg bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 transition"
+                >Detail</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }

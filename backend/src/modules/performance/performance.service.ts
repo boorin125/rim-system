@@ -6,7 +6,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { UserRole, IncidentStatus, SlaDefenseStatus } from '@prisma/client';
+import { UserRole, IncidentStatus, SlaDefenseStatus, Prisma } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 
 // Grade definitions
@@ -1337,69 +1337,112 @@ export class PerformanceService {
   }
 
   // ──────────────────────────────────────────────────
-  // BOX 2: Equipment Name in Store with >2 Incidents
+  // BOX 2: Equipment S/N with >2 repair incidents (all time)
   // ──────────────────────────────────────────────────
+  /** Incidents that count as a repair request for equipment — PM jobs and cancelled are excluded */
+  private repeatIncidentWhere(jobTypes?: string[]): Prisma.IncidentWhereInput {
+    return {
+      status: { notIn: [IncidentStatus.CANCELLED] },
+      jobType: jobTypes?.length
+        ? { in: jobTypes.filter((jt) => jt !== 'Preventive Maintenance') }
+        : { not: 'Preventive Maintenance' },
+    };
+  }
+
+  private normalizeSerial(sn?: string | null): string {
+    return (sn || '').trim().toUpperCase();
+  }
+
   async getEquipmentRepeatIncidents(period?: string, jobTypes?: string[], from?: string, to?: string, allTime?: boolean) {
     const { startDate, endDate } = this.getDateRange(period, from, to);
 
     const incidents = await this.prisma.incident.findMany({
       where: {
+        ...this.repeatIncidentWhere(jobTypes),
         ...(allTime ? {} : { createdAt: { gte: startDate, lte: endDate } }),
-        equipmentId: { not: null },
-        equipment: { status: 'ACTIVE' },
-        status: { notIn: ['CANCELLED'] },
-        ...(jobTypes?.length ? { jobType: { in: jobTypes } } : {}),
+        OR: [{ equipmentId: { not: null } }, { equipmentIds: { isEmpty: false } }],
       },
-      select: {
-        createdAt: true,
-        storeId: true, storeCode: true, storeName: true,
-        equipment: { select: { name: true, brand: true, model: true, serialNumber: true } },
-      },
+      select: { id: true, createdAt: true, equipmentId: true, equipmentIds: true },
     });
 
-    const map = new Map<string, { equipmentName: string; storeId: number; storeCode: string; storeName: string; brand: string; model: string; serialNumber: string; count: number; lastIncidentAt: Date }>();
-    for (const inc of incidents) {
-      if (!inc.equipment || !inc.storeId) continue;
-      const key = `${inc.equipment.name}__${inc.storeId}`;
-      const cur = map.get(key);
-      if (cur) {
-        cur.count++;
-        if (inc.createdAt > cur.lastIncidentAt) {
-          cur.lastIncidentAt = inc.createdAt;
-          cur.brand = inc.equipment.brand || '-';
-          cur.model = inc.equipment.model || '-';
-          cur.serialNumber = inc.equipment.serialNumber || '-';
+    // Equipment used in each incident (single equipmentId + multi equipmentIds, de-duplicated)
+    const allIds = new Set<number>();
+    const incEquip = incidents.map((inc) => {
+      const ids = new Set<number>(inc.equipmentIds ?? []);
+      if (inc.equipmentId) ids.add(inc.equipmentId);
+      ids.forEach((id) => allIds.add(id));
+      return { ...inc, ids };
+    });
+
+    const equipments = await this.prisma.equipment.findMany({
+      where: { id: { in: Array.from(allIds) }, status: 'ACTIVE' },
+      select: {
+        id: true, name: true, category: true, brand: true, model: true, serialNumber: true,
+        store: { select: { storeCode: true, name: true } },
+      },
+    });
+    const equipMap = new Map(equipments.map((e) => [e.id, e]));
+
+    // Group by S/N (fallback to equipment id when S/N is empty)
+    type Group = {
+      equipmentIds: number[]; equipmentName: string; category: string;
+      brand: string; model: string; serialNumber: string; storeCode: string; storeName: string;
+      incidentIds: Set<string>; lastIncidentAt: Date;
+    };
+    const groups = new Map<string, Group>();
+    for (const inc of incEquip) {
+      for (const eid of inc.ids) {
+        const eq = equipMap.get(eid);
+        if (!eq) continue;
+        const sn = this.normalizeSerial(eq.serialNumber);
+        const key = sn ? `sn:${sn}` : `id:${eq.id}`;
+        let g = groups.get(key);
+        if (!g) {
+          g = {
+            equipmentIds: [], equipmentName: eq.name, category: eq.category || '',
+            brand: eq.brand || '-', model: eq.model || '-', serialNumber: eq.serialNumber || '-',
+            storeCode: eq.store?.storeCode || '', storeName: eq.store?.name || '',
+            incidentIds: new Set(), lastIncidentAt: inc.createdAt,
+          };
+          groups.set(key, g);
         }
-      } else {
-        map.set(key, {
-          equipmentName: inc.equipment.name,
-          storeId: inc.storeId,
-          storeCode: inc.storeCode || String(inc.storeId),
-          storeName: inc.storeName || `Store ${inc.storeId}`,
-          brand: inc.equipment.brand || '-',
-          model: inc.equipment.model || '-',
-          serialNumber: inc.equipment.serialNumber || '-',
-          count: 1,
-          lastIncidentAt: inc.createdAt,
-        });
+        if (!g.equipmentIds.includes(eq.id)) g.equipmentIds.push(eq.id);
+        g.incidentIds.add(inc.id); // Set → an incident is counted once per S/N
+        if (inc.createdAt > g.lastIncidentAt) g.lastIncidentAt = inc.createdAt;
       }
     }
-    return Array.from(map.values())
-      .filter(v => v.count > 2)
-      .sort((a, b) => b.lastIncidentAt.getTime() - a.lastIncidentAt.getTime());
+
+    return Array.from(groups.values())
+      .map((g) => ({
+        equipmentIds: g.equipmentIds,
+        equipmentName: g.equipmentName,
+        category: g.category,
+        brand: g.brand,
+        model: g.model,
+        serialNumber: g.serialNumber,
+        storeCode: g.storeCode,
+        storeName: g.storeName,
+        count: g.incidentIds.size,
+        lastIncidentAt: g.lastIncidentAt,
+      }))
+      .filter((v) => v.count > 2)
+      .sort((a, b) => b.count - a.count || b.lastIncidentAt.getTime() - a.lastIncidentAt.getTime());
   }
 
-  async getEquipmentNameStoreDetail(equipmentName: string, storeId: number) {
+  /** Incidents that used the given equipment (same S/N group as the summary) */
+  async getEquipmentRepeatDetail(equipmentIds: number[], jobTypes?: string[]) {
     const equipments = await this.prisma.equipment.findMany({
-      where: { name: equipmentName, storeId, status: 'ACTIVE' },
-      select: { id: true, brand: true, model: true, serialNumber: true },
+      where: { id: { in: equipmentIds } },
+      select: { id: true, name: true, brand: true, model: true, serialNumber: true },
     });
-    const equipmentIds = equipments.map(e => e.id);
     const incidents = await this.prisma.incident.findMany({
-      where: { equipmentId: { in: equipmentIds }, resolvedAt: { not: null } },
+      where: {
+        ...this.repeatIncidentWhere(jobTypes),
+        OR: [{ equipmentId: { in: equipmentIds } }, { equipmentIds: { hasSome: equipmentIds } }],
+      },
       orderBy: { createdAt: 'desc' },
       select: {
-        ticketNumber: true, title: true, resolutionNote: true,
+        ticketNumber: true, title: true, resolutionNote: true, status: true,
         incidentDate: true, createdAt: true, resolvedAt: true,
         storeCode: true, storeName: true,
         assignee: { select: { firstName: true, lastName: true } },
@@ -1407,18 +1450,19 @@ export class PerformanceService {
         assignees: { select: { user: { select: { firstName: true, lastName: true } } } },
       },
     });
+    const first = equipments[0];
     return {
-      equipmentName,
-      storeId,
-      brand: equipments[0]?.brand || '',
-      model: equipments[0]?.model || '',
-      serialNumber: equipments[0]?.serialNumber || '',
+      equipmentName: first?.name || '',
+      brand: first?.brand || '',
+      model: first?.model || '',
+      serialNumber: first?.serialNumber || '',
       incidents: incidents.map((inc, idx) => ({
         no: idx + 1,
         incidentDate: inc.incidentDate || inc.createdAt,
         incidentNo: inc.ticketNumber,
         store: `${inc.storeCode || ''} ${inc.storeName || ''}`.trim() || '-',
         title: inc.title,
+        status: inc.status,
         resolution: inc.resolutionNote || '-',
         resolvedAt: inc.resolvedAt,
         technicianName: inc.assignee

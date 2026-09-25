@@ -2213,7 +2213,9 @@ export class IncidentsService {
   async saveProgressAndReopen(id: string, userId: number, dto: SaveRoundProgressDto) {
     const incident = await this.prisma.incident.findFirst({ where: { id } });
     if (!incident) throw new NotFoundException(`ไม่พบ Incident ${id}`);
-    if (incident.status !== IncidentStatus.IN_PROGRESS) {
+    // Allowed: IN_PROGRESS, or RESOLVED that Helpdesk rejected (tech needs another visit)
+    const isRejectedResolve = incident.status === IncidentStatus.RESOLVED && !!incident.closeRejectedAt;
+    if (incident.status !== IncidentStatus.IN_PROGRESS && !isRejectedResolve) {
       throw new BadRequestException('สามารถบันทึกความคืบหน้าได้เฉพาะ Incident ที่อยู่ระหว่างดำเนินการ');
     }
     const isAssigned = await this.isAssignedToIncident(id, userId);
@@ -2234,7 +2236,12 @@ export class IncidentsService {
       await tx.incidentWorkRound.upsert({
         where: { incidentId_roundNumber: { incidentId: id, roundNumber } },
         create: { incidentId: id, roundNumber, technicianId: userId, progressNote: dto.resolutionNote || 'SAVED', progressNoteAt: new Date() },
-        update: { progressNote: dto.resolutionNote || 'SAVED', progressNoteAt: new Date() },
+        update: {
+          progressNote: dto.resolutionNote || 'SAVED',
+          progressNoteAt: new Date(),
+          // Rejected resolve → this round becomes a progress round, not a resolved one
+          ...(isRejectedResolve ? { resolvedAt: null, resolutionNote: null, resolutionType: null } : {}),
+        },
       });
 
       // 2. Save spare parts for this round
@@ -2287,6 +2294,13 @@ export class IncidentsService {
           checkInLatitude: null,
           checkInLongitude: null,
           usedSpareParts: dto.usedSpareParts ? true : incident.usedSpareParts,
+          ...(isRejectedResolve ? {
+            resolvedAt: null,
+            resolvedById: null,
+            closeRejectionNote: null,
+            closeRejectedAt: null,
+            closeRejectedById: null,
+          } : {}),
           updatedAt: new Date(),
         },
       });
@@ -2295,7 +2309,7 @@ export class IncidentsService {
 
       await this.historyService.createHistory(
         id, IncidentAction.UPDATED, userId,
-        IncidentStatus.IN_PROGRESS, IncidentStatus.OPEN,
+        incident.status, IncidentStatus.OPEN,
         `บันทึกความคืบหน้ารอบที่ ${roundNumber} และเปิดรอบซ่อมใหม่${dto.usedSpareParts && dto.spareParts?.length ? ` (Spare Parts ${dto.spareParts.length} รายการ)` : ''}`,
       );
     });
@@ -4474,6 +4488,7 @@ export class IncidentsService {
     resolutionType: 'PHONE_SUPPORT' | 'REMOTE_SUPPORT',
     resolutionNote: string | undefined,
     userId: number,
+    extra?: { afterPhotos?: string[]; usedSpareParts?: boolean; spareParts?: any[] },
   ) {
     const incident = await this.prisma.incident.findFirst({
       where: { id },
@@ -4492,7 +4507,25 @@ export class IncidentsService {
       throw new BadRequestException('Incident นี้ได้เลือกวิธีดำเนินการแล้ว');
     }
 
+    const usedSpareParts = !!extra?.usedSpareParts && (extra?.spareParts?.length ?? 0) > 0;
+    if (extra?.usedSpareParts && !usedSpareParts) {
+      throw new BadRequestException('กรุณาระบุรายการอะไหล่เมื่อเลือกว่ามีการใช้อะไหล่');
+    }
+    if (extra?.afterPhotos && extra.afterPhotos.length > 20) {
+      throw new BadRequestException('อัปโหลดรูปได้สูงสุด 20 รูป');
+    }
+
+    // Save base64 photos to disk + AFTER watermark (same as technician resolve)
+    let afterPhotos: string[] = [];
+    if (extra?.afterPhotos?.length) {
+      const base64After = extra.afterPhotos.filter((p) => p.startsWith('data:'));
+      const saved = base64After.length > 0 ? await saveBase64Files(base64After, `incidents/${id}`) : [];
+      const paths = extra.afterPhotos.map((p) => (p.startsWith('data:') ? saved.shift()! : p));
+      afterPhotos = await this.addWatermarkToPhotos(paths, 'AFTER');
+    }
+
     const now = new Date();
+    const roundNumber = (incident.reopenCount ?? 0) + 1;
     const updateData: any = {
       status: IncidentStatus.CLOSED,
       resolutionType,
@@ -4502,18 +4535,80 @@ export class IncidentsService {
       confirmedAt: now,
       confirmedById: userId,
       updatedAt: now,
+      ...(afterPhotos.length > 0 ? { afterPhotos } : {}),
+      ...(usedSpareParts ? { usedSpareParts: true } : {}),
     };
 
-    const updated = await this.prisma.incident.update({
-      where: { id },
-      data: updateData,
-      include: {
-        store: true,
-        createdBy: {
-          select: { id: true, username: true, firstName: true, lastName: true, email: true },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const inc = await tx.incident.update({
+        where: { id },
+        data: updateData,
+        include: {
+          store: true,
+          createdBy: {
+            select: { id: true, username: true, firstName: true, lastName: true, email: true },
+          },
         },
-      },
+      });
+
+      if (usedSpareParts) {
+        await tx.sparePart.deleteMany({ where: { incidentId: id, roundNumber } });
+        const transformed = this.transformSparePartsData(extra!.spareParts!);
+        for (let i = 0; i < extra!.spareParts!.length; i++) {
+          const orig = extra!.spareParts![i];
+          const t = transformed[i];
+          await tx.sparePart.create({
+            data: {
+              incidentId: id,
+              roundNumber,
+              repairType: (t.repairType as RepairType) || RepairType.EQUIPMENT_REPLACEMENT,
+              deviceName: t.deviceName,
+              oldSerialNo: t.oldSerialNo,
+              newSerialNo: t.newSerialNo,
+              newBrand: orig.newBrand || null,
+              newModel: orig.newModel || null,
+              notes: t.notes,
+              oldEquipmentId: orig.oldEquipmentId || null,
+              newEquipmentId: orig.newEquipmentId || null,
+              componentName: t.componentName || null,
+              oldComponentSerial: t.oldComponentSerial || null,
+              newComponentSerial: t.newComponentSerial || null,
+              parentEquipmentId: orig.parentEquipmentId || null,
+            },
+          });
+        }
+      }
+      return inc;
     });
+
+    // Closed immediately → sync Equipment now (technician flow does this in confirmClose)
+    if (usedSpareParts) {
+      const savedSpareParts = await this.prisma.sparePart.findMany({ where: { incidentId: id, roundNumber } });
+      for (const sp of savedSpareParts) {
+        const originalSp = {
+          oldEquipmentId: sp.oldEquipmentId,
+          newEquipmentId: sp.newEquipmentId,
+          newBrand: (sp as any).newBrand || null,
+          newModel: (sp as any).newModel || null,
+          newDeviceName: sp.deviceName?.includes(' → ')
+            ? sp.deviceName.split(' → ')[1]?.trim()
+            : sp.deviceName,
+          parentEquipmentId: sp.parentEquipmentId,
+          componentName: sp.componentName,
+          oldComponentSerial: sp.oldComponentSerial,
+          newComponentSerial: sp.newComponentSerial,
+        };
+        const transformedSp = {
+          repairType: sp.repairType,
+          oldSerialNo: sp.oldSerialNo,
+          newSerialNo: sp.newSerialNo,
+        };
+        await this.syncEquipmentFromSparePart(
+          this.prisma, originalSp, transformedSp,
+          incident.storeId, incident.ticketNumber, userId, id,
+        );
+      }
+    }
 
     // History
     await this.historyService.createHistory(

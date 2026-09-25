@@ -9,6 +9,7 @@ import {
   IsEnum,
   MinLength,
   IsInt,
+  IsIn,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -226,4 +227,32 @@ export class UpdateResolveDto {
   @IsArray()
   @IsString({ each: true })
   signedReportPhotos?: string[];
+}
+
+/**
+ * Direct Close DTO — Helpdesk closes by Phone/Remote Support (no check-in)
+ * Optional after photos + spare parts, same data a technician can submit
+ */
+export class DirectCloseDto {
+  @IsIn(['PHONE_SUPPORT', 'REMOTE_SUPPORT'])
+  resolutionType: 'PHONE_SUPPORT' | 'REMOTE_SUPPORT';
+
+  @IsOptional()
+  @IsString()
+  resolutionNote?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  usedSpareParts?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SparePartDto)
+  spareParts?: SparePartDto[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  afterPhotos?: string[];
 }

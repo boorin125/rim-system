@@ -22,7 +22,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
 import { LicenseGuard } from '../modules/license/license.guard';
-import { ResolveIncidentDto, UpdateResolveDto, ConfirmCloseDto, RejectCloseDto, SaveRoundProgressDto } from './dto/resolve-incident.dto';
+import { ResolveIncidentDto, UpdateResolveDto, ConfirmCloseDto, RejectCloseDto, SaveRoundProgressDto, DirectCloseDto } from './dto/resolve-incident.dto';
 import { ReopenIncidentDto } from './dto/reopen-incident.dto';
 import { SubmitResponseDto } from './dto/submit-response.dto';
 import { IncidentHistoryService } from './incident-history.service';
@@ -459,11 +459,14 @@ export class IncidentsController {
   @Roles(UserRole.HELP_DESK)
   directClose(
     @Param('id') id: string,
-    @Body('resolutionType') resolutionType: 'PHONE_SUPPORT' | 'REMOTE_SUPPORT',
-    @Body('resolutionNote') resolutionNote: string,
+    @Body() dto: DirectCloseDto,
     @Request() req,
   ) {
-    return this.incidentsService.directClose(id, resolutionType, resolutionNote, req.user.id);
+    return this.incidentsService.directClose(id, dto.resolutionType, dto.resolutionNote, req.user.id, {
+      afterPhotos: dto.afterPhotos,
+      usedSpareParts: dto.usedSpareParts,
+      spareParts: dto.spareParts,
+    });
   }
 
   /**

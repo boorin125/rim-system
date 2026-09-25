@@ -38,6 +38,8 @@ interface UpdateResolveModalProps {
     signedReportPhotos?: string[];
   };
   onUpdate: (data: UpdateResolveData) => Promise<void>;
+  /** Shown when Helpdesk rejected the close — lets tech save progress and open a new work round */
+  onProgressSaved?: () => void;
 }
 
 export interface UpdateResolveData {
@@ -80,6 +82,7 @@ export default function UpdateResolveModal({
   incidentEquipmentIds,
   currentData,
   onUpdate,
+  onProgressSaved,
 }: UpdateResolveModalProps) {
   const [resolutionNote, setResolutionNote] = useState('');
   const [usedSpareParts, setUsedSpareParts] = useState(false);
@@ -90,6 +93,7 @@ export default function UpdateResolveModal({
   const [newPhotoUrls, setNewPhotoUrls] = useState<string[]>([]);
   const [existingPhotos, setExistingPhotos] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSavingProgress, setIsSavingProgress] = useState(false);
   const [error, setError] = useState('');
 
   // Signed SR photos
@@ -444,6 +448,44 @@ export default function UpdateResolveModal({
     }
 
     return null;
+  };
+
+  const handleSaveProgress = async () => {
+    if (isListening && recognitionRef.current) { recognitionRef.current.stop(); setIsListening(false); }
+    if (!resolutionNote.trim() && !usedSpareParts) {
+      setError('กรุณากรอกรายละเอียดหรือระบุ Spare Parts');
+      return;
+    }
+    if (usedSpareParts && spareParts.length === 0) {
+      setError('กรุณาเพิ่มรายการ Spare Parts อย่างน้อย 1 รายการ');
+      return;
+    }
+    setIsSavingProgress(true);
+    setError('');
+    try {
+      const sparePartsData = usedSpareParts && spareParts.length > 0
+        ? spareParts.map((part) => {
+            if (part.repairType === 'COMPONENT_REPLACEMENT') {
+              return { repairType: part.repairType, componentName: part.componentName, oldComponentSerial: part.oldComponentSerial, newComponentSerial: part.newComponentSerial, parentEquipmentId: part.parentEquipmentId || undefined, notes: part.notes || undefined };
+            }
+            const newDeviceName = [part.newBrand, part.newModel].filter(Boolean).join(' ') || part.newDeviceName;
+            return { repairType: part.repairType, oldDeviceName: part.oldDeviceName, oldSerialNo: part.oldSerialNo, oldEquipmentId: part.oldEquipmentId || undefined, newDeviceName, newSerialNo: part.newSerialNo, newBrand: part.newBrand || undefined, newModel: part.newModel || undefined, newEquipmentId: part.newEquipmentId || undefined, replacementType: part.replacementType || undefined, notes: part.notes || undefined };
+          })
+        : undefined;
+      const token = localStorage.getItem('token');
+      await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/incidents/${incidentId}/save-progress-and-reopen`,
+        { resolutionNote: resolutionNote.trim(), usedSpareParts, spareParts: sparePartsData },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      handleClose();
+      onProgressSaved?.();
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || 'บันทึกไม่สำเร็จ';
+      setError(Array.isArray(msg) ? msg.join(', ') : msg);
+    } finally {
+      setIsSavingProgress(false);
+    }
   };
 
   const handleSubmit = async () => {
@@ -932,16 +974,25 @@ export default function UpdateResolveModal({
 
         {/* Footer */}
         <div className="flex items-center justify-end space-x-3 p-6 border-t border-slate-700/50 bg-slate-800/30">
+          {onProgressSaved && (
+            <button
+              onClick={handleSaveProgress}
+              disabled={isSubmitting || isSavingProgress}
+              className="mr-auto text-sm text-orange-400 underline hover:text-orange-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSavingProgress ? 'กำลังบันทึก...' : 'บันทึกความคืบหน้า'}
+            </button>
+          )}
           <button
             onClick={handleClose}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isSavingProgress}
             className="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isSavingProgress}
             className="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
           >
             {isSubmitting ? (

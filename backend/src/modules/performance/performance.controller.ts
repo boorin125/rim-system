@@ -11,6 +11,7 @@ import {
   ParseIntPipe,
   HttpCode,
   HttpStatus,
+  BadRequestException,
 } from '@nestjs/common';
 import { PerformanceService } from './performance.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -343,7 +344,7 @@ export class PerformanceController {
     return this.performanceService.getEquipmentIncidentDetail(equipmentId);
   }
 
-  /** Equipment Name+Store pairs with >2 incidents */
+  /** Equipment S/N with >2 repair incidents */
   @Get('equipment-repeat')
   @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK, UserRole.MONITOR)
   async getEquipmentRepeatIncidents(
@@ -357,14 +358,17 @@ export class PerformanceController {
     return this.performanceService.getEquipmentRepeatIncidents(period, parsed, from, to, allTime === 'true');
   }
 
-  /** Equipment Name+Store incident detail */
+  /** Incidents that used the given equipment (S/N group) */
   @Get('equipment-repeat-detail')
   @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK, UserRole.MONITOR)
-  async getEquipmentNameStoreDetail(
-    @Query('equipmentName') equipmentName: string,
-    @Query('storeId', ParseIntPipe) storeId: number,
+  async getEquipmentRepeatDetail(
+    @Query('equipmentIds') equipmentIds: string,
+    @Query('jobTypes') jobTypes?: string,
   ) {
-    return this.performanceService.getEquipmentNameStoreDetail(equipmentName, storeId);
+    const ids = (equipmentIds || '').split(',').map((v) => parseInt(v, 10)).filter((n) => !isNaN(n));
+    if (ids.length === 0) throw new BadRequestException('equipmentIds is required');
+    const parsed = jobTypes ? jobTypes.split(',').map(s => s.trim()).filter(Boolean) : undefined;
+    return this.performanceService.getEquipmentRepeatDetail(ids, parsed);
   }
 
   /** Help Desk Overall Stats */

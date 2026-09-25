@@ -114,6 +114,8 @@ const TABS: { key: TabKey; label: string; statusFilter: string; icon: React.Comp
   },
 ]
 
+const LIST_STATE_KEY = 'equipmentListState'
+
 export default function EquipmentPage() {
   const router = useRouter()
   const themeHighlight = useThemeHighlight()
@@ -135,13 +137,64 @@ export default function EquipmentPage() {
   const storeDropdownRef = useRef<HTMLDivElement>(null)
   const [showImportModal, setShowImportModal] = useState(false)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
+  // List state (page + filters) is kept in sessionStorage so Back from Equipment Detail returns to the same page
+  const [listStateReady, setListStateReady] = useState(false)
+  const lastSearchRef = useRef('')
+  const lastFilterKeyRef = useRef('')
+  const fetchSeqRef = useRef(0)
 
   const itemsPerPage = 12
 
   // The status filter value derived from activeTab
   const currentStatusFilter = TABS.find((t) => t.key === activeTab)!.statusFilter
 
+  // Restore list state saved before navigating into Equipment Detail
   useEffect(() => {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(LIST_STATE_KEY) || 'null')
+      if (saved) {
+        setSearchTerm(saved.searchTerm ?? '')
+        setFilterCategory(saved.filterCategory ?? 'ALL')
+        setFilterWarranty(saved.filterWarranty ?? 'ALL')
+        setFilterStore(saved.filterStore ?? 'ALL')
+        setStoreSearchText(saved.storeSearchText ?? '')
+        setCurrentPage(saved.currentPage ?? 1)
+        lastSearchRef.current = saved.searchTerm ?? ''
+        lastFilterKeyRef.current = [saved.filterCategory ?? 'ALL', saved.filterWarranty ?? 'ALL', saved.filterStore ?? 'ALL'].join('|')
+        if (!new URLSearchParams(window.location.search).get('tab') && saved.activeTab && saved.activeTab !== activeTab) {
+          setActiveTab(saved.activeTab)
+        }
+      } else {
+        lastFilterKeyRef.current = ['ALL', 'ALL', 'ALL'].join('|')
+      }
+    } catch {
+      lastFilterKeyRef.current = ['ALL', 'ALL', 'ALL'].join('|')
+    }
+    setListStateReady(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Persist list state
+  useEffect(() => {
+    if (!listStateReady) return
+    try {
+      sessionStorage.setItem(LIST_STATE_KEY, JSON.stringify({
+        searchTerm, filterCategory, filterWarranty, filterStore, storeSearchText, currentPage, activeTab,
+      }))
+    } catch {}
+  }, [listStateReady, searchTerm, filterCategory, filterWarranty, filterStore, storeSearchText, currentPage, activeTab])
+
+  // Filter change → back to page 1 (skip when values come from restore)
+  useEffect(() => {
+    if (!listStateReady) return
+    const key = [filterCategory, filterWarranty, filterStore].join('|')
+    if (key === lastFilterKeyRef.current) return
+    lastFilterKeyRef.current = key
+    setCurrentPage(1)
+  }, [listStateReady, filterCategory, filterWarranty, filterStore])
+
+  useEffect(() => {
+    if (!listStateReady) return
     // Get current user from localStorage
     const userStr = localStorage.getItem('user')
     if (userStr) {
@@ -167,7 +220,7 @@ export default function EquipmentPage() {
     fetchEquipment()
     fetchStores()
     fetchCategories()
-  }, [currentPage, filterCategory, filterStore, activeTab])
+  }, [listStateReady, currentPage, filterCategory, filterStore, filterWarranty, activeTab])
 
   // Close store dropdown on outside click
   useEffect(() => {
@@ -182,6 +235,8 @@ export default function EquipmentPage() {
 
   // Debounced search
   useEffect(() => {
+    if (!listStateReady || searchTerm === lastSearchRef.current) return
+    lastSearchRef.current = searchTerm
     const timer = setTimeout(() => {
       if (currentPage === 1) {
         fetchEquipment()
@@ -249,12 +304,14 @@ export default function EquipmentPage() {
         params.append('warrantyExpired', 'false')
       }
 
+      const seq = ++fetchSeqRef.current
       const response = await axios.get(
         `${process.env.NEXT_PUBLIC_API_URL}/equipment?${params.toString()}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
       )
+      if (seq !== fetchSeqRef.current) return // a newer request is in flight
 
       setEquipment(response.data?.data || [])
       setTotalPages(response.data?.meta?.totalPages || 1)

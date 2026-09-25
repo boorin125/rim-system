@@ -23,8 +23,6 @@ import {
   Edit3,
   MapPin,
   ExternalLink,
-  Phone,
-  Monitor,
   Briefcase,
   MessageSquare,
   FileText,
@@ -51,6 +49,7 @@ import ResponseModal from '@/components/ResponseModal'
 import CheckInModal from '@/components/CheckInModal'
 import ResolveIncidentModal from '@/components/ResolveIncidentModal'
 import UpdateResolveModal from '@/components/UpdateResolveModal'
+import DirectCloseModal, { DirectCloseData } from '@/components/DirectCloseModal'
 import ConfirmCloseModal from '@/components/ConfirmCloseModal'
 import ReopenIncidentModal from '@/components/ReopenIncidentModal'
 import AddBeforePhotosModal from '@/components/AddBeforePhotosModal'
@@ -743,12 +742,13 @@ export default function IncidentDetailPage() {
   }
 
   // Handle Direct Close (Phone/Remote Support)
-  const handleDirectClose = async (resolutionType: 'PHONE_SUPPORT' | 'REMOTE_SUPPORT', resolutionNote: string) => {
+  const handleDirectClose = async (data: DirectCloseData) => {
+    const { resolutionType } = data
     try {
       const token = localStorage.getItem('token')
       await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/incidents/${params.id}/direct-close`,
-        { resolutionType, resolutionNote },
+        data,
         { headers: { Authorization: `Bearer ${token}` } }
       )
       toast.success(`Incident ถูกปิดแล้ว (${resolutionType === 'PHONE_SUPPORT' ? 'Phone Support' : 'Remote Support'})`)
@@ -2953,6 +2953,7 @@ SLA Breach Time: ${slaBreachText}`
           signedReportPhotos: incident.signedReportPhotos || [],
         }}
         onUpdate={handleUpdateResolve}
+        onProgressSaved={incident.closeRejectedAt ? () => { setShowUpdate(false); router.push('/dashboard/incidents'); } : undefined}
       />
 
       {/* Tech Confirm Resolve Modal */}
@@ -3025,6 +3026,8 @@ SLA Breach Time: ${slaBreachText}`
           isOpen={showDirectClose}
           onClose={() => setShowDirectClose(false)}
           incident={{ id: incident.id, title: incident.title, ticketNumber: incident.ticketNumber }}
+          storeId={incident.store?.id}
+          incidentEquipmentIds={incident.equipmentIds || []}
           onConfirm={handleDirectClose}
         />
       )}
@@ -3064,119 +3067,6 @@ SLA Breach Time: ${slaBreachText}`
           </div>
         </div>
       )}
-    </div>
-  )
-}
-
-// Direct Close Modal for Phone/Remote Support
-function DirectCloseModal({
-  isOpen,
-  onClose,
-  incident,
-  onConfirm,
-}: {
-  isOpen: boolean
-  onClose: () => void
-  incident: { id: string; title: string; ticketNumber: string }
-  onConfirm: (resolutionType: 'PHONE_SUPPORT' | 'REMOTE_SUPPORT', resolutionNote: string) => void
-}) {
-  const themeHighlight = useThemeHighlight()
-  const [selectedType, setSelectedType] = useState<'PHONE_SUPPORT' | 'REMOTE_SUPPORT'>('PHONE_SUPPORT')
-  const [note, setNote] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
-
-  if (!isOpen) return null
-
-  const handleSubmit = async () => {
-    setIsSubmitting(true)
-    try {
-      await onConfirm(selectedType, note)
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="bg-slate-800 rounded-2xl border border-slate-700 w-full max-w-lg mx-4 shadow-2xl">
-        <div className="p-6 border-b border-slate-700">
-          <h3 className="text-lg font-semibold text-white">
-            ปิดงานโดย Helpdesk
-          </h3>
-          <p className="text-gray-400 text-sm mt-1">
-            {incident.ticketNumber} - {incident.title}
-          </p>
-        </div>
-
-        <div className="p-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-3">
-              เลือกวิธีปิดงาน
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setSelectedType('PHONE_SUPPORT')}
-                className={`p-3 rounded-lg border-2 text-center transition ${
-                  selectedType === 'PHONE_SUPPORT'
-                    ? 'border-emerald-500 bg-emerald-500/15 text-emerald-400'
-                    : 'border-slate-600 bg-slate-700/50 text-gray-400 hover:border-slate-500'
-                }`}
-              >
-                <Phone className="w-5 h-5 mx-auto mb-1" />
-                <span className="text-sm font-medium">Phone Support</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedType('REMOTE_SUPPORT')}
-                className={`p-3 rounded-lg border-2 text-center transition ${
-                  selectedType === 'REMOTE_SUPPORT'
-                    ? 'border-blue-500 bg-blue-500/15 text-blue-400'
-                    : 'border-slate-600 bg-slate-700/50 text-gray-400 hover:border-slate-500'
-                }`}
-              >
-                <Monitor className="w-5 h-5 mx-auto mb-1" />
-                <span className="text-sm font-medium">Remote Support</span>
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Resolution Note (Optional)
-            </label>
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="รายละเอียดการแก้ไข..."
-              rows={3}
-              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-        </div>
-
-        <div className="p-6 border-t border-slate-700 flex justify-end space-x-3">
-          <button
-            onClick={onClose}
-            disabled={isSubmitting}
-            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-gray-300 rounded-lg transition"
-          >
-            ยกเลิก
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={isSubmitting}
-            className={`px-4 py-2 text-white rounded-lg transition ${
-              selectedType === 'PHONE_SUPPORT'
-                ? 'bg-emerald-600 hover:bg-emerald-700'
-                : 'hover:brightness-110'
-            } disabled:opacity-50`}
-            style={selectedType !== 'PHONE_SUPPORT' ? { backgroundColor: themeHighlight } : undefined}
-          >
-            {isSubmitting ? 'กำลังปิดงาน...' : 'ยืนยันปิดงาน'}
-          </button>
-        </div>
-      </div>
     </div>
   )
 }
