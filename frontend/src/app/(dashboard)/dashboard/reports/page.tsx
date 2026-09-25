@@ -329,7 +329,7 @@ export default function ReportsPage() {
       })
       .catch(() => {})
     axios
-      .get(`${process.env.NEXT_PUBLIC_API_URL}/categories/job-types`, { headers })
+      .get(`${process.env.NEXT_PUBLIC_API_URL}/categories/job-types/all`, { headers })
       .then((res) => {
         const data = Array.isArray(res.data) ? res.data : (res.data?.data || [])
         setJobTypeList(data)
