@@ -4638,7 +4638,7 @@ export class IncidentsService {
     // Notify creator
     await this.notificationsService.createNotification(
       incident.createdById,
-      'INCIDENT_CLOSED' as any,
+      NotificationType.INCIDENT_CONFIRMED,
       'Incident Closed',
       `${incident.ticketNumber} - ${incident.title} ถูกปิดแล้ว (${resolutionType === 'PHONE_SUPPORT' ? 'Phone Support' : 'Remote Support'})`,
       id,
