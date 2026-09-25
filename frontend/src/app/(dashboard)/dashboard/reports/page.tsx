@@ -535,6 +535,8 @@ export default function ReportsPage() {
           const rows = items.map((inc: any, idx: number) => {
             const techName = inc.assignees?.length > 0
               ? inc.assignees.map((a: any) => `${a.user.firstName} ${a.user.lastName}`).join(', ')
+              : inc.resolvedBy
+              ? `${inc.resolvedBy.firstName} ${inc.resolvedBy.lastName}` // closed by Helpdesk (Phone/Remote)
               : 'Unassigned'
             const firstAssign = inc.assignees?.find((a: any) => a.assignedAt)
             const firstCheckin = inc.assignees?.find((a: any) => a.checkedInAt)

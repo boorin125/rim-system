@@ -1053,6 +1053,10 @@ export class IncidentsService {
           assignee: {
             select: { id: true, firstName: true, lastName: true },
           },
+          // Who closed it — used as "Technician" when Helpdesk closed without a technician
+          resolvedBy: {
+            select: { id: true, firstName: true, lastName: true },
+          },
           store: {
             select: {
               id: true, storeCode: true, name: true,

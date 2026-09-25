@@ -441,7 +441,9 @@ export default function IncidentsPage() {
       const exportData = allData.map((incident: any) => {
         const technician = incident.assignees?.length > 0
           ? incident.assignees.map((a: any) => `${a.user?.firstName || ''} ${a.user?.lastName || ''}`.trim()).join(', ')
-          : incident.assignee ? `${incident.assignee.firstName} ${incident.assignee.lastName}` : 'Unassigned'
+          : incident.assignee ? `${incident.assignee.firstName} ${incident.assignee.lastName}`
+          : incident.resolvedBy ? `${incident.resolvedBy.firstName} ${incident.resolvedBy.lastName}` // closed by Helpdesk
+          : 'Unassigned'
         const resolution = incident.resolutionType === 'PHONE_SUPPORT' ? 'Phone'
           : incident.resolutionType === 'REMOTE_SUPPORT' ? 'Remote'
           : incident.resolutionType === 'ONSITE' ? 'Onsite'

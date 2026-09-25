@@ -335,6 +335,8 @@ const RELEASE_NOTES: {
       { type: 'new',      text: 'Performance Equipment Duplicate Problems — ปุ่ม View all ดูทั้งหมดพร้อมค้นหา และ Export Excel; หน้า Detail แสดงทุกงานที่มีการใช้อุปกรณ์ S/N นั้น พร้อมสถานะงาน' },
       { type: 'new',      text: 'ปิดงานโดย Helpdesk (Phone/Remote Support) — เพิ่มรูปภาพ (สูงสุด 20 รูป) และข้อมูล Spare Parts / เปลี่ยนอุปกรณ์ได้เหมือน Technician โดยไม่ต้อง Check-in; ข้อมูลอุปกรณ์ Sync เข้า Equipment ทันทีเมื่อปิดงาน' },
       { type: 'new',      text: 'ปิดงานโดย Helpdesk — ส่งอีเมลปิดงานอัตโนมัติ (เหมือนการ Confirm Close ปกติ)' },
+      { type: 'fixed',    text: 'ปิดงานโดย Helpdesk — แก้ Internal Server Error หลังกดยืนยันปิดงาน (งานปิดได้แต่ Notification/อีเมลไม่ถูกส่ง)' },
+      { type: 'improved', text: 'Report Incident List / Export — คอลัมน์ Technician แสดงชื่อผู้ปิดงาน (Helpdesk) แทน "Unassigned" สำหรับงานที่ปิดแบบ Phone/Remote Support' },
       { type: 'fixed',    text: 'Equipment — แก้รูปอุปกรณ์ที่แสดงไม่ได้ (path เก่าไม่มี /uploads/) และแสดง "No Pic" เมื่อไม่มีรูปหรือไฟล์รูปหาย' },
     ],
   },
