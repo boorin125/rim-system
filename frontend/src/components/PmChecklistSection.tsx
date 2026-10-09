@@ -825,6 +825,8 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
   const [addingEquipment, setAddingEquipment] = useState(false)
   const [newEquipment, setNewEquipment] = useState({ name: '', category: '', brand: '', model: '', serialNumber: '' })
   const [categoryOptions, setCategoryOptions] = useState<string[]>([])
+  const [removeTarget, setRemoveTarget] = useState<PmEquipmentRecord | null>(null)
+  const [removingEquipment, setRemovingEquipment] = useState(false)
   const [signLink, setSignLink] = useState<string | null>(null)
   const [uploadingSignedPaper, setUploadingSignedPaper] = useState(false)
   const [deletingSignedPaper, setDeletingSignedPaper] = useState(false)
@@ -1095,18 +1097,23 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
     }
   }
 
-  const handleRemoveEquipment = async (record: PmEquipmentRecord) => {
-    if (!confirm(`นำ "${record.equipment.name}" (S/N ${record.equipment.serialNumber}) ออกจากร้าน?\nอุปกรณ์จะถูกเปลี่ยนสถานะเป็น Inactive และหายจากรายการ PM`)) return
+  // Called from the themed confirm modal (removeTarget)
+  const handleRemoveEquipment = async () => {
+    if (!removeTarget) return
     try {
+      setRemovingEquipment(true)
       const token = localStorage.getItem('token')
       const res = await axios.delete(
-        `${process.env.NEXT_PUBLIC_API_URL}/pm/equipment-record/${record.id}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/pm/equipment-record/${removeTarget.id}`,
         { headers: { Authorization: `Bearer ${token}` } },
       )
       setPmRecord(res.data)
+      setRemoveTarget(null)
       toast.success('นำอุปกรณ์ออกจากร้านแล้ว')
     } catch (e: any) {
       toast.error(e?.response?.data?.message || 'นำอุปกรณ์ออกไม่สำเร็จ')
+    } finally {
+      setRemovingEquipment(false)
     }
   }
 
@@ -1582,7 +1589,7 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
             brandModels={brandModels}
             hasSerialConflict={serialConflictIds.has(record.equipment.id)}
             canRemove={!!canManageEquipment}
-            onRemove={() => handleRemoveEquipment(record)}
+            onRemove={() => setRemoveTarget(record)}
           />
         ))}
       </div>
@@ -1651,6 +1658,50 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
             <Plus className="w-4 h-4" /> เพิ่มอุปกรณ์เข้าร้าน
           </button>
         )
+      )}
+
+      {/* Remove equipment — themed confirm (same style as Equipment delete) */}
+      {removeTarget && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="glass-card p-6 rounded-2xl max-w-md w-full animate-fade-in">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="p-3 bg-red-500/20 rounded-full">
+                <AlertTriangle className="w-6 h-6 text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">นำอุปกรณ์ออกจากร้าน</h3>
+                <p className="text-sm text-red-400">อุปกรณ์จะหายจากรายการ PM นี้</p>
+              </div>
+            </div>
+            <p className="text-gray-300 mb-2">
+              คุณต้องการนำ{' '}
+              <span className="font-semibold text-white">{removeTarget.equipment.name}</span>
+              <span className="text-gray-400 text-sm ml-1">(S/N: {removeTarget.equipment.serialNumber})</span>{' '}
+              ออกจากร้านใช่หรือไม่?
+            </p>
+            <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg mb-4">
+              <p className="text-red-400 text-xs">
+                สถานะอุปกรณ์ในหน้า Equipment จะเปลี่ยนเป็น Inactive (ประวัติยังอยู่ — IT Manager ปลดระวางต่อได้)
+              </p>
+            </div>
+            <div className="flex items-center justify-end space-x-3">
+              <button
+                onClick={() => setRemoveTarget(null)}
+                disabled={removingEquipment}
+                className="px-4 py-2 text-gray-300 hover:bg-slate-700/50 rounded-lg transition duration-200 disabled:opacity-50"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={handleRemoveEquipment}
+                disabled={removingEquipment}
+                className="px-4 py-2 bg-red-700 hover:bg-red-800 text-white rounded-lg transition duration-200 disabled:opacity-50"
+              >
+                {removingEquipment ? 'กำลังนำออก...' : 'ยืนยันนำอุปกรณ์ออก'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Submit PM Button — first submit or re-submit after edit */}
