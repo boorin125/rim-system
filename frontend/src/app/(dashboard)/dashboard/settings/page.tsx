@@ -324,6 +324,20 @@ const RELEASE_NOTES: {
   changes: { type: 'new' | 'improved' | 'fixed'; text: string }[]
 }[] = [
   {
+    version: '1.0.27',
+    date: '2026-10-09',
+    changes: [
+      { type: 'fixed',    text: 'PM (Mobile App) — แอปแสดงรูปก่อน/หลัง PM และชื่ออุปกรณ์ที่บันทึกไว้แล้ว ช่างคนใหม่หลัง Reassign ทำต่อจากคนเดิมได้ ไม่ต้องถ่ายใหม่ และไม่เกิดรูปซ้ำเมื่อบันทึกหลายครั้ง' },
+      { type: 'improved', text: 'PM Reassign — งานที่ทำไว้คงอยู่ ช่างคนใหม่ต้อง Check-in ใหม่ PM Report/อีเมลแสดงชื่อช่างคนล่าสุด และช่างคนก่อนจะไม่เห็นงานนี้อีก' },
+      { type: 'new',      text: 'PM — รายการอุปกรณ์ Sync กับหน้า Equipment อัตโนมัติขณะงาน PM ยังไม่ยืนยันปิด (เพิ่ม/ย้าย/เปลี่ยนสถานะ/Import/เปลี่ยนอุปกรณ์ผ่าน Spare Parts)' },
+      { type: 'new',      text: 'PM — Helpdesk/Supervisor เพิ่มอุปกรณ์เข้าร้าน และนำอุปกรณ์ออก (เปลี่ยนเป็น Inactive) ได้จากหน้า PM; อุปกรณ์ที่ถ่ายรูปแล้วนำออกไม่ได้ ต้องลบรูปให้หมดก่อน' },
+      { type: 'improved', text: 'PM — Helpdesk/Supervisor แก้ไขรูปและข้อมูล PM ได้จนกว่างานจะปิด แต่ Submit PM/ปิดงานได้เฉพาะช่างที่ได้รับมอบหมายล่าสุด ทุกการแก้ไขบันทึกใน Audit Trail' },
+      { type: 'improved', text: 'PM — ข้อมูลที่แก้หลัง Submit PM จะ Sync เข้า Equipment ตอน Confirm Close' },
+      { type: 'new',      text: 'Inventory List — ปุ่ม "เซ็นใหม่" ให้ร้านเซ็นซ้ำได้ (ลายเซ็นใหม่แทนที่ของเดิม)' },
+      { type: 'fixed',    text: 'Digital Sign — ถือมือถือแนวตั้ง (iPhone) แผ่นเซ็นจะหมุนเป็นแนวนอนให้อัตโนมัติ ลายเซ็นไม่ออกมาเป็นแนวตั้งอีก' },
+    ],
+  },
+  {
     version: '1.0.26',
     date: '2026-09-25',
     changes: [

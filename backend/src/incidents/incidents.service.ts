@@ -8,6 +8,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateIncidentDto } from './dto/create-incident.dto';
 import { UpdateIncidentDto } from './dto/update-incident.dto';
+import { syncOpenPmEquipment } from '../modules/pm/pm-sync.helper';
 import { IncidentStatus, Priority, UserRole, IncidentAction, IncidentType, EquipmentStatus, EquipmentLogAction, EquipmentLogSource, RepairType, AuditModule, AuditAction, NotificationType, SlaDefenseStatus, SlaRegion } from '@prisma/client';
 import { ResolveIncidentDto, UpdateResolveDto, ConfirmCloseDto, RejectCloseDto, SaveRoundProgressDto } from './dto/resolve-incident.dto';
 import { SubmitResponseDto } from './dto/submit-response.dto';
@@ -664,6 +665,13 @@ export class IncidentsService {
           },
         });
       }
+    }
+
+    // Equipment in this store changed (old → INACTIVE, new → ACTIVE) — keep open PM checklists in sync
+    try {
+      await syncOpenPmEquipment(prisma, [storeId]);
+    } catch (err) {
+      console.error('[PM Sync] Failed after spare part sync:', err);
     }
   }
 
@@ -1459,6 +1467,11 @@ export class IncidentsService {
       return inc;
     });
 
+    // PM: work done so far stays; the PM report / email belong to the latest technician
+    if (incident.jobType === 'Preventive Maintenance') {
+      await this.prisma.pmRecord.updateMany({ where: { incidentId: id }, data: { technicianId: technicianIds[0] } });
+    }
+
     // Create history entry
     const techNames = technicians.map(t => `${t.firstName} ${t.lastName}`).join(', ');
     const scheduleNote = scheduledAt
@@ -1672,6 +1685,11 @@ export class IncidentsService {
 
       return inc;
     });
+
+    // PM: work done so far stays; the PM report / email belong to the latest technician
+    if (incident.jobType === 'Preventive Maintenance') {
+      await this.prisma.pmRecord.updateMany({ where: { incidentId: id }, data: { technicianId: technicianIds[0] } });
+    }
 
     // Create history entry
     const techNames = technicians.map(t => `${t.firstName} ${t.lastName}`).join(', ');
@@ -3790,21 +3808,12 @@ export class IncidentsService {
       );
     }
 
-    // PM: sync after-photos → equipment.imagePath on confirmed close
+    // PM: push PM data (incl. edits made after Submit by Helpdesk/Supervisor) to Equipment on confirmed close
     if (incident.jobType === 'Preventive Maintenance') {
-      const pmRecord = await this.prisma.pmRecord.findFirst({
-        where: { incidentId: id },
-        include: { equipmentRecords: { select: { equipmentId: true, afterPhotos: true } } },
-      });
-      if (pmRecord) {
-        for (const rec of pmRecord.equipmentRecords) {
-          if (rec.afterPhotos && rec.afterPhotos.length > 0) {
-            // Use the first after photo — same one shown in Inventory List
-            const firstPhoto = rec.afterPhotos[0] as string;
-            const imagePath = firstPhoto.startsWith('/uploads/') ? firstPhoto : `/uploads/${firstPhoto}`;
-            await this.prisma.equipment.update({ where: { id: rec.equipmentId }, data: { imagePath } });
-          }
-        }
+      try {
+        await this.pmService.syncPmToEquipmentOnClose(id, userId);
+      } catch (err) {
+        console.error(`[Confirm Close] PM → Equipment sync failed for ${incident.ticketNumber}:`, err);
       }
     }
 

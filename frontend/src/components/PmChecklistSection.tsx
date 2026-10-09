@@ -18,6 +18,9 @@ import {
   AlertTriangle,
   CheckSquare,
   Download,
+  Plus,
+  Trash2,
+  PenLine,
 } from 'lucide-react'
 import { generatePmReportPDF, PmReportData } from '@/utils/pmReportPdf'
 import SerialScannerButton from '@/components/SerialScanner'
@@ -91,7 +94,8 @@ interface Props {
   incidentId: string
   ticketNumber: string
   canEdit: boolean              // Assigned tech can edit
-  canHelpdeskEdit?: boolean     // Helpdesk/IT_Manager can edit while reviewing (RESOLVED + techConfirmed)
+  canHelpdeskEdit?: boolean     // Helpdesk/Supervisor/IT Manager can edit PM data any time before CLOSED (cannot submit / close)
+  canManageEquipment?: boolean  // Helpdesk/Supervisor/IT Manager can add/remove store equipment while PM is open
   techConfirmedAt?: string | null
   currentUserId?: number | null
   onPmSubmitted?: () => void
@@ -146,11 +150,15 @@ function EquipmentCard({
   modelSuggestions,
   brandModels,
   hasSerialConflict,
+  canRemove,
+  onRemove,
 }: {
   record: PmEquipmentRecord
   canEdit: boolean
   canEditPhotos: boolean
   onUpdated: (updated: PmEquipmentRecord) => void
+  canRemove?: boolean
+  onRemove?: () => void
   brandSuggestions: string[]
   modelSuggestions: string[]
   brandModels: Record<string, string[]>
@@ -326,7 +334,8 @@ function EquipmentCard({
     )
     try {
       const token = localStorage.getItem('token')
-      const body = type === 'before' ? { setBeforePhotos: filtered } : { setAfterPhotos: filtered }
+      const removed = currentPhotos[index]
+      const body = type === 'before' ? { removeBeforePhotos: [removed] } : { removeAfterPhotos: [removed] }
       const res = await axios.patch(
         `${process.env.NEXT_PUBLIC_API_URL}/pm/equipment-record/${record.id}`,
         body,
@@ -599,6 +608,25 @@ function EquipmentCard({
               </div>
             )}
           </div>
+
+          {/* Remove from store — Helpdesk/Supervisor, only while PM is open and the item has no photos */}
+          {canRemove && onRemove && (
+            <div className="pt-3 border-t border-slate-700/50 flex items-center justify-between gap-3">
+              <p className="text-[11px] text-gray-500 leading-snug">
+                {beforeCount + afterCount > 0
+                  ? 'ถ่ายรูปแล้ว — ต้องลบรูปให้หมดก่อน จึงจะนำอุปกรณ์ออกได้'
+                  : 'อุปกรณ์นี้ไม่มีอยู่จริงที่ร้าน? นำออกจากร้านได้ (สถานะเป็น Inactive)'}
+              </p>
+              <button
+                onClick={onRemove}
+                disabled={beforeCount + afterCount > 0}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-red-400 border border-red-500/40 rounded-lg hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                นำอุปกรณ์ออก
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -786,12 +814,17 @@ function PhotoUploadBlock({
 
 // ─── Main PmChecklistSection ──────────────────────────────────────────────────
 
-export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, canHelpdeskEdit, techConfirmedAt, currentUserId, onPmSubmitted, onPmLoaded }: Props) {
+export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, canHelpdeskEdit, canManageEquipment, techConfirmedAt, currentUserId, onPmSubmitted, onPmLoaded }: Props) {
   const [pmRecord, setPmRecord] = useState<PmRecord | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [localEditMode, setLocalEditMode] = useState(false) // tech re-edits after submit PM
   const [generatingToken, setGeneratingToken] = useState(false)
+  // Add equipment (Helpdesk / Supervisor)
+  const [showAddEquipment, setShowAddEquipment] = useState(false)
+  const [addingEquipment, setAddingEquipment] = useState(false)
+  const [newEquipment, setNewEquipment] = useState({ name: '', category: '', brand: '', model: '', serialNumber: '' })
+  const [categoryOptions, setCategoryOptions] = useState<string[]>([])
   const [signLink, setSignLink] = useState<string | null>(null)
   const [uploadingSignedPaper, setUploadingSignedPaper] = useState(false)
   const [deletingSignedPaper, setDeletingSignedPaper] = useState(false)
@@ -835,7 +868,7 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
     try {
       const token = localStorage.getItem('token')
       const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/pm/incident/${incidentId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/pm/incident/${incidentId}?lite=1`,
         { headers: { Authorization: `Bearer ${token}` } },
       )
       setPmRecord(res.data)
@@ -876,7 +909,7 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
       try {
         const token = localStorage.getItem('token')
         const res = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/pm/incident/${incidentId}`,
+          `${process.env.NEXT_PUBLIC_API_URL}/pm/incident/${incidentId}?lite=1`,
           { headers: { Authorization: `Bearer ${token}` } },
         )
         if (res.data.storeSignedAt) {
@@ -1024,6 +1057,79 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
       toast.error(e?.response?.data?.message || 'Submit PM ไม่สำเร็จ')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  // ─── Add / remove store equipment (Helpdesk / Supervisor) ───────────────────
+  useEffect(() => {
+    if (!canManageEquipment) return
+    const token = localStorage.getItem('token')
+    axios.get(`${process.env.NEXT_PUBLIC_API_URL}/equipment/distinct-categories`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => setCategoryOptions(Array.isArray(r.data) ? r.data : []))
+      .catch(() => {})
+  }, [canManageEquipment])
+
+  const handleAddEquipment = async () => {
+    const { name, category, serialNumber } = newEquipment
+    if (!name.trim() || !category.trim() || !serialNumber.trim()) {
+      toast.error('กรุณากรอก ชื่ออุปกรณ์ / ประเภท / Serial No.')
+      return
+    }
+    try {
+      setAddingEquipment(true)
+      const token = localStorage.getItem('token')
+      const res = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/pm/incident/${incidentId}/equipment`,
+        newEquipment,
+        { headers: { Authorization: `Bearer ${token}` } },
+      )
+      setPmRecord(res.data)
+      setShowAddEquipment(false)
+      setNewEquipment({ name: '', category: '', brand: '', model: '', serialNumber: '' })
+      toast.success('เพิ่มอุปกรณ์เข้าร้านและรายการ PM แล้ว')
+    } catch (e: any) {
+      const msg = e?.response?.data?.message
+      toast.error(Array.isArray(msg) ? msg.join(', ') : msg || 'เพิ่มอุปกรณ์ไม่สำเร็จ')
+    } finally {
+      setAddingEquipment(false)
+    }
+  }
+
+  const handleRemoveEquipment = async (record: PmEquipmentRecord) => {
+    if (!confirm(`นำ "${record.equipment.name}" (S/N ${record.equipment.serialNumber}) ออกจากร้าน?\nอุปกรณ์จะถูกเปลี่ยนสถานะเป็น Inactive และหายจากรายการ PM`)) return
+    try {
+      const token = localStorage.getItem('token')
+      const res = await axios.delete(
+        `${process.env.NEXT_PUBLIC_API_URL}/pm/equipment-record/${record.id}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      )
+      setPmRecord(res.data)
+      toast.success('นำอุปกรณ์ออกจากร้านแล้ว')
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || 'นำอุปกรณ์ออกไม่สำเร็จ')
+    }
+  }
+
+  // "เซ็นใหม่" — reopen the store sign page; the new signature replaces the old one
+  const handleResign = async () => {
+    try {
+      let link = signLink
+      if (!link) {
+        setGeneratingToken(true)
+        const token = localStorage.getItem('token')
+        const res = await axios.post(
+          `${process.env.NEXT_PUBLIC_API_URL}/pm/incident/${incidentId}/inventory-token`,
+          {},
+          { headers: { Authorization: `Bearer ${token}` } },
+        )
+        link = `${window.location.origin}/inventory-sign/${res.data.token}`
+        setSignLink(link)
+      }
+      window.open(`${link}?resign=1`, '_blank')
+    } catch {
+      toast.error('เปิดหน้าเซ็นไม่สำเร็จ')
+    } finally {
+      setGeneratingToken(false)
     }
   }
 
@@ -1475,9 +1581,77 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
             modelSuggestions={modelSuggestions}
             brandModels={brandModels}
             hasSerialConflict={serialConflictIds.has(record.equipment.id)}
+            canRemove={!!canManageEquipment}
+            onRemove={() => handleRemoveEquipment(record)}
           />
         ))}
       </div>
+
+      {/* Add equipment to the store (Helpdesk / Supervisor, PM still open) */}
+      {canManageEquipment && (
+        showAddEquipment ? (
+          <div className="p-4 rounded-xl border border-blue-500/40 bg-blue-500/5 space-y-3">
+            <p className="text-sm font-medium text-blue-300">เพิ่มอุปกรณ์เข้าร้าน (จะเพิ่มในหน้า Equipment และรายการ PM)</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <input
+                value={newEquipment.name}
+                onChange={(e) => setNewEquipment((v) => ({ ...v, name: e.target.value }))}
+                placeholder="ชื่ออุปกรณ์ * เช่น POS#3"
+                className="px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-sm text-white placeholder-gray-500"
+              />
+              <select
+                value={newEquipment.category}
+                onChange={(e) => setNewEquipment((v) => ({ ...v, category: e.target.value }))}
+                className="px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-sm text-white [&>option]:bg-slate-800 [&>option]:text-white"
+              >
+                <option value="">-- ประเภท * --</option>
+                {categoryOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <input
+                value={newEquipment.brand}
+                onChange={(e) => setNewEquipment((v) => ({ ...v, brand: e.target.value }))}
+                placeholder="Brand"
+                className="px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-sm text-white placeholder-gray-500"
+              />
+              <input
+                value={newEquipment.model}
+                onChange={(e) => setNewEquipment((v) => ({ ...v, model: e.target.value }))}
+                placeholder="Model"
+                className="px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-sm text-white placeholder-gray-500"
+              />
+              <input
+                value={newEquipment.serialNumber}
+                onChange={(e) => setNewEquipment((v) => ({ ...v, serialNumber: e.target.value }))}
+                placeholder="Serial No. *"
+                className="sm:col-span-2 px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-sm text-white placeholder-gray-500"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowAddEquipment(false)}
+                disabled={addingEquipment}
+                className="px-4 py-2 text-sm text-gray-300 bg-slate-700 hover:bg-slate-600 rounded-lg"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={handleAddEquipment}
+                disabled={addingEquipment}
+                className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg"
+              >
+                {addingEquipment ? 'กำลังเพิ่ม...' : 'เพิ่มอุปกรณ์'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowAddEquipment(true)}
+            className="w-full flex items-center justify-center gap-2 py-2.5 text-sm text-blue-300 bg-blue-600/10 border border-dashed border-blue-500/50 rounded-xl hover:bg-blue-600/20"
+          >
+            <Plus className="w-4 h-4" /> เพิ่มอุปกรณ์เข้าร้าน
+          </button>
+        )
+      )}
 
       {/* Submit PM Button — first submit or re-submit after edit */}
       {isPmOwner && (!pmRecord.performedAt || localEditMode) && !techConfirmedAt && (
@@ -1640,10 +1814,20 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
         {pmRecord.storeSignedAt && (
           <div className="flex items-center gap-2 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
             <CheckCircle2 className="w-4 h-4 text-green-400" />
-            <p className="text-xs text-green-300">
+            <p className="text-xs text-green-300 flex-1">
               เจ้าหน้าที่สาขาเซนรับทราบแล้ว ({pmRecord.storeSignerName}){' '}
               {new Date(pmRecord.storeSignedAt).toLocaleDateString('th-TH')}
             </p>
+            {((isPmOwner && !techConfirmedAt) || canHelpdeskEdit) && (
+              <button
+                onClick={handleResign}
+                disabled={generatingToken}
+                title="เปิดหน้าเซ็นอีกครั้ง — ลายเซ็นใหม่จะแทนที่ลายเซ็นเดิม"
+                className="flex items-center gap-1 text-xs text-gray-300 hover:text-white px-2 py-1 bg-slate-600 rounded flex-shrink-0 disabled:opacity-50"
+              >
+                <PenLine className="w-3.5 h-3.5" /> เซ็นใหม่
+              </button>
+            )}
           </div>
         )}
 

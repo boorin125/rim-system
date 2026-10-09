@@ -23,6 +23,18 @@ export class UpdatePmEquipmentRecordDto {
   @IsString({ each: true })
   setAfterPhotos?: string[];
 
+  /** Remove these photo paths from beforePhotos (safe when several people edit at once) */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  removeBeforePhotos?: string[];
+
+  /** Remove these photo paths from afterPhotos */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  removeAfterPhotos?: string[];
+
   @IsOptional()
   @IsString()
   comment?: string;
@@ -56,4 +68,24 @@ export class SignInventoryListDto {
 export class UploadSignedInventoryDto {
   @IsString()
   photo: string; // Base64 image
+}
+
+/** Helpdesk / Supervisor adds equipment to the store from the PM page */
+export class AddPmEquipmentDto {
+  @IsString()
+  name: string;
+
+  @IsString()
+  category: string;
+
+  @IsString()
+  serialNumber: string;
+
+  @IsOptional()
+  @IsString()
+  brand?: string;
+
+  @IsOptional()
+  @IsString()
+  model?: string;
 }

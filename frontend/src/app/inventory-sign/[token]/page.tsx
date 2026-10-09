@@ -93,7 +93,9 @@ export default function InventorySignPage() {
           `${process.env.NEXT_PUBLIC_API_URL}/public/pm/inventory-sign/${token}`,
         )
         setData(res.data)
-        if (res.data.storeSignedAt) setIsSigned(true)
+        // ?resign=1 → "เซ็นใหม่": show the form again; the new signature replaces the old one
+        const resign = new URLSearchParams(window.location.search).get('resign') === '1'
+        if (res.data.storeSignedAt && !resign) setIsSigned(true)
       } catch (e: any) {
         setError(e?.response?.data?.message || 'ไม่พบเอกสาร หรือลิงก์หมดอายุแล้ว')
       } finally {
@@ -114,6 +116,13 @@ export default function InventorySignPage() {
       window.removeEventListener('orientationchange', check)
     }
   }, [])
+
+  // Phone turned while the sign pad is open → layout changes, start a fresh pad
+  useEffect(() => {
+    if (!isFullscreenSign) return
+    const t = setTimeout(() => initFsCanvas(), 150)
+    return () => clearTimeout(t)
+  }, [isMobilePortrait]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Countdown + auto-close after signing
   useEffect(() => {
@@ -227,10 +236,9 @@ export default function InventorySignPage() {
   const initFsCanvas = () => {
     const canvas = fsCanvasRef.current
     if (!canvas) return
-    // Read actual rendered dimensions — no DPR scaling, no guessing
-    const rect = canvas.getBoundingClientRect()
-    const w = rect.width || canvas.offsetWidth
-    const h = rect.height || canvas.offsetHeight
+    // Layout size (not getBoundingClientRect) — the pad is CSS-rotated in portrait, which swaps the rect
+    const w = canvas.offsetWidth
+    const h = canvas.offsetHeight
     if (!w || !h) return
     canvas.width = Math.round(w)
     canvas.height = Math.round(h)
@@ -249,6 +257,10 @@ export default function InventorySignPage() {
   const getFsCanvasPt = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = fsCanvasRef.current!
     const rect = canvas.getBoundingClientRect()
+    if (isMobilePortrait) {
+      // Pad is rotated 90° clockwise → map screen point back to canvas coordinates
+      return { x: e.clientY - rect.top, y: rect.right - e.clientX }
+    }
     return { x: e.clientX - rect.left, y: e.clientY - rect.top }
   }
 
@@ -419,11 +431,27 @@ export default function InventorySignPage() {
   }
 
   // ─── Fullscreen Signature Overlay ─────────────────────────────────────────
+  // Portrait phone (iOS cannot lock orientation): rotate the pad 90° so the signature is always landscape
+  const rotatedPadStyle: React.CSSProperties | undefined = isMobilePortrait
+    ? {
+        position: 'fixed',
+        top: 0,
+        left: '100%',
+        // real visible size (iOS 100vh includes the browser toolbar)
+        width: typeof window !== 'undefined' ? `${window.innerHeight}px` : '100vh',
+        height: typeof window !== 'undefined' ? `${window.innerWidth}px` : '100vw',
+        transform: 'rotate(90deg)',
+        transformOrigin: 'left top',
+      }
+    : undefined
   const fullscreenSignatureOverlay = isFullscreenSign && (
-    <div className="fixed inset-0 z-[9999] bg-white flex flex-col">
+    <div
+      className={`${isMobilePortrait ? '' : 'fixed inset-0'} z-[9999] bg-white flex flex-col`}
+      style={rotatedPadStyle}
+    >
       {isMobilePortrait && (
         <div className="bg-blue-50 text-blue-600 text-xs text-center py-2 border-b border-blue-100">
-          💡 หมุนมือถือเป็นแนวนอนเพื่อพื้นที่เซ็นที่กว้างขึ้น
+          💡 หมุนมือถือเป็นแนวนอน แล้วเซ็นได้เลย
         </div>
       )}
       <div className="flex items-center justify-between px-4 py-3 bg-gray-100 border-b border-gray-300">

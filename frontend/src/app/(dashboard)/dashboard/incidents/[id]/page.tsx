@@ -2279,10 +2279,17 @@ SLA Breach Time: ${slaBreachText}`
           ticketNumber={incident.ticketNumber || `INC-${incident.id}`}
           canEdit={isAssignedToMe}
           canHelpdeskEdit={
-            (isHelpDesk || hasRole('IT_MANAGER')) &&
-            incident.status === 'RESOLVED' &&
-            !!incident.techConfirmedAt &&
-            incident.status !== 'CLOSED'
+            // Helpdesk / Supervisor / IT Manager may fix PM photos & data until the job is closed
+            // (they cannot Submit PM or close — only the latest assigned technician can)
+            (isHelpDesk || hasRole('SUPERVISOR') || hasRole('IT_MANAGER')) &&
+            incident.status !== 'CLOSED' &&
+            incident.status !== 'CANCELLED'
+          }
+          canManageEquipment={
+            // Add / remove store equipment only while the PM is still open (before tech-confirm)
+            (isHelpDesk || hasRole('SUPERVISOR') || hasRole('IT_MANAGER')) &&
+            ['OPEN', 'PENDING', 'ASSIGNED', 'IN_PROGRESS'].includes(incident.status) &&
+            !incident.techConfirmedAt
           }
           techConfirmedAt={incident.techConfirmedAt ?? null}
           currentUserId={currentUserId}

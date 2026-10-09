@@ -18,7 +18,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
-import { UpdatePmEquipmentRecordDto, SignInventoryListDto, UploadSignedInventoryDto } from './dto/index';
+import { UpdatePmEquipmentRecordDto, SignInventoryListDto, UploadSignedInventoryDto, AddPmEquipmentDto } from './dto/index';
 
 // ─── Authenticated endpoints ───────────────────────────────────────────────
 
@@ -54,8 +54,29 @@ export class PmController {
     UserRole.IT_MANAGER,
     UserRole.SUPER_ADMIN,
   )
-  getPmRecord(@Param('incidentId') incidentId: string) {
-    return this.pmService.getPmRecord(incidentId);
+  getPmRecord(@Param('incidentId') incidentId: string, @Query('lite') lite?: string) {
+    // Web passes ?lite=1 (photos lazy-loaded per card); mobile app gets photos inline
+    return this.pmService.getPmRecord(incidentId, lite === '1' || lite === 'true');
+  }
+
+  /**
+   * POST /pm/incident/:incidentId/equipment
+   * Add equipment to the store from the PM page (open PM only).
+   */
+  @Post('incident/:incidentId/equipment')
+  @Roles(UserRole.HELP_DESK, UserRole.SUPERVISOR, UserRole.IT_MANAGER, UserRole.SUPER_ADMIN)
+  addEquipment(@Param('incidentId') incidentId: string, @Body() dto: AddPmEquipmentDto, @Request() req) {
+    return this.pmService.addEquipmentToPm(incidentId, dto, req.user);
+  }
+
+  /**
+   * DELETE /pm/equipment-record/:id
+   * Remove equipment from the store via the PM page (no photos yet, open PM only).
+   */
+  @Delete('equipment-record/:id')
+  @Roles(UserRole.HELP_DESK, UserRole.SUPERVISOR, UserRole.IT_MANAGER, UserRole.SUPER_ADMIN)
+  removeEquipment(@Param('id', ParseIntPipe) id: number, @Request() req) {
+    return this.pmService.removeEquipmentFromPm(id, req.user);
   }
 
   /**
@@ -77,8 +98,9 @@ export class PmController {
   updateEquipmentRecord(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdatePmEquipmentRecordDto,
+    @Request() req,
   ) {
-    return this.pmService.updateEquipmentRecord(id, dto);
+    return this.pmService.updateEquipmentRecord(id, dto, req.user);
   }
 
   /**
@@ -96,7 +118,7 @@ export class PmController {
    * Finalize PM — apply equipment updates, set Store.lastPmAt.
    */
   @Post('incident/:incidentId/submit')
-  @Roles(UserRole.TECHNICIAN, UserRole.SUPERVISOR, UserRole.IT_MANAGER, UserRole.SUPER_ADMIN)
+  @Roles(UserRole.TECHNICIAN) // only the currently assigned technician (checked in service)
   @HttpCode(HttpStatus.OK)
   submitPm(@Param('incidentId') incidentId: string, @Request() req) {
     return this.pmService.submitPm(incidentId, req.user.id);

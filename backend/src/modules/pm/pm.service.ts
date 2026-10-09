@@ -2,10 +2,14 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { EquipmentLogAction, EquipmentLogSource, EquipmentStatus } from '@prisma/client';
-import { UpdatePmEquipmentRecordDto, SignInventoryListDto } from './dto/index';
+import { EquipmentLogAction, EquipmentLogSource, EquipmentStatus, IncidentStatus, AuditModule, AuditAction } from '@prisma/client';
+import { UpdatePmEquipmentRecordDto, SignInventoryListDto, AddPmEquipmentDto } from './dto/index';
+import { AuditTrailService } from '../audit-trail/audit-trail.service';
+import { EquipmentService } from '../../equipment/equipment.service';
+import { OPEN_PM_INCIDENT_WHERE } from './pm-sync.helper';
 import { EmailService } from '../../email/email.service';
 import { SettingsService } from '../../settings/settings.service';
 import { saveBase64File, saveBase64Files, deleteUploadFile } from '../../utils/file-storage';
@@ -16,7 +20,81 @@ export class PmService {
     private prisma: PrismaService,
     private emailService: EmailService,
     private settingsService: SettingsService,
+    private auditTrailService: AuditTrailService,
+    private equipmentService: EquipmentService,
   ) {}
+
+  // ─── Access rules ─────────────────────────────────────────────────────────
+  private readonly ROLE_RANK: Record<string, number> = {
+    SUPER_ADMIN: 8, IT_MANAGER: 7, FINANCE_ADMIN: 6,
+    SUPERVISOR: 5, HELP_DESK: 4, TECHNICIAN: 3, END_USER: 2, READ_ONLY: 1,
+  };
+
+  /** true when the user's highest role is TECHNICIAN */
+  private isTechnicianOnly(user: any): boolean {
+    const roles: string[] = Array.isArray(user?.roles) ? user.roles : (user?.role ? [user.role] : []);
+    if (roles.length === 0) return false;
+    const highest = roles.reduce((best, r) => ((this.ROLE_RANK[r] ?? 0) > (this.ROLE_RANK[best] ?? 0) ? r : best));
+    return highest === 'TECHNICIAN';
+  }
+
+  private async isAssigned(incidentId: string, userId: number): Promise<boolean> {
+    const inc = await this.prisma.incident.findUnique({
+      where: { id: incidentId },
+      select: { assigneeId: true, assignees: { select: { userId: true } } },
+    });
+    return !!inc && (inc.assigneeId === userId || inc.assignees.some((a) => a.userId === userId));
+  }
+
+  /**
+   * Who may edit PM data:
+   * - nobody once the incident is CLOSED / CANCELLED
+   * - Technician: only the currently assigned technician, and only before tech-confirm
+   * - Helpdesk / Supervisor / IT Manager / Super Admin: any time before CLOSED
+   */
+  private async assertCanEditPm(incidentId: string, user: any) {
+    const inc = await this.prisma.incident.findUnique({
+      where: { id: incidentId },
+      select: { status: true, techConfirmedAt: true },
+    });
+    if (!inc) throw new NotFoundException('ไม่พบ Incident');
+    if (inc.status === IncidentStatus.CLOSED || inc.status === IncidentStatus.CANCELLED) {
+      throw new BadRequestException('งานนี้ปิดหรือยกเลิกแล้ว ไม่สามารถแก้ไขข้อมูล PM ได้');
+    }
+    if (this.isTechnicianOnly(user)) {
+      if (!(await this.isAssigned(incidentId, user.id))) {
+        throw new ForbiddenException('เฉพาะช่างที่ได้รับมอบหมายล่าสุดเท่านั้นที่แก้ไขข้อมูล PM ได้');
+      }
+      if (inc.techConfirmedAt) {
+        throw new BadRequestException('ยืนยันปิดงานแล้ว ไม่สามารถแก้ไขข้อมูล PM ได้');
+      }
+    }
+  }
+
+  /** Equipment list can change only while the PM job is still open (before resolve) */
+  private async assertPmOpen(incidentId: string) {
+    const open = await this.prisma.incident.findFirst({
+      where: { id: incidentId, ...OPEN_PM_INCIDENT_WHERE },
+      select: { id: true },
+    });
+    if (!open) {
+      throw new BadRequestException('เพิ่ม/ลบอุปกรณ์ได้เฉพาะงาน PM ที่ยังไม่ยืนยันปิดงาน');
+    }
+  }
+
+  private async logPmAudit(incidentId: string, userId: number, description: string, extra?: { oldValue?: any; newValue?: any }) {
+    try {
+      await this.auditTrailService.logDirect({
+        module: AuditModule.INCIDENT,
+        action: AuditAction.UPDATE,
+        entityType: 'PmRecord',
+        entityId: incidentId,
+        userId,
+        description,
+        ...(extra ?? {}),
+      });
+    } catch (_) {}
+  }
 
   /**
    * Create PmRecord and PmEquipmentRecord rows for all ACTIVE/MAINTENANCE equipment in the store.
@@ -88,7 +166,7 @@ export class PmService {
   /**
    * Get PM record for an incident (includes all equipment records).
    */
-  async getPmRecord(incidentId: string) {
+  async getPmRecord(incidentId: string, lite = false) {
     const record = await this.prisma.pmRecord.findUnique({
       where: { incidentId },
       include: {
@@ -177,7 +255,9 @@ export class PmService {
       }
     };
 
-    // Attach conflictIncidentId + photo counts; strip photo data (lazy-loaded per card)
+    // Attach conflictIncidentId + photo counts.
+    // lite (web): strip photo data — lazy-loaded per card. Default (mobile app): include photos.
+    // Flat equipmentName/equipmentType/brand/model/serialNumber are for the mobile app.
     const enriched = {
       ...record,
       technician,
@@ -185,10 +265,15 @@ export class PmService {
       signedInventoryPhoto: undefined, // replaced by signedInventoryPhotos array
       equipmentRecords: record.equipmentRecords.map((r) => ({
         ...r,
+        equipmentName: r.equipment?.name,
+        equipmentType: r.equipment?.category,
+        brand: r.equipment?.brand,
+        model: r.equipment?.model,
+        serialNumber: r.equipment?.serialNumber,
         beforePhotoCount: r.beforePhotos.length,
         afterPhotoCount: r.afterPhotos.length,
-        beforePhotos: [],   // stripped — fetched lazily when card expands
-        afterPhotos: [],
+        beforePhotos: lite ? [] : r.beforePhotos,
+        afterPhotos: lite ? [] : r.afterPhotos,
         conflictIncidentId: conflictMap.has(r.equipmentId)
           ? (conflictTicketMap.get(conflictMap.get(r.equipmentId)!) ?? conflictMap.get(r.equipmentId)!)
           : null,
@@ -255,11 +340,17 @@ export class PmService {
    * Update a single PmEquipmentRecord (before/after photos, comment, condition, brand/model/serial).
    * Photos are APPENDED to existing arrays (not replaced).
    */
-  async updateEquipmentRecord(recordId: number, dto: UpdatePmEquipmentRecordDto) {
+  async updateEquipmentRecord(recordId: number, dto: UpdatePmEquipmentRecordDto, user: any) {
     const existing = await this.prisma.pmEquipmentRecord.findUnique({
       where: { id: recordId },
+      include: {
+        equipment: { select: { name: true, serialNumber: true } },
+        pmRecord: { select: { incidentId: true, incident: { select: { ticketNumber: true } } } },
+      },
     });
     if (!existing) throw new NotFoundException(`ไม่พบ PM Equipment Record ID ${recordId}`);
+    const incidentId = existing.pmRecord.incidentId;
+    await this.assertCanEditPm(incidentId, user);
 
     const data: any = {};
     const subDir = `pm/equipment/${recordId}`;
@@ -271,7 +362,12 @@ export class PmService {
       const savedBefore = base64Before.length > 0 ? await saveBase64Files(base64Before, subDir) : [];
       const qBefore = [...savedBefore];
       const paths = dto.beforePhotos.map((p) => (p.startsWith('data:') ? qBefore.shift()! : p));
-      data.beforePhotos = [...(existing.beforePhotos ?? []), ...paths];
+      // Mobile app re-sends photos it already has → append only new paths
+      const current = existing.beforePhotos ?? [];
+      data.beforePhotos = [...current, ...paths.filter((p) => !current.includes(p))];
+    }
+    if (dto.removeBeforePhotos?.length) {
+      data.beforePhotos = (data.beforePhotos ?? existing.beforePhotos ?? []).filter((p: string) => !dto.removeBeforePhotos!.includes(p));
     }
     if (dto.setAfterPhotos !== undefined) {
       data.afterPhotos = dto.setAfterPhotos;
@@ -280,13 +376,42 @@ export class PmService {
       const savedAfter = base64After.length > 0 ? await saveBase64Files(base64After, subDir) : [];
       const qAfter = [...savedAfter];
       const paths = dto.afterPhotos.map((p) => (p.startsWith('data:') ? qAfter.shift()! : p));
-      data.afterPhotos = [...(existing.afterPhotos ?? []), ...paths];
+      const current = existing.afterPhotos ?? [];
+      data.afterPhotos = [...current, ...paths.filter((p) => !current.includes(p))];
+    }
+    if (dto.removeAfterPhotos?.length) {
+      data.afterPhotos = (data.afterPhotos ?? existing.afterPhotos ?? []).filter((p: string) => !dto.removeAfterPhotos!.includes(p));
     }
     if (dto.comment !== undefined) data.comment = dto.comment;
     if (dto.condition !== undefined) data.condition = dto.condition;
     if (dto.updatedBrand !== undefined) data.updatedBrand = dto.updatedBrand;
     if (dto.updatedModel !== undefined) data.updatedModel = dto.updatedModel;
     if (dto.updatedSerial !== undefined) data.updatedSerial = dto.updatedSerial;
+
+    // Audit: record edits made by anyone other than the assigned technician (Helpdesk / Supervisor / Manager)
+    if (!this.isTechnicianOnly(user)) {
+      const changes: string[] = [];
+      const diff = (a: string[] = [], b: string[] = []) => ({ added: b.filter((x) => !a.includes(x)).length, removed: a.filter((x) => !b.includes(x)).length });
+      if (data.beforePhotos) {
+        const d = diff(existing.beforePhotos, data.beforePhotos);
+        if (d.added) changes.push(`เพิ่มรูปก่อน PM ${d.added} รูป`);
+        if (d.removed) changes.push(`ลบรูปก่อน PM ${d.removed} รูป`);
+      }
+      if (data.afterPhotos) {
+        const d = diff(existing.afterPhotos, data.afterPhotos);
+        if (d.added) changes.push(`เพิ่มรูปหลัง PM ${d.added} รูป`);
+        if (d.removed) changes.push(`ลบรูปหลัง PM ${d.removed} รูป`);
+      }
+      for (const [k, label] of [['condition', 'สภาพ'], ['comment', 'Comment'], ['updatedBrand', 'Brand'], ['updatedModel', 'Model'], ['updatedSerial', 'Serial']] as const) {
+        if (data[k] !== undefined && data[k] !== (existing as any)[k]) changes.push(`${label}: ${(existing as any)[k] ?? '-'} → ${data[k] || '-'}`);
+      }
+      if (changes.length > 0) {
+        await this.logPmAudit(
+          incidentId, user.id,
+          `แก้ไข PM ${existing.pmRecord.incident?.ticketNumber ?? ''} — ${existing.equipment?.name ?? ''} (S/N ${existing.equipment?.serialNumber ?? '-'}): ${changes.join(', ')}`,
+        );
+      }
+    }
 
     return this.prisma.pmEquipmentRecord.update({
       where: { id: recordId },
@@ -306,6 +431,9 @@ export class PmService {
    * Updates Store.lastPmAt and PmRecord.performedAt + technicianId.
    */
   async submitPm(incidentId: string, userId: number) {
+    if (!(await this.isAssigned(incidentId, userId))) {
+      throw new ForbiddenException('เฉพาะช่างที่ได้รับมอบหมายล่าสุดเท่านั้นที่ Submit PM ได้');
+    }
     const pmRecord = await this.prisma.pmRecord.findUnique({
       where: { incidentId },
       include: { equipmentRecords: true },
@@ -347,93 +475,126 @@ export class PmService {
       });
 
       // Apply equipment updates per record
-      for (const rec of pmRecord.equipmentRecords) {
-        const current = equipmentMap.get(rec.equipmentId);
-        if (!current) continue;
-
-        const updateData: any = {};
-        const changes: string[] = [];
-
-        // Brand / Model / Serial updates
-        // Skip if equipment was updated more recently than this PM record (conflict protection)
-        const hasInfoUpdate = rec.updatedBrand || rec.updatedModel || rec.updatedSerial;
-        const equipmentNewerThanPm = current.updatedAt > rec.updatedAt;
-        if (hasInfoUpdate && equipmentNewerThanPm) {
-          skippedEquipment.push(rec.equipmentId.toString());
-        } else {
-          if (rec.updatedBrand) { updateData.brand = rec.updatedBrand; changes.push(`Brand: ${current.brand} → ${rec.updatedBrand}`); }
-          if (rec.updatedModel) { updateData.model = rec.updatedModel; changes.push(`Model: ${current.model} → ${rec.updatedModel}`); }
-          if (rec.updatedSerial && rec.updatedSerial !== current.serialNumber) {
-            const serialConflict = await tx.equipment.findFirst({
-              where: { serialNumber: rec.updatedSerial, id: { not: rec.equipmentId } },
-              select: { id: true },
-            });
-            if (!serialConflict) {
-              updateData.serialNumber = rec.updatedSerial;
-              changes.push(`Serial: ${current.serialNumber} → ${rec.updatedSerial}`);
-            }
-          }
-        }
-
-        // Condition → auto-update Equipment.status
-        let newStatus: EquipmentStatus | null = null;
-        if (rec.condition === 'REPLACED' && current.status !== EquipmentStatus.RETIRED) {
-          newStatus = EquipmentStatus.RETIRED;
-          updateData.status = newStatus;
-          changes.push(`Status: ${current.status} → RETIRED (เปลี่ยนอุปกรณ์แล้ว)`);
-        } else if (rec.condition === 'NEEDS_REPAIR' && current.status === EquipmentStatus.ACTIVE) {
-          newStatus = EquipmentStatus.MAINTENANCE;
-          updateData.status = newStatus;
-          changes.push(`Status: ${current.status} → MAINTENANCE (ต้องซ่อม)`);
-        } else if (rec.condition === 'GOOD' && current.status === EquipmentStatus.MAINTENANCE) {
-          newStatus = EquipmentStatus.ACTIVE;
-          updateData.status = newStatus;
-          changes.push(`Status: MAINTENANCE → ACTIVE (ผ่านการตรวจสอบ)`);
-        }
-
-        // Update equipment photo with first after photo from PM — same one shown in Inventory List (ensure /uploads/ prefix)
-        if (rec.afterPhotos && rec.afterPhotos.length > 0) {
-          const firstPhoto = rec.afterPhotos[0];
-          updateData.imagePath = firstPhoto.startsWith('/uploads/') ? firstPhoto : `/uploads/${firstPhoto}`;
-          changes.push('รูปอุปกรณ์อัพเดตจาก PM');
-        }
-
-        if (Object.keys(updateData).length === 0) continue;
-
-        await tx.equipment.update({ where: { id: rec.equipmentId }, data: updateData });
-
-        // Determine action type
-        const action = newStatus && Object.keys(updateData).length === 1
-          ? EquipmentLogAction.STATUS_CHANGED
-          : newStatus
-            ? EquipmentLogAction.UPDATED
-            : EquipmentLogAction.UPDATED;
-
-        const oldVal: any = { brand: current.brand, model: current.model, serialNumber: current.serialNumber, status: current.status, imagePath: current.imagePath };
-        const newVal: any = {
-          brand: rec.updatedBrand ?? current.brand,
-          model: rec.updatedModel ?? current.model,
-          serialNumber: rec.updatedSerial ?? current.serialNumber,
-          status: newStatus ?? current.status,
-          imagePath: updateData.imagePath ?? current.imagePath,
-        };
-
-        await tx.equipmentLog.create({
-          data: {
-            equipmentId: rec.equipmentId,
-            action,
-            source: EquipmentLogSource.PM,
-            sourceId: incidentId,
-            description: `PM: ${changes.join(', ')}`,
-            changedBy: userId,
-            oldValue: oldVal,
-            newValue: newVal,
-          },
-        });
-      }
+      skippedEquipment.push(...(await this.applyPmToEquipment(tx, pmRecord.equipmentRecords, equipmentMap, incidentId, userId)));
     });
 
     return { success: true, performedAt: now, skippedEquipmentIds: skippedEquipment };
+  }
+
+  /**
+   * Push PM results (brand/model/serial, condition → status, first after photo) to Equipment.
+   * Idempotent: only fields that actually differ are written / logged, so it can run at
+   * Submit PM and again at Confirm Close (to pick up edits made after submit).
+   * Returns equipment ids skipped because Equipment was edited more recently than the PM row.
+   */
+  private async applyPmToEquipment(
+    tx: any,
+    records: any[],
+    equipmentMap: Map<number, any>,
+    incidentId: string,
+    userId: number,
+  ): Promise<string[]> {
+    const skipped: string[] = [];
+    for (const rec of records) {
+      const current = equipmentMap.get(rec.equipmentId);
+      if (!current) continue;
+
+      const updateData: any = {};
+      const changes: string[] = [];
+
+      // Brand / Model / Serial — skip if Equipment was edited after this PM row (conflict protection)
+      const brandChanged = !!rec.updatedBrand && rec.updatedBrand !== current.brand;
+      const modelChanged = !!rec.updatedModel && rec.updatedModel !== current.model;
+      const serialChanged = !!rec.updatedSerial && rec.updatedSerial !== current.serialNumber;
+      if ((brandChanged || modelChanged || serialChanged) && current.updatedAt > rec.updatedAt) {
+        skipped.push(rec.equipmentId.toString());
+      } else {
+        if (brandChanged) { updateData.brand = rec.updatedBrand; changes.push(`Brand: ${current.brand} → ${rec.updatedBrand}`); }
+        if (modelChanged) { updateData.model = rec.updatedModel; changes.push(`Model: ${current.model} → ${rec.updatedModel}`); }
+        if (serialChanged) {
+          const serialConflict = await tx.equipment.findFirst({
+            where: { serialNumber: rec.updatedSerial, id: { not: rec.equipmentId } },
+            select: { id: true },
+          });
+          if (!serialConflict) {
+            updateData.serialNumber = rec.updatedSerial;
+            changes.push(`Serial: ${current.serialNumber} → ${rec.updatedSerial}`);
+          }
+        }
+      }
+
+      // Condition → Equipment.status
+      let newStatus: EquipmentStatus | null = null;
+      if (rec.condition === 'REPLACED' && current.status !== EquipmentStatus.RETIRED) {
+        newStatus = EquipmentStatus.RETIRED;
+        changes.push(`Status: ${current.status} → RETIRED (เปลี่ยนอุปกรณ์แล้ว)`);
+      } else if (rec.condition === 'NEEDS_REPAIR' && current.status === EquipmentStatus.ACTIVE) {
+        newStatus = EquipmentStatus.MAINTENANCE;
+        changes.push(`Status: ${current.status} → MAINTENANCE (ต้องซ่อม)`);
+      } else if (rec.condition === 'GOOD' && current.status === EquipmentStatus.MAINTENANCE) {
+        newStatus = EquipmentStatus.ACTIVE;
+        changes.push(`Status: MAINTENANCE → ACTIVE (ผ่านการตรวจสอบ)`);
+      }
+      if (newStatus) updateData.status = newStatus;
+
+      // Equipment picture = first after-PM photo (same one shown in Inventory List)
+      if (rec.afterPhotos && rec.afterPhotos.length > 0) {
+        const firstPhoto: string = rec.afterPhotos[0];
+        const imagePath = firstPhoto.startsWith('/uploads/') ? firstPhoto : `/uploads/${firstPhoto}`;
+        if (imagePath !== current.imagePath) {
+          updateData.imagePath = imagePath;
+          changes.push('รูปอุปกรณ์อัพเดตจาก PM');
+        }
+      }
+
+      if (Object.keys(updateData).length === 0) continue;
+
+      await tx.equipment.update({ where: { id: rec.equipmentId }, data: updateData });
+
+      const action = newStatus && Object.keys(updateData).length === 1
+        ? EquipmentLogAction.STATUS_CHANGED
+        : EquipmentLogAction.UPDATED;
+
+      await tx.equipmentLog.create({
+        data: {
+          equipmentId: rec.equipmentId,
+          action,
+          source: EquipmentLogSource.PM,
+          sourceId: incidentId,
+          description: `PM: ${changes.join(', ')}`,
+          changedBy: userId,
+          oldValue: { brand: current.brand, model: current.model, serialNumber: current.serialNumber, status: current.status, imagePath: current.imagePath },
+          newValue: {
+            brand: updateData.brand ?? current.brand,
+            model: updateData.model ?? current.model,
+            serialNumber: updateData.serialNumber ?? current.serialNumber,
+            status: updateData.status ?? current.status,
+            imagePath: updateData.imagePath ?? current.imagePath,
+          },
+        },
+      });
+    }
+    return skipped;
+  }
+
+  /**
+   * Called on Confirm Close: re-apply PM data to Equipment so edits made after Submit PM
+   * (e.g. by Helpdesk / Supervisor during review) reach the Equipment master.
+   */
+  async syncPmToEquipmentOnClose(incidentId: string, userId: number) {
+    const pmRecord = await this.prisma.pmRecord.findUnique({
+      where: { incidentId },
+      include: { equipmentRecords: true },
+    });
+    if (!pmRecord) return;
+    const currentEquipments = await this.prisma.equipment.findMany({
+      where: { id: { in: pmRecord.equipmentRecords.map((r) => r.equipmentId) } },
+      select: { id: true, brand: true, model: true, serialNumber: true, status: true, imagePath: true, updatedAt: true },
+    });
+    const equipmentMap = new Map(currentEquipments.map((e) => [e.id, e]));
+    await this.prisma.$transaction(async (tx) => {
+      await this.applyPmToEquipment(tx, pmRecord.equipmentRecords, equipmentMap, incidentId, userId);
+    });
   }
 
   /**
@@ -651,10 +812,7 @@ export class PmService {
   async signInventoryList(token: string, dto: SignInventoryListDto) {
     const record = await this.getByToken(token);
 
-    if (record.storeSignedAt) {
-      throw new BadRequestException('เอกสารนี้ได้รับการลงนามแล้ว');
-    }
-
+    // Already signed → a new signature replaces the old one ("เซ็นใหม่")
     const sigPath = await saveBase64File(
       dto.signature,
       'signatures',
@@ -704,6 +862,73 @@ export class PmService {
       data: { signedInventoryPhoto: JSON.stringify(photos) },
     });
     return { success: true };
+  }
+
+  /**
+   * Helpdesk / Supervisor adds a piece of equipment to the store from the PM page.
+   * Creates the Equipment (ACTIVE, this store) — the open-PM sync adds it to the checklist.
+   */
+  async addEquipmentToPm(incidentId: string, dto: AddPmEquipmentDto, user: any) {
+    await this.assertPmOpen(incidentId);
+    const pm = await this.prisma.pmRecord.findUnique({
+      where: { incidentId },
+      select: { storeId: true, incident: { select: { ticketNumber: true } } },
+    });
+    if (!pm) throw new NotFoundException('ไม่พบ PM Record');
+
+    const equipment = await this.equipmentService.create(
+      {
+        name: dto.name.trim(),
+        category: dto.category.trim(),
+        serialNumber: dto.serialNumber.trim(),
+        brand: dto.brand?.trim() || undefined,
+        model: dto.model?.trim() || undefined,
+        storeId: pm.storeId,
+        status: EquipmentStatus.ACTIVE,
+      } as any,
+      user.id,
+    );
+
+    await this.logPmAudit(
+      incidentId, user.id,
+      `เพิ่มอุปกรณ์ "${equipment.name}" (S/N ${equipment.serialNumber}) เข้าร้านจากงาน PM ${pm.incident?.ticketNumber ?? ''}`,
+    );
+    return this.getPmRecord(incidentId, true);
+  }
+
+  /**
+   * Remove equipment from the store via the PM page.
+   * Blocked when the item already has photos (delete photos first).
+   * The Equipment becomes INACTIVE (history kept) — the open-PM sync drops it from the checklist.
+   */
+  async removeEquipmentFromPm(recordId: number, user: any) {
+    const rec = await this.prisma.pmEquipmentRecord.findUnique({
+      where: { id: recordId },
+      include: {
+        equipment: { select: { id: true, name: true, serialNumber: true, status: true } },
+        pmRecord: { select: { incidentId: true, incident: { select: { ticketNumber: true } } } },
+      },
+    });
+    if (!rec) throw new NotFoundException(`ไม่พบ PM Equipment Record ID ${recordId}`);
+    const incidentId = rec.pmRecord.incidentId;
+    await this.assertPmOpen(incidentId);
+
+    if (rec.beforePhotos.length > 0 || rec.afterPhotos.length > 0) {
+      throw new BadRequestException('อุปกรณ์นี้ถ่ายรูปแล้ว — ต้องลบรูปให้หมดก่อน จึงจะนำอุปกรณ์ออกได้');
+    }
+
+    if (rec.equipment.status === EquipmentStatus.ACTIVE || rec.equipment.status === EquipmentStatus.MAINTENANCE) {
+      // Goes through EquipmentService → equipment log + audit + open-PM sync
+      await this.equipmentService.update(rec.equipment.id, { status: EquipmentStatus.INACTIVE } as any, user.id);
+    }
+    // Make sure the checklist row is gone even if the equipment was already inactive
+    await this.prisma.pmEquipmentRecord.deleteMany({ where: { id: recordId } });
+
+    await this.logPmAudit(
+      incidentId, user.id,
+      `นำอุปกรณ์ "${rec.equipment.name}" (S/N ${rec.equipment.serialNumber}) ออกจากร้าน (Inactive) จากงาน PM ${rec.pmRecord.incident?.ticketNumber ?? ''}`,
+    );
+    return this.getPmRecord(incidentId, true);
   }
 
   async deleteSignedInventory(incidentId: string, photoIndex?: number) {

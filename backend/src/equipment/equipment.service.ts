@@ -11,6 +11,7 @@ import { FilterEquipmentDto } from './dto/filter-equipment.dto';
 import { EquipmentStatus, EquipmentLogAction, EquipmentLogSource, AuditModule, AuditAction } from '@prisma/client';
 import * as ExcelJS from 'exceljs';
 import { AuditTrailService } from '../modules/audit-trail/audit-trail.service';
+import { syncOpenPmEquipment, syncAllOpenPmEquipment, findOpenPmPhotoLock, PM_EQUIPMENT_STATUSES } from '../modules/pm/pm-sync.helper';
 
 @Injectable()
 export class EquipmentService {
@@ -18,6 +19,33 @@ export class EquipmentService {
     private prisma: PrismaService,
     private auditTrailService: AuditTrailService,
   ) {}
+
+  /** Keep open PM checklists in sync with store equipment — never fails the equipment operation */
+  private async syncPm(storeIds: Array<number | null | undefined>) {
+    try {
+      await syncOpenPmEquipment(this.prisma, storeIds);
+    } catch (err) {
+      console.error('[PM Sync] Failed to sync open PM equipment:', err);
+    }
+  }
+
+  private async syncAllPm() {
+    try {
+      await syncAllOpenPmEquipment(this.prisma);
+    } catch (err) {
+      console.error('[PM Sync] Failed to sync open PM equipment after import:', err);
+    }
+  }
+
+  /** Block removing equipment that was already photographed in an open PM job */
+  private async assertNoPmPhotoLock(equipmentId: number) {
+    const ticket = await findOpenPmPhotoLock(this.prisma, equipmentId);
+    if (ticket) {
+      throw new BadRequestException(
+        `อุปกรณ์นี้ถ่ายรูปในงาน PM ${ticket} แล้ว — ต้องลบรูปในงาน PM ให้หมดก่อน จึงจะนำอุปกรณ์ออกได้`,
+      );
+    }
+  }
 
   /**
    * Create new equipment
@@ -105,6 +133,8 @@ export class EquipmentService {
         newValue: { name: equipment.name, category: equipment.category, storeId: equipment.storeId },
       });
     } catch (_) {}
+
+    await this.syncPm([equipment.storeId]);
 
     return equipment;
   }
@@ -332,6 +362,12 @@ export class EquipmentService {
       }
     }
 
+    // Leaving the store's PM checklist (status out of ACTIVE/MAINTENANCE or moved to another store)
+    const leavesPm =
+      (updateEquipmentDto.status && !PM_EQUIPMENT_STATUSES.includes(updateEquipmentDto.status as EquipmentStatus)) ||
+      (updateEquipmentDto.storeId && updateEquipmentDto.storeId !== equipment.storeId);
+    if (leavesPm) await this.assertNoPmPhotoLock(id);
+
     // Convert date strings to Date objects
     const updateData: any = { ...updateEquipmentDto };
     if (updateEquipmentDto.purchaseDate) {
@@ -416,6 +452,8 @@ export class EquipmentService {
       });
     } catch (_) {}
 
+    await this.syncPm([equipment.storeId, updatedEquipment.storeId]);
+
     return updatedEquipment;
   }
 
@@ -439,6 +477,8 @@ export class EquipmentService {
     if (!equipment) {
       throw new NotFoundException(`Equipment with ID ${id} not found`);
     }
+
+    await this.assertNoPmPhotoLock(id);
 
     // HELP_DESK: hard delete RETIRED equipment
     if (userRole === 'HELP_DESK') {
@@ -502,6 +542,7 @@ export class EquipmentService {
         });
       } catch (_) {}
 
+      await this.syncPm([equipment.storeId]);
       return { message: `อุปกรณ์ "${equipment.name}" ถูกลบออกจากระบบเรียบร้อยแล้ว` };
     }
 
@@ -556,6 +597,8 @@ export class EquipmentService {
         oldValue: { status: equipment.status },
       });
     } catch (_) {}
+
+    await this.syncPm([equipment.storeId]);
 
     return retired;
   }
@@ -684,6 +727,8 @@ export class EquipmentService {
       throw new BadRequestException('คำขอนี้ได้รับการดำเนินการแล้ว');
     }
 
+    await this.assertNoPmPhotoLock(request.equipmentId);
+
     const approver = await this.prisma.user.findUnique({
       where: { id: approverId },
       select: { firstName: true, lastName: true },
@@ -742,6 +787,7 @@ export class EquipmentService {
       },
     });
 
+    await this.syncPm([request.equipment.storeId]);
     return { message: `อนุมัติปลดระวาง "${request.equipment.name}" เรียบร้อยแล้ว` };
   }
 
@@ -1669,6 +1715,8 @@ export class EquipmentService {
       }
     }
 
+    await this.syncAllPm();
+
     return results;
   }
 
@@ -1884,6 +1932,8 @@ export class EquipmentService {
         });
       }
     }
+
+    await this.syncAllPm();
 
     return results;
   }
@@ -2408,6 +2458,8 @@ export class EquipmentService {
         });
       }
     }
+
+    await this.syncAllPm();
 
     return results;
   }
