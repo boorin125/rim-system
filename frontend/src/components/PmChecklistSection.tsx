@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import axios from 'axios'
+import { createPortal } from 'react-dom'
 import toast from 'react-hot-toast'
 import {
   CheckCircle2,
@@ -1660,9 +1661,10 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
         )
       )}
 
-      {/* Remove equipment — themed confirm (same style as Equipment delete) */}
-      {removeTarget && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      {/* Remove equipment — themed confirm (same style as Equipment delete).
+          Portal to <body>: the PM card uses backdrop-filter, which would pin `fixed` to the card instead of the viewport */}
+      {removeTarget && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4">
           <div className="glass-card p-6 rounded-2xl max-w-md w-full animate-fade-in">
             <div className="flex items-center space-x-3 mb-4">
               <div className="p-3 bg-red-500/20 rounded-full">
@@ -1701,7 +1703,8 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {/* Submit PM Button — first submit or re-submit after edit */}
