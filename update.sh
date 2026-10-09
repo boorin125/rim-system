@@ -96,3 +96,6 @@ echo ""
 echo -e "  Backup ไฟล์อยู่ที่: ${YELLOW}${BACKUP_FILE}${NC}"
 echo -e "  (ลบได้หลังทดสอบแล้ว — เก็บอัตโนมัติ 3 เวอร์ชั่น)"
 echo ""
+
+# Remove old RIM images left behind by previous updates (each update pulls ~1GB; they pile up and fill the disk)
+docker image prune -af >/dev/null 2>&1 || true
