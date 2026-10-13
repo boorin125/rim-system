@@ -324,23 +324,17 @@ const RELEASE_NOTES: {
   changes: { type: 'new' | 'improved' | 'fixed'; text: string }[]
 }[] = [
   {
-    version: '1.0.29',
+    version: '1.0.28',
     date: '2026-10-13',
     changes: [
+      { type: 'improved', text: 'Report Incident List — ตัวกรอง Category เลือกได้หลายรายการ (มีช่องค้นหา)' },
+      { type: 'improved', text: 'Incident Management — ตัวกรอง Category และ Province เลือกได้หลายรายการ (มีช่องค้นหา, เลือกทั้งหมด/ล้าง) และใช้กับ Export CSV/Excel ด้วย' },
       { type: 'improved', text: 'Performance — เกณฑ์คะแนนช่างใหม่: SLA 30% / ปริมาณงาน 20% / เวลาแก้ไข 20% / First Time Fix 20% / ตอบรับทันเวลา 10% (+ความพึงพอใจ 10% เมื่อมีคะแนนจากลูกค้า) — ตัวชี้วัดที่ไม่มีข้อมูลจะไม่ถูกนับและเฉลี่ยน้ำหนักให้ตัวอื่น' },
       { type: 'improved', text: 'Performance — ปริมาณงานเทียบค่าเฉลี่ยทีมในช่วงเดียวกัน (เท่าค่าเฉลี่ย = 80, ≥1.25 เท่า = 100) แทนเป้าคงที่ 50 งาน และนับงานตามวันที่ปิดงาน' },
       { type: 'improved', text: 'Performance — Leaderboard และรายละเอียดช่างคำนวณสดตามช่วงวันที่และ Job Type ที่เลือก, คะแนนย้อนหลัง (YTD/YTM/YTY) คำนวณใหม่อัตโนมัติทุกคืน' },
       { type: 'improved', text: 'Performance — งานที่มีช่างหลายคน นับเครดิตให้ช่างทุกคนในงาน' },
       { type: 'fixed',    text: 'Performance — คะแนนเกิน 100 (จากโบนัส) ได้เกรด F, ช่วงวันที่ที่เลือกเองใช้แค่เดือนแรก, ความพึงพอใจได้ 5.0 อัตโนมัติเมื่อยังไม่มีคะแนน' },
       { type: 'fixed',    text: 'SLA % — ไม่นับงาน Project / PM / Adhoc / Job Type ที่ตั้ง Ignore SLA และงานที่ไม่มี SLA deadline (เดิมนับว่าผ่าน)' },
-    ],
-  },
-  {
-    version: '1.0.28',
-    date: '2026-10-13',
-    changes: [
-      { type: 'improved', text: 'Report Incident List — ตัวกรอง Category เลือกได้หลายรายการ (มีช่องค้นหา)' },
-      { type: 'improved', text: 'Incident Management — ตัวกรอง Category และ Province เลือกได้หลายรายการ (มีช่องค้นหา, เลือกทั้งหมด/ล้าง) และใช้กับ Export CSV/Excel ด้วย' },
     ],
   },
   {
