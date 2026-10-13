@@ -991,7 +991,9 @@ export class IncidentsService {
     }
 
     if (filterDto.province) {
-      where.store = { province: filterDto.province };
+      // Comma-separated → multi-select province filter
+      const provinces = String(filterDto.province).split(',').filter(Boolean);
+      where.store = { province: provinces.length === 1 ? provinces[0] : { in: provinces } };
     }
 
     if (filterDto.jobType) {

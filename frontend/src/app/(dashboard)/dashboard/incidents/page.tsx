@@ -23,6 +23,7 @@ import toast from 'react-hot-toast'
 import * as XLSX from 'xlsx'
 import { isViewOnly, canPerformAction, getUserRoles, isPureTechnician } from '@/config/permissions'
 import { formatDateTime } from '@/utils/dateUtils'
+import MultiSearchSelect from '@/components/MultiSearchSelect'
 
 interface SearchableSelectProps {
   value: string
@@ -113,6 +114,12 @@ function SearchableSelect({ value, onChange, options, placeholder }: SearchableS
 
 const FILTER_KEY = 'incidents_filters'
 
+/** Category / Province filters are multi-select (string[]); older saved filters stored a single string or 'ALL' */
+function toFilterArray(v: any): string[] {
+  if (Array.isArray(v)) return v.filter((x) => typeof x === 'string' && x)
+  return typeof v === 'string' && v && v !== 'ALL' ? [v] : []
+}
+
 function readFilter(key: string, def: any) {
   try {
     const raw = localStorage.getItem(FILTER_KEY)
@@ -129,7 +136,7 @@ export default function IncidentsPage() {
   const [searchTerm, setSearchTerm] = useState<string>(() => readFilter('searchTerm', ''))
   const [debouncedSearch, setDebouncedSearch] = useState<string>(() => readFilter('searchTerm', ''))
   const [filterStatus, setFilterStatus] = useState<string>(() => readFilter('filterStatus', 'ALL'))
-  const [filterCategory, setFilterCategory] = useState<string>(() => readFilter('filterCategory', 'ALL'))
+  const [filterCategory, setFilterCategory] = useState<string[]>(() => toFilterArray(readFilter('filterCategory', [])))
   const [currentPage, setCurrentPage] = useState<number>(() => readFilter('currentPage', 1))
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
@@ -140,7 +147,7 @@ export default function IncidentsPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(() => readFilter('sortOrder', 'desc'))
   const [slaConfigs, setSlaConfigs] = useState<any[]>([])
   const [categories, setCategories] = useState<string[]>([])
-  const [filterProvince, setFilterProvince] = useState<string>(() => readFilter('filterProvince', 'ALL'))
+  const [filterProvince, setFilterProvince] = useState<string[]>(() => toFilterArray(readFilter('filterProvince', [])))
   const [provinces, setProvinces] = useState<string[]>([])
   const [filterTechnicianId, setFilterTechnicianId] = useState<string>(() => readFilter('filterTechnicianId', 'ALL'))
   const [technicians, setTechnicians] = useState<{ id: number; name: string }[]>([])
@@ -263,8 +270,8 @@ export default function IncidentsPage() {
       params.status = filterStatus
     }
 
-    if (filterCategory !== 'ALL') params.category = filterCategory
-    if (filterProvince !== 'ALL') params.province = filterProvince
+    if (filterCategory.length > 0) params.category = filterCategory.join(',')
+    if (filterProvince.length > 0) params.province = filterProvince.join(',')
 
     // Technician filter: only available to non-pure-technician users
     if (!isPureTech.current && filterTechnicianId !== 'ALL') {
@@ -469,8 +476,10 @@ export default function IncidentsPage() {
       const statusLabels: Record<string, string> = { PENDING: 'Pending', OPEN: 'Open', ASSIGNED: 'Assigned', IN_PROGRESS: 'InProgress', CLOSED: 'Closed', CANCELLED: 'Cancelled' }
       const parts = ['Incident']
       if (filterStatus !== 'ALL') parts.push(statusLabels[filterStatus] || filterStatus)
-      if (filterCategory !== 'ALL') parts.push(filterCategory.replace(/[\s/\\]/g, ''))
-      if (filterProvince !== 'ALL') parts.push(filterProvince.replace(/[\s/\\]/g, '_'))
+      if (filterCategory.length === 1) parts.push(filterCategory[0].replace(/[\s/\\]/g, ''))
+      else if (filterCategory.length > 1) parts.push(`${filterCategory.length}Categories`)
+      if (filterProvince.length === 1) parts.push(filterProvince[0].replace(/[\s/\\]/g, '_'))
+      else if (filterProvince.length > 1) parts.push(`${filterProvince.length}Provinces`)
       const d = new Date()
       parts.push(`${String(d.getDate()).padStart(2, '0')}${String(d.getMonth() + 1).padStart(2, '0')}${d.getFullYear()}`)
       const filename = parts.join('_')
@@ -675,14 +684,14 @@ export default function IncidentsPage() {
               <option value="CANCELLED">Cancelled</option>
             </select>
 
-            <SearchableSelect
+            <MultiSearchSelect
               value={filterCategory}
               onChange={setFilterCategory}
               options={categories}
               placeholder="All Category"
             />
 
-            <SearchableSelect
+            <MultiSearchSelect
               value={filterProvince}
               onChange={setFilterProvince}
               options={provinces}

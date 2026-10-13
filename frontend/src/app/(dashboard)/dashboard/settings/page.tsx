@@ -324,6 +324,14 @@ const RELEASE_NOTES: {
   changes: { type: 'new' | 'improved' | 'fixed'; text: string }[]
 }[] = [
   {
+    version: '1.0.28',
+    date: '2026-10-13',
+    changes: [
+      { type: 'improved', text: 'Report Incident List — ตัวกรอง Category เลือกได้หลายรายการ (มีช่องค้นหา)' },
+      { type: 'improved', text: 'Incident Management — ตัวกรอง Category และ Province เลือกได้หลายรายการ (มีช่องค้นหา, เลือกทั้งหมด/ล้าง) และใช้กับ Export CSV/Excel ด้วย' },
+    ],
+  },
+  {
     version: '1.0.27',
     date: '2026-10-09',
     changes: [

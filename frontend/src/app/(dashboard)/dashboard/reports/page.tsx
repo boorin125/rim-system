@@ -3,6 +3,7 @@
 
 import { formatStore } from '@/utils/formatStore'
 import { useState, useCallback, useEffect, useRef } from 'react'
+import MultiSearchSelect from '@/components/MultiSearchSelect'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import { useLicense } from '@/context/LicenseContext'
@@ -196,7 +197,7 @@ export default function ReportsPage() {
   const [selectedReport, setSelectedReport] = useState<ReportTypeId | null>(null)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
-  const [filterCategory, setFilterCategory] = useState('All')
+  const [filterCategory, setFilterCategory] = useState<string[]>([])  // multi-select; [] = All
   const [filterPriority, setFilterPriority] = useState('All')
   const [filterStatuses, setFilterStatuses] = useState<string[]>([])
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false)
@@ -501,7 +502,7 @@ export default function ReportsPage() {
           if (dateFrom) incidentParams.dateFrom = dateFrom
           if (dateTo) incidentParams.dateTo = dateTo
           if (filterStatuses.length > 0) incidentParams.status = filterStatuses.join(',')
-          if (filterCategory !== 'All') incidentParams.category = filterCategory
+          if (filterCategory.length > 0) incidentParams.category = filterCategory.join(',')
           if (filterPriority !== 'All') incidentParams.priority = filterPriority
           if (filterJobType !== 'All') incidentParams.jobType = filterJobType
 
@@ -667,7 +668,7 @@ export default function ReportsPage() {
       if (p.ranking && p.totalTechnicians) filters['Ranking'] = `#${p.ranking} / ${p.totalTechnicians}`
     } else {
       if (selectedReport === 'incident-list' && filterJobType !== 'All') filters['Job Type'] = filterJobType
-      filters.Category = filterCategory
+      filters.Category = filterCategory.length === 0 ? 'All' : filterCategory.join(', ')
       filters.Priority = filterPriority
       filters.Status = filterStatuses.length === 0 ? 'All' : filterStatuses.join(', ')
     }
@@ -1038,7 +1039,7 @@ export default function ReportsPage() {
                 <label className="block text-gray-400 text-xs font-medium mb-1.5">Job Type</label>
                 <select
                   value={filterJobType}
-                  onChange={(e) => { setFilterJobType(e.target.value); setFilterCategory('All'); setIsGenerated(false) }}
+                  onChange={(e) => { setFilterJobType(e.target.value); setFilterCategory([]); setIsGenerated(false) }}
                   className="w-full bg-slate-800 border border-slate-600 text-white text-sm rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500 [&>option]:bg-slate-800 [&>option]:text-white"
                 >
                   <option value="All">All</option>
@@ -1051,20 +1052,19 @@ export default function ReportsPage() {
             {selectedReport === 'incident-list' && (
               <div>
                 <label className="block text-gray-400 text-xs font-medium mb-1.5">Category</label>
-                <select
+<MultiSearchSelect
                   value={filterCategory}
-                  onChange={(e) => setFilterCategory(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-600 text-white text-sm rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500 [&>option]:bg-slate-800 [&>option]:text-white"
-                >
-                  <option value="All">All</option>
-                  {(filterJobType === 'All'
+                  onChange={(v) => { setFilterCategory(v); setIsGenerated(false) }}
+                  placeholder="All"
+                  buttonClassName="w-full bg-slate-800 border border-slate-600 text-white text-sm rounded-lg px-3 py-2 flex items-center justify-between gap-2 text-left focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  options={(filterJobType === 'All'
                     ? categoryList
                     : (() => {
                         const jt = jobTypeList.find(j => j.name === filterJobType)
                         return jt ? categoryList.filter(c => c.jobTypeIds.includes(jt.id)) : categoryList
                       })()
-                  ).map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
-                </select>
+                  ).map((c) => c.name)}
+                />
               </div>
             )}
 
