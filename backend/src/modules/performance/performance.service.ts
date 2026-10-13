@@ -4,76 +4,131 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Logger,
+  OnApplicationBootstrap,
 } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UserRole, IncidentStatus, SlaDefenseStatus, Prisma } from '@prisma/client';
-import { Decimal } from '@prisma/client/runtime/library';
 
-// Grade definitions
+// Grade definitions — score is 0-100, first grade whose min is reached wins
 const GRADES = [
-  { min: 95, max: 100, grade: 'A+', description: 'OUTSTANDING' },
-  { min: 90, max: 94.99, grade: 'A', description: 'EXCELLENT' },
-  { min: 85, max: 89.99, grade: 'B+', description: 'VERY GOOD' },
-  { min: 80, max: 84.99, grade: 'B', description: 'GOOD' },
-  { min: 75, max: 79.99, grade: 'C+', description: 'ABOVE AVERAGE' },
-  { min: 70, max: 74.99, grade: 'C', description: 'AVERAGE' },
-  { min: 60, max: 69.99, grade: 'D', description: 'BELOW AVERAGE' },
-  { min: 0, max: 59.99, grade: 'F', description: 'NEEDS IMPROVEMENT' },
+  { min: 95, grade: 'A+', description: 'OUTSTANDING' },
+  { min: 90, grade: 'A', description: 'EXCELLENT' },
+  { min: 85, grade: 'B+', description: 'VERY GOOD' },
+  { min: 80, grade: 'B', description: 'GOOD' },
+  { min: 75, grade: 'C+', description: 'ABOVE AVERAGE' },
+  { min: 70, grade: 'C', description: 'AVERAGE' },
+  { min: 60, grade: 'D', description: 'BELOW AVERAGE' },
+  { min: 0, grade: 'F', description: 'NEEDS IMPROVEMENT' },
 ];
 
-// Metric weights (total 100%)
+// Metric weights. A metric with no data in the period (e.g. no ratings, no SLA jobs)
+// is left out and the remaining weights are scaled up to 100%.
 const WEIGHTS = {
-  slaCompliance: 20,
-  workVolume: 15,
-  resolutionTime: 15,
+  slaCompliance: 30,
+  workVolume: 20,
+  resolutionTime: 20,
+  firstTimeFix: 20,
   responseTime: 10,
-  firstTimeFix: 15,
-  reopenRate: 10,
-  customerSatisfaction: 15,
+  customerSatisfaction: 10,
 };
 
 // Targets
 const TARGETS = {
-  slaCompliance: 95, // 95%
-  workVolume: 50, // 50 jobs per month
-  resolutionTime: 4, // 4 hours
-  responseTime: 80, // 80% response rate target
-  firstTimeFix: 85, // 85%
-  reopenRate: 5, // ≤5%
+  slaCompliance: 95, // % of SLA jobs closed within deadline
+  workVolumeTeamRatio: 1.25, // jobs ≥ 1.25 × team average = full score (team average = 80)
+  firstTimeFix: 95, // % of jobs closed without reopen
+  responseOnTime: 90, // % of SLA jobs responded within SLA response time
 };
 
+// Job types that never count toward SLA (in addition to JobType.ignoreSla)
+const SLA_EXCLUDED_JOB_TYPES = ['Project', 'Preventive Maintenance', 'Adhoc'];
+
+const COMPLETED_STATUSES = [IncidentStatus.CLOSED, IncidentStatus.RESOLVED];
+const PRIORITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const;
+
+// How many months back the nightly job recalculates (covers YTD / YTY comparisons)
+const RECALC_MONTHS = 24;
+
+type SlaCheckable = {
+  jobType: string | null;
+  slaDeadline: Date | null;
+  resolvedAt: Date | null;
+  slaDefenses?: { status: SlaDefenseStatus }[];
+};
+
+type MetricWeights = Record<keyof typeof WEIGHTS, number>;
+
+export interface TechnicianScore {
+  technicianId: number;
+  technicianName: string;
+  technicianType: string | null;
+  jobs: number;
+  sla: { total: number; pass: number; rate: number | null; score: number | null };
+  workVolume: { value: number; fullScoreTarget: number; score: number };
+  resolution: { count: number; avgHours: number | null; avgTargetHours: number | null; score: number | null };
+  firstTimeFix: { rate: number; score: number };
+  response: { total: number; onTime: number; rate: number | null; score: number | null };
+  customerSatisfaction: { count: number; avg: number | null; score: number | null };
+  weights: MetricWeights; // effective weights after leaving out metrics without data
+  slaBreakdown: Record<string, { avg: number | null; targetHours: number | null; count: number; label: string }>;
+  totalScore: number;
+  grade: string;
+  gradeDescription: string;
+  rank: number;
+}
+
+export interface TeamScores {
+  scores: TechnicianScore[];
+  teamAvgScore: number;
+  topScore: number;
+  teamAvgJobs: number;
+}
+
 @Injectable()
-export class PerformanceService {
+export class PerformanceService implements OnApplicationBootstrap {
+  private readonly logger = new Logger(PerformanceService.name);
+  private recalculating = false;
+
   constructor(private readonly prisma: PrismaService) {}
+
+  /** Recalculate stored scores shortly after start-up so history reflects the current formula */
+  onApplicationBootstrap() {
+    setTimeout(() => this.recalculateRecentPeriods(), 30_000);
+  }
+
+  /** Nightly: refresh stored scores used by history / YTD / YTM / YTY / reports */
+  @Cron('0 2 * * *')
+  async recalculateRecentPeriods() {
+    if (this.recalculating) return;
+    this.recalculating = true;
+    try {
+      const now = new Date();
+      for (let i = 0; i < RECALC_MONTHS; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        await this.calculateAllPerformance(this.toPeriod(d));
+      }
+      this.logger.log(`Recalculated technician performance for last ${RECALC_MONTHS} months`);
+    } catch (err) {
+      this.logger.error(`Performance recalculation failed: ${(err as Error).message}`);
+    } finally {
+      this.recalculating = false;
+    }
+  }
 
   /**
    * Get grade from score
    */
   private getGrade(score: number): { grade: string; description: string } {
-    for (const g of GRADES) {
-      if (score >= g.min && score <= g.max) {
-        return { grade: g.grade, description: g.description };
-      }
-    }
-    return { grade: 'F', description: 'NEEDS IMPROVEMENT' };
+    const g = GRADES.find((x) => score >= x.min) ?? GRADES[GRADES.length - 1];
+    return { grade: g.grade, description: g.description };
   }
 
   /**
-   * Calculate score based on percentage (0-100)
+   * Calculate score based on percentage (0-100), higher is better
    */
-  private calculatePercentageScore(
-    value: number,
-    target: number,
-    inverse = false,
-  ): number {
-    if (inverse) {
-      // For metrics where lower is better (like reopen rate)
-      if (value <= target) return 100;
-      if (value >= target * 2) return 0;
-      return 100 - ((value - target) / target) * 100;
-    }
-
-    // For metrics where higher is better
+  private calculatePercentageScore(value: number, target: number): number {
     if (value >= target) return 100;
     return (value / target) * 100;
   }
@@ -81,358 +136,353 @@ export class PerformanceService {
   /**
    * Calculate score based on time (where faster is better)
    */
-  private calculateTimeScore(
-    value: number,
-    standard: number,
-  ): number {
+  private calculateTimeScore(value: number, standard: number): number {
     if (value <= standard) return 100;
     if (value >= standard * 2) return 0;
     return 100 - ((value - standard) / standard) * 100;
   }
 
-  /**
-   * Get Performance for a Technician (Current Month or Specific Period)
-   */
-  async getTechnicianPerformance(
-    technicianId: number,
-    period?: string, // 'YYYY-MM' format
-  ) {
-    // Default to current month
-    const targetPeriod = period || this.getCurrentPeriod();
+  // ──────────────────────────────────────────────────
+  // SLA RULES (shared by every SLA figure on the dashboard)
+  // ──────────────────────────────────────────────────
 
-    // Check if already calculated
-    let performanceScore = await this.prisma.technicianPerformanceScore.findUnique({
-      where: {
-        technicianId_period: {
-          technicianId,
-          period: targetPeriod,
-        },
-      },
-      include: {
-        technician: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-      },
+  /** Job types excluded from SLA: fixed list + job types flagged ignoreSla */
+  private async getSlaExcludedJobTypes(): Promise<Set<string>> {
+    const ignored = await this.prisma.jobType.findMany({
+      where: { ignoreSla: true },
+      select: { name: true },
     });
+    return new Set([...SLA_EXCLUDED_JOB_TYPES, ...ignored.map((j) => j.name)]);
+  }
 
-    // If not calculated, calculate now
-    if (!performanceScore || !performanceScore.isCalculated) {
-      performanceScore = await this.calculatePerformance(technicianId, targetPeriod);
+  /** Counts toward SLA only when the job type has SLA and the job actually has a deadline */
+  private isSlaRelevant(inc: SlaCheckable, excluded: Set<string>): boolean {
+    if (inc.jobType && excluded.has(inc.jobType)) return false;
+    return !!inc.slaDeadline && !!inc.resolvedAt;
+  }
+
+  private hasApprovedDefense(inc: SlaCheckable): boolean {
+    return !!inc.slaDefenses?.some((d) => d.status === SlaDefenseStatus.APPROVED);
+  }
+
+  /** Call only for SLA-relevant incidents — approved defense counts as passed */
+  private isSlaPass(inc: SlaCheckable): boolean {
+    if (inc.resolvedAt! <= inc.slaDeadline!) return true;
+    return this.hasApprovedDefense(inc);
+  }
+
+  // ──────────────────────────────────────────────────
+  // TECHNICIAN SCORING
+  // ──────────────────────────────────────────────────
+
+  /**
+   * Score every technician on jobs completed (resolvedAt) within the range.
+   * A job counts for the main assignee and every co-assignee.
+   */
+  async computeScores(startDate: Date, endDate: Date, jobTypes?: string[]): Promise<TeamScores & {
+    slaConfigs: { priority: string; name: string; responseTimeMinutes: number; resolutionTimeMinutes: number }[];
+    technicians: { id: number; firstName: string; lastName: string; technicianType: string | null; status: string }[];
+  }> {
+    const [technicians, incidents, excluded, slaConfigs] = await Promise.all([
+      this.prisma.user.findMany({
+        where: { roles: { some: { role: UserRole.TECHNICIAN } } },
+        select: { id: true, firstName: true, lastName: true, technicianType: true, status: true },
+      }),
+      this.prisma.incident.findMany({
+        where: {
+          status: { in: COMPLETED_STATUSES },
+          resolvedAt: { gte: startDate, lte: endDate },
+          ...(jobTypes?.length ? { jobType: { in: jobTypes } } : {}),
+        },
+        select: {
+          jobType: true,
+          priority: true,
+          createdAt: true,
+          slaDeadline: true,
+          resolvedAt: true,
+          respondedAt: true,
+          checkInAt: true,
+          reopenCount: true,
+          assigneeId: true,
+          assignees: { select: { userId: true, assignedAt: true, checkedInAt: true } },
+          slaDefenses: { select: { status: true } },
+          rating: { select: { rating: true } },
+        },
+      }),
+      this.getSlaExcludedJobTypes(),
+      this.prisma.slaConfig.findMany({
+        where: { isActive: true },
+        select: { priority: true, name: true, responseTimeMinutes: true, resolutionTimeMinutes: true },
+      }),
+    ]);
+
+    const techMap = new Map(technicians.map((t) => [t.id, t]));
+    const cfgMap = new Map(slaConfigs.map((c) => [c.priority as string, c]));
+
+    type Acc = {
+      jobs: number;
+      firstFix: number;
+      slaTotal: number;
+      slaPass: number;
+      resScores: number[];
+      resHours: number[];
+      resTargets: number[];
+      respTotal: number;
+      respOnTime: number;
+      ratings: number[];
+      onsiteHours: Record<string, number[]>;
+    };
+    const accs = new Map<number, Acc>();
+    const getAcc = (id: number): Acc => {
+      let a = accs.get(id);
+      if (!a) {
+        a = { jobs: 0, firstFix: 0, slaTotal: 0, slaPass: 0, resScores: [], resHours: [], resTargets: [], respTotal: 0, respOnTime: 0, ratings: [], onsiteHours: {} };
+        accs.set(id, a);
+      }
+      return a;
+    };
+
+    for (const inc of incidents) {
+      const techIds = new Set<number>(inc.assignees.map((a) => a.userId));
+      if (inc.assigneeId) techIds.add(inc.assigneeId);
+
+      const slaRelevant = this.isSlaRelevant(inc, excluded);
+      const slaPass = slaRelevant && this.isSlaPass(inc);
+      const defended = this.hasApprovedDefense(inc);
+      const resolvedMs = inc.resolvedAt!.getTime();
+
+      for (const techId of techIds) {
+        if (!techMap.has(techId)) continue;
+        const a = getAcc(techId);
+        const member = inc.assignees.find((m) => m.userId === techId);
+        const checkIn = member?.checkedInAt ?? inc.checkInAt;
+
+        a.jobs++;
+        if (inc.reopenCount === 0) a.firstFix++;
+        if (inc.rating) a.ratings.push(inc.rating.rating);
+
+        if (checkIn && resolvedMs >= checkIn.getTime()) {
+          (a.onsiteHours[inc.priority] ||= []).push((resolvedMs - checkIn.getTime()) / 3600000);
+        }
+
+        if (!slaRelevant) continue;
+
+        a.slaTotal++;
+        if (slaPass) a.slaPass++;
+
+        // Resolution time vs the job's own SLA window (createdAt → slaDeadline)
+        const targetMs = inc.slaDeadline!.getTime() - inc.createdAt.getTime();
+        const actualMs = resolvedMs - inc.createdAt.getTime();
+        if (targetMs > 0) {
+          a.resScores.push(defended ? 100 : this.calculateTimeScore(actualMs, targetMs));
+          a.resHours.push(actualMs / 3600000);
+          a.resTargets.push(targetMs / 3600000);
+        }
+
+        // Response on time: first response (accept or check-in) within SLA response time from assignment
+        const cfg = cfgMap.get(inc.priority);
+        const firstResponse = [inc.respondedAt, checkIn]
+          .filter((d): d is Date => !!d)
+          .reduce<Date | null>((min, d) => (!min || d < min ? d : min), null);
+        if (cfg && firstResponse) {
+          const start = member?.assignedAt ?? inc.createdAt;
+          a.respTotal++;
+          if (firstResponse.getTime() - start.getTime() <= cfg.responseTimeMinutes * 60000) a.respOnTime++;
+        }
+      }
     }
 
-    const slaBreakdown = await this.getSlaBreakdown(technicianId, targetPeriod);
-    return this.formatPerformanceResponse(performanceScore, slaBreakdown);
+    const avg = (arr: number[]) => (arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : null);
+    const round2 = (v: number) => Math.round(v * 100) / 100;
+    const round2n = (v: number | null) => (v === null ? null : round2(v));
+
+    const withJobs = Array.from(accs.entries()).filter(([, a]) => a.jobs > 0);
+    const teamAvgJobs = withJobs.length ? withJobs.reduce((s, [, a]) => s + a.jobs, 0) / withJobs.length : 0;
+    const fullScoreJobs = teamAvgJobs * TARGETS.workVolumeTeamRatio;
+
+    const scores: TechnicianScore[] = withJobs.map(([techId, a]) => {
+      const t = techMap.get(techId)!;
+
+      const slaRate = a.slaTotal ? (a.slaPass / a.slaTotal) * 100 : null;
+      const slaScore = slaRate !== null ? this.calculatePercentageScore(slaRate, TARGETS.slaCompliance) : null;
+      const volScore = fullScoreJobs > 0 ? Math.min(100, (a.jobs / fullScoreJobs) * 100) : 0;
+      const resScore = avg(a.resScores);
+      const ftfRate = (a.firstFix / a.jobs) * 100;
+      const ftfScore = this.calculatePercentageScore(ftfRate, TARGETS.firstTimeFix);
+      const respRate = a.respTotal ? (a.respOnTime / a.respTotal) * 100 : null;
+      const respScore = respRate !== null ? this.calculatePercentageScore(respRate, TARGETS.responseOnTime) : null;
+      const csatAvg = avg(a.ratings);
+      const csatScore = csatAvg !== null ? (csatAvg / 5) * 100 : null;
+
+      const parts: [keyof typeof WEIGHTS, number | null][] = [
+        ['slaCompliance', slaScore],
+        ['workVolume', volScore],
+        ['resolutionTime', resScore],
+        ['firstTimeFix', ftfScore],
+        ['responseTime', respScore],
+        ['customerSatisfaction', csatScore],
+      ];
+      const weightSum = parts.reduce((s, [k, v]) => (v === null ? s : s + WEIGHTS[k]), 0);
+      const weights = {} as MetricWeights;
+      let total = 0;
+      for (const [k, v] of parts) {
+        weights[k] = v === null || weightSum === 0 ? 0 : round2((WEIGHTS[k] / weightSum) * 100);
+        if (v !== null && weightSum > 0) total += (v * WEIGHTS[k]) / weightSum;
+      }
+      const totalScore = round2(Math.max(0, Math.min(100, total)));
+      const { grade, description } = this.getGrade(totalScore);
+
+      const slaBreakdown: TechnicianScore['slaBreakdown'] = {};
+      for (const p of PRIORITIES) {
+        const hours = a.onsiteHours[p] || [];
+        const cfg = cfgMap.get(p);
+        slaBreakdown[p] = {
+          avg: round2n(avg(hours)),
+          targetHours: cfg ? cfg.resolutionTimeMinutes / 60 : null,
+          count: hours.length,
+          label: cfg?.name || p,
+        };
+      }
+
+      return {
+        technicianId: techId,
+        technicianName: `${t.firstName} ${t.lastName}`,
+        technicianType: t.technicianType,
+        jobs: a.jobs,
+        sla: { total: a.slaTotal, pass: a.slaPass, rate: round2n(slaRate), score: round2n(slaScore) },
+        workVolume: { value: a.jobs, fullScoreTarget: Math.ceil(fullScoreJobs), score: round2(volScore) },
+        resolution: {
+          count: a.resScores.length,
+          avgHours: round2n(avg(a.resHours)),
+          avgTargetHours: round2n(avg(a.resTargets)),
+          score: round2n(resScore),
+        },
+        firstTimeFix: { rate: round2(ftfRate), score: round2(ftfScore) },
+        response: { total: a.respTotal, onTime: a.respOnTime, rate: round2n(respRate), score: round2n(respScore) },
+        customerSatisfaction: { count: a.ratings.length, avg: round2n(csatAvg), score: round2n(csatScore) },
+        weights,
+        slaBreakdown,
+        totalScore,
+        grade,
+        gradeDescription: description,
+        rank: 0,
+      };
+    });
+
+    scores.sort((x, y) => y.totalScore - x.totalScore || y.jobs - x.jobs);
+    scores.forEach((s, i) => (s.rank = i + 1));
+
+    const teamAvgScore = scores.length ? round2(scores.reduce((s, x) => s + x.totalScore, 0) / scores.length) : 0;
+    const topScore = scores.length ? scores[0].totalScore : 0;
+
+    return { scores, teamAvgScore, topScore, teamAvgJobs: round2(teamAvgJobs), slaConfigs, technicians };
   }
 
   /**
-   * Calculate Performance for a Technician
+   * Get Performance for a Technician — computed live for the month or custom range
    */
-  async calculatePerformance(
-    technicianId: number,
-    period: string,
-    calculatedById?: number,
-  ) {
-    // Verify technician exists
+  async getTechnicianPerformance(technicianId: number, period?: string, from?: string, to?: string) {
     const technician = await this.prisma.user.findUnique({
       where: { id: technicianId },
-      include: { roles: true },
+      select: { id: true, firstName: true, lastName: true },
     });
-
     if (!technician) {
       throw new NotFoundException(`ไม่พบ Technician ID: ${technicianId}`);
     }
 
-    const techRoles = technician.roles.map((r) => r.role);
-    if (!techRoles.includes(UserRole.TECHNICIAN)) {
+    const { startDate, endDate, targetPeriod } = this.getDateRange(period, from, to);
+    const team = await this.computeScores(startDate, endDate);
+    const s = team.scores.find((x) => x.technicianId === technicianId) ?? null;
+
+    return this.formatPerformanceResponse(
+      s,
+      `${technician.firstName} ${technician.lastName}`,
+      technicianId,
+      from && to ? `${from} – ${to}` : targetPeriod,
+      team,
+    );
+  }
+
+  /**
+   * Recalculate one technician's period. Scores depend on the team average,
+   * so the whole team for that period is recalculated.
+   */
+  async calculatePerformance(technicianId: number, period: string, calculatedById?: number) {
+    const technician = await this.prisma.user.findUnique({
+      where: { id: technicianId },
+      include: { roles: true },
+    });
+    if (!technician) {
+      throw new NotFoundException(`ไม่พบ Technician ID: ${technicianId}`);
+    }
+    if (!technician.roles.some((r) => r.role === UserRole.TECHNICIAN)) {
       throw new BadRequestException('ผู้ใช้นี้ไม่ใช่ Technician');
     }
 
-    // Parse period
-    const [year, month] = period.split('-').map(Number);
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59);
-
-    // Get incidents for this technician in this period
-    const incidents = await this.prisma.incident.findMany({
-      where: {
-        assigneeId: technicianId,
-        createdAt: {
-          gte: startDate,
-          lte: endDate,
-        },
-      },
-      include: {
-        rating: true,
-        slaDefenses: { select: { status: true } },
-      },
-    });
-
-    // Calculate metrics
-    const totalIncidents = incidents.length;
-    const closedIncidents = incidents.filter(
-      (i) => i.status === IncidentStatus.CLOSED || i.status === IncidentStatus.RESOLVED,
-    );
-
-    // 1. SLA Compliance (Project excluded; Adhoc always passes; approved defense counts as passed)
-    const slaRelevant = closedIncidents.filter(i => (i as any).jobType !== 'Project');
-    const slaCompliants = slaRelevant.filter((i) => {
-      if ((i as any).jobType === 'Adhoc') return true;
-      if (!i.slaDeadline || !i.resolvedAt) return true;
-      if (i.resolvedAt <= i.slaDeadline) return true;
-      return (i as any).slaDefenses?.some((d: any) => d.status === SlaDefenseStatus.APPROVED);
-    });
-    const slaCompliance = slaRelevant.length > 0
-      ? (slaCompliants.length / slaRelevant.length) * 100
-      : 100;
-    const slaScore = this.calculatePercentageScore(slaCompliance, TARGETS.slaCompliance);
-
-    // 2. Work Volume (50 jobs = 90 points, proportional, cap at 100)
-    const workVolume = totalIncidents;
-    const workVolumeScore = Math.min((workVolume / TARGETS.workVolume) * 90, 100);
-
-    // 3. Average Resolution Time (in hours)
-    const resolvedWithTime = closedIncidents.filter((i) => i.resolvedAt && i.checkInAt);
-    const avgResolutionTime = resolvedWithTime.length > 0
-      ? resolvedWithTime.reduce((sum, i) => {
-          const diff = (i.resolvedAt!.getTime() - i.checkInAt!.getTime()) / (1000 * 60 * 60);
-          return sum + diff;
-        }, 0) / resolvedWithTime.length
-      : 0;
-    const resolutionTimeScore = avgResolutionTime > 0
-      ? this.calculateTimeScore(avgResolutionTime, TARGETS.resolutionTime)
-      : 100;
-
-    // 4. Response Rate - resolved / responded × 100%
-    const respondedIncidentsForRate = incidents.filter((i) => i.respondedAt || i.checkInAt);
-    const resolvedFromResponded = respondedIncidentsForRate.filter((i) => i.resolvedAt);
-    const avgResponseTime = respondedIncidentsForRate.length > 0
-      ? (resolvedFromResponded.length / respondedIncidentsForRate.length) * 100
-      : 0;
-    const responseTimeScore = respondedIncidentsForRate.length > 0
-      ? this.calculatePercentageScore(avgResponseTime, TARGETS.responseTime)
-      : 0;
-
-    // 5. First Time Fix Rate
-    const firstTimeFixes = closedIncidents.filter((i) => i.reopenCount === 0);
-    const firstTimeFixRate = closedIncidents.length > 0
-      ? (firstTimeFixes.length / closedIncidents.length) * 100
-      : 100;
-    const firstTimeFixScore = this.calculatePercentageScore(firstTimeFixRate, TARGETS.firstTimeFix);
-
-    // 6. Reopen Rate — denominator is incidents that received a response (respondedAt or checkInAt)
-    const respondedIncidents = incidents.filter((i) => i.respondedAt || i.checkInAt);
-    const reopenedIncidents = incidents.filter((i) => i.reopenCount > 0);
-    const reopenRate = respondedIncidents.length > 0
-      ? (reopenedIncidents.length / respondedIncidents.length) * 100
-      : 0;
-    const reopenScore = Math.max(0, 100 - reopenRate);
-
-    // 7. Customer Satisfaction (using cumulative running average from User)
-    const avgCustomerRating = technician.cumulativeRating ?? 5.0;
-    const customerSatisfactionScore = (avgCustomerRating / 5) * 100;
-
-    // Calculate weighted total
-    let totalScore = 0;
-    totalScore += (slaScore * WEIGHTS.slaCompliance) / 100;
-    totalScore += (workVolumeScore * WEIGHTS.workVolume) / 100;
-    totalScore += (resolutionTimeScore * WEIGHTS.resolutionTime) / 100;
-    totalScore += (responseTimeScore * WEIGHTS.responseTime) / 100;
-    totalScore += (firstTimeFixScore * WEIGHTS.firstTimeFix) / 100;
-    totalScore += (reopenScore * WEIGHTS.reopenRate) / 100;
-
-    // Add customer satisfaction (always available via cumulative rating)
-    totalScore += (customerSatisfactionScore * WEIGHTS.customerSatisfaction) / 100;
-
-    // Calculate bonus points
-    // Response Bonus: 5% bonus for technicians who respond before check-in
-    const respondedBeforeCheckin = incidents.filter(
-      (i) => i.respondedAt && i.checkInAt && i.respondedAt < i.checkInAt
-    );
-    const responseRate = totalIncidents > 0
-      ? (respondedBeforeCheckin.length / totalIncidents) * 100
-      : 0;
-    // Give proportional bonus (up to 5% if 100% response rate)
-    const responseBonus = (responseRate / 100) * 5;
-
-    const totalBonusPoints = responseBonus;
-
-    // Final score
-    const finalScore = Math.min(totalScore + totalBonusPoints, 115);
-
-    // Get grade
-    const { grade, description } = this.getGrade(finalScore);
-
-    // Upsert performance record
-    const performanceScore = await this.prisma.technicianPerformanceScore.upsert({
-      where: {
-        technicianId_period: {
-          technicianId,
-          period,
-        },
-      },
-      update: {
-        slaCompliance,
-        slaScore,
-        workVolume,
-        workVolumeTarget: TARGETS.workVolume,
-        workVolumeScore,
-        avgResolutionTime,
-        resolutionTimeStandard: TARGETS.resolutionTime,
-        resolutionTimeScore,
-        avgResponseTime,
-        responseTimeStandard: TARGETS.responseTime,
-        responseTimeScore,
-        firstTimeFixRate,
-        firstTimeFixScore,
-        reopenRate,
-        reopenScore,
-        avgCustomerRating: avgCustomerRating ?? null,
-        totalRatings: incidents.filter((i) => i.rating).length,
-        customerSatisfactionScore: customerSatisfactionScore ?? null,
-        totalBonusPoints,
-        totalScore: finalScore,
-        grade,
-        gradeDescription: description,
-        isCalculated: true,
-        calculatedAt: new Date(),
-        calculatedById,
-      },
-      create: {
-        technicianId,
-        period,
-        startDate,
-        endDate,
-        slaCompliance,
-        slaScore,
-        workVolume,
-        workVolumeTarget: TARGETS.workVolume,
-        workVolumeScore,
-        avgResolutionTime,
-        resolutionTimeStandard: TARGETS.resolutionTime,
-        resolutionTimeScore,
-        avgResponseTime,
-        responseTimeStandard: TARGETS.responseTime,
-        responseTimeScore,
-        firstTimeFixRate,
-        firstTimeFixScore,
-        reopenRate,
-        reopenScore,
-        avgCustomerRating: avgCustomerRating ?? null,
-        totalRatings: incidents.filter((i) => i.rating).length,
-        customerSatisfactionScore: customerSatisfactionScore ?? null,
-        totalBonusPoints,
-        totalScore: finalScore,
-        grade,
-        gradeDescription: description,
-        isCalculated: true,
-        calculatedAt: new Date(),
-        calculatedById,
-      },
-      include: {
-        technician: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-      },
-    });
-
-    // Update ranking
-    await this.updateRankings(period);
-
-    // Fetch updated record with ranking
-    return this.prisma.technicianPerformanceScore.findUnique({
-      where: {
-        technicianId_period: {
-          technicianId,
-          period,
-        },
-      },
-      include: {
-        technician: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-      },
-    });
+    await this.calculateAllPerformance(period, calculatedById);
+    return this.getTechnicianPerformance(technicianId, period);
   }
 
   /**
-   * Update Rankings for a Period
+   * Calculate & store all technicians' scores for a period (YYYY-MM)
    */
-  async updateRankings(period: string) {
-    // Get all scores for this period, sorted by totalScore
-    const scores = await this.prisma.technicianPerformanceScore.findMany({
-      where: { period, isCalculated: true },
-      orderBy: { totalScore: 'desc' },
-    });
+  async calculateAllPerformance(period: string, calculatedById?: number) {
+    const { startDate, endDate } = this.getDateRange(period);
+    const team = await this.computeScores(startDate, endDate);
+    const now = new Date();
 
-    const totalTechnicians = scores.length;
-    const teamAvgScore = scores.length > 0
-      ? scores.reduce((sum, s) => sum + (Number(s.totalScore) || 0), 0) / scores.length
-      : 0;
-    const topPerformerScore = scores.length > 0 ? Number(scores[0].totalScore) || 0 : 0;
+    await this.prisma.$transaction([
+      // Technicians with no completed job in this period have no score
+      this.prisma.technicianPerformanceScore.deleteMany({
+        where: { period, technicianId: { notIn: team.scores.map((s) => s.technicianId) } },
+      }),
+      ...team.scores.map((s) => {
+        const data = {
+          startDate,
+          endDate,
+          slaCompliance: s.sla.rate,
+          slaScore: s.sla.score,
+          workVolume: s.jobs,
+          workVolumeTarget: s.workVolume.fullScoreTarget,
+          workVolumeScore: s.workVolume.score,
+          avgResolutionTime: s.resolution.avgHours,
+          resolutionTimeStandard: s.resolution.avgTargetHours,
+          resolutionTimeScore: s.resolution.score,
+          avgResponseTime: s.response.rate,
+          responseTimeStandard: TARGETS.responseOnTime,
+          responseTimeScore: s.response.score,
+          firstTimeFixRate: s.firstTimeFix.rate,
+          firstTimeFixScore: s.firstTimeFix.score,
+          reopenRate: Math.round((100 - s.firstTimeFix.rate) * 100) / 100,
+          reopenScore: s.firstTimeFix.score,
+          avgCustomerRating: s.customerSatisfaction.avg,
+          totalRatings: s.customerSatisfaction.count,
+          customerSatisfactionScore: s.customerSatisfaction.score,
+          totalBonusPoints: 0,
+          totalScore: s.totalScore,
+          grade: s.grade,
+          gradeDescription: s.gradeDescription,
+          teamRanking: s.rank,
+          totalTechnicians: team.scores.length,
+          teamAvgScore: team.teamAvgScore,
+          topPerformerScore: team.topScore,
+          isCalculated: true,
+          calculatedAt: now,
+          calculatedById: calculatedById ?? null,
+        };
+        return this.prisma.technicianPerformanceScore.upsert({
+          where: { technicianId_period: { technicianId: s.technicianId, period } },
+          update: data,
+          create: { technicianId: s.technicianId, period, ...data },
+        });
+      }),
+    ]);
 
-    // Update each score with ranking
-    await Promise.all(
-      scores.map((score, index) =>
-        this.prisma.technicianPerformanceScore.update({
-          where: { id: score.id },
-          data: {
-            teamRanking: index + 1,
-            totalTechnicians,
-            teamAvgScore,
-            topPerformerScore,
-          },
-        }),
-      ),
-    );
-  }
-
-  /**
-   * Get Leaderboard
-   */
-  async getLeaderboard(period?: string, limit = 10) {
-    const targetPeriod = period || this.getCurrentPeriod();
-
-    const scores = await this.prisma.technicianPerformanceScore.findMany({
-      where: { period: targetPeriod, isCalculated: true },
-      include: {
-        technician: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            technicianType: true,
-          },
-        },
-      },
-      orderBy: { totalScore: 'desc' },
-      take: limit,
-    });
-
-    return scores.map((s, index) => ({
-      rank: index + 1,
-      technicianId: s.technicianId,
-      technicianName: `${s.technician.firstName} ${s.technician.lastName}`,
-      technicianType: s.technician.technicianType,
-      score: Number(s.totalScore),
-      grade: s.grade,
-      gradeDescription: s.gradeDescription,
-    }));
+    return {
+      message: `Calculated performance for ${team.scores.length} technicians`,
+      period,
+      count: team.scores.length,
+    };
   }
 
   /**
@@ -501,34 +551,6 @@ export class PerformanceService {
   }
 
   /**
-   * Calculate All Technicians Performance for a Period
-   */
-  async calculateAllPerformance(period: string, calculatedById: number) {
-    // Get all active technicians
-    const technicians = await this.prisma.user.findMany({
-      where: {
-        roles: {
-          some: {
-            role: UserRole.TECHNICIAN,
-          },
-        },
-        status: 'ACTIVE',
-      },
-      select: { id: true },
-    });
-
-    const results = await Promise.all(
-      technicians.map((t) => this.calculatePerformance(t.id, period, calculatedById)),
-    );
-
-    return {
-      message: `Calculated performance for ${results.length} technicians`,
-      period,
-      count: results.length,
-    };
-  }
-
-  /**
    * Get Incident Statistics (total, closed, pending, cancelled, SLA pass/fail)
    */
   async getIncidentStats(period?: string, jobTypes?: string[], from?: string, to?: string) {
@@ -568,27 +590,21 @@ export class PerformanceService {
       i.status === IncidentStatus.IN_PROGRESS
     ).length;
 
-    // SLA calculation — Project excluded; Adhoc always passes; approved defense counts as passed
-    const completedIncidents = incidents.filter(i =>
-      i.status === IncidentStatus.CLOSED || i.status === IncidentStatus.RESOLVED
+    // SLA calculation — see isSlaRelevant / isSlaPass
+    const excluded = await this.getSlaExcludedJobTypes();
+    const slaRelevantCompleted = incidents.filter(i =>
+      (i.status === IncidentStatus.CLOSED || i.status === IncidentStatus.RESOLVED) &&
+      this.isSlaRelevant(i, excluded)
     );
-    const slaRelevantCompleted = completedIncidents.filter(i => i.jobType !== 'Project');
-    const slaPass = slaRelevantCompleted.filter(i => {
-      if (i.jobType === 'Adhoc') return true;
-      if (!i.slaDeadline || !i.resolvedAt) return true;
-      if (i.resolvedAt <= i.slaDeadline) return true;
-      return (i as any).slaDefenses?.some((d: any) => d.status === SlaDefenseStatus.APPROVED);
-    }).length;
+    const slaPass = slaRelevantCompleted.filter(i => this.isSlaPass(i)).length;
     const slaFail = slaRelevantCompleted.length - slaPass;
     const slaPercent = slaRelevantCompleted.length > 0
       ? Math.round((slaPass / slaRelevantCompleted.length) * 10000) / 100
       : 0;
     // jobs that failed SLA but were saved by an approved defense
-    const slaDefenseApproved = slaRelevantCompleted.filter(i => {
-      if (!i.slaDeadline || !i.resolvedAt) return false;
-      if (i.resolvedAt <= i.slaDeadline) return false;
-      return (i as any).slaDefenses?.some((d: any) => d.status === SlaDefenseStatus.APPROVED);
-    }).length;
+    const slaDefenseApproved = slaRelevantCompleted.filter(i =>
+      i.resolvedAt! > i.slaDeadline! && this.hasApprovedDefense(i)
+    ).length;
 
     // Count by job type
     const byJobType: Record<string, number> = {};
@@ -621,6 +637,7 @@ export class PerformanceService {
   async getSlaTrend(months = 12, jobTypes?: string[]) {
     const now = new Date();
     const result: { period: string; slaPercent: number; total: number; slaPass: number; slaFail: number; slaDefenseApproved: number }[] = [];
+    const excluded = await this.getSlaExcludedJobTypes();
 
     for (let i = months - 1; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -637,21 +654,14 @@ export class PerformanceService {
         select: { jobType: true, slaDeadline: true, resolvedAt: true, slaDefenses: { select: { status: true } } },
       });
 
-      const relevant = incidents.filter(inc => inc.jobType !== 'Project');
+      const relevant = incidents.filter(inc => this.isSlaRelevant(inc, excluded));
       const total = relevant.length;
-      const slaPass = relevant.filter(inc => {
-        if (inc.jobType === 'Adhoc') return true;
-        if (!inc.slaDeadline || !inc.resolvedAt) return true;
-        if (inc.resolvedAt <= inc.slaDeadline) return true;
-        return (inc as any).slaDefenses?.some((d: any) => d.status === SlaDefenseStatus.APPROVED);
-      }).length;
+      const slaPass = relevant.filter(inc => this.isSlaPass(inc)).length;
       const slaFail = total - slaPass;
       const slaPercent = total > 0 ? Math.round((slaPass / total) * 10000) / 100 : 0;
-      const slaDefenseApproved = relevant.filter(inc => {
-        if (!inc.slaDeadline || !inc.resolvedAt) return false;
-        if (inc.resolvedAt <= inc.slaDeadline) return false;
-        return (inc as any).slaDefenses?.some((d: any) => d.status === SlaDefenseStatus.APPROVED);
-      }).length;
+      const slaDefenseApproved = relevant.filter(inc =>
+        inc.resolvedAt! > inc.slaDeadline! && this.hasApprovedDefense(inc)
+      ).length;
 
       result.push({ period, slaPercent, total, slaPass, slaFail, slaDefenseApproved });
     }
@@ -660,102 +670,50 @@ export class PerformanceService {
   }
 
   /**
-   * Get Enhanced Leaderboard with workVolume and SLA%
+   * Leaderboard — computed live from the same scoring as the detail view,
+   * so score / grade / columns always match the selected range and job types.
    */
   async getEnhancedLeaderboard(period?: string, limit = 50, sortBy = 'score', jobTypes?: string[], from?: string, to?: string) {
-    const { startDate, endDate, targetPeriod } = this.getDateRange(period, from, to);
+    const { startDate, endDate } = this.getDateRange(period, from, to);
+    const team = await this.computeScores(startDate, endDate, jobTypes);
 
-    const scores = await this.prisma.technicianPerformanceScore.findMany({
-      where: { period: targetPeriod, isCalculated: true },
-      include: {
-        technician: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            technicianType: true,
-          },
-        },
-      },
-    });
+    const entries = team.scores.map((s) => ({
+      technicianId: s.technicianId,
+      technicianName: s.technicianName,
+      technicianType: s.technicianType,
+      score: s.totalScore,
+      grade: s.grade,
+      gradeDescription: s.gradeDescription,
+      workVolume: s.jobs,
+      slaPercent: s.sla.rate ?? 0,
+      avgResolutionTimeHours: s.resolution.avgHours,
+      slaResolution: Object.fromEntries(PRIORITIES.map((p) => [p, s.slaBreakdown[p]?.avg ?? null])),
+    }));
 
-    // For each technician, get actual incident stats
-    const entries = await Promise.all(
-      scores.map(async (s) => {
-        const incidents = await this.prisma.incident.findMany({
-          where: {
-            assigneeId: s.technicianId,
-            createdAt: { gte: startDate, lte: endDate },
-            ...(jobTypes && jobTypes.length > 0 ? { jobType: { in: jobTypes } } : {}),
-          },
-          select: { status: true, jobType: true, slaDeadline: true, resolvedAt: true, createdAt: true, checkInAt: true, priority: true, slaDefenses: { select: { status: true } } },
-        });
+    // Active technicians without completed jobs are listed at the bottom
+    const scoredIds = new Set(team.scores.map((s) => s.technicianId));
+    const idle = team.technicians
+      .filter((t) => t.status === 'ACTIVE' && !scoredIds.has(t.id))
+      .map((t) => ({
+        technicianId: t.id,
+        technicianName: `${t.firstName} ${t.lastName}`,
+        technicianType: t.technicianType,
+        score: 0,
+        grade: '-',
+        gradeDescription: 'ไม่มีงานที่ปิดในช่วงนี้',
+        workVolume: 0,
+        slaPercent: 0,
+        avgResolutionTimeHours: null,
+        slaResolution: { CRITICAL: null, HIGH: null, MEDIUM: null, LOW: null },
+      }));
 
-        const totalJobs = incidents.length;
-        const completed = incidents.filter(i =>
-          i.status === IncidentStatus.CLOSED || i.status === IncidentStatus.RESOLVED
-        );
-        const slaRelevant = completed.filter(i => i.jobType !== 'Project');
-        const slaPass = slaRelevant.filter(i => {
-          if (i.jobType === 'Adhoc') return true;
-          if (!i.slaDeadline || !i.resolvedAt) return true;
-          if (i.resolvedAt <= i.slaDeadline) return true;
-          return (i as any).slaDefenses?.some((d: any) => d.status === SlaDefenseStatus.APPROVED);
-        }).length;
-        const slaPercent = slaRelevant.length > 0
-          ? Math.round((slaPass / slaRelevant.length) * 10000) / 100
-          : 0;
-
-        // Avg resolution time (hours) — only for completed incidents with both timestamps
-        const completedWithTimes = completed.filter(i => i.resolvedAt);
-        const avgResolutionTimeHours = completedWithTimes.length > 0
-          ? Math.round(
-              (completedWithTimes.reduce((sum, i) =>
-                sum + (i.resolvedAt!.getTime() - i.createdAt.getTime()) / 3600000, 0
-              ) / completedWithTimes.length) * 100
-            ) / 100
-          : null;
-
-        // Per-SLA avg resolution time (checkIn → resolved)
-        const priorities = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const;
-        const slaResolution: Record<string, number | null> = {};
-        for (const p of priorities) {
-          const group = completedWithTimes.filter(i => (i as any).priority === p && (i as any).checkInAt);
-          slaResolution[p] = group.length > 0
-            ? Math.round(
-                group.reduce((sum, i) => sum + (i.resolvedAt!.getTime() - ((i as any).checkInAt as Date).getTime()) / 3600000, 0)
-                / group.length * 100
-              ) / 100
-            : null;
-        }
-
-        const resolvedCount = completed.length;
-        return {
-          technicianId: s.technicianId,
-          technicianName: `${s.technician.firstName} ${s.technician.lastName}`,
-          technicianType: s.technician.technicianType,
-          score: resolvedCount === 0 ? 0 : Number(s.totalScore),
-          grade: resolvedCount === 0 ? 'F' : s.grade,
-          gradeDescription: resolvedCount === 0 ? 'NEEDS IMPROVEMENT' : s.gradeDescription,
-          workVolume: resolvedCount,
-          slaPercent: resolvedCount === 0 ? 0 : slaPercent,
-          avgResolutionTimeHours: resolvedCount === 0 ? null : avgResolutionTimeHours,
-          slaResolution: resolvedCount === 0 ? { CRITICAL: null, HIGH: null, MEDIUM: null, LOW: null } : slaResolution,
-        };
-      })
-    );
-
-    // Sort
     if (sortBy === 'workVolume') {
       entries.sort((a, b) => b.workVolume - a.workVolume);
     } else if (sortBy === 'sla') {
       entries.sort((a, b) => b.slaPercent - a.slaPercent);
-    } else {
-      entries.sort((a, b) => b.score - a.score);
     }
 
-    // Add rank
-    return entries.slice(0, limit).map((e, i) => ({ ...e, rank: i + 1 }));
+    return [...entries, ...idle].slice(0, limit).map((e, i) => ({ ...e, rank: i + 1 }));
   }
 
   /**
@@ -921,6 +879,7 @@ export class PerformanceService {
    */
   async getResolutionTimeStats(period?: string, jobTypes?: string[], from?: string, to?: string) {
     const { startDate, endDate, targetPeriod } = this.getDateRange(period, from, to);
+    const excluded = await this.getSlaExcludedJobTypes();
 
     // Load SLA configs once
     const slaConfigs = await this.prisma.slaConfig.findMany({
@@ -976,16 +935,11 @@ export class PerformanceService {
       }
 
       // Per priority: SLA pass/fail
-      const slaRelevant = incidents.filter(i => i.jobType !== 'Project');
+      const slaRelevant = incidents.filter(i => this.isSlaRelevant(i, excluded));
       const slaPassFail: Record<string, { pass: number; fail: number }> = {};
       for (const cfg of slaConfigs) {
         const group = slaRelevant.filter(i => i.priority === cfg.priority);
-        const pass = group.filter(i => {
-          if (i.jobType === 'Adhoc') return true;
-          if (!i.slaDeadline || !i.resolvedAt) return true;
-          if (i.resolvedAt <= i.slaDeadline) return true;
-          return (i as any).slaDefenses?.some((d: any) => d.status === SlaDefenseStatus.APPROVED);
-        }).length;
+        const pass = group.filter(i => this.isSlaPass(i)).length;
         slaPassFail[cfg.priority] = { pass, fail: group.length - pass };
       }
 
@@ -1773,120 +1727,91 @@ export class PerformanceService {
     return { startDate, endDate, targetPeriod };
   }
 
-  /**
-   * SLA breakdown per priority (CRITICAL/HIGH/MEDIUM/LOW) — computed on-the-fly
-   */
-  private async getSlaBreakdown(technicianId: number, period: string) {
-    const [year, month] = period.split('-').map(Number);
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59);
-
-    const [incidents, slaConfigs] = await Promise.all([
-      this.prisma.incident.findMany({
-        where: {
-          assigneeId: technicianId,
-          createdAt: { gte: startDate, lte: endDate },
-          resolvedAt: { not: null },
-          checkInAt: { not: null },
-        },
-        select: { priority: true, resolvedAt: true, checkInAt: true },
-      }),
-      this.prisma.slaConfig.findMany({
-        where: { isActive: true },
-        select: { priority: true, resolutionTimeMinutes: true, name: true },
-      }),
-    ]);
-
-    const configMap = new Map(slaConfigs.map(c => [c.priority, c]));
-    const priorities = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const;
-    const result: Record<string, { avg: number | null; targetHours: number | null; count: number; label: string }> = {};
-
-    for (const p of priorities) {
-      const group = incidents.filter(i => i.priority === p);
-      const config = configMap.get(p);
-      const avg = group.length > 0
-        ? group.reduce((sum, i) => sum + (i.resolvedAt!.getTime() - i.checkInAt!.getTime()) / (1000 * 60 * 60), 0) / group.length
-        : null;
-      result[p] = {
-        avg: avg !== null ? Math.round(avg * 100) / 100 : null,
-        targetHours: config ? config.resolutionTimeMinutes / 60 : null,
-        count: group.length,
-        label: config?.name || p,
-      };
-    }
-    return result;
+  private toPeriod(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   }
 
   /**
-   * Format performance response
+   * Format performance response (technician detail view)
    */
-  private formatPerformanceResponse(score: any, slaBreakdown?: Record<string, any>) {
-    if (!score) return null;
+  private formatPerformanceResponse(
+    s: TechnicianScore | null,
+    technicianName: string,
+    technicianId: number,
+    period: string,
+    team: Awaited<ReturnType<PerformanceService['computeScores']>>,
+  ) {
+    const slaBreakdown =
+      s?.slaBreakdown ??
+      Object.fromEntries(
+        PRIORITIES.map((p) => {
+          const cfg = team.slaConfigs.find((c) => c.priority === p);
+          return [p, { avg: null, targetHours: cfg ? cfg.resolutionTimeMinutes / 60 : null, count: 0, label: cfg?.name || p }];
+        }),
+      );
 
     return {
-      technicianId: score.technicianId,
-      technicianName: score.technician
-        ? `${score.technician.firstName} ${score.technician.lastName}`
-        : null,
-      period: score.period,
-      overallScore: Number(score.totalScore),
-      grade: score.grade,
-      gradeDescription: score.gradeDescription,
-      ranking: score.teamRanking,
-      totalTechnicians: score.totalTechnicians,
+      technicianId,
+      technicianName,
+      period,
+      overallScore: s?.totalScore ?? 0,
+      grade: s?.grade ?? '-',
+      gradeDescription: s?.gradeDescription ?? 'ไม่มีงานที่ปิดในช่วงนี้',
+      ranking: s?.rank ?? null,
+      totalTechnicians: team.scores.length,
       metrics: {
         slaCompliance: {
-          value: Number(score.slaCompliance),
-          score: Number(score.slaScore),
-          weight: WEIGHTS.slaCompliance,
+          value: s?.sla.rate ?? null,
+          score: s?.sla.score ?? 0,
+          weight: s?.weights.slaCompliance ?? WEIGHTS.slaCompliance,
           target: TARGETS.slaCompliance,
+          total: s?.sla.total ?? 0,
+          pass: s?.sla.pass ?? 0,
         },
         workVolume: {
-          value: score.workVolume,
-          score: Number(score.workVolumeScore),
-          weight: WEIGHTS.workVolume,
-          target: score.workVolumeTarget,
+          value: s?.jobs ?? 0,
+          score: s?.workVolume.score ?? 0,
+          weight: s?.weights.workVolume ?? WEIGHTS.workVolume,
+          target: s?.workVolume.fullScoreTarget ?? Math.ceil(team.teamAvgJobs * TARGETS.workVolumeTeamRatio),
+          teamAvg: team.teamAvgJobs,
         },
         resolutionTime: {
-          value: Number(score.avgResolutionTime),
-          score: Number(score.resolutionTimeScore),
-          weight: WEIGHTS.resolutionTime,
-          standard: Number(score.resolutionTimeStandard),
+          value: s?.resolution.avgHours ?? null,
+          score: s?.resolution.score ?? 0,
+          weight: s?.weights.resolutionTime ?? WEIGHTS.resolutionTime,
+          standard: s?.resolution.avgTargetHours ?? null,
+          count: s?.resolution.count ?? 0,
           unit: 'hours',
         },
         responseTime: {
-          value: Number(score.avgResponseTime),
-          score: Number(score.responseTimeScore),
-          weight: WEIGHTS.responseTime,
-          standard: Number(score.responseTimeStandard),
+          value: s?.response.rate ?? null,
+          score: s?.response.score ?? 0,
+          weight: s?.weights.responseTime ?? WEIGHTS.responseTime,
+          standard: TARGETS.responseOnTime,
+          total: s?.response.total ?? 0,
+          onTime: s?.response.onTime ?? 0,
           unit: 'percent',
         },
         firstTimeFix: {
-          value: Number(score.firstTimeFixRate),
-          score: Number(score.firstTimeFixScore),
-          weight: WEIGHTS.firstTimeFix,
+          value: s?.firstTimeFix.rate ?? null,
+          score: s?.firstTimeFix.score ?? 0,
+          weight: s?.weights.firstTimeFix ?? WEIGHTS.firstTimeFix,
           target: TARGETS.firstTimeFix,
         },
-        reopenRate: {
-          value: Number(score.reopenRate),
-          score: Number(score.reopenScore),
-          weight: WEIGHTS.reopenRate,
-          target: TARGETS.reopenRate,
-        },
         customerSatisfaction: {
-          rating: score.avgCustomerRating ? Number(score.avgCustomerRating) : null,
-          totalRatings: score.totalRatings,
-          score: score.customerSatisfactionScore ? Number(score.customerSatisfactionScore) : null,
-          weight: WEIGHTS.customerSatisfaction,
+          rating: s?.customerSatisfaction.avg ?? null,
+          totalRatings: s?.customerSatisfaction.count ?? 0,
+          score: s?.customerSatisfaction.score ?? null,
+          weight: s?.weights.customerSatisfaction ?? 0,
         },
       },
-      bonusPoints: Number(score.totalBonusPoints),
+      bonusPoints: 0,
       comparison: {
-        teamAvgScore: Number(score.teamAvgScore),
-        topPerformerScore: Number(score.topPerformerScore),
+        teamAvgScore: team.teamAvgScore,
+        topPerformerScore: team.topScore,
       },
-      calculatedAt: score.calculatedAt,
-      slaBreakdown: slaBreakdown ?? null,
+      calculatedAt: new Date(),
+      slaBreakdown,
     };
   }
 }

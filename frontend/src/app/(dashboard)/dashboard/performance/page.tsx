@@ -75,7 +75,7 @@ function useIsDark() {
 // ==================== TYPES ====================
 
 interface MetricData {
-  value: number
+  value: number | null
   score: number
   weight: number
   target?: number
@@ -100,12 +100,11 @@ interface PerformanceData {
   ranking: number | null
   totalTechnicians: number | null
   metrics: {
-    slaCompliance: MetricData
-    workVolume: MetricData & { target: number }
-    resolutionTime: MetricData & { standard: number; unit: string }
-    responseTime: MetricData & { standard: number; unit: string }
+    slaCompliance: MetricData & { total: number; pass: number }
+    workVolume: MetricData & { target: number; teamAvg: number }
+    resolutionTime: Omit<MetricData, 'standard'> & { standard: number | null; count: number; unit: string }
+    responseTime: MetricData & { standard: number; total: number; onTime: number; unit: string }
     firstTimeFix: MetricData
-    reopenRate: MetricData
     customerSatisfaction: {
       rating: number | null
       totalRatings: number
@@ -549,9 +548,8 @@ export default function PerformancePage() {
     try {
       // Technician: own data
       if (isTechnician || isSelfOnly) {
-        const derivedPeriod = dateFrom.substring(0, 7)
         const calls = [
-          axios.get(`${api}/performance/my?period=${derivedPeriod}`, cfg).catch(() => null),
+          axios.get(`${api}/performance/my?from=${dateFrom}&to=${dateTo}`, cfg).catch(() => null),
           axios.get(`${api}/performance/my/history?months=12`, cfg).catch(() => null),
           axios.get(`${api}/ratings/my?limit=10`, cfg).catch(() => null),
           axios.get(`${api}/performance/my/ytd`, cfg).catch(() => null),
@@ -636,9 +634,8 @@ export default function PerformancePage() {
   const viewDetail = async (techId: number) => {
     try {
       const token = localStorage.getItem('token')
-      const derivedPeriod = dateFromRef.current.substring(0, 7)
       const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/performance/technicians/${techId}?period=${derivedPeriod}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/performance/technicians/${techId}?from=${dateFromRef.current}&to=${dateToRef.current}`,
         { headers: { Authorization: `Bearer ${token}` } }
       )
       setSelectedPerformance(res.data)
@@ -2600,7 +2597,7 @@ function MiniGaugeCard({ label, score, displayValue, weight, icon: Icon, target,
         <text x={cx} y={cy - 12} textAnchor="middle" fill={textFill} fontSize="21" fontWeight="700">{displayValue}</text>
         <text x={cx} y={cy + 10} textAnchor="middle" fill={color} fontSize="12" fontWeight="600">{score.toFixed(0)} pts</text>
       </svg>
-      <p className="text-xs text-gray-500 mt-0.5">W: {weight}%{target ? ` · ${target}` : ''}</p>
+      <p className="text-xs text-gray-500 mt-0.5">{weight > 0 ? `W: ${weight}%` : 'ไม่นับคะแนน'}{target ? ` · ${target}` : ''}</p>
       {subtitle && <p className="text-xs text-gray-600 mt-0.5">{subtitle}</p>}
 
       {/* Tips panel */}
@@ -2750,7 +2747,7 @@ function PerformanceDetail({ data, fmtTime, fmtPct, barColor }: {
               </div>
               <div>
                 <p className="text-xl font-semibold text-white">{data.gradeDescription}</p>
-                <p className="text-gray-400 text-sm mt-0.5">เดือน {data.period}</p>
+                <p className="text-gray-400 text-sm mt-0.5">ช่วง {data.period}</p>
                 {data.ranking && data.totalTechnicians && (
                   <div className="flex items-center gap-1.5 mt-2 justify-center md:justify-start">
                     <Trophy className="w-4 h-4 text-yellow-400 flex-shrink-0" />
@@ -2777,13 +2774,6 @@ function PerformanceDetail({ data, fmtTime, fmtPct, barColor }: {
               </div>
             )}
 
-            {/* Bonus */}
-            {data.bonusPoints > 0 && (
-              <div className="flex items-center gap-2 p-3 bg-purple-500/15 border border-purple-500/20 rounded-xl justify-center md:justify-start">
-                <Award className="w-5 h-5 text-purple-400 flex-shrink-0" />
-                <span className="text-purple-300 font-semibold">+{data.bonusPoints.toFixed(1)} Bonus Points</span>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -2791,20 +2781,23 @@ function PerformanceDetail({ data, fmtTime, fmtPct, barColor }: {
       {/* ── MINI GAUGES: 4 key indicators ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <MiniGaugeCard label="SLA Compliance"
-          score={hasIncidents ? data.metrics.slaCompliance.score : 0}
-          displayValue={hasIncidents ? fmtPct(data.metrics.slaCompliance.value) : 'N/A'}
+          score={data.metrics.slaCompliance.value != null ? data.metrics.slaCompliance.score : 0}
+          displayValue={data.metrics.slaCompliance.value != null ? fmtPct(data.metrics.slaCompliance.value) : 'N/A'}
           weight={data.metrics.slaCompliance.weight}
           icon={ShieldCheck} target={`${data.metrics.slaCompliance.target}%`}
+          subtitle={data.metrics.slaCompliance.total > 0
+            ? `ผ่าน ${data.metrics.slaCompliance.pass}/${data.metrics.slaCompliance.total} งาน` : 'ไม่มีงานที่คิด SLA'}
           tips={[
+            'ไม่นับงาน Project, PM, Adhoc และงานที่ไม่มี SLA deadline',
             'รับงานและเริ่มดำเนินการทันทีหลังได้รับมอบหมาย',
             'จัดลำดับความสำคัญงาน Priority สูงก่อนเสมอ',
             'แจ้ง Supervisor ล่วงหน้าหากคาดว่างานจะล่าช้า',
             'ติดตามงานที่ใกล้ครบ SLA ก่อนจะเกินกำหนด',
           ]} />
         <MiniGaugeCard label="Customer Satisfaction"
-          score={data.metrics.customerSatisfaction.score ?? 100}
+          score={data.metrics.customerSatisfaction.score ?? 0}
           displayValue={data.metrics.customerSatisfaction.rating != null
-            ? `${data.metrics.customerSatisfaction.rating.toFixed(1)}/5.0` : '5.0/5.0'}
+            ? `${data.metrics.customerSatisfaction.rating.toFixed(1)}/5.0` : 'N/A'}
           weight={data.metrics.customerSatisfaction.weight}
           icon={Star} target="5.0"
           subtitle={`${data.metrics.customerSatisfaction.totalRatings} ratings`}
@@ -2814,24 +2807,25 @@ function PerformanceDetail({ data, fmtTime, fmtPct, barColor }: {
             'ถามลูกค้าว่าพอใจก่อนออกจากพื้นที่',
             'ทำความสะอาดและเก็บอุปกรณ์ให้เรียบร้อยหลังงาน',
           ]} />
-        <MiniGaugeCard label="Response Rate"
-          score={hasIncidents ? data.metrics.responseTime.score : 0}
-          displayValue={hasIncidents && data.metrics.responseTime.value > 0 ? fmtPct(data.metrics.responseTime.value) : 'N/A'}
+        <MiniGaugeCard label="Response On-Time"
+          score={data.metrics.responseTime.value != null ? data.metrics.responseTime.score : 0}
+          displayValue={data.metrics.responseTime.value != null ? fmtPct(data.metrics.responseTime.value) : 'N/A'}
           weight={data.metrics.responseTime.weight}
           icon={Zap} target={`≥${data.metrics.responseTime.standard}%`}
+          subtitle={data.metrics.responseTime.total > 0
+            ? `ทันเวลา ${data.metrics.responseTime.onTime}/${data.metrics.responseTime.total} งาน` : undefined}
           tips={[
-            'Response Rate = Resolved ÷ Responded × 100%',
-            'ตอบรับและ Check-in ทุกงานที่ได้รับมอบหมาย',
-            'ติดตามงานค้างและดำเนินการให้ครบทุกใบ',
-            'หากงาน Resolve ไม่ได้ ให้รายงานและส่งต่อทันที',
+            'นับจากเวลาได้รับมอบหมาย ถึงเวลาตอบรับงานหรือ Check-in (อย่างใดถึงก่อน)',
+            'ต้องอยู่ในเวลา Response ของ SLA ตาม Priority',
+            'กดตอบรับงานพร้อมเวลาคาดว่าจะถึง ทันทีที่ได้รับงาน',
           ]} />
-        <MiniGaugeCard label="Reopen Rate"
-          score={hasIncidents ? data.metrics.reopenRate.score : 0}
-          displayValue={hasIncidents ? fmtPct(data.metrics.reopenRate.value) : 'N/A'}
-          weight={data.metrics.reopenRate.weight}
-          icon={RotateCcw} target={`≤${data.metrics.reopenRate.target}%`}
+        <MiniGaugeCard label="First Time Fix"
+          score={hasIncidents ? data.metrics.firstTimeFix.score : 0}
+          displayValue={hasIncidents ? fmtPct(data.metrics.firstTimeFix.value) : 'N/A'}
+          weight={data.metrics.firstTimeFix.weight}
+          icon={RotateCcw} target={`≥${data.metrics.firstTimeFix.target}%`}
           tips={[
-            'คะแนน = 100 − Reopen Rate (%) ยิ่งน้อยยิ่งดี',
+            'สัดส่วนงานที่ปิดได้โดยไม่ถูก Reopen',
             'แก้ Root Cause จริงและทดสอบซ้ำก่อนปิดงาน',
             'บันทึก Resolution Notes ให้ครบถ้วนชัดเจน',
             'Follow up ลูกค้า 1–2 วันหลังปิดงาน',
@@ -2848,11 +2842,26 @@ function PerformanceDetail({ data, fmtTime, fmtPct, barColor }: {
             value={`${data.metrics.workVolume.value} งาน`}
             score={data.metrics.workVolume.score} weight={data.metrics.workVolume.weight}
             target={`${data.metrics.workVolume.target} งาน`} color="blue" barColor={barColor}
+            subtitle={`เฉลี่ยทีม ${data.metrics.workVolume.teamAvg} งาน`}
             tips={[
+              'นับงานที่ปิดในช่วงที่เลือก (รวมงานที่เป็นช่างร่วม)',
+              'เท่าค่าเฉลี่ยทีม = 80 คะแนน, ≥ 1.25 เท่า = 100 คะแนน',
               'วางแผนเส้นทางให้มีประสิทธิภาพ จัดกลุ่มงานในพื้นที่ใกล้กัน',
               'แจ้งความพร้อมรับงานเพิ่มเมื่อปิดงานเร็วกว่ากำหนด',
               'บันทึกข้อมูลผ่าน App ทันทีเพื่อลดเวลา Admin',
               'ประสานงานกับลูกค้าล่วงหน้าเพื่อลดเวลารอหน้างาน',
+            ]} />
+          <MetricRow icon={Timer} label="Resolution Time"
+            value={data.metrics.resolutionTime.value != null ? fmtTime(data.metrics.resolutionTime.value, 'hours') : 'N/A'}
+            score={data.metrics.resolutionTime.value != null ? data.metrics.resolutionTime.score : 0}
+            weight={data.metrics.resolutionTime.weight}
+            target={data.metrics.resolutionTime.standard != null ? fmtTime(data.metrics.resolutionTime.standard, 'hours') : undefined}
+            color="purple" barColor={barColor}
+            subtitle={data.metrics.resolutionTime.count > 0 ? `${data.metrics.resolutionTime.count} งาน SLA` : undefined}
+            tips={[
+              'เวลาเปิดงานถึงปิดงาน เทียบกับเวลา SLA ของแต่ละงาน',
+              'ปิดภายใน SLA = 100 คะแนน, ช้ากว่าลดลงตามสัดส่วน, ช้า 2 เท่าขึ้นไป = 0',
+              'งานที่ได้รับอนุมัติ Defend SLA นับเป็น 100 คะแนน',
             ]} />
           {(() => {
             const sla = data.slaBreakdown

@@ -4905,7 +4905,7 @@ export class IncidentsService {
     const defense = await this.prisma.slaDefense.findUnique({
       where: { id: defenseId },
       include: {
-        incident: { select: { id: true, ticketNumber: true, title: true, createdAt: true } },
+        incident: { select: { id: true, ticketNumber: true, title: true, createdAt: true, resolvedAt: true } },
         technician: { select: { id: true, firstName: true, lastName: true } },
       },
     });
@@ -4942,11 +4942,11 @@ export class IncidentsService {
       defense.incidentId,
     );
 
-    // Recalculate technician performance score so the leaderboard reflects the defense decision
+    // Recalculate stored scores for the month the job was completed (scores are grouped by resolvedAt)
     try {
-      const d = defense.incident.createdAt;
+      const d = defense.incident.resolvedAt ?? defense.incident.createdAt;
       const period = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      await this.performanceService.calculatePerformance(defense.technicianId, period);
+      await this.performanceService.calculateAllPerformance(period);
     } catch (_) {
       // Non-critical — score will be recalculated on next manual trigger
     }

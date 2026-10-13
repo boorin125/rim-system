@@ -43,8 +43,10 @@ export class PerformanceController {
   async getMyPerformance(
     @Request() req,
     @Query('period') period?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ) {
-    return this.performanceService.getTechnicianPerformance(req.user.id, period);
+    return this.performanceService.getTechnicianPerformance(req.user.id, period, from, to);
   }
 
   /**
@@ -268,8 +270,10 @@ export class PerformanceController {
   async getTechnicianPerformance(
     @Param('id', ParseIntPipe) id: number,
     @Query('period') period?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ) {
-    return this.performanceService.getTechnicianPerformance(id, period);
+    return this.performanceService.getTechnicianPerformance(id, period, from, to);
   }
 
   /**
