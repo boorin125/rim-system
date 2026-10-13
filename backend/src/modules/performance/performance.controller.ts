@@ -341,13 +341,6 @@ export class PerformanceController {
     return this.performanceService.getTopActiveEquipment(period, limit ? parseInt(limit) : 10, parsed, from, to);
   }
 
-  /** Equipment Incident Detail (by equipmentId) */
-  @Get('equipment-incident-detail/:equipmentId')
-  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK, UserRole.MONITOR)
-  async getEquipmentIncidentDetail(@Param('equipmentId', ParseIntPipe) equipmentId: number) {
-    return this.performanceService.getEquipmentIncidentDetail(equipmentId);
-  }
-
   /** Equipment S/N with >2 repair incidents */
   @Get('equipment-repeat')
   @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK, UserRole.MONITOR)
@@ -362,17 +355,20 @@ export class PerformanceController {
     return this.performanceService.getEquipmentRepeatIncidents(period, parsed, from, to, allTime === 'true');
   }
 
-  /** Incidents that used the given equipment (S/N group) */
+  /** Incidents attributed to one device (key = sn:<serial> or id:<equipmentId>) */
   @Get('equipment-repeat-detail')
   @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK, UserRole.MONITOR)
   async getEquipmentRepeatDetail(
     @Query('equipmentIds') equipmentIds: string,
     @Query('jobTypes') jobTypes?: string,
+    @Query('key') key?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ) {
     const ids = (equipmentIds || '').split(',').map((v) => parseInt(v, 10)).filter((n) => !isNaN(n));
     if (ids.length === 0) throw new BadRequestException('equipmentIds is required');
     const parsed = jobTypes ? jobTypes.split(',').map(s => s.trim()).filter(Boolean) : undefined;
-    return this.performanceService.getEquipmentRepeatDetail(ids, parsed);
+    return this.performanceService.getEquipmentRepeatDetail(ids, parsed, key, from, to);
   }
 
   /** Help Desk Overall Stats */

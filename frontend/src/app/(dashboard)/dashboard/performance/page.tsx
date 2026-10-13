@@ -210,21 +210,11 @@ interface TopEquipmentEntry {
   count: number
 }
 
-interface ActiveEquipmentEntry {
-  equipmentId: number
-  equipmentName: string
-  category: string
-  brand: string
-  model: string
-  serialNumber: string
-  storeCode: string
-  storeName: string
-  count: number
-  lastIncidentAt: string
-}
-
 interface RepeatEquipmentEntry {
+  key: string
+  equipmentId: number
   equipmentIds: number[]
+  status: string
   equipmentName: string
   category: string
   storeCode: string
@@ -234,17 +224,6 @@ interface RepeatEquipmentEntry {
   serialNumber: string
   count: number
   lastIncidentAt: string
-}
-
-interface EquipmentIncidentRow {
-  no: number
-  incidentDate: string
-  incidentNo: string
-  store: string
-  title: string
-  resolution: string
-  resolvedAt: string | null
-  technicianName: string
 }
 
 interface RepeatIncidentRow {
@@ -254,6 +233,7 @@ interface RepeatIncidentRow {
   store: string
   title: string
   status?: string
+  reopenCount?: number
   resolution: string
   resolvedAt: string | null
   technicianName: string
@@ -424,27 +404,26 @@ export default function PerformancePage() {
   const [storeDetail, setStoreDetail] = useState<StoreIncidentDetail | null>(null)
   const [loadingStoreDetail, setLoadingStoreDetail] = useState(false)
 
-  // Box 1: Top Active Equipment
-  const [topActiveEquipment, setTopActiveEquipment] = useState<ActiveEquipmentEntry[]>([])
-  const [activeEquipDetail, setActiveEquipDetail] = useState<{ equipment: any; incidents: EquipmentIncidentRow[] } | null>(null)
-  const [activeEquipModal, setActiveEquipModal] = useState(false)
-  const [loadingActiveDetail, setLoadingActiveDetail] = useState(false)
+  // Box 1: devices with repeat requests in the selected range
+  const [topActiveEquipment, setTopActiveEquipment] = useState<RepeatEquipmentEntry[]>([])
 
-  // Box 2: Repeat Equipment in Store
+  // Box 2: devices with repeat requests (all time)
   const [repeatEquipment, setRepeatEquipment] = useState<RepeatEquipmentEntry[]>([])
-  const [repeatEquipDetail, setRepeatEquipDetail] = useState<{ equipmentName: string; brand: string; model: string; serialNumber: string; incidents: RepeatIncidentRow[] } | null>(null)
+  const [repeatEquipDetail, setRepeatEquipDetail] = useState<{ equipmentName: string; brand: string; model: string; serialNumber: string; count: number; incidents: RepeatIncidentRow[] } | null>(null)
   const [repeatEquipModal, setRepeatEquipModal] = useState(false)
   const [repeatViewAll, setRepeatViewAll] = useState(false)
   const [repeatSearch, setRepeatSearch] = useState('')
 
-  const openRepeatDetail = async (eq: RepeatEquipmentEntry) => {
+  // inRange: Box 1 counts only the selected date range, so its detail does too
+  const openRepeatDetail = async (eq: RepeatEquipmentEntry, inRange = false) => {
     setLoadingRepeatDetail(true)
     setRepeatEquipModal(true)
     try {
       const token = localStorage.getItem('token')
       const jt = selectedJobTypes.length > 0 ? `&jobTypes=${selectedJobTypes.join(',')}` : ''
+      const range = inRange ? `&from=${dateFromRef.current}&to=${dateToRef.current}` : ''
       const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/performance/equipment-repeat-detail?equipmentIds=${eq.equipmentIds.join(',')}${jt}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/performance/equipment-repeat-detail?equipmentIds=${eq.equipmentIds.join(',')}&key=${encodeURIComponent(eq.key)}${jt}${range}`,
         { headers: { Authorization: `Bearer ${token}` } },
       )
       setRepeatEquipDetail(res.data)
@@ -462,7 +441,8 @@ export default function PerformancePage() {
       'Model': eq.model !== '-' ? eq.model : '',
       'S/N': eq.serialNumber !== '-' ? eq.serialNumber : '',
       'Store': formatStore({ storeCode: eq.storeCode, name: eq.storeName }, ''),
-      'จำนวนครั้ง': eq.count,
+      'สถานะ': eq.status,
+      'จำนวนครั้ง (รวม Reopen)': eq.count,
       'แจ้งล่าสุด': fmt(eq.lastIncidentAt),
     }))
     const ws = XLSX.utils.json_to_sheet(rows)
@@ -471,9 +451,6 @@ export default function PerformancePage() {
     XLSX.writeFile(wb, `equipment-duplicate-problems-${new Date().toISOString().slice(0, 10)}.xlsx`)
   }
   const [loadingRepeatDetail, setLoadingRepeatDetail] = useState(false)
-
-  // Equipment boxes period mode
-  const [equipPeriodMode, setEquipPeriodMode] = useState<'all' | 'period'>('period')
 
   // Help Desk Performance
   const [helpdeskStats, setHelpdeskStats] = useState<HelpdeskStats | null>(null)
@@ -1028,11 +1005,12 @@ export default function PerformancePage() {
 
           {/* Box 1 + Box 2: Side by side */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Box 1: Top 10 Active Equipment with Most Incidents */}
+          {/* Box 1: devices with repeat requests in the selected range */}
           <div className="glass-card p-5 rounded-2xl">
             <h3 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
               <HardDrive className="w-4 h-4 text-cyan-400" />
               Top 10 Equipment Active (Most Incidents)
+              <span className="ml-auto text-xs font-normal text-gray-400">(แจ้งซ่อม ≥ 2 ครั้ง ในช่วงที่เลือก)</span>
             </h3>
             {topActiveEquipment.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 gap-2 text-gray-500">
@@ -1040,54 +1018,7 @@ export default function PerformancePage() {
                 <p className="text-sm">ไม่มีอุปกรณ์ที่ต้องให้ความสนใจในช่วงเวลานี้</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[560px]">
-                  <thead>
-                    <tr className="text-gray-400 border-b border-slate-700">
-                      <th className="text-left py-2 px-2 font-medium">#</th>
-                      <th className="text-left py-2 px-2 font-medium">Equipment</th>
-                      <th className="text-left py-2 px-2 font-medium">Store</th>
-                      <th className="text-center py-2 px-2 font-medium">ครั้ง</th>
-                      <th className="text-center py-2 px-2 font-medium">ล่าสุด</th>
-                      <th className="text-center py-2 px-2 font-medium"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {topActiveEquipment.map((eq, idx) => (
-                      <tr key={eq.equipmentId} className="border-b border-slate-700/50 hover:bg-slate-700/30 transition">
-                        <td className="py-2 px-2 text-gray-400">{idx + 1}</td>
-                        <td className="py-2 px-2 text-white font-medium">
-                          {eq.equipmentName || [eq.brand, eq.model].filter(Boolean).join(' ') || '-'}
-                        </td>
-                        <td className="py-2 px-2 text-gray-300 text-xs">
-                          {formatStore({ storeCode: eq.storeCode, name: eq.storeName }, '-')}
-                        </td>
-                        <td className="py-2 px-2 text-center">
-                          <span className="px-2 py-0.5 bg-red-500/20 text-red-400 rounded-full text-xs font-semibold">{eq.count}</span>
-                        </td>
-                        <td className="py-2 px-2 text-center text-gray-400 text-xs">
-                          {new Date(eq.lastIncidentAt).toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: '2-digit' })}
-                        </td>
-                        <td className="py-2 px-2 text-center">
-                          <button
-                            onClick={async () => {
-                              setLoadingActiveDetail(true)
-                              setActiveEquipModal(true)
-                              try {
-                                const token = localStorage.getItem('token')
-                                const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/performance/equipment-incident-detail/${eq.equipmentId}`, { headers: { Authorization: `Bearer ${token}` } })
-                                setActiveEquipDetail(res.data)
-                              } catch { setActiveEquipDetail(null) }
-                              finally { setLoadingActiveDetail(false) }
-                            }}
-                            className="text-xs px-2 py-1 rounded-lg bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 transition"
-                          >Detail</button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <RepeatEquipmentTable showStore rows={topActiveEquipment} onDetail={(eq) => openRepeatDetail(eq, true)} />
             )}
           </div>
 
@@ -1096,7 +1027,7 @@ export default function PerformancePage() {
             <h3 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-orange-400" />
               Equipment Duplicate Problems
-              <span className="ml-auto text-xs font-normal text-gray-400">(แจ้งซ่อม &gt; 2 ครั้ง ตั้งแต่เริ่มมีข้อมูล — Active เท่านั้น)</span>
+              <span className="ml-auto text-xs font-normal text-gray-400">(แจ้งซ่อม ≥ 3 ครั้ง รวม Reopen ตั้งแต่เริ่มมีข้อมูล — นับตาม S/N, เฉพาะเครื่องที่ใช้งานอยู่)</span>
             </h3>
             {repeatEquipment.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 gap-2 text-gray-500">
@@ -1105,7 +1036,7 @@ export default function PerformancePage() {
               </div>
             ) : (
               <>
-                <RepeatEquipmentTable rows={repeatEquipment.slice(0, 15)} onDetail={openRepeatDetail} />
+                <RepeatEquipmentTable rows={repeatEquipment.slice(0, 15)} onDetail={(eq) => openRepeatDetail(eq)} />
                 <div className="flex items-center justify-between mt-3">
                   <span className="text-xs text-gray-400">แสดง {Math.min(15, repeatEquipment.length)} จาก {repeatEquipment.length} รายการ</span>
                   <button
@@ -1519,73 +1450,6 @@ export default function PerformancePage() {
         </div>
       )}
 
-      {/* Box 1 Modal: Active Equipment Incident Detail */}
-      {activeEquipModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800 rounded-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="p-5 border-b border-slate-700/50 flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                  <HardDrive className="w-5 h-5 text-cyan-400" />
-                  Equipment Incident Detail
-                </h2>
-                {activeEquipDetail?.equipment && (
-                  <p className="text-sm text-gray-400 mt-0.5">
-                    {[activeEquipDetail.equipment.category, activeEquipDetail.equipment.brand, activeEquipDetail.equipment.model].filter(Boolean).join(' · ')}
-                    {activeEquipDetail.equipment.serialNumber ? ` · S/N: ${activeEquipDetail.equipment.serialNumber}` : ''}
-                  </p>
-                )}
-              </div>
-              <button onClick={() => { setActiveEquipModal(false); setActiveEquipDetail(null) }} className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-slate-700/50">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="overflow-y-auto overflow-x-auto">
-              {loadingActiveDetail ? (
-                <div className="flex items-center justify-center p-10">
-                  <div className="spinner"></div>
-                </div>
-              ) : !activeEquipDetail || activeEquipDetail.incidents.length === 0 ? (
-                <div className="p-8 text-center text-gray-400">ไม่มีข้อมูล</div>
-              ) : (
-                <table className="w-full text-sm min-w-[640px]">
-                  <thead className="sticky top-0 bg-slate-800">
-                    <tr className="text-gray-400 border-b border-slate-700">
-                      <th className="text-center py-3 px-3 font-medium w-10">#</th>
-                      <th className="text-left py-3 px-3 font-medium">Incident Date</th>
-                      <th className="text-left py-3 px-3 font-medium">Ticket No.</th>
-                      <th className="text-left py-3 px-3 font-medium">Store</th>
-                      <th className="text-left py-3 px-3 font-medium">Title</th>
-                      <th className="text-left py-3 px-3 font-medium">Resolution</th>
-                      <th className="text-left py-3 px-3 font-medium">Resolved Date</th>
-                      <th className="text-left py-3 px-3 font-medium">Technician</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {activeEquipDetail.incidents.map((row, idx) => (
-                      <tr key={idx} className="border-b border-slate-700/40 hover:bg-slate-700/30 transition">
-                        <td className="py-2.5 px-3 text-center text-gray-400">{idx + 1}</td>
-                        <td className="py-2.5 px-3 text-gray-300 whitespace-nowrap">
-                          {row.incidentDate ? new Date(row.incidentDate).toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '-'}
-                        </td>
-                        <td className="py-2.5 px-3 text-cyan-400 font-mono text-xs">{row.incidentNo || '-'}</td>
-                        <td className="py-2.5 px-3 text-gray-300 whitespace-nowrap">{row.store || '-'}</td>
-                        <td className="py-2.5 px-3 text-white">{row.title || '-'}</td>
-                        <td className="py-2.5 px-3 text-gray-300 max-w-[200px] truncate" title={row.resolution}>{row.resolution || '-'}</td>
-                        <td className="py-2.5 px-3 text-gray-300 whitespace-nowrap">
-                          {row.resolvedAt ? new Date(row.resolvedAt).toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '-'}
-                        </td>
-                        <td className="py-2.5 px-3 text-gray-300">{row.technicianName || '-'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Box 2 Modal: View all duplicate equipment */}
       {repeatViewAll && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -1621,7 +1485,7 @@ export default function PerformancePage() {
                   return [eq.equipmentName, eq.brand, eq.model, eq.serialNumber, eq.storeCode, eq.storeName]
                     .some((v) => (v || '').toLowerCase().includes(q))
                 })}
-                onDetail={openRepeatDetail}
+                onDetail={(eq) => openRepeatDetail(eq)}
               />
             </div>
           </div>
@@ -1643,6 +1507,7 @@ export default function PerformancePage() {
                     {repeatEquipDetail.equipmentName}
                     {[repeatEquipDetail.brand, repeatEquipDetail.model].filter(Boolean).join(' ') && ` · ${[repeatEquipDetail.brand, repeatEquipDetail.model].filter(Boolean).join(' ')}`}
                     {repeatEquipDetail.serialNumber && ` · S/N: ${repeatEquipDetail.serialNumber}`}
+                    {` · ${repeatEquipDetail.incidents.length} งาน / ${repeatEquipDetail.count} ครั้ง (รวม Reopen)`}
                   </p>
                 )}
               </div>
@@ -1682,7 +1547,12 @@ export default function PerformancePage() {
                         <td className="py-2.5 px-3 text-orange-400 font-mono text-xs">{row.incidentNo || '-'}</td>
                         <td className="py-2.5 px-3 text-gray-300 whitespace-nowrap">{row.store || '-'}</td>
                         <td className="py-2.5 px-3 text-white">{row.title || '-'}</td>
-                        <td className="py-2.5 px-3 text-gray-300 text-xs whitespace-nowrap">{row.status || '-'}</td>
+                        <td className="py-2.5 px-3 text-gray-300 text-xs whitespace-nowrap">
+                          {row.status || '-'}
+                          {(row.reopenCount ?? 0) > 0 && (
+                            <span className="ml-1.5 px-1.5 py-0.5 bg-red-500/20 text-red-400 rounded text-[10px] font-semibold">Reopen ×{row.reopenCount}</span>
+                          )}
+                        </td>
                         <td className="py-2.5 px-3 text-gray-300 max-w-[200px] truncate" title={row.resolution}>{row.resolution || '-'}</td>
                         <td className="py-2.5 px-3 text-gray-300 whitespace-nowrap">
                           {row.resolvedAt ? new Date(row.resolvedAt).toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '-'}
@@ -1724,8 +1594,13 @@ function RepeatEquipmentTable({ rows, onDetail, showStore = false }: {
         </thead>
         <tbody>
           {rows.map((eq) => (
-            <tr key={eq.equipmentIds.join('-')} className="border-b border-slate-700/50 hover:bg-slate-700/30 transition">
-              <td className="py-2 px-2 text-white font-medium">{eq.equipmentName}</td>
+            <tr key={eq.key} className="border-b border-slate-700/50 hover:bg-slate-700/30 transition">
+              <td className="py-2 px-2 text-white font-medium">
+                {eq.equipmentName}
+                {eq.status === 'MAINTENANCE' && (
+                  <span className="ml-1.5 px-1.5 py-0.5 bg-amber-500/20 text-amber-400 rounded text-[10px] font-semibold">กำลังซ่อม</span>
+                )}
+              </td>
               <td className="py-2 px-2 text-white">
                 <div>{[eq.brand, eq.model].filter(v => v && v !== '-').join(' ') || '-'}</div>
                 {eq.serialNumber && eq.serialNumber !== '-' && <div className="text-xs text-gray-400">S/N: {eq.serialNumber}</div>}
