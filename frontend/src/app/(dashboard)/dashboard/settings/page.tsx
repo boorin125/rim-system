@@ -335,6 +335,7 @@ const RELEASE_NOTES: {
       { type: 'improved', text: 'Performance — งานที่มีช่างหลายคน นับเครดิตให้ช่างทุกคนในงาน' },
       { type: 'fixed',    text: 'Performance — คะแนนเกิน 100 (จากโบนัส) ได้เกรด F, ช่วงวันที่ที่เลือกเองใช้แค่เดือนแรก, ความพึงพอใจได้ 5.0 อัตโนมัติเมื่อยังไม่มีคะแนน' },
       { type: 'improved', text: 'Equipment Duplicate Problems / Top 10 Equipment — นับตามเครื่องจริง (S/N ณ วันที่แจ้งงาน) แม้ย้ายร้านหรือ S/N ถูกเปลี่ยนภายหลัง, นับ Reopen เป็นการแจ้งซ้ำ, รวมเครื่องที่กำลังซ่อม (MAINTENANCE) และงานที่มีอุปกรณ์หลายชิ้น — ทั้ง 2 กล่องใช้กฎเดียวกัน' },
+      { type: 'fixed',    text: 'Performance — หน้าต่างรายละเอียด (ช่าง / สาขา / อุปกรณ์) ไม่ถูก Header ด้านบนบังอีก' },
       { type: 'fixed',    text: 'SLA % — ไม่นับงาน Project / PM / Adhoc / Job Type ที่ตั้ง Ignore SLA และงานที่ไม่มี SLA deadline (เดิมนับว่าผ่าน)' },
     ],
   },

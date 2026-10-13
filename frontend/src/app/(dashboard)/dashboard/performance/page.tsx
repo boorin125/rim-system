@@ -2,6 +2,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import { useLicense } from '@/context/LicenseContext'
@@ -1360,7 +1361,7 @@ export default function PerformancePage() {
       )}
 
       {/* Detail Modal */}
-      {selectedPerformance && (
+      {selectedPerformance && (<BodyPortal>
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-slate-800 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
             <div className="p-6 border-b border-slate-700/50 flex items-center justify-between">
@@ -1376,10 +1377,10 @@ export default function PerformancePage() {
             </div>
           </div>
         </div>
-      )}
+      </BodyPortal>)}
 
       {/* Store Incident Detail Modal */}
-      {storeModal && (
+      {storeModal && (<BodyPortal>
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
           <div className="bg-slate-800 rounded-2xl w-full max-w-5xl max-h-[92vh] overflow-hidden flex flex-col">
             <div className="p-3 sm:p-5 border-b border-slate-700/50 flex items-start justify-between gap-2">
@@ -1448,10 +1449,10 @@ export default function PerformancePage() {
             </div>
           </div>
         </div>
-      )}
+      </BodyPortal>)}
 
       {/* Box 2 Modal: View all duplicate equipment */}
-      {repeatViewAll && (
+      {repeatViewAll && (<BodyPortal>
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-slate-800 rounded-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
             <div className="p-5 border-b border-slate-700/50 flex flex-wrap items-center gap-3">
@@ -1490,10 +1491,10 @@ export default function PerformancePage() {
             </div>
           </div>
         </div>
-      )}
+      </BodyPortal>)}
 
       {/* Box 2 Modal: Incidents that used this equipment S/N */}
-      {repeatEquipModal && (
+      {repeatEquipModal && (<BodyPortal>
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
           <div className="bg-slate-800 rounded-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
             <div className="p-5 border-b border-slate-700/50 flex items-center justify-between">
@@ -1566,9 +1567,14 @@ export default function PerformancePage() {
             </div>
           </div>
         </div>
-      )}
+      </BodyPortal>)}
     </div>
   )
+}
+
+// Render modals on <body> so they sit above the fixed header (main is its own stacking context)
+function BodyPortal({ children }: { children: React.ReactNode }) {
+  return typeof document !== 'undefined' ? createPortal(children, document.body) : null
 }
 
 // ==================== EQUIPMENT DUPLICATE TABLE ====================
