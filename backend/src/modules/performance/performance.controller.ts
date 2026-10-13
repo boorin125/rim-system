@@ -201,7 +201,7 @@ export class PerformanceController {
   }
 
   /**
-   * Get Top Equipment by Incident Count
+   * Get Top Incident Categories by repair requests in the range
    * Access: IT_MANAGER, SUPERVISOR, HELP_DESK, MONITOR
    */
   @Get('top-equipment')
@@ -212,10 +212,9 @@ export class PerformanceController {
     @Query('jobTypes') jobTypes?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
-    @Query('allTime') allTime?: string,
   ) {
     const parsed = jobTypes ? jobTypes.split(',').map(s => s.trim()).filter(Boolean) : undefined;
-    return this.performanceService.getTopEquipment(period, limit ? parseInt(limit) : 10, parsed, from, to, allTime === 'true');
+    return this.performanceService.getTopEquipment(period, limit ? parseInt(limit) : 10, parsed, from, to);
   }
 
   /**

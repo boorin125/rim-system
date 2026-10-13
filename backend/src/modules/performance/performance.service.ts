@@ -1118,57 +1118,22 @@ export class PerformanceService implements OnApplicationBootstrap {
   }
 
   /**
-   * Get Top N Equipment by Incident Count for a period
+   * Top N incident categories with the most repair requests in the range
+   * (same filter as the equipment boxes: PM and cancelled jobs are not repair requests)
    */
-  async getTopEquipment(period?: string, limit = 10, jobTypes?: string[], from?: string, to?: string, allTime?: boolean) {
-    if (allTime) {
-      // All-time mode: group by individual Active equipment (no date filter)
-      const incidents = await this.prisma.incident.findMany({
-        where: {
-          equipmentId: { not: null },
-          equipment: { status: 'ACTIVE' },
-          ...(jobTypes?.length ? { jobType: { in: jobTypes } } : {}),
-        },
-        select: {
-          equipmentId: true,
-          equipment: { select: { name: true, brand: true, model: true, serialNumber: true } },
-        },
-      });
-
-      const countMap = new Map<number, { count: number; name: string }>();
-      for (const inc of incidents) {
-        if (!inc.equipmentId || !inc.equipment) continue;
-        const eq = inc.equipment;
-        const label = eq.name || [eq.brand, eq.model].filter(Boolean).join(' ') || 'ไม่ระบุ';
-        const entry = countMap.get(inc.equipmentId);
-        if (entry) entry.count++;
-        else countMap.set(inc.equipmentId, { count: 1, name: label });
-      }
-
-      return Array.from(countMap.values())
-        .sort((a, b) => b.count - a.count)
-        .slice(0, limit)
-        .map(({ name, count }) => ({ name, count }));
-    }
-
+  async getTopEquipment(period?: string, limit = 10, jobTypes?: string[], from?: string, to?: string) {
     const { startDate, endDate } = this.getDateRange(period, from, to);
 
-    const incidents = await this.prisma.incident.findMany({
+    const groups = await this.prisma.incident.groupBy({
+      by: ['category'],
       where: {
-        createdAt: { gte: startDate, lte: endDate },
-        ...(jobTypes && jobTypes.length > 0 ? { jobType: { in: jobTypes } } : {}),
+        AND: [this.repeatIncidentWhere(jobTypes), { createdAt: { gte: startDate, lte: endDate } }],
       },
-      select: { category: true },
+      _count: { _all: true },
     });
 
-    const countMap = new Map<string, number>();
-    for (const inc of incidents) {
-      const label = inc.category || 'ไม่ระบุ';
-      countMap.set(label, (countMap.get(label) ?? 0) + 1);
-    }
-
-    return Array.from(countMap.entries())
-      .map(([name, count]) => ({ name, count }))
+    return groups
+      .map((g) => ({ name: g.category || 'ไม่ระบุ', count: g._count._all }))
       .sort((a, b) => b.count - a.count)
       .slice(0, limit);
   }

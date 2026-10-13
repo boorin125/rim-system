@@ -553,7 +553,7 @@ export default function PerformancePage() {
           axios.get(`${api}/performance/ytm`, cfg).catch(() => null),
           axios.get(`${api}/performance/yty`, cfg).catch(() => null),
           axios.get(`${api}/performance/top-stores?from=${dateFrom}&to=${dateTo}&limit=20${jtParam}`, cfg).catch(() => null),
-          axios.get(`${api}/performance/top-equipment?allTime=true&limit=10${jtParam}`, cfg).catch(() => null),
+          axios.get(`${api}/performance/top-equipment?from=${dateFrom}&to=${dateTo}&limit=10${jtParam}`, cfg).catch(() => null),
           axios.get(`${api}/performance/resolution-time?from=${dateFrom}&to=${dateTo}${jtParam}`, cfg).catch(() => null),
           axios.get(`${api}/performance/top-active-equipment?from=${dateFrom}&to=${dateTo}&limit=10${jtParam}`, cfg).catch(() => null),
           axios.get(`${api}/performance/equipment-repeat?allTime=true${jtParam}`, cfg).catch(() => null),
@@ -988,14 +988,14 @@ export default function PerformancePage() {
                 <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
                   <h3 className="text-base font-semibold text-white flex items-center gap-2">
                     <Zap className="w-4 h-4 text-amber-400" />
-                    Top 10 Equipment (ทุกเวลา — Active เท่านั้น)
+                    Top 10 Category (แจ้งเสียมากที่สุด)
                   </h3>
-                  <span className="text-xs text-gray-500 bg-slate-700 px-2 py-1 rounded-lg">นับตั้งแต่เริ่มระบบ</span>
+                  <span className="text-xs text-gray-500 bg-slate-700 px-2 py-1 rounded-lg">ตามช่วงที่เลือก · ไม่นับ PM / ยกเลิก</span>
                 </div>
                 {topEquipment.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-10 gap-2 text-gray-500">
                     <Zap className="w-8 h-8 opacity-30" />
-                    <p className="text-sm">ไม่มีข้อมูล Equipment</p>
+                    <p className="text-sm">ไม่มีการแจ้งเสียในช่วงเวลานี้</p>
                   </div>
                 ) : (
                   <TopBarChart data={topEquipment.map(e => ({ label: e.name, value: e.count }))} color="#f59e0b" />
@@ -1950,9 +1950,14 @@ function TopBarChart({ data, color }: { data: { label: string; value: number }[]
   const topFace = `rgba(${Math.min(c.r + 60, 255)},${Math.min(c.g + 60, 255)},${Math.min(c.b + 60, 255)},0.9)`
   const sideFace = `rgba(${Math.max(c.r - 40, 0)},${Math.max(c.g - 40, 0)},${Math.max(c.b - 40, 0)},0.9)`
 
-  const yTicks = [0, Math.round(max / 4), Math.round(max / 2), Math.round(max * 3 / 4), max]
-  const getBarY = (v: number) => PAD_T + CHART_H - (v / max) * CHART_H
-  const getBarH = (v: number) => (v / max) * CHART_H
+  // Evenly spaced integer ticks (step 1/2/5 × 10^n), axis top rounded up to a whole step
+  const rawStep = Math.max(max / 4, 1)
+  const mag = Math.pow(10, Math.floor(Math.log10(rawStep)))
+  const step = [1, 2, 5, 10].map(m => m * mag).find(s => s >= rawStep) ?? 10 * mag
+  const axisTop = Math.ceil(max / step) * step
+  const yTicks = Array.from({ length: Math.round(axisTop / step) + 1 }, (_, i) => i * step)
+  const getBarY = (v: number) => PAD_T + CHART_H - (v / axisTop) * CHART_H
+  const getBarH = (v: number) => (v / axisTop) * CHART_H
 
   return (
     <div className="w-full overflow-x-auto">
