@@ -47,6 +47,8 @@ services:
       MACHINE_ID: ${MACHINE_ID}
       CENTRAL_LICENSE_URL: ${CENTRAL_LICENSE_URL:-https://license.rub-jobb.com}
       LOCAL_LICENSE_MODE: ${LOCAL_LICENSE_MODE:-}
+      UPDATER_URL: ${UPDATER_URL:-http://rim-updater:3090}
+      UPDATER_SECRET: ${UPDATER_SECRET:-}
       TZ: Asia/Bangkok
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}

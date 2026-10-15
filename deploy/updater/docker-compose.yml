@@ -1,0 +1,28 @@
+# rim-updater — its own compose project, so the app's update.sh / ws-update.sh / `docker compose pull`
+# never touch it. Values come from .env in this folder (written by setup-updater.sh).
+name: rim-updater
+
+services:
+  updater:
+    build: .
+    image: rim-updater:local
+    container_name: rim-updater
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DOCKER_CONFIG: /docker-config
+      STATE_FILE: /data/state.json
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Same path as on the host: compose inside the container resolves the app's files from here
+      - ${RIM_DIR}:${RIM_DIR}
+      # docker login of the host (rim-backend is a private image)
+      - ${DOCKER_CONFIG_DIR}:/docker-config:ro
+      - ./data:/data
+    networks:
+      - rim
+
+networks:
+  rim:
+    external: true
+    name: ${RIM_NETWORK}

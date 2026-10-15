@@ -12,7 +12,8 @@ FROM node:20-alpine AS production
 RUN apk add --no-cache curl samba-client
 
 WORKDIR /app
-COPY package*.json ./
+# releases.json is copied in by build-release.ps1 (release notes for Settings > update screen)
+COPY package*.json releases.json* ./
 RUN npm ci --only=production --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000 --fetch-retries=5 && npm cache clean --force
 
 COPY --from=builder /app/dist ./dist

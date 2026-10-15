@@ -1,18 +1,24 @@
 # =============================================================
 #  RIM-System - build & push Docker images for a release
-#  Usage:  .\build-release.ps1 -Version 1.0.28
-#          .\build-release.ps1 -Version 1.0.28 -VerifyOnly   (check Docker Hub only)
+#  Usage:  .\build-release.ps1 -Version 1.0.29                       build + push :1.0.29 and :latest (Test channel)
+#          .\build-release.ps1 -Version 1.0.29 -VerifyOnly           check Docker Hub only
+#          .\build-release.ps1 -Version 1.0.29 -VerifyOnly -Promote  after testing: :stable = :1.0.29 (customers)
 #
 #  Guards:
 #   - version format (no "v" prefix)
-#   - newest Release Note in Settings == version
+#   - newest entry in frontend/src/data/releases.json == version
 #   - backend/frontend committed and pushed (image commit == GitHub)
 #   - build failure stops the script
 #   - pushed :X.X.X and :latest are the same image, APP_VERSION/GIT_COMMIT baked in
+#
+#  Channels (Settings > update screen, see deploy/updater):
+#   :latest  -> Test Server   (every build)
+#   :stable  -> customers/WS  (only after -Promote)
 # =============================================================
 param(
   [Parameter(Mandatory = $true)][string]$Version,
-  [switch]$VerifyOnly
+  [switch]$VerifyOnly,
+  [switch]$Promote
 )
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
@@ -24,10 +30,15 @@ if ($Version -notmatch '^\d+\.\d+\.\d+$') { Fail "Version must look like 1.0.28 
 
 # 1. Release Notes
 $rnFile = 'frontend\src\data\releases.json'
-$releasesJson = [System.IO.File]::ReadAllText((Join-Path $PSScriptRoot $rnFile), [System.Text.Encoding]::UTF8)
-$rn = ($releasesJson | ConvertFrom-Json).releases[0].version
+$rnPath = Join-Path $PSScriptRoot $rnFile
+$releases = ([System.IO.File]::ReadAllText($rnPath, [System.Text.Encoding]::UTF8) | ConvertFrom-Json).releases
+$rn = $releases[0].version
 if ($rn -ne $Version) { Fail "Newest Release Note is $rn, not $Version - add/update the entry in $rnFile" }
-Ok "Release Note = $rn"
+Ok "Release Note = $rn ($($releases[0].changes.Count) changes)"
+if ($releases[0].manual) {
+  Write-Host "      Manual steps shown on the update screen:" -ForegroundColor Yellow
+  $releases[0].manual | ForEach-Object { Write-Host "        - $_" -ForegroundColor Yellow }
+}
 
 # 2. Git: committed + pushed
 $dirty = git status --porcelain --untracked-files=no -- backend frontend
@@ -44,15 +55,20 @@ Ok "Git clean & pushed - app code commit $commit"
 
 # 3. Build
 if (-not $VerifyOnly) {
+  # Release notes travel inside the backend image (/app/releases.json) for the update screen
+  Copy-Item $rnPath (Join-Path $PSScriptRoot 'backend\releases.json') -Force
+
   Write-Host "`nBuilding backend $Version ($commit, $date)..." -ForegroundColor Yellow
   docker buildx build --no-cache --platform linux/amd64 `
     --build-arg GIT_COMMIT=$commit --build-arg BUILD_DATE=$date --build-arg APP_VERSION=$Version `
+    --label rim.version=$Version --label rim.commit=$commit --label rim.build-date=$date `
     -t rubjobb/rim-backend:$Version -t rubjobb/rim-backend:latest --push ./backend
   if ($LASTEXITCODE -ne 0) { Fail "Backend build failed" }
 
   Write-Host "`nBuilding frontend $Version..." -ForegroundColor Yellow
   docker buildx build --no-cache --platform linux/amd64 `
     --build-arg NEXT_PUBLIC_API_URL=/api `
+    --label rim.version=$Version --label rim.commit=$commit --label rim.build-date=$date `
     -t rubjobb/rim-frontend:$Version -t rubjobb/rim-frontend:latest --push ./frontend
   if ($LASTEXITCODE -ne 0) { Fail "Frontend build failed" }
 }
@@ -75,7 +91,22 @@ if ($cfg -notmatch "GIT_COMMIT=$commit`"") { Fail "Backend image GIT_COMMIT is n
 if ($cfg -match 'BUILD_DATE=([0-9-]+)') { $date = $Matches[1] }
 Ok ":$Version == :latest, APP_VERSION=$Version, GIT_COMMIT=$commit, BUILD_DATE=$date"
 
+# 5. Promote to the customer channel
+if ($Promote) {
+  Write-Host "`nPromoting $Version to :stable..." -ForegroundColor Yellow
+  foreach ($repo in 'rim-backend', 'rim-frontend') {
+    docker buildx imagetools create -t "rubjobb/${repo}:stable" "rubjobb/${repo}:$Version"
+    if ($LASTEXITCODE -ne 0) { Fail "Promote of $repo failed" }
+    if ((Digest "rubjobb/${repo}:stable") -ne (Digest "rubjobb/${repo}:$Version")) { Fail "rubjobb/${repo}:stable is not $Version" }
+  }
+  Ok ":stable = $Version - customers (WS) can now install it from Settings > update screen"
+}
+
 Write-Host "`nNext:" -ForegroundColor Cyan
-Write-Host "  Test Server : cd ~/rim && chmod +x update.sh && ./update.sh"
-Write-Host "  WS Server   : cd /root && ./ws-update.sh $Version $commit"
+if ($Promote) {
+  Write-Host "  WS Server   : Settings > update screen > check + install   (fallback: cd /root && ./ws-update.sh $Version $commit)"
+} else {
+  Write-Host "  Test Server : Settings > update screen > check + install   (fallback: cd ~/rim && ./update.sh)"
+  Write-Host "  After testing: .\build-release.ps1 -Version $Version -VerifyOnly -Promote"
+}
 Write-Host "  Then check Settings > Info: Version=$Version Commit=$commit Build Date=$date"

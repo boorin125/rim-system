@@ -56,6 +56,7 @@ import {
   FolderOpen,
   Lock,
   Wrench,
+  DownloadCloud,
   CalendarClock,
 } from 'lucide-react'
 import Link from 'next/link'
@@ -67,6 +68,7 @@ import LicenseActivateModal from '@/components/LicenseActivateModal'
 import LicenseManagementModal from '@/components/LicenseManagementModal'
 import { getUserRoles } from '@/config/permissions'
 import releasesData from '@/data/releases.json'
+import UpdateTab from '@/components/settings/UpdateTab'
 
 type ReleaseEntry = {
   version: string
@@ -77,7 +79,7 @@ type ReleaseEntry = {
 }
 
 // Tab types
-type TabType = 'organization' | 'incident' | 'email' | 'sla' | 'service-report' | 'backup' | 'info' | 'theme' | 'mobile-app' | 'maintenance'
+type TabType = 'organization' | 'incident' | 'email' | 'sla' | 'service-report' | 'backup' | 'info' | 'theme' | 'mobile-app' | 'maintenance' | 'update'
 
 // Organization Settings Interface
 interface OrganizationSettings {
@@ -1786,6 +1788,7 @@ export default function SettingsPage() {
     { id: 'theme' as TabType, label: 'Theme', icon: Palette },
     { id: 'mobile-app' as TabType, label: 'Mobile App', icon: Smartphone },
     ...(isSuperAdmin ? [{ id: 'maintenance' as TabType, label: 'Maintenance', icon: Wrench }] : []),
+    ...(isSuperAdmin ? [{ id: 'update' as TabType, label: 'อัปเดตระบบ', icon: DownloadCloud }] : []),
     { id: 'info' as TabType, label: 'Info', icon: Info },
   ]
 
@@ -4298,6 +4301,8 @@ export default function SettingsPage() {
         )}
 
         {/* Info Tab */}
+        {activeTab === 'update' && isSuperAdmin && <UpdateTab />}
+
         {activeTab === 'info' && (
           <div className="space-y-6">
             <div className="flex items-center space-x-3 mb-6">

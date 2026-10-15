@@ -26,3 +26,6 @@ backups/
 
 # Claude
 .claude/settings.local.json
+
+# Copied from frontend/src/data/releases.json by build-release.ps1
+backend/releases.json
