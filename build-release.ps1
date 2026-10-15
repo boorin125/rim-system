@@ -58,19 +58,29 @@ if (-not $VerifyOnly) {
   # Release notes travel inside the backend image (/app/releases.json) for the update screen
   Copy-Item $rnPath (Join-Path $PSScriptRoot 'backend\releases.json') -Force
 
-  Write-Host "`nBuilding backend $Version ($commit, $date)..." -ForegroundColor Yellow
-  docker buildx build --no-cache --platform linux/amd64 `
-    --build-arg GIT_COMMIT=$commit --build-arg BUILD_DATE=$date --build-arg APP_VERSION=$Version `
-    --label rim.version=$Version --label rim.commit=$commit --label rim.build-date=$date `
-    -t rubjobb/rim-backend:$Version -t rubjobb/rim-backend:latest --push ./backend
-  if ($LASTEXITCODE -ne 0) { Fail "Backend build failed" }
+  # npm / Docker Hub downloads drop now and then: a failed build is tried again (nothing is pushed on failure)
+  $tries = 3
+  for ($try = 1; $try -le $tries; $try++) {
+    Write-Host "`nBuilding backend $Version ($commit, $date)... [try $try/$tries]" -ForegroundColor Yellow
+    docker buildx build --no-cache --platform linux/amd64 `
+      --build-arg GIT_COMMIT=$commit --build-arg BUILD_DATE=$date --build-arg APP_VERSION=$Version `
+      --label rim.version=$Version --label rim.commit=$commit --label rim.build-date=$date `
+      -t rubjobb/rim-backend:$Version -t rubjobb/rim-backend:latest --push ./backend
+    if ($LASTEXITCODE -eq 0) { break }
+    if ($try -eq $tries) { Fail "Backend build failed $tries times" }
+    Start-Sleep -Seconds 20
+  }
 
-  Write-Host "`nBuilding frontend $Version..." -ForegroundColor Yellow
-  docker buildx build --no-cache --platform linux/amd64 `
-    --build-arg NEXT_PUBLIC_API_URL=/api `
-    --label rim.version=$Version --label rim.commit=$commit --label rim.build-date=$date `
-    -t rubjobb/rim-frontend:$Version -t rubjobb/rim-frontend:latest --push ./frontend
-  if ($LASTEXITCODE -ne 0) { Fail "Frontend build failed" }
+  for ($try = 1; $try -le $tries; $try++) {
+    Write-Host "`nBuilding frontend $Version... [try $try/$tries]" -ForegroundColor Yellow
+    docker buildx build --no-cache --platform linux/amd64 `
+      --build-arg NEXT_PUBLIC_API_URL=/api `
+      --label rim.version=$Version --label rim.commit=$commit --label rim.build-date=$date `
+      -t rubjobb/rim-frontend:$Version -t rubjobb/rim-frontend:latest --push ./frontend
+    if ($LASTEXITCODE -eq 0) { break }
+    if ($try -eq $tries) { Fail "Frontend build failed $tries times" }
+    Start-Sleep -Seconds 20
+  }
 }
 
 # 4. Verify Docker Hub
