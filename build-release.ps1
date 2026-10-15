@@ -75,21 +75,35 @@ if (-not $VerifyOnly) {
 
 # 4. Verify Docker Hub
 Write-Host "`nVerifying Docker Hub..." -ForegroundColor Yellow
+# Plain inspect only reads the manifest (no CDN blob download, which drops on some networks)
 function Digest($ref) {
-  $d = docker buildx imagetools inspect $ref --format '{{.Manifest.Digest}}' 2>$null
-  if ($LASTEXITCODE -ne 0 -or -not $d) { Fail "Image $ref not found on Docker Hub" }
-  return ($d | Out-String).Trim()
+  for ($try = 1; $try -le 4; $try++) {
+    $ErrorActionPreference = 'Continue'
+    $out = docker buildx imagetools inspect $ref 2>$null | Out-String
+    $ErrorActionPreference = 'Stop'
+    if ($out -match '(?m)^Digest:\s+(sha256:[0-9a-f]+)') { return $Matches[1] }
+    Start-Sleep -Seconds (5 * $try)
+  }
+  Fail "Image $ref not found on Docker Hub (or Docker Hub unreachable)"
 }
 foreach ($repo in 'rim-backend', 'rim-frontend') {
   if ((Digest "rubjobb/${repo}:$Version") -ne (Digest "rubjobb/${repo}:latest")) {
     Fail "rubjobb/${repo}:$Version and :latest are different images"
   }
 }
-$cfg = (docker buildx imagetools inspect "rubjobb/rim-backend:$Version" --format '{{json .Image}}') | Out-String
-if ($cfg -notmatch "APP_VERSION=$([regex]::Escape($Version))`"") { Fail "Backend image APP_VERSION is not $Version" }
-if ($cfg -notmatch "GIT_COMMIT=$commit`"") { Fail "Backend image GIT_COMMIT is not $commit (Docker Hub has an older build)" }
-if ($cfg -match 'BUILD_DATE=([0-9-]+)') { $date = $Matches[1] }
-Ok ":$Version == :latest, APP_VERSION=$Version, GIT_COMMIT=$commit, BUILD_DATE=$date"
+# Reading the image config needs the CDN — if that drops, warn (the updater re-checks version/commit on the server)
+$ErrorActionPreference = 'Continue'
+$cfg = docker buildx imagetools inspect "rubjobb/rim-backend:$Version" --format '{{json .Image}}' 2>$null | Out-String
+$ErrorActionPreference = 'Stop'
+if ($cfg -match 'APP_VERSION=') {
+  if ($cfg -notmatch "APP_VERSION=$([regex]::Escape($Version))`"") { Fail "Backend image APP_VERSION is not $Version" }
+  if ($cfg -notmatch "GIT_COMMIT=$commit`"") { Fail "Backend image GIT_COMMIT is not $commit (Docker Hub has an older build)" }
+  if ($cfg -match 'BUILD_DATE=([0-9-]+)') { $date = $Matches[1] }
+  Ok ":$Version == :latest, APP_VERSION=$Version, GIT_COMMIT=$commit, BUILD_DATE=$date"
+} else {
+  Ok ":$Version == :latest (same digest)"
+  Write-Host "WARN: could not read the image config from Docker Hub (network) - APP_VERSION/GIT_COMMIT not checked here; the updater checks them before installing" -ForegroundColor Yellow
+}
 
 # 5. Promote to the customer channel
 if ($Promote) {
