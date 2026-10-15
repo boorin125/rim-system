@@ -219,6 +219,21 @@ export function createUpdater(o) {
   }
   const compose = (...args) => run("docker", ["compose", "--project-directory", o.rimDir, "-p", o.project, ...args]);
 
+  /** Docker Hub downloads drop on some networks: time-box each try and retry before giving up. */
+  async function withRetry(what, fn, tries = 3) {
+    let last;
+    for (let i = 1; i <= tries; i++) {
+      try {
+        return await fn();
+      } catch (error) {
+        last = error;
+        log(`${what}: try ${i}/${tries} failed${i < tries ? " — retrying" : ""}`);
+        if (i < tries) await sleep(5000 * i);
+      }
+    }
+    throw new Error(`ดาวน์โหลดจาก Docker Hub ไม่สำเร็จ (ลอง ${tries} ครั้ง) — ตรวจสอบอินเทอร์เน็ตของเซิร์ฟเวอร์แล้วลองใหม่ [${last instanceof Error ? last.message : last}]`);
+  }
+
   async function inspectJson(kind, ref, format) {
     const r = await o.exec("docker", [kind, "inspect", ref, "--format", format]);
     if (r.code !== 0) return null;
@@ -263,7 +278,7 @@ export function createUpdater(o) {
     checking = true;
     try {
       const channelRef = `${backendImage}:${o.channel}`;
-      await quiet("docker", ["pull", "--quiet", channelRef]);
+      await withRetry("pull", () => quiet("timeout", ["600", "docker", "pull", "--quiet", channelRef]));
       const current = await running();
       const latest = (await imageInfo(channelRef)) ?? { version: null, commit: null, buildDate: null };
       const all = await imageReleases(channelRef);
@@ -347,7 +362,7 @@ export function createUpdater(o) {
       if (!String(target.frontendImage).endsWith(`:${version}`)) throw new Error(`compose would run frontend ${target.frontendImage}, not :${version}`);
       if (target.rimVersion !== undefined && target.rimVersion !== version) throw new Error(`compose would set RIM_VERSION=${target.rimVersion}, not ${version}`);
       log(`compose: backend ${target.backendImage}, frontend ${target.frontendImage}, RIM_VERSION ${target.rimVersion ?? "(not set)"}`);
-      await compose("pull", "backend", "frontend");
+      await withRetry("pull", () => run("timeout", ["900", "docker", "compose", "--project-directory", o.rimDir, "-p", o.project, "pull", "backend", "frontend"]));
       const img = await imageInfo(`${backendImage}:${version}`);
       if (!img || img.version !== version) throw new Error(`backend image is ${img?.version ?? "missing"}, not ${version}`);
       if (!sameCommit(img.commit, commit)) throw new Error(`backend image commit is ${img.commit}, not ${commit}`);

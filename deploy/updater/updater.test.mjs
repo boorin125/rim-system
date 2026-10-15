@@ -45,19 +45,27 @@ test("setComposeVersion / setEnvVersion / hardcoded build info", () => {
 });
 
 /** A fake server: containers report the env of the image they were last created from. */
-function fakeServer({ failBackendStart = false, imageVersion = "1.0.29", imageCommit = "bbbbbbb", env = "DB_USER=rimuser\nRIM_VERSION=1.0.28\n", composeExtra = "" } = {}) {
+function fakeServer({ failPulls: failPullsOpt = 0, failBackendStart = false, imageVersion = "1.0.29", imageCommit = "bbbbbbb", env = "DB_USER=rimuser\nRIM_VERSION=1.0.28\n", composeExtra = "" } = {}) {
   const files = {
     "/srv/rim/docker-compose.yml": `image: rubjobb/rim-backend:1.0.28\nimage: rubjobb/rim-frontend:1.0.28\n${composeExtra}`,
     "/srv/rim/.env": env,
   };
   let backendEnv = ["RIM_VERSION=1.0.28", "GIT_COMMIT=aaaaaaa"];
+  let failPulls = failPullsOpt;
   const calls = [];
   const images = {
     "rubjobb/rim-backend:stable": { Labels: { "rim.version": imageVersion, "rim.commit": imageCommit }, Env: [] },
     [`rubjobb/rim-backend:${imageVersion}`]: { Labels: { "rim.version": imageVersion, "rim.commit": imageCommit }, Env: [] },
   };
-  const exec = async (cmd, args) => {
+  const exec = async (cmd0, args0) => {
+    // `timeout <secs> <cmd> ...` behaves like the wrapped command here
+    const [cmd, args] = cmd0 === "timeout" ? [args0[1], args0.slice(2)] : [cmd0, args0];
     const line = `${cmd} ${args.join(" ")}`;
+    if (failPulls > 0 && cmd === "docker" && args.includes("pull")) {
+      failPulls--;
+      calls.push(line);
+      return { code: 1, out: "connection reset by peer" };
+    }
     calls.push(line);
     if (cmd === "df") return { code: 0, out: "Filesystem 1K-blocks Used Available Use% Mounted\n/dev/x 100000000 1000 90000000 1% /" };
     if (cmd === "sh" && args[1].startsWith("wc -c")) return { code: 0, out: "2000000" };
@@ -156,6 +164,13 @@ test("install stops before any restart when compose would not run the new versio
   assert.match(st.error, /RIM_VERSION=1\.0\.28/);
   assert.ok(!s.calls.some((c) => c.includes("force-recreate")), "nothing restarted");
   assert.match(s.files["/srv/rim/.env"], /RIM_VERSION=1\.0\.28/);
+});
+
+test("check retries a dropped Docker Hub download, then reports it clearly", async () => {
+  const ok = fakeServer({ failPulls: 2 });
+  assert.equal((await ok.updater.check()).available, true);
+  const bad = fakeServer({ failPulls: 3 });
+  await assert.rejects(bad.updater.check(), /ดาวน์โหลดจาก Docker Hub ไม่สำเร็จ \(ลอง 3 ครั้ง\)/);
 });
 
 test("start rejects bad input and a second install", async () => {

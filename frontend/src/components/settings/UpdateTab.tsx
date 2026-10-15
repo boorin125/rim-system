@@ -58,6 +58,11 @@ const api = () => process.env.NEXT_PUBLIC_API_URL
 const auth = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
 const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }) : '—')
 const short = (v: string | null, commit: string | null) => v ?? commit?.slice(0, 7) ?? '?'
+/** "1.0.28 → 1.0.29", or with commits when the same version was rebuilt */
+const historyLabel = (h: { fromVersion: string | null; toVersion: string | null; from: string | null; to: string | null }) =>
+  h.fromVersion && h.fromVersion === h.toVersion && h.from && h.to
+    ? `${h.fromVersion} (${h.from.slice(0, 7)}) → ${h.toVersion} (${h.to.slice(0, 7)})`
+    : `${short(h.fromVersion, h.from)} → ${short(h.toVersion, h.to)}`
 
 function Spinner({ className = '' }: { className?: string }) {
   return <span className={`inline-block border-2 border-indigo-400 border-t-transparent rounded-full animate-spin ${className}`} />
@@ -228,7 +233,7 @@ export default function UpdateTab() {
   }
 
   if (loading) {
-    return <div className={`${card} flex justify-center max-w-3xl`}><Spinner className="w-6 h-6" /></div>
+    return <div className={`${card} flex justify-center`}><Spinner className="w-6 h-6" /></div>
   }
 
   const version = info?.version ?? '?'
@@ -236,7 +241,7 @@ export default function UpdateTab() {
 
   if (!info || !info.configured || !info.reachable) {
     return (
-      <div className="space-y-5 max-w-3xl">
+      <div className="space-y-5">
         <div className={card}>
           <h3 className="font-semibold text-white">Current Version {version}</h3>
           <p className="text-sm text-gray-400 mt-1">
@@ -257,7 +262,7 @@ export default function UpdateTab() {
   const busyChecking = checking || info.checking
 
   return (
-    <div className="space-y-5 max-w-3xl">
+    <div className="space-y-5">
       <div className={`${card} space-y-4`}>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -372,7 +377,7 @@ export default function UpdateTab() {
                   <details className="text-sm">
                     <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1">
                       <span className="w-40 shrink-0 tabular-nums text-gray-400">{fmt(h.finishedAt ?? h.startedAt)}</span>
-                      <span className="font-medium text-gray-200">{short(h.fromVersion, h.from)} → {short(h.toVersion, h.to)}</span>
+                      <span className="font-medium text-gray-200">{historyLabel(h)}</span>
                       <span className={`rounded-full px-2 py-0.5 text-xs ${ok ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'}`}>
                         {ok ? 'Success' : h.error === 'interrupted' ? 'Interrupted' : h.error === 'disk full' ? 'Disk full' : h.rolledBack ? 'Failed · Rolled back' : 'Failed'}
                       </span>
