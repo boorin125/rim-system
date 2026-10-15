@@ -45,10 +45,10 @@ test("setComposeVersion / setEnvVersion / hardcoded build info", () => {
 });
 
 /** A fake server: containers report the env of the image they were last created from. */
-function fakeServer({ failBackendStart = false, imageVersion = "1.0.29", imageCommit = "bbbbbbb" } = {}) {
+function fakeServer({ failBackendStart = false, imageVersion = "1.0.29", imageCommit = "bbbbbbb", env = "DB_USER=rimuser\nRIM_VERSION=1.0.28\n", composeExtra = "" } = {}) {
   const files = {
-    "/srv/rim/docker-compose.yml": "image: rubjobb/rim-backend:1.0.28\nimage: rubjobb/rim-frontend:1.0.28\n",
-    "/srv/rim/.env": "DB_USER=rimuser\nRIM_VERSION=1.0.28\n",
+    "/srv/rim/docker-compose.yml": `image: rubjobb/rim-backend:1.0.28\nimage: rubjobb/rim-frontend:1.0.28\n${composeExtra}`,
+    "/srv/rim/.env": env,
   };
   let backendEnv = ["RIM_VERSION=1.0.28", "GIT_COMMIT=aaaaaaa"];
   const calls = [];
@@ -70,8 +70,15 @@ function fakeServer({ failBackendStart = false, imageVersion = "1.0.29", imageCo
       return img ? { code: 0, out: JSON.stringify(img) } : { code: 1, out: "no such image" };
     }
     if (cmd === "docker" && args[0] === "run") return { code: 0, out: JSON.stringify({ releases: [{ version: imageVersion, changes: [{ type: "new", text: "x" }] }] }) };
+    // Like compose: the LAST RIM_VERSION line in .env wins
+    const envVersion = () => [...files["/srv/rim/.env"].matchAll(/^RIM_VERSION=(.*)$/gm)].at(-1)?.[1];
+    if (cmd === "docker" && args[0] === "compose" && args.includes("config")) {
+      const img = (name) => files["/srv/rim/docker-compose.yml"].match(new RegExp(`rubjobb/rim-${name}:[^\\s]+`))[0];
+      const rim = files["/srv/rim/docker-compose.yml"].match(/RIM_VERSION: "(.*)"/)?.[1] ?? envVersion();
+      return { code: 0, out: "WARN[0000] docker-compose.yml: the attribute `version` is obsolete\n" + JSON.stringify({ services: { backend: { image: img("backend"), environment: { RIM_VERSION: rim } }, frontend: { image: img("frontend") } } }) };
+    }
     if (cmd === "docker" && args[0] === "compose" && args.includes("up") && args.at(-1) === "backend") {
-      const target = files["/srv/rim/.env"].match(/RIM_VERSION=(.*)/)[1];
+      const target = envVersion();
       if (failBackendStart && target !== "1.0.28") return { code: 1, out: "boom" };
       backendEnv = target === "1.0.28" ? ["RIM_VERSION=1.0.28", "GIT_COMMIT=aaaaaaa"] : [`RIM_VERSION=${target}`, `GIT_COMMIT=${imageCommit}`];
     }
@@ -127,6 +134,28 @@ test("install refuses an image whose commit differs from the checked one", async
   assert.match(st.error, /commit/);
   assert.match(s.files["/srv/rim/.env"], /RIM_VERSION=1\.0\.28/);
   assert.ok(!s.calls.some((c) => c.includes("force-recreate")), "nothing restarted");
+});
+
+test("setEnvVersion keeps exactly one RIM_VERSION line (compose uses the last one)", () => {
+  assert.equal(setEnvVersion("A=1\nRIM_VERSION=1.0.29\nRIM_VERSION=1.0.28\nB=2", "1.0.30"), "A=1\nRIM_VERSION=1.0.30\nB=2");
+  assert.equal(setEnvVersion("A=1\r\nRIM_VERSION=1.0.28\r\n", "1.0.29"), "A=1\r\nRIM_VERSION=1.0.29\r\n");
+});
+
+test("install with duplicate RIM_VERSION lines ends on the new version", async () => {
+  const s = fakeServer({ env: "DB_USER=rimuser\nRIM_VERSION=1.0.28\nRIM_VERSION=1.0.28\n" });
+  await s.updater.start("1.0.29", "bbbbbbb");
+  assert.equal(s.updater.status().status, "done", s.updater.status().error);
+  assert.equal([...s.files["/srv/rim/.env"].matchAll(/RIM_VERSION=/g)].length, 1);
+});
+
+test("install stops before any restart when compose would not run the new version", async () => {
+  const s = fakeServer({ composeExtra: '      RIM_VERSION: "1.0.28"\n' });
+  await s.updater.start("1.0.29", "bbbbbbb");
+  const st = s.updater.status();
+  assert.equal(st.status, "failed");
+  assert.match(st.error, /RIM_VERSION=1\.0\.28/);
+  assert.ok(!s.calls.some((c) => c.includes("force-recreate")), "nothing restarted");
+  assert.match(s.files["/srv/rim/.env"], /RIM_VERSION=1\.0\.28/);
 });
 
 test("start rejects bad input and a second install", async () => {

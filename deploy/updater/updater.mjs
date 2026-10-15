@@ -88,11 +88,38 @@ export function envList(list) {
   return env;
 }
 
-/** .env text with RIM_VERSION set (added when missing). */
+/** .env text with exactly one RIM_VERSION line set to `version` (compose uses the LAST duplicate,
+ *  so extra lines left by old sed/echo commands are removed). */
 export function setEnvVersion(text, version) {
   const t = String(text);
-  if (/^RIM_VERSION=.*$/m.test(t)) return t.replace(/^RIM_VERSION=.*$/m, `RIM_VERSION=${version}`);
-  return `${t.replace(/\s*$/, "")}\nRIM_VERSION=${version}\n`;
+  const eol = t.includes("\r\n") ? "\r\n" : "\n";
+  const lines = t.split(/\r?\n/);
+  let seen = false;
+  const out = [];
+  for (const line of lines) {
+    if (/^\s*RIM_VERSION\s*=/.test(line)) {
+      if (!seen) out.push(`RIM_VERSION=${version}`);
+      seen = true;
+    } else {
+      out.push(line);
+    }
+  }
+  if (seen) return out.join(eol);
+  return `${t.replace(/\s*$/, "")}${eol}RIM_VERSION=${version}${eol}`;
+}
+
+/** `docker compose config --format json` → what backend/frontend will actually run. */
+export function composeTargets(json) {
+  // exec mixes stderr in (e.g. "WARN ... attribute `version` is obsolete") — keep only the JSON
+  const text = String(json);
+  const cfg = typeof json === "string" ? JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1)) : json;
+  const svc = (name) => cfg?.services?.[name] ?? {};
+  const env = svc("backend").environment ?? {};
+  return {
+    backendImage: svc("backend").image ?? null,
+    frontendImage: svc("frontend").image ?? null,
+    rimVersion: Object.prototype.hasOwnProperty.call(env, "RIM_VERSION") ? env.RIM_VERSION : undefined,
+  };
 }
 
 /** docker-compose.yml text with pinned rim-backend / rim-frontend tags set to `version`
@@ -314,6 +341,12 @@ export function createUpdater(o) {
       phase = "files";
       await o.writeFile(composeFile, setComposeVersion(composeText, version, [backendImage, frontendImage]));
       await o.writeFile(envFile, setEnvVersion(envText, version));
+      // Ask compose what it will really run before anything restarts.
+      const target = composeTargets(await quiet("docker", ["compose", "--project-directory", o.rimDir, "-p", o.project, "config", "--format", "json"]));
+      if (!String(target.backendImage).endsWith(`:${version}`)) throw new Error(`compose would run backend ${target.backendImage}, not :${version}`);
+      if (!String(target.frontendImage).endsWith(`:${version}`)) throw new Error(`compose would run frontend ${target.frontendImage}, not :${version}`);
+      if (target.rimVersion !== undefined && target.rimVersion !== version) throw new Error(`compose would set RIM_VERSION=${target.rimVersion}, not ${version}`);
+      log(`compose: backend ${target.backendImage}, frontend ${target.frontendImage}, RIM_VERSION ${target.rimVersion ?? "(not set)"}`);
       await compose("pull", "backend", "frontend");
       const img = await imageInfo(`${backendImage}:${version}`);
       if (!img || img.version !== version) throw new Error(`backend image is ${img?.version ?? "missing"}, not ${version}`);
@@ -324,6 +357,8 @@ export function createUpdater(o) {
       phase = "switched";
       await compose("up", "-d", "--no-deps", "--force-recreate", "backend");
       if (!(await backendUp(commit))) throw new Error("backend did not start");
+      const runningVersion = (await running()).version;
+      if (runningVersion !== version) throw new Error(`backend reports version ${runningVersion}, not ${version}`);
       step("backend", "done");
 
       step("frontend", "running");
