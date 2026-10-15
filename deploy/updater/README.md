@@ -1,4 +1,4 @@
-# rim-updater — Settings › อัปเดตระบบ
+# rim-updater — Settings › System Update
 
 A small container next to RIM that installs new versions when a SUPER_ADMIN presses the button.
 The backend (`modules/system`) forwards requests to it on the app's Docker network with a shared secret.

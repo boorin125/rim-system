@@ -1,6 +1,6 @@
 // src/modules/system/system.service.ts
 //
-// Settings › อัปเดตระบบ: talks to the rim-updater container (deploy/updater) on the app's Docker
+// Settings › System Update: talks to the rim-updater container (deploy/updater) on the app's Docker
 // network. The updater does the work; this service only forwards SUPER_ADMIN requests, keeps the
 // result of the last check and runs the nightly check.
 
@@ -157,7 +157,7 @@ export class SystemService {
             a.id,
             NotificationType.SYSTEM_ALERT,
             `RIM เวอร์ชันใหม่ v${result.latest.version} พร้อมติดตั้ง`,
-            `ติดตั้งได้ที่ ตั้งค่า › อัปเดตระบบ (ปัจจุบัน v${result.current?.version ?? '?'})`,
+            `ติดตั้งได้ที่ Settings › System Update (ปัจจุบัน v${result.current?.version ?? '?'})`,
             undefined,
             '/dashboard/settings?tab=update',
           )

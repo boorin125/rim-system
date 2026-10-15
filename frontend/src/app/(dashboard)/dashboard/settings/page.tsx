@@ -1788,7 +1788,7 @@ export default function SettingsPage() {
     { id: 'theme' as TabType, label: 'Theme', icon: Palette },
     { id: 'mobile-app' as TabType, label: 'Mobile App', icon: Smartphone },
     ...(isSuperAdmin ? [{ id: 'maintenance' as TabType, label: 'Maintenance', icon: Wrench }] : []),
-    ...(isSuperAdmin ? [{ id: 'update' as TabType, label: 'อัปเดตระบบ', icon: DownloadCloud }] : []),
+    ...(isSuperAdmin ? [{ id: 'update' as TabType, label: 'System Update', icon: DownloadCloud }] : []),
     { id: 'info' as TabType, label: 'Info', icon: Info },
   ]
 

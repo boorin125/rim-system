@@ -1,6 +1,6 @@
 'use client'
 
-// Settings › อัปเดตระบบ (SUPER_ADMIN): the running version, a check of this server's release
+// Settings › System Update (SUPER_ADMIN): the running version, a check of this server's release
 // channel, a one-button install with live progress, and past updates. The work is done by the
 // rim-updater container on the server (deploy/updater). Layout follows RSM's update screen.
 

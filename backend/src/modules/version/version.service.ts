@@ -4,7 +4,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { VersionStatus } from '@prisma/client';
 
-// Installing new versions is done by the rim-updater (Settings › อัปเดตระบบ, see modules/system).
+// Installing new versions is done by the rim-updater (Settings › System Update, see modules/system).
 // This service only reports the running version.
 @Injectable()
 export class VersionService {

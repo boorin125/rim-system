@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================
-#  RIM-System — one-time setup of the update button (Settings › อัปเดตระบบ)
+#  RIM-System — one-time setup of the update button (Settings › System Update)
 #  Copy this folder to the server (e.g. next to docker-compose.yml) and run:
 #     ./setup-updater.sh latest     # Test Server  (every build)
 #     ./setup-updater.sh stable     # Customers    (after build-release.ps1 -Promote)
@@ -98,5 +98,5 @@ step "[5/5] ตรวจ"
 docker exec rim-backend curl -sf http://rim-updater:3090/health >/dev/null || fail "backend เรียก rim-updater ไม่ได้"
 ok "backend ↔ rim-updater เชื่อมกันแล้ว"
 
-echo -e "\n${GREEN}🎉 พร้อมใช้งาน — Settings › อัปเดตระบบ (SUPER_ADMIN)${NC}"
+echo -e "\n${GREEN}🎉 พร้อมใช้งาน — Settings › System Update (SUPER_ADMIN)${NC}"
 echo "  ช่องทาง: $CHANNEL   ·   log: docker logs rim-updater"

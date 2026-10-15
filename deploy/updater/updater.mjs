@@ -1,4 +1,4 @@
-// The update worker behind Settings › อัปเดตระบบ (same idea as RSM's deploy/updater, but for RIM's
+// The update worker behind Settings › System Update (same idea as RSM's deploy/updater, but for RIM's
 // Docker install). It runs in its own container (rim-updater) next to the app — the app cannot
 // replace itself while showing the progress — and does only fixed things: check the release
 // channel (a Docker Hub tag) for a newer version, and install it.
