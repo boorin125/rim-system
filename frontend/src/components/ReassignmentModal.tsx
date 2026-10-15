@@ -2,6 +2,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import {
   X,
@@ -15,6 +16,9 @@ import {
 } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
+
+/** Render on <body> so the fixed page header cannot cover the modal (main is its own stacking context) */
+const portal = (node: React.ReactNode) => (typeof document === 'undefined' ? null : createPortal(node, document.body))
 
 interface Technician {
   id: number
@@ -269,7 +273,7 @@ export default function ReassignmentModal({ isOpen, onClose, incident, onSuccess
 
   // ── Confirm Step ──────────────────────────────────────────
   if (confirmScenario) {
-    return (
+    return portal(
       <div className="fixed inset-0 bg-black/50 z-50 flex items-start sm:items-center justify-center p-4 pt-20 sm:pt-4">
         <div className="glass-card p-6 rounded-2xl max-w-lg w-full animate-fade-in">
           <div className="flex items-center gap-3 mb-5">
@@ -378,7 +382,7 @@ export default function ReassignmentModal({ isOpen, onClose, incident, onSuccess
   }
 
   // ── Main Form ─────────────────────────────────────────────
-  return (
+  return portal(
     <div className="fixed inset-0 bg-black/50 z-50 flex items-start sm:items-center justify-center p-4 pt-20 sm:pt-4">
       <div className="glass-card p-6 rounded-2xl max-w-lg w-full animate-fade-in max-h-[calc(100vh-88px)] sm:max-h-[90vh] flex flex-col">
         {/* Header */}

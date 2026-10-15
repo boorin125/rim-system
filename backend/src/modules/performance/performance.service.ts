@@ -1421,6 +1421,70 @@ export class PerformanceService implements OnApplicationBootstrap {
     return Math.round(rs * 0.6 + cs * 0.4);
   }
 
+  // ──────────────────────────────────────────────────
+  // PENDING INCIDENTS — open work per technician (not CLOSED / CANCELLED), oldest first
+  // ──────────────────────────────────────────────────
+  async getPendingIncidents(jobTypes?: string[]) {
+    const incidents = await this.prisma.incident.findMany({
+      where: {
+        status: { notIn: [IncidentStatus.CLOSED, IncidentStatus.CANCELLED] },
+        ...(jobTypes?.length ? { jobType: { in: jobTypes } } : {}),
+      },
+      select: {
+        id: true, ticketNumber: true, title: true, status: true, priority: true, jobType: true,
+        incidentDate: true, createdAt: true, resolutionType: true, reopenCount: true,
+        storeCode: true, storeName: true,
+        store: { select: { storeCode: true, name: true, province: true } },
+        assigneeId: true,
+        assignee: { select: { id: true, firstName: true, lastName: true, technicianType: true } },
+        assignees: { select: { user: { select: { id: true, firstName: true, lastName: true, technicianType: true } } } },
+      },
+    });
+
+    const reportedAt = (i: (typeof incidents)[number]) => i.incidentDate ?? i.createdAt;
+    const sorted = [...incidents].sort((a, b) => reportedAt(a).getTime() - reportedAt(b).getTime());
+
+    type Tech = { id: number; firstName: string; lastName: string; technicianType: string | null };
+    const groups = new Map<number, { technician: Tech; items: typeof sorted }>();
+    const unassigned: typeof sorted = [];
+    for (const inc of sorted) {
+      // A job counts for the main assignee and every co-assignee
+      const techs = new Map<number, Tech>();
+      if (inc.assignee) techs.set(inc.assignee.id, inc.assignee);
+      for (const a of inc.assignees) techs.set(a.user.id, a.user);
+      if (techs.size === 0) {
+        unassigned.push(inc);
+        continue;
+      }
+      for (const t of techs.values()) {
+        const g = groups.get(t.id) ?? { technician: t, items: [] };
+        g.items.push(inc);
+        groups.set(t.id, g);
+      }
+    }
+
+    const toItem = (i: (typeof sorted)[number]) => ({
+      ...i,
+      reportedAt: reportedAt(i),
+      storeCode: i.store?.storeCode ?? i.storeCode,
+      storeName: i.store?.name ?? i.storeName,
+    });
+
+    return {
+      total: incidents.length,
+      unassigned: unassigned.map(toItem),
+      technicians: Array.from(groups.values())
+        .map((g) => ({
+          id: g.technician.id,
+          name: `${g.technician.firstName} ${g.technician.lastName}`,
+          technicianType: g.technician.technicianType,
+          count: g.items.length,
+          items: g.items.map(toItem),
+        }))
+        .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'th')),
+    };
+  }
+
   async getHelpdeskStats(period?: string, jobTypes?: string[], from?: string, to?: string) {
     const { startDate, endDate, targetPeriod } = this.getDateRange(period, from, to);
 

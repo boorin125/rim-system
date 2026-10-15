@@ -370,6 +370,14 @@ export class PerformanceController {
     return this.performanceService.getEquipmentRepeatDetail(ids, parsed, key, from, to);
   }
 
+  /** Pending Incidents — open work per technician + unassigned, oldest first */
+  @Get('pending-incidents')
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK, UserRole.MONITOR)
+  async getPendingIncidents(@Query('jobTypes') jobTypes?: string) {
+    const parsed = jobTypes ? jobTypes.split(',').map(s => s.trim()).filter(Boolean) : undefined;
+    return this.performanceService.getPendingIncidents(parsed);
+  }
+
   /** Help Desk Overall Stats */
   @Get('helpdesk-stats')
   @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK, UserRole.MONITOR)

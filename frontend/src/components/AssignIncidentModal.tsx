@@ -2,10 +2,14 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { X, User, AlertCircle, Search, Check, MapPin } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import { TimeInput } from '@/components/TimeInput'
+
+/** Render on <body> so the fixed page header cannot cover the modal (main is its own stacking context) */
+const portal = (node: React.ReactNode) => (typeof document === 'undefined' ? null : createPortal(node, document.body))
 
 interface AssignIncidentModalProps {
   incident: any
@@ -205,7 +209,7 @@ export default function AssignIncidentModal({
 
   if (!isOpen) return null
 
-  return (
+  return portal(
     <div className="fixed inset-0 bg-black/50 z-50 flex items-start sm:items-center justify-center p-4 pt-20 sm:pt-4">
       <div className="glass-card p-6 rounded-2xl max-w-md w-full animate-fade-in max-h-[calc(100vh-88px)] sm:max-h-[90vh] flex flex-col">
         {/* Header */}

@@ -43,6 +43,7 @@ import {
 import { getUserRoles, getAccessLevel } from '@/config/permissions'
 import * as XLSX from 'xlsx'
 import { formatStore } from '@/utils/formatStore'
+import PendingIncidents from '@/components/performance/PendingIncidents'
 
 function useThemeHighlight() {
   const [color, setColor] = useState('#3b82f6')
@@ -1178,6 +1179,9 @@ export default function PerformancePage() {
               </div>
             )
           })()}
+
+          {/* Pending Incidents — open work per technician + unassigned */}
+          <PendingIncidents jobTypes={selectedJobTypes} userRoles={userRoles} />
 
           {/* Leaderboard */}
           {(() => {

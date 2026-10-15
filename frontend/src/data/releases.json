@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "version": "1.0.30",
+      "date": "2026-10-15",
+      "changes": [
+        {
+          "type": "new",
+          "text": "Performance — Pending Incidents: งานที่ยังไม่ Closed แยกตามช่าง (รวมช่างร่วม) และกลุ่ม Unassign พร้อมจำนวนงาน กดชื่อเพื่อดูรายการ Incident No. / Title / Store / Status / Incident Date / Aging เรียงจากเก่าไปใหม่"
+        },
+        {
+          "type": "new",
+          "text": "Pending Incidents — ปุ่ม Assign (งาน Unassign) และ Reassign (งานที่มีช่างแล้ว) เปิดหน้าต่างบนหน้าเดิม ยืนยันหรือยกเลิกแล้วอยู่หน้าเดิมและรายการอัปเดตทันที (สิทธิ์และเงื่อนไขเหมือนหน้า Incident)"
+        },
+        {
+          "type": "fixed",
+          "text": "หน้าต่าง Assign / Reassign ไม่ถูก Header ด้านบนบังอีก"
+        }
+      ]
+    },
+    {
       "version": "1.0.29",
       "date": "2026-10-15",
       "changes": [
