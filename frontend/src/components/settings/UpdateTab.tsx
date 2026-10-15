@@ -78,6 +78,9 @@ function Notes({ changes }: { changes: { text: string }[] }) {
 
 function failText(s: { error: string | null; rolledBack: boolean }) {
   if (s.error === 'disk full') return 'พื้นที่ดิสก์บนเซิร์ฟเวอร์ไม่พอ — ระบบยังเป็นเวอร์ชันเดิม'
+  if (s.error?.includes('backend image commit is'))
+    return 'มีการ build ใหม่หลังจากตรวจครั้งล่าสุด — ระบบยังเป็นเวอร์ชันเดิม กด Check for Updates แล้วติดตั้งอีกครั้ง'
+  if (s.error?.includes('ดาวน์โหลดจาก Docker Hub ไม่สำเร็จ')) return `${s.error.split(' [')[0]} — ระบบยังเป็นเวอร์ชันเดิม`
   if (s.error === 'interrupted') return 'การอัปเดตถูกขัดจังหวะ (เซิร์ฟเวอร์รีสตาร์ท) — ตรวจสอบว่าระบบใช้งานได้ปกติ'
   return s.rolledBack
     ? 'อัปเดตไม่สำเร็จ — ระบบย้อนกลับเป็นเวอร์ชันเดิมเรียบร้อยแล้ว ข้อมูลไม่เสียหาย'
@@ -193,20 +196,28 @@ export default function UpdateTab() {
     }
   }, [polling])
 
+  /** Check the channel now (the updater pulls in the background) and return the fresh result. */
+  const runCheck = async (): Promise<UpdateCheck | null> => {
+    await axios.post(`${api()}/system/update/check`, {}, auth())
+    for (let i = 0; i < 300; i++) {
+      await new Promise((r) => setTimeout(r, POLL_MS))
+      const r = await axios.get<Overview>(`${api()}/system/update`, auth())
+      if (r.data.checking) continue
+      setInfo(r.data)
+      if (r.data.lastCheckError) {
+        toast.error(`ตรวจหาเวอร์ชันใหม่ไม่สำเร็จ: ${r.data.lastCheckError}`)
+        return null
+      }
+      return r.data.lastCheck?.result ?? null
+    }
+    return null
+  }
+
   const check = async () => {
     setChecking(true)
     try {
-      await axios.post(`${api()}/system/update/check`, {}, auth())
-      // The check pulls the channel image in the background — wait for its result.
-      for (let i = 0; i < 300; i++) {
-        await new Promise((r) => setTimeout(r, POLL_MS))
-        const r = await axios.get<Overview>(`${api()}/system/update`, auth())
-        if (r.data.checking) continue
-        setInfo(r.data)
-        if (r.data.lastCheckError) toast.error(`ตรวจหาเวอร์ชันใหม่ไม่สำเร็จ: ${r.data.lastCheckError}`)
-        else if (r.data.lastCheck) setFound(r.data.lastCheck.result)
-        break
-      }
+      const fresh = await runCheck()
+      if (fresh) setFound(fresh)
       setManualDone(false)
     } catch (e: any) {
       toast.error(e?.response?.data?.message || 'ตรวจหาเวอร์ชันใหม่ไม่สำเร็จ')
@@ -217,10 +228,25 @@ export default function UpdateTab() {
 
   const install = async () => {
     if (!found?.latest.version || !found.latest.commit) return
-    setConfirming(false)
     setStarting(true)
     try {
-      await axios.post(`${api()}/system/update/install`, { version: found.latest.version, commit: found.latest.commit }, auth())
+      // The result on screen may be old (nightly check, or a build pushed since): check again first.
+      const fresh = await runCheck()
+      if (!fresh) return
+      if (!fresh.available || fresh.latest.commit !== found.latest.commit) {
+        setConfirming(false)
+        setFound(fresh)
+        setManualDone(false)
+        toast(
+          fresh.available
+            ? `พบ build ใหม่กว่าที่ตรวจไว้ (${fresh.latest.version} · ${fresh.latest.commit}) — ตรวจ Release Notes แล้วกด Install Update อีกครั้ง`
+            : 'ใช้เวอร์ชันล่าสุดอยู่แล้ว',
+          { icon: 'ℹ️', duration: 6000 },
+        )
+        return
+      }
+      setConfirming(false)
+      await axios.post(`${api()}/system/update/install`, { version: fresh.latest.version, commit: fresh.latest.commit }, auth())
       setFound(null)
       setStatus(null)
       setFollowing(true)
@@ -421,7 +447,7 @@ export default function UpdateTab() {
                 disabled={starting}
                 className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition duration-200 disabled:opacity-50"
               >
-                {starting ? 'กำลังเริ่ม...' : 'ติดตั้ง'}
+                {starting ? 'กำลังตรวจเวอร์ชันล่าสุด...' : 'ติดตั้ง'}
               </button>
             </div>
           </div>
