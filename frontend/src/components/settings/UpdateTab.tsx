@@ -7,6 +7,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
+import { createPortal } from 'react-dom'
+import { DownloadCloud } from 'lucide-react'
 import releasesData from '@/data/releases.json'
 
 type StepKey = 'prepare' | 'backup' | 'pull' | 'backend' | 'frontend' | 'finish'
@@ -134,6 +136,7 @@ export default function UpdateTab() {
   const [following, setFollowing] = useState(false)
   const [restarting, setRestarting] = useState(false)
   const [manualDone, setManualDone] = useState(false)
+  const [confirming, setConfirming] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const load = useCallback(async () => {
@@ -209,12 +212,7 @@ export default function UpdateTab() {
 
   const install = async () => {
     if (!found?.latest.version || !found.latest.commit) return
-    const ok = confirm(
-      `ติดตั้งเวอร์ชัน ${short(found.latest.version, found.latest.commit)}?\n\n` +
-        'ระบบจะสำรองฐานข้อมูลก่อน แล้วติดตั้งเวอร์ชันใหม่ ระหว่างสลับเวอร์ชันผู้ใช้จะใช้งานไม่ได้ประมาณ 1 นาที ' +
-        'ถ้าไม่สำเร็จระบบจะย้อนกลับเป็นเวอร์ชันเดิมให้อัตโนมัติ',
-    )
-    if (!ok) return
+    setConfirming(false)
     setStarting(true)
     try {
       await axios.post(`${api()}/system/update/install`, { version: found.latest.version, commit: found.latest.commit }, auth())
@@ -318,7 +316,7 @@ export default function UpdateTab() {
                   </div>
                 )}
                 <p className="text-xs text-gray-400">ระบบจะสำรองฐานข้อมูลก่อนติดตั้งเสมอ ถ้าติดตั้งไม่สำเร็จจะย้อนกลับเป็นเวอร์ชันเดิมให้อัตโนมัติ</p>
-                <button type="button" onClick={install} disabled={starting || (found.manual.length > 0 && !manualDone)} className={btnPrimary}>
+                <button type="button" onClick={() => setConfirming(true)} disabled={starting || (found.manual.length > 0 && !manualDone)} className={btnPrimary}>
                   {starting ? 'Starting…' : 'Install Update'}
                 </button>
               </>
@@ -386,6 +384,44 @@ export default function UpdateTab() {
             })}
           </ul>
         </div>
+      )}
+
+      {confirming && found && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4" onClick={() => setConfirming(false)}>
+          <div className="glass-card p-6 rounded-2xl max-w-md w-full animate-fade-in" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="p-3 bg-indigo-500/20 rounded-full">
+                <DownloadCloud className="w-6 h-6 text-indigo-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">ติดตั้งเวอร์ชัน {short(found.latest.version, found.latest.commit)}</h3>
+                <p className="text-sm text-gray-400">จาก v{version}</p>
+              </div>
+            </div>
+            <p className="text-gray-300 mb-3 text-sm">
+              ระบบจะสำรองฐานข้อมูลก่อน แล้วติดตั้งเวอร์ชันใหม่ ถ้าไม่สำเร็จระบบจะย้อนกลับเป็นเวอร์ชันเดิมให้อัตโนมัติ
+            </p>
+            <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg mb-4">
+              <p className="text-amber-300 text-xs">ระหว่างสลับเวอร์ชัน ผู้ใช้ทุกคนจะใช้งานไม่ได้ประมาณ 1 นาที — ควรติดตั้งช่วงที่มีผู้ใช้งานน้อย</p>
+            </div>
+            <div className="flex items-center justify-end space-x-3">
+              <button
+                onClick={() => setConfirming(false)}
+                className="px-4 py-2 text-gray-300 hover:bg-slate-700/50 rounded-lg transition duration-200"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={install}
+                disabled={starting}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition duration-200 disabled:opacity-50"
+              >
+                {starting ? 'กำลังเริ่ม...' : 'ติดตั้ง'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
       )}
     </div>
   )
