@@ -61,6 +61,8 @@ export default function PendingIncidents({ jobTypes, userRoles }: { jobTypes: st
   const [open, setOpen] = useState<Set<string>>(new Set())
   const [assignTarget, setAssignTarget] = useState<PendingItem | null>(null)
   const [reassignTarget, setReassignTarget] = useState<PendingItem | null>(null)
+  /** Job just assigned/reassigned — its new group opens and the row is highlighted */
+  const [moved, setMoved] = useState<string | null>(null)
 
   // Same rules as the incident page
   const canAssign = userRoles.includes('SUPERVISOR') || userRoles.includes('IT_MANAGER')
@@ -82,6 +84,23 @@ export default function PendingIncidents({ jobTypes, userRoles }: { jobTypes: st
   }, [jobTypes])
 
   useEffect(() => { load() }, [load])
+
+  // After Assign / Reassign: open the group(s) now holding the job, scroll to it, highlight briefly
+  useEffect(() => {
+    if (!moved || !data) return
+    const keys = data.technicians.filter((t) => t.items.some((i) => i.id === moved)).map((t) => `tech-${t.id}`)
+    if (data.unassigned.some((i) => i.id === moved)) keys.push('unassigned')
+    if (keys.length) setOpen((prev) => new Set([...Array.from(prev), ...keys]))
+    const scroll = setTimeout(() => document.getElementById(`pending-${moved}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150)
+    const clear = setTimeout(() => setMoved(null), 4000)
+    return () => { clearTimeout(scroll); clearTimeout(clear) }
+  }, [moved, data])
+
+  const afterChange = (id: string) => {
+    setAssignTarget(null)
+    setReassignTarget(null)
+    load().then(() => setMoved(id))
+  }
 
   const toggle = (key: string) =>
     setOpen((prev) => {
@@ -118,7 +137,11 @@ export default function PendingIncidents({ jobTypes, userRoles }: { jobTypes: st
             const age = aging(i.reportedAt)
             const action = unassigned ? (canAssign ? assignState(i) : null) : canReassign ? reassignState(i) : null
             return (
-              <tr key={i.id} className="border-b border-slate-700/40 hover:bg-slate-700/20">
+              <tr
+                key={i.id}
+                id={`pending-${i.id}`}
+                className={`border-b border-slate-700/40 transition-colors duration-700 ${moved === i.id ? 'bg-emerald-500/20' : 'hover:bg-slate-700/20'}`}
+              >
                 <td className="py-2 px-3 whitespace-nowrap">
                   <a
                     href={`/dashboard/incidents/${i.id}`}
@@ -227,7 +250,7 @@ export default function PendingIncidents({ jobTypes, userRoles }: { jobTypes: st
           isOpen
           mode="assign"
           onClose={() => setAssignTarget(null)}
-          onSuccess={() => { setAssignTarget(null); load() }}
+          onSuccess={() => afterChange(assignTarget.id)}
         />
       )}
       {reassignTarget && (
@@ -242,7 +265,7 @@ export default function PendingIncidents({ jobTypes, userRoles }: { jobTypes: st
             assignee: reassignTarget.assignee ?? undefined,
             assignees: reassignTarget.assignees,
           }}
-          onSuccess={() => { setReassignTarget(null); load() }}
+          onSuccess={() => afterChange(reassignTarget.id)}
         />
       )}
     </div>
