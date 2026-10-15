@@ -2030,6 +2030,50 @@ export class IncidentsService {
     return this.prisma.incident.findFirst({ where: { id } });
   }
 
+  /**
+   * Other open jobs (not RESOLVED/CLOSED/CANCELLED) in the same store as `id`, oldest first —
+   * the Assign / Reassign screens warn about them so one technician can take them together.
+   */
+  async getStorePending(id: string) {
+    const incident = await this.prisma.incident.findUnique({
+      where: { id },
+      select: { storeId: true, store: { select: { storeCode: true, name: true } } },
+    });
+    if (!incident) throw new NotFoundException(`ไม่พบ Incident ${id}`);
+
+    const others = await this.prisma.incident.findMany({
+      where: {
+        storeId: incident.storeId,
+        id: { not: id },
+        status: { in: [IncidentStatus.OPEN, IncidentStatus.PENDING, IncidentStatus.ASSIGNED, IncidentStatus.IN_PROGRESS] },
+      },
+      orderBy: [{ incidentDate: 'asc' }, { createdAt: 'asc' }],
+      select: {
+        id: true, ticketNumber: true, title: true, status: true, resolutionType: true, reopenCount: true,
+        assignee: { select: { id: true, firstName: true, lastName: true } },
+        assignees: { select: { user: { select: { id: true, firstName: true, lastName: true } } } },
+      },
+    });
+
+    return {
+      store: incident.store,
+      items: others.map((o) => {
+        const techs = new Map<number, string>();
+        if (o.assignee) techs.set(o.assignee.id, `${o.assignee.firstName} ${o.assignee.lastName}`);
+        for (const a of o.assignees) techs.set(a.user.id, `${a.user.firstName} ${a.user.lastName}`);
+        return {
+          id: o.id,
+          ticketNumber: o.ticketNumber,
+          title: o.title,
+          status: o.status,
+          resolutionType: o.resolutionType,
+          reopenCount: o.reopenCount,
+          technicians: Array.from(techs, ([techId, name]) => ({ id: techId, name })),
+        };
+      }),
+    };
+  }
+
   async getWorkRounds(id: string) {
     const [rounds, spareParts] = await Promise.all([
       this.prisma.incidentWorkRound.findMany({

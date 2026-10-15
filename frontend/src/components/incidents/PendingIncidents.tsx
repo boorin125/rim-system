@@ -63,6 +63,21 @@ export default function PendingIncidents({ jobTypes, userRoles }: { jobTypes: st
   const [reassignTarget, setReassignTarget] = useState<PendingItem | null>(null)
   /** Job just assigned/reassigned — its new group opens and the row is highlighted */
   const [moved, setMoved] = useState<string | null>(null)
+  /** Technicians to pre-select when continuing with the next unassigned job of the same store */
+  const [assignPreset, setAssignPreset] = useState<number[] | undefined>(undefined)
+
+  // "ตกลง และไปที่งาน WATxxx": open Assign for that job with the same technician(s) selected
+  const goToIncident = (incidentId: string, technicianIds: number[]) => {
+    const all = [...(data?.unassigned ?? []), ...(data?.technicians.flatMap((t) => t.items) ?? [])]
+    const next = all.find((i) => i.id === incidentId)
+    if (!next) {
+      window.open(`/dashboard/incidents/${incidentId}`, '_blank')
+      return
+    }
+    setAssignPreset(technicianIds)
+    setReassignTarget(null)
+    setAssignTarget(next)
+  }
 
   // Same rules as the incident page
   const canAssign = userRoles.includes('SUPERVISOR') || userRoles.includes('IT_MANAGER')
@@ -246,16 +261,21 @@ export default function PendingIncidents({ jobTypes, userRoles }: { jobTypes: st
 
       {assignTarget && (
         <AssignIncidentModal
+          key={assignTarget.id}
           incident={assignTarget}
           isOpen
           mode="assign"
-          onClose={() => setAssignTarget(null)}
+          presetTechnicianIds={assignPreset}
+          onClose={() => { setAssignTarget(null); setAssignPreset(undefined) }}
           onSuccess={() => afterChange(assignTarget.id)}
+          onGoToIncident={goToIncident}
         />
       )}
       {reassignTarget && (
         <ReassignmentModal
+          key={reassignTarget.id}
           isOpen
+          onGoToIncident={goToIncident}
           onClose={() => setReassignTarget(null)}
           incident={{
             id: reassignTarget.id,

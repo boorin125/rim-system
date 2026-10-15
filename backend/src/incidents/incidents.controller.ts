@@ -172,6 +172,13 @@ export class IncidentsController {
     return this.incidentsService.cancelReopen(id, req.user.id);
   }
 
+  /** Other open jobs in the same store — shown as a warning before Assign / Reassign */
+  @Get(':id/store-pending')
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR)
+  getStorePending(@Param('id') id: string) {
+    return this.incidentsService.getStorePending(id);
+  }
+
   @Get(':id/work-rounds')
   @Roles(
     UserRole.IT_MANAGER,

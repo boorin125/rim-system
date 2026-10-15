@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
+import { useStoreWorkloadCheck } from '@/components/StoreWorkloadCheck'
 
 /** Render on <body> so the fixed page header cannot cover the modal (main is its own stacking context) */
 const portal = (node: React.ReactNode) => (typeof document === 'undefined' ? null : createPortal(node, document.body))
@@ -48,6 +49,8 @@ interface ReassignmentModalProps {
     assignees?: Array<{ user: { id: number; firstName: string; lastName: string } }>
   }
   onSuccess: () => void
+  /** After reassigning, the user chose to continue with another job in the same store (default: open that incident) */
+  onGoToIncident?: (incidentId: string, technicianIds: number[]) => void
 }
 
 type ConfirmScenario =
@@ -56,8 +59,9 @@ type ConfirmScenario =
   | { type: 'request-cancel-checkedin'; jobCode: string }
   | { type: 'multi-assign'; count: number }
 
-export default function ReassignmentModal({ isOpen, onClose, incident, onSuccess }: ReassignmentModalProps) {
+export default function ReassignmentModal({ isOpen, onClose, incident, onSuccess, onGoToIncident }: ReassignmentModalProps) {
   const router = useRouter()
+  const storeCheck = useStoreWorkloadCheck()
   const [technicians, setTechnicians] = useState<Technician[]>([])
   const [selectedTechnicianIds, setSelectedTechnicianIds] = useState<number[]>([])
   const [reason, setReason] = useState('')
@@ -159,6 +163,11 @@ export default function ReassignmentModal({ isOpen, onClose, incident, onSuccess
       return
     }
 
+    const names = selectedTechs.map((t) => `${t.firstName} ${t.lastName}`)
+    storeCheck.run(incident.id, isUnassigning ? [] : selectedTechnicianIds, names, continueSubmit)
+  }
+
+  const continueSubmit = () => {
     if (!isUnassigning && hasOutsourceInSelection) {
       setConfirmScenario({
         type: 'outsource-redirect',
@@ -186,6 +195,17 @@ export default function ReassignmentModal({ isOpen, onClose, incident, onSuccess
     executeReassign()
   }
 
+  const finishAssigned = () => {
+    const goTo = storeCheck.takeGoTo()
+    const assignedIds = selectedTechnicianIds
+    onSuccess()
+    onClose()
+    if (goTo) {
+      if (onGoToIncident) onGoToIncident(goTo.id, assignedIds)
+      else router.push(`/dashboard/incidents/${goTo.id}`)
+    }
+  }
+
   const executeReassign = async () => {
     try {
       setIsSubmitting(true)
@@ -195,8 +215,7 @@ export default function ReassignmentModal({ isOpen, onClose, incident, onSuccess
         config()
       )
       toast.success(isUnassigning ? 'ยกเลิกการมอบหมายสำเร็จ งานกลับสู่สถานะ OPEN' : 'เปลี่ยน Technician สำเร็จ')
-      onSuccess()
-      onClose()
+      finishAssigned()
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'ไม่สามารถเปลี่ยน Technician ได้')
     } finally {
@@ -237,8 +256,7 @@ export default function ReassignmentModal({ isOpen, onClose, incident, onSuccess
           config()
         )
         toast.success('ยกเลิก Outsource และมอบหมาย Inhouse สำเร็จ')
-        onSuccess()
-        onClose()
+        finishAssigned()
         return
       }
 
@@ -275,6 +293,7 @@ export default function ReassignmentModal({ isOpen, onClose, incident, onSuccess
   if (confirmScenario) {
     return portal(
       <div className="fixed inset-0 bg-black/50 z-50 flex items-start sm:items-center justify-center p-4 pt-20 sm:pt-4">
+        {storeCheck.dialog}
         <div className="glass-card p-6 rounded-2xl max-w-lg w-full animate-fade-in">
           <div className="flex items-center gap-3 mb-5">
             <div className="p-3 bg-amber-500/20 rounded-full">
@@ -384,6 +403,7 @@ export default function ReassignmentModal({ isOpen, onClose, incident, onSuccess
   // ── Main Form ─────────────────────────────────────────────
   return portal(
     <div className="fixed inset-0 bg-black/50 z-50 flex items-start sm:items-center justify-center p-4 pt-20 sm:pt-4">
+      {storeCheck.dialog}
       <div className="glass-card p-6 rounded-2xl max-w-lg w-full animate-fade-in max-h-[calc(100vh-88px)] sm:max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">

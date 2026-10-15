@@ -7,6 +7,8 @@ import { X, User, AlertCircle, Search, Check, MapPin } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import { TimeInput } from '@/components/TimeInput'
+import { useRouter } from 'next/navigation'
+import { useStoreWorkloadCheck } from '@/components/StoreWorkloadCheck'
 
 /** Render on <body> so the fixed page header cannot cover the modal (main is its own stacking context) */
 const portal = (node: React.ReactNode) => (typeof document === 'undefined' ? null : createPortal(node, document.body))
@@ -17,6 +19,10 @@ interface AssignIncidentModalProps {
   onClose: () => void
   onSuccess: () => void
   mode: 'assign' | 'reassign'
+  /** Technicians to pre-select in assign mode (e.g. the same technician as the previous job in this store) */
+  presetTechnicianIds?: number[]
+  /** After assigning, the user chose to continue with another job in the same store (default: open that incident) */
+  onGoToIncident?: (incidentId: string, technicianIds: number[]) => void
 }
 
 export default function AssignIncidentModal({
@@ -25,7 +31,11 @@ export default function AssignIncidentModal({
   onClose,
   onSuccess,
   mode,
+  presetTechnicianIds,
+  onGoToIncident,
 }: AssignIncidentModalProps) {
+  const router = useRouter()
+  const storeCheck = useStoreWorkloadCheck()
   const [technicians, setTechnicians] = useState<any[]>([])
   const [selectedTechnicianIds, setSelectedTechnicianIds] = useState<number[]>([])
   const [reassignReason, setReassignReason] = useState('')
@@ -48,7 +58,7 @@ export default function AssignIncidentModal({
       } else if (mode === 'reassign' && incident?.assigneeId) {
         setSelectedTechnicianIds([incident.assigneeId])
       } else {
-        setSelectedTechnicianIds([])
+        setSelectedTechnicianIds(presetTechnicianIds ?? [])
       }
       setReassignReason('')
       setScheduledDate('')
@@ -155,6 +165,13 @@ export default function AssignIncidentModal({
       return
     }
 
+    const names = technicians
+      .filter((t) => selectedTechnicianIds.includes(t.id))
+      .map((t) => `${t.firstName || ''} ${t.lastName || ''}`.trim())
+    await storeCheck.run(incident.id, selectedTechnicianIds, names, submitAssign)
+  }
+
+  const submitAssign = async () => {
     setIsLoading(true)
 
     try {
@@ -190,8 +207,14 @@ export default function AssignIncidentModal({
             : 'มอบหมายงานใหม่สำเร็จ'
       )
 
+      const goTo = storeCheck.takeGoTo()
+      const assignedIds = selectedTechnicianIds
       onSuccess()
       onClose()
+      if (goTo) {
+        if (onGoToIncident) onGoToIncident(goTo.id, assignedIds)
+        else router.push(`/dashboard/incidents/${goTo.id}`)
+      }
 
       setSelectedTechnicianIds([])
       setReassignReason('')
@@ -441,7 +464,7 @@ export default function AssignIncidentModal({
             </button>
             <button
               type="submit"
-              disabled={isLoading || (mode === 'assign' && selectedTechnicianIds.length === 0)}
+              disabled={isLoading || storeCheck.checking || (mode === 'assign' && selectedTechnicianIds.length === 0)}
               className={`px-6 py-3 text-white rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
                 mode === 'reassign' && selectedTechnicianIds.length === 0
                   ? 'bg-red-600 hover:bg-red-700'
@@ -459,6 +482,7 @@ export default function AssignIncidentModal({
           </div>
         </form>
       </div>
+      {storeCheck.dialog}
     </div>
   )
 }
