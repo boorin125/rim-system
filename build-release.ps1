@@ -36,9 +36,10 @@ $branch = git rev-parse --abbrev-ref HEAD
 $head = git rev-parse HEAD
 $remote = git rev-parse "origin/$branch"
 if ($head -ne $remote) { Fail "HEAD ($branch) is not pushed to origin - git push first" }
-$commit = git rev-parse --short HEAD
+# Last commit that changed app code (commits touching only scripts/docs don't need a rebuild)
+$commit = git log -1 --format=%h --abbrev=7 -- backend frontend
 $date = Get-Date -Format 'yyyy-MM-dd'
-Ok "Git clean & pushed - commit $commit"
+Ok "Git clean & pushed - app code commit $commit"
 
 # 3. Build
 if (-not $VerifyOnly) {
@@ -70,7 +71,8 @@ foreach ($repo in 'rim-backend', 'rim-frontend') {
 $cfg = (docker buildx imagetools inspect "rubjobb/rim-backend:$Version" --format '{{json .Image}}') | Out-String
 if ($cfg -notmatch "APP_VERSION=$([regex]::Escape($Version))`"") { Fail "Backend image APP_VERSION is not $Version" }
 if ($cfg -notmatch "GIT_COMMIT=$commit`"") { Fail "Backend image GIT_COMMIT is not $commit (Docker Hub has an older build)" }
-Ok ":$Version == :latest, APP_VERSION=$Version, GIT_COMMIT=$commit"
+if ($cfg -match 'BUILD_DATE=([0-9-]+)') { $date = $Matches[1] }
+Ok ":$Version == :latest, APP_VERSION=$Version, GIT_COMMIT=$commit, BUILD_DATE=$date"
 
 Write-Host "`nNext:" -ForegroundColor Cyan
 Write-Host "  Test Server : cd ~/rim && chmod +x update.sh && ./update.sh"
