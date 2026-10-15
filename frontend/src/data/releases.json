@@ -6,11 +6,11 @@
       "changes": [
         {
           "type": "new",
-          "text": "Performance — Pending Incidents: งานที่ยังไม่ Closed แยกตามช่าง (รวมช่างร่วม) และกลุ่ม Unassign พร้อมจำนวนงาน กดชื่อเพื่อดูรายการ Incident No. / Title / Store / Status / Incident Date / Aging เรียงจากเก่าไปใหม่"
+          "text": "Quick Manage Incident (Supervisor / IT Manager) — กดที่ใต้หัวข้อ Incident Management เพื่อดูงานที่ยังไม่ Closed แยกตามช่าง (รวมช่างร่วม) และกลุ่ม Unassign พร้อมจำนวนงาน กดชื่อเพื่อดู Incident No. / Title / Store / Status / Incident Date / Aging เรียงจากเก่าไปใหม่"
         },
         {
           "type": "new",
-          "text": "Pending Incidents — ปุ่ม Assign (งาน Unassign) และ Reassign (งานที่มีช่างแล้ว) เปิดหน้าต่างบนหน้าเดิม ยืนยันหรือยกเลิกแล้วอยู่หน้าเดิมและรายการอัปเดตทันที (สิทธิ์และเงื่อนไขเหมือนหน้า Incident)"
+          "text": "Quick Manage Incident — ปุ่ม Assign (งาน Unassign) และ Reassign (งานที่มีช่างแล้ว) เปิดหน้าต่างบนหน้าเดิม ยืนยันหรือยกเลิกแล้วอยู่หน้าเดิม รายการอัปเดตทันที และเปิดกลุ่มของช่างที่ได้รับงานพร้อมไฮไลต์งานนั้น (สิทธิ์และเงื่อนไขเหมือนหน้า Incident)"
         },
         {
           "type": "fixed",

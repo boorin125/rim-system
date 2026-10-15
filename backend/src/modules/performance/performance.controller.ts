@@ -370,9 +370,9 @@ export class PerformanceController {
     return this.performanceService.getEquipmentRepeatDetail(ids, parsed, key, from, to);
   }
 
-  /** Pending Incidents — open work per technician + unassigned, oldest first */
+  /** Pending Incidents (Quick Manage Incident page) — open work per technician + unassigned, oldest first */
   @Get('pending-incidents')
-  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR, UserRole.HELP_DESK, UserRole.MONITOR)
+  @Roles(UserRole.IT_MANAGER, UserRole.SUPERVISOR)
   async getPendingIncidents(@Query('jobTypes') jobTypes?: string) {
     const parsed = jobTypes ? jobTypes.split(',').map(s => s.trim()).filter(Boolean) : undefined;
     return this.performanceService.getPendingIncidents(parsed);

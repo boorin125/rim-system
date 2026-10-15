@@ -1,6 +1,6 @@
 'use client'
 
-// Performance › Pending Incidents: open work (not CLOSED / CANCELLED) per technician plus the jobs
+// Quick Manage Incident (/dashboard/incidents/pending): open work (not CLOSED / CANCELLED) per technician plus the jobs
 // nobody has yet, oldest first. Assign / Reassign open the same modals as the incident page, on
 // top of this page — confirm or cancel, the user stays here and the list refreshes.
 

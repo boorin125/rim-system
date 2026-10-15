@@ -600,7 +600,18 @@ export default function IncidentsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Incident Management</h1>
-          <p className="text-gray-400 mt-1">Manage and track all IT incidents</p>
+          {getUserRoles(currentUser).some((r) => r === 'SUPERVISOR' || r === 'IT_MANAGER') ? (
+            <button
+              type="button"
+              onClick={() => router.push('/dashboard/incidents/pending')}
+              className="mt-1 text-gray-400 hover:text-white hover:underline underline-offset-4 transition-colors"
+              title="ดูงานค้างแยกตามช่าง และ Assign / Reassign"
+            >
+              Quick Manage Incident
+            </button>
+          ) : (
+            <p className="text-gray-400 mt-1">Manage and track all IT incidents</p>
+          )}
         </div>
         <div className="flex items-center gap-3">
           {viewOnly && (
