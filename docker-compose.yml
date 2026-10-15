@@ -47,6 +47,7 @@ services:
       LICENSE_VENDOR_SECRET: ${LICENSE_VENDOR_SECRET:-rim-vendor-2026}
       MACHINE_ID: ${MACHINE_ID:-rim-server-production}
       CENTRAL_LICENSE_URL: ${CENTRAL_LICENSE_URL:-https://license.rub-jobb.com}
+      LOCAL_LICENSE_MODE: ${LOCAL_LICENSE_MODE:-}
       TZ: Asia/Bangkok
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
