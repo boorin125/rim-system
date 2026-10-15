@@ -2,20 +2,18 @@
 
 // Settings › อัปเดตระบบ (SUPER_ADMIN): the running version, a check of this server's release
 // channel, a one-button install with live progress, and past updates. The work is done by the
-// rim-updater container on the server (deploy/updater) — same flow as RSM.
+// rim-updater container on the server (deploy/updater). Layout follows RSM's update screen.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
-import {
-  RefreshCw, Download, CheckCircle2, XCircle, Loader2, AlertTriangle, Server, History, ChevronDown, ChevronUp, RotateCcw,
-} from 'lucide-react'
+import releasesData from '@/data/releases.json'
 
 type StepKey = 'prepare' | 'backup' | 'pull' | 'backend' | 'frontend' | 'finish'
 type StepStatus = 'pending' | 'running' | 'done' | 'failed'
 
 interface VersionInfo { version: string | null; commit: string | null; buildDate: string | null }
-interface ReleaseNote { version: string; date: string | null; changes: { type: string; text: string }[]; manual: string[] }
+interface ReleaseNote { version: string; date: string | null; changes: { type: string; text: string }[]; manual?: string[] }
 interface UpdateCheck {
   channel: string; available: boolean; current: VersionInfo; latest: VersionInfo
   releases: ReleaseNote[]; manual: string[]; checkedAt: string
@@ -37,342 +35,356 @@ interface Overview extends VersionInfo {
 }
 
 const POLL_MS = 2000
+/** Release notes this frontend was built with (current version and older — for "What's new" and history). */
+const LOCAL_RELEASES: ReleaseNote[] = (releasesData as { releases: ReleaseNote[] }).releases
+
 const STEP_LABEL: Record<StepKey, string> = {
-  prepare: 'ตรวจความพร้อม',
-  backup: 'สำรองฐานข้อมูล',
-  pull: 'ดาวน์โหลดเวอร์ชันใหม่',
-  backend: 'เริ่ม Backend เวอร์ชันใหม่',
-  frontend: 'เริ่ม Frontend + nginx',
-  finish: 'ลบ image เก่า',
+  prepare: 'Preparing update',
+  backup: 'Backing up database',
+  pull: 'Downloading new version',
+  backend: 'Starting new version',
+  frontend: 'Starting web + nginx',
+  finish: 'Cleaning up',
 }
-const CHANNEL_LABEL: Record<string, string> = { latest: 'Test (ทุก build)', stable: 'Stable (ผ่านการทดสอบแล้ว)' }
-const CHANGE_STYLE: Record<string, string> = {
-  new: 'bg-emerald-500/20 text-emerald-400',
-  improved: 'bg-blue-500/20 text-blue-400',
-  fixed: 'bg-amber-500/20 text-amber-400',
+// One short Thai hint under the current step, only where the user should know something.
+const STEP_HINT: Partial<Record<StepKey, string>> = {
+  pull: 'ระบบยังใช้งานได้ตามปกติ — ขั้นนี้ใช้เวลานานที่สุด',
+  backend: 'ระบบหยุดชั่วครู่ระหว่างสลับเวอร์ชัน',
 }
-const CHANGE_LABEL: Record<string, string> = { new: 'NEW', improved: 'UPDATE', fixed: 'FIX' }
 
 const api = () => process.env.NEXT_PUBLIC_API_URL
 const auth = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
-const fmtDate = (s: string | null) => (s ? new Date(s).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }) : '-')
+const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }) : '—')
+const short = (v: string | null, commit: string | null) => v ?? commit?.slice(0, 7) ?? '?'
+
+function Spinner({ className = '' }: { className?: string }) {
+  return <span className={`inline-block border-2 border-indigo-400 border-t-transparent rounded-full animate-spin ${className}`} />
+}
+
+function Notes({ changes }: { changes: { text: string }[] }) {
+  return (
+    <ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm text-gray-300">
+      {changes.map((c, i) => <li key={i}>{c.text}</li>)}
+    </ul>
+  )
+}
+
+function failText(s: { error: string | null; rolledBack: boolean }) {
+  if (s.error === 'disk full') return 'พื้นที่ดิสก์บนเซิร์ฟเวอร์ไม่พอ — ระบบยังเป็นเวอร์ชันเดิม'
+  if (s.error === 'interrupted') return 'การอัปเดตถูกขัดจังหวะ (เซิร์ฟเวอร์รีสตาร์ท) — ตรวจสอบว่าระบบใช้งานได้ปกติ'
+  return s.rolledBack
+    ? 'อัปเดตไม่สำเร็จ — ระบบย้อนกลับเป็นเวอร์ชันเดิมเรียบร้อยแล้ว ข้อมูลไม่เสียหาย'
+    : 'อัปเดตไม่สำเร็จ และย้อนกลับได้ไม่ครบ — โปรดติดต่อผู้ดูแลระบบ'
+}
+
+/** The progress card: one line for the step in progress (or the step that failed) + a bar. */
+function Progress({ status, restarting }: { status: UpdateStatus; restarting: boolean }) {
+  const steps = status.steps
+  const total = steps.length
+  const done = steps.filter((s) => s.status === 'done').length
+  const failed = steps.find((s) => s.status === 'failed')
+  const current = steps.find((s) => s.status === 'running') ?? failed ?? steps.find((s) => s.status === 'pending')
+  const running = status.status === 'running'
+  const ok = status.status === 'done'
+  const pct = ok ? 100 : Math.round((done / total) * 100)
+  const index = current ? steps.indexOf(current) + 1 : total
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-3">
+        <span className="w-5 h-5 flex items-center justify-center flex-shrink-0">
+          {running ? <Spinner className="w-5 h-5" /> : ok ? <span className="text-emerald-400 text-lg">✓</span> : <span className="text-red-400 text-lg">✕</span>}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="font-medium text-white">
+            {ok ? 'All steps completed' : status.rollingBack ? 'Rolling back to previous version' : current ? STEP_LABEL[current.key] ?? current.key : '—'}
+          </div>
+          {running && !status.rollingBack && current && STEP_HINT[current.key] && (
+            <div className="text-xs text-gray-400">{STEP_HINT[current.key]}</div>
+          )}
+          {restarting && <div className="text-xs text-gray-400">ระบบกำลังเริ่มใหม่ รอสักครู่…</div>}
+        </div>
+        <span className="text-xs tabular-nums text-gray-400 whitespace-nowrap">
+          {ok ? `${total}/${total}` : `Step ${index} of ${total}`}
+        </span>
+      </div>
+      <div className="h-1.5 rounded-full bg-slate-700 overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all duration-500 ${ok ? 'bg-emerald-500' : failed ? 'bg-red-500' : 'bg-indigo-500'}`}
+          style={{ width: `${Math.max(pct, running ? 4 : 0)}%` }}
+        />
+      </div>
+    </div>
+  )
+}
+
+const card = 'glass-card rounded-2xl p-5'
+const btnPrimary = 'px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium disabled:opacity-50'
+const btnSecondary = 'px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium disabled:opacity-50'
 
 export default function UpdateTab() {
-  const [overview, setOverview] = useState<Overview | null>(null)
+  const [info, setInfo] = useState<Overview | null>(null)
   const [loading, setLoading] = useState(true)
   const [checking, setChecking] = useState(false)
+  const [starting, setStarting] = useState(false)
+  const [found, setFound] = useState<UpdateCheck | null>(null)
   const [status, setStatus] = useState<UpdateStatus | null>(null)
+  const [polling, setPolling] = useState(false)
+  // The step-by-step card belongs to an update followed on this visit; after a reload only the history shows.
+  const [following, setFollowing] = useState(false)
   const [restarting, setRestarting] = useState(false)
   const [manualDone, setManualDone] = useState(false)
-  const [showLog, setShowLog] = useState(false)
-  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const loadOverview = useCallback(async () => {
-    const res = await axios.get<Overview>(`${api()}/system/update`, auth())
-    setOverview(res.data)
-    if (res.data.status) setStatus(res.data.status)
-    return res.data
+  const load = useCallback(async () => {
+    try {
+      const r = await axios.get<Overview>(`${api()}/system/update`, auth())
+      setInfo(r.data)
+      setStatus(r.data.status)
+      // A new version found by the nightly check shows straight away (unless it is the one installed now).
+      const last = r.data.lastCheck?.result
+      if (last?.available && last.latest?.commit && !(r.data.commit && last.latest.commit.startsWith(r.data.commit.slice(0, 7)))) setFound(last)
+      if (r.data.status?.status === 'running') {
+        setFollowing(true)
+        setPolling(true)
+      }
+      return r.data
+    } catch {
+      setInfo(null)
+      return null
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
-  // Follow a running install. Errors while the backend restarts are expected — keep polling.
-  const followInstall = useCallback(() => {
-    const tick = async () => {
-      try {
-        const res = await axios.get<UpdateStatus>(`${api()}/system/update/status`, auth())
-        setRestarting(false)
-        setStatus(res.data)
-        if (res.data.status === 'running') {
-          pollRef.current = setTimeout(tick, POLL_MS)
-        } else {
-          await loadOverview().catch(() => {})
-        }
-      } catch {
-        setRestarting(true)
-        pollRef.current = setTimeout(tick, POLL_MS)
-      }
-    }
-    if (pollRef.current) clearTimeout(pollRef.current)
-    tick()
-  }, [loadOverview])
+  useEffect(() => { load() }, [load])
 
   useEffect(() => {
-    loadOverview()
-      .then((o) => { if (o.status?.status === 'running') followInstall() })
-      .catch(() => toast.error('โหลดข้อมูลการอัปเดตไม่สำเร็จ'))
-      .finally(() => setLoading(false))
-    return () => { if (pollRef.current) clearTimeout(pollRef.current) }
-  }, [loadOverview, followInstall])
+    if (!polling) return
+    let live = true
+    const tick = async () => {
+      try {
+        const r = await axios.get<UpdateStatus>(`${api()}/system/update/status`, auth())
+        if (!live) return
+        setRestarting(false)
+        setStatus(r.data)
+        if (r.data.status !== 'running') {
+          setPolling(false)
+          return
+        }
+      } catch {
+        // The backend is being replaced: it does not answer for a little while.
+        if (live) setRestarting(true)
+      }
+      if (live) timer.current = setTimeout(tick, POLL_MS)
+    }
+    tick()
+    return () => {
+      live = false
+      if (timer.current) clearTimeout(timer.current)
+    }
+  }, [polling])
 
-  const runCheck = async () => {
+  const check = async () => {
     setChecking(true)
     try {
       await axios.post(`${api()}/system/update/check`, {}, auth())
-      // The check pulls the channel image in the background — wait for it to finish.
+      // The check pulls the channel image in the background — wait for its result.
       for (let i = 0; i < 300; i++) {
         await new Promise((r) => setTimeout(r, POLL_MS))
-        const o = await loadOverview()
-        if (!o.checking) {
-          if (o.lastCheckError) toast.error(`ตรวจไม่สำเร็จ: ${o.lastCheckError}`)
-          break
-        }
+        const r = await axios.get<Overview>(`${api()}/system/update`, auth())
+        if (r.data.checking) continue
+        setInfo(r.data)
+        if (r.data.lastCheckError) toast.error(`ตรวจหาเวอร์ชันใหม่ไม่สำเร็จ: ${r.data.lastCheckError}`)
+        else if (r.data.lastCheck) setFound(r.data.lastCheck.result)
+        break
       }
       setManualDone(false)
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'ตรวจหาเวอร์ชันใหม่ไม่สำเร็จ')
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || 'ตรวจหาเวอร์ชันใหม่ไม่สำเร็จ')
     } finally {
       setChecking(false)
     }
   }
 
-  const install = async (check: UpdateCheck) => {
-    const v = check.latest.version
-    if (!v || !check.latest.commit) return
-    if (!confirm(`ติดตั้ง RIM v${v}?\n\nระบบจะสำรองฐานข้อมูลก่อน แล้วรีสตาร์ท (ผู้ใช้จะเข้าใช้งานไม่ได้ประมาณ 1–3 นาที)\nถ้าติดตั้งไม่สำเร็จ ระบบจะกลับไปเวอร์ชันเดิมให้อัตโนมัติ`)) return
+  const install = async () => {
+    if (!found?.latest.version || !found.latest.commit) return
+    const ok = confirm(
+      `ติดตั้งเวอร์ชัน ${short(found.latest.version, found.latest.commit)}?\n\n` +
+        'ระบบจะสำรองฐานข้อมูลก่อน แล้วติดตั้งเวอร์ชันใหม่ ระหว่างสลับเวอร์ชันผู้ใช้จะใช้งานไม่ได้ประมาณ 1 นาที ' +
+        'ถ้าไม่สำเร็จระบบจะย้อนกลับเป็นเวอร์ชันเดิมให้อัตโนมัติ',
+    )
+    if (!ok) return
+    setStarting(true)
     try {
-      await axios.post(`${api()}/system/update/install`, { version: v, commit: check.latest.commit }, auth())
-      setShowLog(false)
-      followInstall()
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'เริ่มติดตั้งไม่สำเร็จ')
+      await axios.post(`${api()}/system/update/install`, { version: found.latest.version, commit: found.latest.commit }, auth())
+      setFound(null)
+      setStatus(null)
+      setFollowing(true)
+      setPolling(true)
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || 'เริ่มอัปเดตไม่สำเร็จ')
+    } finally {
+      setStarting(false)
     }
   }
 
   if (loading) {
+    return <div className={`${card} flex justify-center max-w-3xl`}><Spinner className="w-6 h-6" /></div>
+  }
+
+  const version = info?.version ?? '?'
+  const currentNotes = LOCAL_RELEASES.find((r) => r.version === version)
+
+  if (!info || !info.configured || !info.reachable) {
     return (
-      <div className="glass-card p-10 rounded-2xl flex justify-center">
-        <Loader2 className="w-6 h-6 text-slate-400 animate-spin" />
+      <div className="space-y-5 max-w-3xl">
+        <div className={card}>
+          <h3 className="font-semibold text-white">Current Version {version}</h3>
+          <p className="text-sm text-gray-400 mt-1">
+            {!info
+              ? 'โหลดข้อมูลเวอร์ชันไม่สำเร็จ'
+              : !info.configured
+                ? 'เซิร์ฟเวอร์นี้ยังไม่ได้ติดตั้งตัวอัปเดต (rim-updater) — อัปเดตด้วยปุ่มนี้ไม่ได้ (ติดตั้งด้วย deploy/updater/setup-updater.sh)'
+                : 'ติดต่อตัวอัปเดตบนเซิร์ฟเวอร์ไม่ได้ — ตรวจสอบ container rim-updater (docker logs rim-updater)'}
+          </p>
+        </div>
       </div>
     )
   }
-  if (!overview) return null
 
-  const check = overview.lastCheck?.result ?? null
-  const running = status?.status === 'running'
-  const finished = status && (status.status === 'done' || status.status === 'failed') && status.toVersion
-  const channel = status?.channel ?? check?.channel ?? null
-  const lastLine = status?.log?.length ? status.log[status.log.length - 1] : ''
+  const running = polling || status?.status === 'running'
+  const showProgress = following && !!status
+  const lastFailed = !following && status?.status === 'failed' ? status : null
+  const busyChecking = checking || info.checking
 
   return (
-    <div className="space-y-6">
-      {/* ── Current version ── */}
-      <div className="glass-card p-6 rounded-2xl">
+    <div className="space-y-5 max-w-3xl">
+      <div className={`${card} space-y-4`}>
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-3 rounded-xl bg-indigo-500/15 text-indigo-400"><Server className="w-6 h-6" /></div>
-            <div>
-              <p className="text-sm text-gray-400">เวอร์ชันที่ใช้งานอยู่</p>
-              <p className="text-2xl font-bold text-white font-mono">v{overview.version}</p>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Commit <span className="font-mono">{overview.commit ?? '-'}</span> · Build {overview.buildDate ?? '-'}
-              </p>
-            </div>
-          </div>
-          <div className="text-right space-y-1">
-            {channel && (
-              <span className="inline-block px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-700 text-gray-200">
-                ช่องทาง: {CHANNEL_LABEL[channel] ?? channel}
-              </span>
-            )}
-            <p className={`text-xs ${overview.reachable ? 'text-emerald-400' : 'text-red-400'}`}>
-              {overview.reachable ? '● Updater พร้อมใช้งาน' : overview.configured ? '● ติดต่อ Updater ไม่ได้' : '● ยังไม่ได้ติดตั้ง Updater'}
+          <div>
+            <h3 className="font-semibold text-white text-lg">Current Version {version}</h3>
+            <p className="text-sm text-gray-400 mt-0.5">
+              {status?.channel === 'stable' ? 'รับอัปเดตจากช่องทางหลัก (stable)' : `รับอัปเดตจากช่องทางทดสอบ (${status?.channel ?? '?'})`}
+              {info.buildDate && <> · build {info.buildDate}</>}
+              {info.commit && <> · <span className="font-mono">{info.commit}</span></>}
+            </p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              ตรวจหาเวอร์ชันใหม่อัตโนมัติทุกวัน 00:00 น.
+              {info.lastCheck?.at && <> · ตรวจล่าสุด {fmt(info.lastCheck.at)}</>}
             </p>
           </div>
+          <button type="button" onClick={check} disabled={busyChecking || running} className={`${btnSecondary} whitespace-nowrap inline-flex items-center gap-2`}>
+            {busyChecking && <Spinner className="w-4 h-4" />}
+            {busyChecking ? 'Checking…' : 'Check for Updates'}
+          </button>
         </div>
 
-        {!overview.configured && (
-          <div className="mt-4 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-sm text-amber-200">
-            เครื่องนี้ยังไม่ได้ติดตั้ง Updater — ติดตั้งครั้งเดียวบน server ด้วย <code className="font-mono">deploy/updater/setup-updater.sh</code>
+        {currentNotes && currentNotes.changes.length > 0 && (
+          <details className="text-sm">
+            <summary className="cursor-pointer text-gray-400 hover:text-gray-200">What&apos;s new in {version}</summary>
+            <Notes changes={currentNotes.changes} />
+          </details>
+        )}
+
+        {found && !running && (
+          <div className="rounded-xl border border-slate-700 p-4 space-y-3">
+            {!found.available ? (
+              <p className="text-sm text-emerald-400 font-medium">
+                ✓ You&apos;re up to date <span className="font-normal text-gray-400">— ใช้เวอร์ชันล่าสุดอยู่แล้ว</span>
+              </p>
+            ) : (
+              <>
+                <div className="font-semibold text-white">New Version Available · {short(found.latest.version, found.latest.commit)}</div>
+                {found.releases.map((r) => (
+                  <div key={r.version}>
+                    <div className="text-sm font-medium text-gray-200">
+                      Version {r.version}
+                      {r.date && <span className="ml-2 text-gray-500 font-normal">{r.date}</span>}
+                    </div>
+                    <Notes changes={r.changes} />
+                  </div>
+                ))}
+                {found.manual.length > 0 && (
+                  <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 space-y-2">
+                    <p className="text-sm font-medium text-amber-300">⚠ ต้องทำบนเซิร์ฟเวอร์ด้วยตนเองก่อนติดตั้ง</p>
+                    <ul className="list-disc pl-5 text-sm text-amber-100 space-y-0.5">
+                      {found.manual.map((m, i) => <li key={i}>{m}</li>)}
+                    </ul>
+                    <label className="flex items-center gap-2 text-sm text-amber-200 cursor-pointer">
+                      <input type="checkbox" checked={manualDone} onChange={(e) => setManualDone(e.target.checked)} />
+                      ทำขั้นตอนเหล่านี้แล้ว
+                    </label>
+                  </div>
+                )}
+                <p className="text-xs text-gray-400">ระบบจะสำรองฐานข้อมูลก่อนติดตั้งเสมอ ถ้าติดตั้งไม่สำเร็จจะย้อนกลับเป็นเวอร์ชันเดิมให้อัตโนมัติ</p>
+                <button type="button" onClick={install} disabled={starting || (found.manual.length > 0 && !manualDone)} className={btnPrimary}>
+                  {starting ? 'Starting…' : 'Install Update'}
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>
 
-      {/* ── Install progress ── */}
-      {(running || finished) && status && (
-        <div className="glass-card p-6 rounded-2xl">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-white">
-              {running
-                ? `กำลังติดตั้ง v${status.toVersion}`
-                : status.status === 'done'
-                ? `ติดตั้ง v${status.toVersion} เรียบร้อย`
-                : `ติดตั้ง v${status.toVersion} ไม่สำเร็จ`}
+      {showProgress && (
+        <div className={`${card} space-y-4`}>
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h3 className="font-semibold text-white">
+              {running ? 'Updating…' : status!.status === 'done' ? 'Update Completed' : 'Update Failed'}
             </h3>
-            {running && <Loader2 className="w-5 h-5 text-indigo-400 animate-spin" />}
-            {status.status === 'done' && <CheckCircle2 className="w-6 h-6 text-emerald-400" />}
-            {status.status === 'failed' && <XCircle className="w-6 h-6 text-red-400" />}
+            {!running && status!.finishedAt && <p className="text-sm text-gray-400">{fmt(status!.finishedAt)}</p>}
           </div>
-
-          <ol className="space-y-2">
-            {status.steps.map((s, i) => (
-              <li key={s.key} className="flex items-center gap-3 text-sm">
-                <span className="w-5 flex justify-center">
-                  {s.status === 'done' && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
-                  {s.status === 'running' && <Loader2 className="w-4 h-4 text-indigo-400 animate-spin" />}
-                  {s.status === 'failed' && <XCircle className="w-4 h-4 text-red-400" />}
-                  {s.status === 'pending' && <span className="w-2 h-2 rounded-full bg-slate-600" />}
-                </span>
-                <span className={s.status === 'pending' ? 'text-gray-500' : 'text-gray-200'}>
-                  {i + 1}. {STEP_LABEL[s.key] ?? s.key}
-                </span>
-              </li>
-            ))}
-          </ol>
-
-          {running && (
-            <p className="mt-4 text-xs text-gray-400 font-mono truncate" title={lastLine}>
-              {restarting ? 'ระบบกำลังรีสตาร์ท… หน้านี้จะติดตามต่อให้เอง' : status.rollingBack ? 'กำลังย้อนกลับเวอร์ชันเดิม…' : lastLine}
-            </p>
-          )}
-
-          {status.status === 'done' && (
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <p className="text-sm text-gray-300">โหลดหน้าเว็บใหม่เพื่อใช้หน้าจอเวอร์ชันล่าสุด</p>
-              <button
-                onClick={() => window.location.reload()}
-                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-medium"
-              >
-                <RotateCcw className="w-4 h-4" /> โหลดหน้าใหม่
-              </button>
+          <Progress status={status!} restarting={restarting} />
+          {!running && status!.status === 'done' && (
+            <div className="space-y-2">
+              <p className="text-sm text-gray-300">โหลดหน้าใหม่เพื่อใช้เวอร์ชันล่าสุด (ผู้ใช้คนอื่นจะได้เวอร์ชันใหม่เมื่อรีเฟรชหน้า)</p>
+              <button type="button" onClick={() => window.location.reload()} className={btnPrimary}>Reload</button>
             </div>
           )}
-
-          {status.status === 'failed' && (
-            <div className="mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-sm space-y-1">
-              <p className="text-red-300">สาเหตุ: {status.error}</p>
-              <p className={status.rolledBack ? 'text-emerald-300' : 'text-amber-300'}>
-                {status.rolledBack ? `กลับไปใช้ v${status.fromVersion} เรียบร้อยแล้ว ระบบใช้งานได้ตามปกติ` : 'ย้อนกลับไม่ครบ — กรุณาตรวจสอบ server (docker logs rim-updater)'}
-              </p>
-              {status.backup && <p className="text-gray-400 text-xs">Backup ฐานข้อมูล: <span className="font-mono">{status.backup}</span></p>}
-            </div>
+          {!running && status!.status === 'failed' && (
+            <p className={`text-sm ${status!.rolledBack ? 'text-gray-300' : 'text-red-400'}`}>{failText(status!)}</p>
           )}
-
-          <button onClick={() => setShowLog((v) => !v)} className="mt-4 flex items-center gap-1 text-xs text-gray-400 hover:text-white">
-            {showLog ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />} รายละเอียด (log)
-          </button>
-          {showLog && (
-            <pre className="mt-2 max-h-72 overflow-auto p-3 rounded-lg bg-black/40 text-[11px] leading-relaxed text-gray-300 whitespace-pre-wrap">
-              {status.log.join('\n')}
-            </pre>
+          {status!.log.length > 0 && (
+            <details className="text-sm">
+              <summary className="cursor-pointer text-gray-400 hover:text-gray-200">Technical log</summary>
+              <pre className="mt-2 max-h-80 overflow-auto rounded-lg bg-black/40 p-3 text-xs text-gray-300 whitespace-pre-wrap break-all">{status!.log.slice(-150).join('\n')}</pre>
+            </details>
           )}
         </div>
       )}
 
-      {/* ── Check for a new version ── */}
-      {overview.configured && !running && (
-        <div className="glass-card p-6 rounded-2xl">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <div>
-              <h3 className="text-lg font-semibold text-white">ตรวจหาเวอร์ชันใหม่</h3>
-              <p className="text-xs text-gray-500">
-                {overview.lastCheck ? `ตรวจล่าสุด ${fmtDate(overview.lastCheck.at)}` : 'ยังไม่เคยตรวจ'} · ระบบตรวจให้อัตโนมัติทุกคืนเวลา 00:00 น.
-              </p>
-            </div>
-            <button
-              onClick={runCheck}
-              disabled={checking || overview.checking || !overview.reachable}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-sm font-medium disabled:opacity-50"
-            >
-              <RefreshCw className={`w-4 h-4 ${checking || overview.checking ? 'animate-spin' : ''}`} />
-              {checking || overview.checking ? 'กำลังตรวจ…' : 'ตรวจหาเวอร์ชันใหม่'}
-            </button>
-          </div>
-
-          {check && !check.available && (
-            <div className="flex items-center gap-2 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-sm text-emerald-300">
-              <CheckCircle2 className="w-5 h-5" /> ใช้เวอร์ชันล่าสุดของช่องทางนี้อยู่แล้ว (v{check.latest.version ?? overview.version})
-            </div>
-          )}
-
-          {check?.available && (
-            <div className="space-y-4">
-              <div className="p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/30">
-                <p className="text-white font-semibold">
-                  มีเวอร์ชันใหม่ v{check.latest.version}
-                  <span className="ml-2 text-xs font-normal text-gray-400">
-                    commit <span className="font-mono">{check.latest.commit}</span> · build {check.latest.buildDate ?? '-'}
-                  </span>
-                </p>
-                <p className="text-xs text-gray-400 mt-0.5">จาก v{check.current.version ?? overview.version}</p>
-              </div>
-
-              {check.releases.map((r) => (
-                <div key={r.version} className="rounded-xl border border-slate-700 overflow-hidden">
-                  <div className="px-4 py-2 bg-slate-800/60 flex items-center gap-3">
-                    <span className="font-mono font-semibold text-white">v{r.version}</span>
-                    {r.date && <span className="text-xs text-gray-400">{r.date}</span>}
-                  </div>
-                  <ul className="p-4 space-y-2">
-                    {r.changes.map((c, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm">
-                        <span className={`flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold ${CHANGE_STYLE[c.type] ?? 'bg-slate-600/40 text-gray-300'}`}>
-                          {CHANGE_LABEL[c.type] ?? c.type.toUpperCase()}
-                        </span>
-                        <span className="text-gray-300">{c.text}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-
-              {check.manual.length > 0 && (
-                <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-2">
-                  <p className="flex items-center gap-2 text-amber-300 font-medium text-sm">
-                    <AlertTriangle className="w-4 h-4" /> ต้องทำบน server ด้วยตนเองก่อนติดตั้ง
-                  </p>
-                  <ul className="list-disc pl-6 text-sm text-amber-100 space-y-1">
-                    {check.manual.map((m, i) => <li key={i}>{m}</li>)}
-                  </ul>
-                  <label className="flex items-center gap-2 text-sm text-amber-200 cursor-pointer">
-                    <input type="checkbox" checked={manualDone} onChange={(e) => setManualDone(e.target.checked)} />
-                    ทำขั้นตอนเหล่านี้แล้ว
-                  </label>
-                </div>
-              )}
-
-              <button
-                onClick={() => install(check)}
-                disabled={check.manual.length > 0 && !manualDone}
-                className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold disabled:opacity-50"
-              >
-                <Download className="w-4 h-4" /> ติดตั้ง v{check.latest.version}
-              </button>
-            </div>
-          )}
+      {lastFailed && (
+        <div className={`${card} border border-red-500/30`}>
+          <h3 className="font-semibold text-white">Last Update Failed · {short(lastFailed.fromVersion, null)} → {short(lastFailed.toVersion, null)}</h3>
+          <p className={`text-sm mt-1 ${lastFailed.rolledBack ? 'text-gray-300' : 'text-red-400'}`}>{failText(lastFailed)}</p>
+          {lastFailed.backup && <p className="text-xs text-gray-500 mt-1">Backup ฐานข้อมูล: <span className="font-mono">{lastFailed.backup}</span></p>}
         </div>
       )}
 
-      {/* ── History ── */}
-      {status?.history && status.history.length > 0 && (
-        <div className="glass-card p-6 rounded-2xl">
-          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2"><History className="w-5 h-5" /> ประวัติการอัปเดต</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[520px]">
-              <thead>
-                <tr className="text-gray-400 border-b border-slate-700">
-                  <th className="text-left py-2 px-2 font-medium">เวลา</th>
-                  <th className="text-left py-2 px-2 font-medium">จาก → เป็น</th>
-                  <th className="text-left py-2 px-2 font-medium">ผล</th>
-                </tr>
-              </thead>
-              <tbody>
-                {status.history.map((h, i) => (
-                  <tr key={i} className="border-b border-slate-700/50">
-                    <td className="py-2 px-2 text-gray-300 whitespace-nowrap">{fmtDate(h.startedAt)}</td>
-                    <td className="py-2 px-2 text-gray-300 font-mono">v{h.fromVersion ?? '?'} → v{h.toVersion ?? '?'}</td>
-                    <td className="py-2 px-2">
-                      {h.status === 'done' ? (
-                        <span className="text-emerald-400">สำเร็จ</span>
-                      ) : (
-                        <span className="text-red-400" title={h.error ?? ''}>
-                          ไม่สำเร็จ{h.rolledBack ? ' (กลับเวอร์ชันเดิมแล้ว)' : ''}{h.error ? ` — ${h.error}` : ''}
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      {!running && (status?.history?.length ?? 0) > 0 && (
+        <div className={card}>
+          <h3 className="font-semibold text-white">Update History</h3>
+          <ul className="mt-3 divide-y divide-slate-700/60">
+            {status!.history.map((h, i) => {
+              const notes = h.toVersion ? LOCAL_RELEASES.find((r) => r.version === h.toVersion)?.changes : undefined
+              const ok = h.status === 'done'
+              return (
+                <li key={(h.startedAt ?? '') + i} className="py-2">
+                  <details className="text-sm">
+                    <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1">
+                      <span className="w-40 shrink-0 tabular-nums text-gray-400">{fmt(h.finishedAt ?? h.startedAt)}</span>
+                      <span className="font-medium text-gray-200">{short(h.fromVersion, h.from)} → {short(h.toVersion, h.to)}</span>
+                      <span className={`rounded-full px-2 py-0.5 text-xs ${ok ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'}`}>
+                        {ok ? 'Success' : h.error === 'interrupted' ? 'Interrupted' : h.error === 'disk full' ? 'Disk full' : h.rolledBack ? 'Failed · Rolled back' : 'Failed'}
+                      </span>
+                    </summary>
+                    {notes && notes.length > 0 ? <Notes changes={notes} /> : <p className="mt-1 text-gray-500">No release notes</p>}
+                  </details>
+                </li>
+              )
+            })}
+          </ul>
         </div>
       )}
     </div>
