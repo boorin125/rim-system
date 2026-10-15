@@ -23,8 +23,9 @@ function Ok($msg) { Write-Host "OK:   $msg" -ForegroundColor Green }
 if ($Version -notmatch '^\d+\.\d+\.\d+$') { Fail "Version must look like 1.0.28 (no 'v')" }
 
 # 1. Release Notes
-$rnFile = 'frontend\src\app\(dashboard)\dashboard\settings\page.tsx'
-$rn = (Select-String -Path $rnFile -Pattern "version: '(\d+\.\d+\.\d+)'" | Select-Object -First 1).Matches[0].Groups[1].Value
+$rnFile = 'frontend\src\data\releases.json'
+$releasesJson = [System.IO.File]::ReadAllText((Join-Path $PSScriptRoot $rnFile), [System.Text.Encoding]::UTF8)
+$rn = ($releasesJson | ConvertFrom-Json).releases[0].version
 if ($rn -ne $Version) { Fail "Newest Release Note is $rn, not $Version - add/update the entry in $rnFile" }
 Ok "Release Note = $rn"
 
