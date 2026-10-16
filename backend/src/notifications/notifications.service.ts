@@ -479,4 +479,46 @@ export class NotificationsService {
       incidentId,
     );
   }
+
+  // ─── Project module ────────────────────────────────────────────────────────
+
+  async notifyProjectCreated(projectId: number, projectName: string) {
+    return this.notifyAllItManagers(
+      NotificationType.PROJECT_CREATED,
+      'มีโปรเจกต์ใหม่',
+      `โปรเจกต์ "${projectName}" ถูกสร้างขึ้นแล้ว`,
+      undefined,
+      `/dashboard/projects/${projectId}`,
+    );
+  }
+
+  async notifyProjectTaskAssigned(assigneeId: number, taskId: number, taskName: string, projectName: string) {
+    return this.createNotification(
+      assigneeId,
+      NotificationType.PROJECT_TASK_ASSIGNED,
+      'มีงานโปรเจกต์มอบหมายให้คุณ',
+      `คุณได้รับมอบหมายงาน "${taskName}" ในโปรเจกต์ ${projectName}`,
+      undefined,
+      `/dashboard/projects/task/${taskId}`,
+    );
+  }
+
+  async notifyProjectTaskCompleted(taskId: number, taskName: string, projectName: string, excludeUserIds?: number[]) {
+    const supervisors = await this.getSupervisors();
+    const targets = excludeUserIds?.length
+      ? supervisors.filter(s => !excludeUserIds.includes(s.id))
+      : supervisors;
+    return Promise.all(
+      targets.map(s =>
+        this.createNotification(
+          s.id,
+          NotificationType.PROJECT_TASK_COMPLETED,
+          'งานโปรเจกต์เสร็จแล้ว รอตรวจสอบ',
+          `งาน "${taskName}" ในโปรเจกต์ ${projectName} เสร็จสิ้นแล้ว รอการตรวจสอบ`,
+          undefined,
+          `/dashboard/projects/task/${taskId}`,
+        ),
+      ),
+    );
+  }
 }

@@ -39,7 +39,10 @@ export class JobNumberService {
     const mm = (now.getMonth() + 1).toString().padStart(2, '0');
     const key = `${prefix}${yy}${mm}`;
 
-    const value = await this.next(tx ?? this.prisma, key, 'incidents', 'ticket_number');
+    const value = await this.next(tx ?? this.prisma, key, [
+      ['incidents', 'ticket_number'],
+      ['project_tasks', 'ticket_no'],
+    ]);
     return `${key}${value.toString().padStart(4, '0')}`;
   }
 
@@ -50,30 +53,36 @@ export class JobNumberService {
     const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const key = `OUT-${dateStr}-`;
 
-    const value = await this.next(tx ?? this.prisma, key, 'outsource_jobs', 'job_code');
+    const value = await this.next(tx ?? this.prisma, key, [['outsource_jobs', 'job_code']]);
     return `${key}${value.toString().padStart(4, '0')}`;
   }
 
   /**
    * Increment and return the counter for `key`.
-   * Existing codes in `table.column` are expected to be `key` + digits.
+   * Existing codes in every [table, column] source share the series and are
+   * expected to be `key` + digits.
    */
-  private async next(db: Db, key: string, table: string, column: string): Promise<number> {
+  private async next(db: Db, key: string, sources: [string, string][]): Promise<number> {
     const likePattern = key.replace(/[\\%_]/g, '\\$&') + '%';
     const suffixStart = key.length + 1;
-    const tbl = Prisma.raw(`"${table}"`);
-    const col = Prisma.raw(`"${column}"`);
 
+    const maxes = sources.map(([table, column]) => {
+      const tbl = Prisma.raw(`"${table}"`);
+      const col = Prisma.raw(`"${column}"`);
+      return Prisma.sql`(
+        SELECT MAX(CAST(SUBSTRING(${col} FROM ${suffixStart}::int) AS INTEGER))
+        FROM ${tbl}
+        WHERE ${col} LIKE ${likePattern}
+          AND SUBSTRING(${col} FROM ${suffixStart}::int) ~ '^[0-9]{1,9}$'
+      )`;
+    });
+
+    // GREATEST ignores NULLs (sources with no rows this period)
     const rows = await db.$queryRaw<{ last_value: number }[]>`
       INSERT INTO number_sequences (key, last_value, updated_at)
       VALUES (
         ${key},
-        COALESCE((
-          SELECT MAX(CAST(SUBSTRING(${col} FROM ${suffixStart}::int) AS INTEGER))
-          FROM ${tbl}
-          WHERE ${col} LIKE ${likePattern}
-            AND SUBSTRING(${col} FROM ${suffixStart}::int) ~ '^[0-9]{1,9}$'
-        ), 0) + 1,
+        COALESCE(GREATEST(${Prisma.join(maxes)}), 0) + 1,
         NOW()
       )
       ON CONFLICT (key) DO UPDATE

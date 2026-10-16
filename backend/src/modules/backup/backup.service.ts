@@ -65,6 +65,8 @@ const SCOPE_TABLES = {
     'outsource_jobs', 'outsource_bids',
     // PM
     'pm_records', 'pm_equipment_records',
+    'projects', 'project_stores', 'project_tasks', 'project_task_logs',
+    'project_photos', 'project_equipment', 'project_checklists',
     // Equipment logs
     'equipment_logs',
     // Performance scores
@@ -84,6 +86,8 @@ const SCOPE_TABLES = {
     'sla_defenses', 'comments', 'spare_parts', 'incident_history', 'notifications',
     'outsource_jobs', 'outsource_bids',
     'pm_records', 'pm_equipment_records',
+    'projects', 'project_stores', 'project_tasks', 'project_task_logs',
+    'project_photos', 'project_equipment', 'project_checklists',
     'equipment_logs',
     'technician_performance_scores',
     'audit_logs',
@@ -597,6 +601,16 @@ export class BackupService {
       // PM (createdAt + updatedAt)
       pm_records: () => this.prisma.pmRecord.findMany(w()),
       pm_equipment_records: () => this.prisma.pmEquipmentRecord.findMany(w()),
+      // Project module
+      projects: () => this.prisma.project.findMany(w()),
+      project_stores: () => this.prisma.projectStore.findMany(wc()),
+      project_tasks: () => this.prisma.projectTask.findMany(w()),
+      project_task_logs: () => this.prisma.projectTaskLog.findMany(wc()),
+      project_photos: () => this.prisma.projectPhoto.findMany(wc()),
+      project_equipment: () => this.prisma.projectEquipment.findMany(wc()),
+      project_checklists: () => this.prisma.projectChecklist.findMany({
+        where: s ? { uploadedAt: { gt: s } } : undefined,
+      }),
       // Performance scores (createdAt + updatedAt)
       technician_performance_scores: () => this.prisma.technicianPerformanceScore.findMany(w()),
       // Audit trail (createdAt only)
@@ -977,6 +991,8 @@ export class BackupService {
       'outsource_jobs', 'outsource_bids',
       // PM
       'pm_records', 'pm_equipment_records',
+      'projects', 'project_stores', 'project_tasks', 'project_task_logs',
+      'project_photos', 'project_equipment', 'project_checklists',
       // Equipment logs (depends on equipment + users)
       'equipment_logs',
       // Performance scores (depends on users)
@@ -1085,6 +1101,8 @@ export class BackupService {
     // Reverse FK order: children deleted before parents
     const deleteOrder = [
       'audit_logs', 'technician_performance_scores', 'equipment_logs',
+      'project_checklists', 'project_equipment', 'project_photos', 'project_task_logs',
+      'project_tasks', 'project_stores', 'projects',
       'pm_equipment_records', 'pm_records',
       'outsource_bids', 'outsource_jobs',
       'notifications', 'incident_history', 'spare_parts', 'comments',
@@ -1105,6 +1123,13 @@ export class BackupService {
       equipment_logs:                () => this.prisma.equipmentLog.deleteMany({ where: { createdAt: after } }),
       pm_equipment_records:          () => this.prisma.pmEquipmentRecord.deleteMany({ where: { createdAt: after } }),
       pm_records:                    () => this.prisma.pmRecord.deleteMany({ where: { createdAt: after } }),
+      project_checklists:            () => this.prisma.projectChecklist.deleteMany({ where: { uploadedAt: after } }),
+      project_equipment:             () => this.prisma.projectEquipment.deleteMany({ where: { createdAt: after } }),
+      project_photos:                () => this.prisma.projectPhoto.deleteMany({ where: { createdAt: after } }),
+      project_task_logs:             () => this.prisma.projectTaskLog.deleteMany({ where: { createdAt: after } }),
+      project_tasks:                 () => this.prisma.projectTask.deleteMany({ where: { createdAt: after } }),
+      project_stores:                () => this.prisma.projectStore.deleteMany({ where: { createdAt: after } }),
+      projects:                      () => this.prisma.project.deleteMany({ where: { createdAt: after } }),
       outsource_bids:                () => this.prisma.outsourceBid.deleteMany({ where: { createdAt: after } }),
       outsource_jobs:                () => this.prisma.outsourceJob.deleteMany({ where: { createdAt: after } }),
       notifications:                 () => this.prisma.notification.deleteMany({ where: { createdAt: after } }),
@@ -1396,6 +1421,8 @@ export class BackupService {
       'sla_defenses', 'comments', 'spare_parts', 'incident_history', 'notifications',
       'outsource_jobs', 'outsource_bids',
       'pm_records', 'pm_equipment_records',
+      'projects', 'project_stores', 'project_tasks', 'project_task_logs',
+      'project_photos', 'project_equipment', 'project_checklists',
       'equipment_logs',
       'technician_performance_scores',
       'audit_logs',
@@ -1597,6 +1624,8 @@ export class BackupService {
       'proposedStartDate', 'estimatedArrivalTime', 'startedAt',
       // Performance scores
       'startDate', 'endDate', 'calculatedAt',
+      // Project module
+      'scheduledDate', 'uploadedAt',
     ];
 
     const processed = data.map(record => {
@@ -1801,6 +1830,25 @@ export class BackupService {
         (data) => this.prisma.pmEquipmentRecord.createMany({ data: data as any[], skipDuplicates: true }),
         d,
       ),
+      // Project module — projects via Prisma (Decimal budget), the rest raw
+      projects: (d) => this.upsertWithArrayFields(
+        (ids) => this.prisma.project.findMany({ where: { id: { in: ids } }, select: { id: true } }),
+        (id, data) => this.prisma.project.update({ where: { id }, data: data as any }),
+        (data) => this.prisma.project.createMany({ data: data as any[], skipDuplicates: true }),
+        d,
+      ),
+      project_stores: (d) => this.upsertRaw('project_stores', d),
+      project_tasks: (d) => this.upsertRaw('project_tasks', d),
+      project_task_logs: (d) => this.upsertRaw('project_task_logs', d),
+      project_photos: (d) => this.upsertRaw('project_photos', d),
+      // via Prisma: toSnakeCase would turn oldSN/newSN into old_s_n/new_s_n and drop them
+      project_equipment: (d) => this.upsertWithArrayFields(
+        (ids) => this.prisma.projectEquipment.findMany({ where: { id: { in: ids } }, select: { id: true } }),
+        (id, data) => this.prisma.projectEquipment.update({ where: { id }, data: data as any }),
+        (data) => this.prisma.projectEquipment.createMany({ data: data as any[], skipDuplicates: true }),
+        d,
+      ),
+      project_checklists: (d) => this.upsertRaw('project_checklists', d),
       technician_performance_scores: (d) => this.upsertRaw('technician_performance_scores', d),
       audit_logs: (d) => this.upsertRaw('audit_logs', d),
     };

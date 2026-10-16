@@ -73,6 +73,26 @@ export class SettingsController {
   }
 
   /**
+   * Get enabled optional modules (any logged-in user — drives menus)
+   */
+  @Get('modules')
+  async getModules() {
+    return this.settingsService.getModules();
+  }
+
+  /**
+   * Enable/disable optional modules (SUPER_ADMIN only)
+   */
+  @Post('modules')
+  @Roles(UserRole.SUPER_ADMIN)
+  async saveModules(@Body() data: { project?: boolean }) {
+    if (data.project !== undefined && typeof data.project !== 'boolean') {
+      throw new BadRequestException('project must be boolean');
+    }
+    return this.settingsService.saveModules(data);
+  }
+
+  /**
    * Get maintenance window
    */
   @Get('maintenance')

@@ -323,6 +323,13 @@ const TABLE_LABELS: Record<string, string> = {
   outsource_bids: 'การเสนอราคา',
   pm_records: 'บันทึก PM',
   pm_equipment_records: 'PM อุปกรณ์',
+  projects: 'โปรเจกต์',
+  project_stores: 'สาขาในโปรเจกต์',
+  project_tasks: 'งานโปรเจกต์',
+  project_task_logs: 'ประวัติงานโปรเจกต์',
+  project_photos: 'รูปงานโปรเจกต์',
+  project_equipment: 'อุปกรณ์งานโปรเจกต์',
+  project_checklists: 'Checklist งานโปรเจกต์',
   knowledge_categories: 'หมวดหมู่ Knowledge',
   knowledge_articles: 'บทความ',
 }
@@ -427,6 +434,7 @@ export default function SettingsPage() {
     { id: 'incidents', label: 'งาน Incident',              description: 'Incident ทั้งหมด ความคิดเห็น อะไหล่ ประวัติ SLA Defense', tables: ['incidents', 'incident_assignees', 'incident_reassignments', 'incident_ratings', 'sla_defenses', 'comments', 'spare_parts', 'incident_history', 'notifications'] },
     { id: 'outsource', label: 'Outsource',                 description: 'งาน Outsource และการเสนอราคา', tables: ['outsource_jobs', 'outsource_bids'] },
     { id: 'pm',        label: 'Preventive Maintenance',    description: 'บันทึก PM อุปกรณ์', tables: ['pm_records', 'pm_equipment_records'] },
+    { id: 'project',   label: 'Project',                   description: 'โปรเจกต์ สาขา งาน รูป อุปกรณ์ Checklist', tables: ['projects', 'project_stores', 'project_tasks', 'project_task_logs', 'project_photos', 'project_equipment', 'project_checklists'] },
     { id: 'knowledge', label: 'Knowledge Base',            description: 'บทความและหมวดหมู่ความรู้', tables: ['knowledge_categories', 'knowledge_articles'] },
   ]
   const ALL_GROUP_IDS = BACKUP_GROUPS.map(g => g.id)

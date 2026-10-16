@@ -696,4 +696,30 @@ export class SettingsService {
     await Promise.all(ops);
     return { message: 'Incident settings saved successfully' };
   }
+
+  /**
+   * Optional feature modules (default off). Project = merged from RPM.
+   */
+  async getModules(): Promise<{ project: boolean }> {
+    const config = await this.prisma.systemConfig.findUnique({
+      where: { key: 'module_project_enabled' },
+    });
+    return { project: config?.value === 'true' };
+  }
+
+  async saveModules(data: { project?: boolean }) {
+    if (data.project !== undefined) {
+      await this.prisma.systemConfig.upsert({
+        where: { key: 'module_project_enabled' },
+        create: {
+          key: 'module_project_enabled',
+          value: String(data.project),
+          category: 'modules',
+          description: 'Enable the Project module (projects, project stores, project tasks)',
+        },
+        update: { value: String(data.project) },
+      });
+    }
+    return this.getModules();
+  }
 }

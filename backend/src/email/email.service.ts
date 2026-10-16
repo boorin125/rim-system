@@ -906,12 +906,13 @@ export class EmailService {
   /**
    * Generic send — used internally by other services (e.g. PatchService)
    */
-  async sendEmail(data: { to: string; subject: string; html: string }): Promise<void> {
+  async sendEmail(data: { to: string; cc?: string | string[]; subject: string; html: string }): Promise<void> {
     const config = await this.getSmtpConfig();
     const transporter = await this.createTransporter();
     await transporter.sendMail({
       from: `"${config.fromName}" <${config.fromEmail || config.user}>`,
       to: data.to,
+      ...(data.cc && { cc: data.cc }),
       subject: data.subject,
       html: data.html,
     });
