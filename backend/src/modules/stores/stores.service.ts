@@ -9,6 +9,10 @@ import { ExcelService, ParsedStoreRow } from './services/excel.service';
 import { ImportStoresDto } from './dto/import-stores.dto';
 import { ExportStoresDto } from './dto/export-stores.dto';
 
+// Store codes are text but mostly numbers: compare numerically (201 < 399 < 3001), text codes after A→Z
+const compareStoreCode = (a: string, b: string) =>
+  (a || '').localeCompare(b || '', 'en', { numeric: true, sensitivity: 'base' });
+
 @Injectable()
 export class StoresService {
   constructor(
@@ -181,16 +185,14 @@ export class StoresService {
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const take = parseInt(limit);
 
-    // Fetch stores with pagination
-    const [stores, total] = await Promise.all([
-      this.prisma.store.findMany({
-        where,
-        skip,
-        take,
-        orderBy: { storeCode: 'asc' },
-      }),
-      this.prisma.store.count({ where }),
-    ]);
+    // storeCode is text → sort numerically in JS (201, 399, 3001 — not 201, 3001, 399), then page
+    const ordered = (await this.prisma.store.findMany({ where, select: { id: true, storeCode: true } }))
+      .sort((a, b) => compareStoreCode(a.storeCode, b.storeCode));
+    const total = ordered.length;
+    const pageIds = ordered.slice(skip, skip + take).map((s) => s.id);
+    const pageRows = await this.prisma.store.findMany({ where: { id: { in: pageIds } } });
+    const byId = new Map(pageRows.map((s) => [s.id, s]));
+    const stores = pageIds.map((id) => byId.get(id)!).filter(Boolean);
 
     // Return paginated response
     return {
@@ -1738,12 +1740,8 @@ export class StoresService {
     }
 
     // Fetch stores
-    const stores = await this.prisma.store.findMany({
-      where,
-      orderBy: {
-        storeCode: 'asc',
-      },
-    });
+    const stores = (await this.prisma.store.findMany({ where }))
+      .sort((a, b) => compareStoreCode(a.storeCode, b.storeCode));
 
     // Generate Excel file
     return this.excelService.generateExcel(stores);
