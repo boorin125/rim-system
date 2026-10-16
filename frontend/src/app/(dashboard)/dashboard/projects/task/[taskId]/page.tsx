@@ -599,6 +599,16 @@ export default function TaskDetailPage() {
                 {store.province && <span className="text-gray-500">· {store.province}</span>}
               </span>
             )}
+            {task.taskType === 'OPENING' && (
+              <span className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg bg-sky-900/30 text-sky-300 border border-sky-500/30">
+                Opening — วันเปิดร้าน
+              </span>
+            )}
+            {store?.storeStatus === 'OPENING' && (
+              <span className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-sky-900/20 text-sky-400 border border-sky-500/20">
+                สาขากำลังเปิดร้าน
+              </span>
+            )}
           </div>
         </div>
 

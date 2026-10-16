@@ -728,11 +728,18 @@ export class IncidentsService {
     // Get store information to save storeName and storeCode for historical reference
     const store = await this.prisma.store.findUnique({
       where: { id: createIncidentDto.storeId },
-      select: { name: true, storeCode: true },
+      select: { name: true, storeCode: true, storeStatus: true },
     });
 
     if (!store) {
       throw new NotFoundException(`ไม่พบสาขา ID ${createIncidentDto.storeId} ในระบบ`);
+    }
+
+    // Stores still being opened (Project module) can't take incidents until switched to ACTIVE
+    if (store.storeStatus === 'OPENING') {
+      throw new BadRequestException(
+        `สาขา ${store.storeCode} ${store.name} ยังอยู่ในสถานะ "กำลังเปิดร้าน" — ปรับสถานะเป็น Active ก่อนจึงจะเปิด Incident ได้`,
+      );
     }
 
     // Calculate SLA deadline based on priority

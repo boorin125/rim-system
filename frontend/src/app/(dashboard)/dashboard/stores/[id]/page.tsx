@@ -422,6 +422,7 @@ export default function StoreDetailPage() {
       ACTIVE: { bg: 'bg-green-500/20', text: 'text-green-400', border: 'border-green-500/30', icon: CheckCircle },
       INACTIVE: { bg: 'bg-gray-500/20', text: 'text-gray-400', border: 'border-gray-500/30', icon: XCircle },
       TEMPORARILY_CLOSED: { bg: 'bg-yellow-500/20', text: 'text-yellow-400', border: 'border-yellow-500/30', icon: AlertCircle },
+      OPENING: { bg: 'bg-sky-500/20', text: 'text-sky-400', border: 'border-sky-500/30', icon: AlertCircle },
       PERMANENTLY_CLOSED: { bg: 'bg-red-500/20', text: 'text-red-400', border: 'border-red-500/30', icon: XCircle },
     }
     return badges[status] || { bg: 'bg-gray-500/20', text: 'text-gray-400', border: 'border-gray-500/30', icon: AlertCircle }
@@ -432,6 +433,7 @@ export default function StoreDetailPage() {
       ACTIVE: 'Active',
       INACTIVE: 'Inactive',
       TEMPORARILY_CLOSED: 'Temporarily Closed',
+      OPENING: 'Opening (กำลังเปิดร้าน)',
       PERMANENTLY_CLOSED: 'Permanently Closed',
     }
     return labels[status] || status

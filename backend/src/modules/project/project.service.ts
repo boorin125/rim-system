@@ -9,6 +9,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { Prisma, EquipmentStatus, EquipmentLogAction, EquipmentLogSource } from '@prisma/client';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -16,6 +17,8 @@ import { EmailService } from '../../email/email.service';
 import { NotificationsService } from '../../notifications/notifications.service';
 import { SettingsService } from '../../settings/settings.service';
 import { JobNumberService } from '../job-number/job-number.service';
+import { StoresService } from '../stores/stores.service';
+import { syncOpenPmEquipment } from '../pm/pm-sync.helper';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { AddStoreDto } from './dto/add-store.dto';
@@ -24,6 +27,7 @@ import { UpdateTaskDto } from './dto/update-task.dto';
 import { CheckInDto } from './dto/check-in.dto';
 import { AddPhotoDto } from './dto/add-photo.dto';
 import { AddEquipmentDto } from './dto/add-equipment.dto';
+import { CreateProjectStoreDto } from './dto/create-project-store.dto';
 
 @Injectable()
 export class ProjectService implements OnModuleInit {
@@ -35,6 +39,7 @@ export class ProjectService implements OnModuleInit {
     private readonly notificationsService: NotificationsService,
     private readonly settingsService: SettingsService,
     private readonly jobNumberService: JobNumberService,
+    private readonly storesService: StoresService,
   ) {}
 
   /** Remove an uploaded file (stored as "uploads/..." relative to cwd). Missing files are ignored. */
@@ -70,6 +75,26 @@ export class ProjectService implements OnModuleInit {
       },
       data: { status: 'COMPLETED' },
     });
+
+    // Stores being opened → ACTIVE on the day of their Opening task (so nobody forgets)
+    const endOfToday = new Date(today);
+    endOfToday.setDate(endOfToday.getDate() + 1);
+    const dueOpenings = await this.prisma.projectTask.findMany({
+      where: {
+        taskType: 'OPENING',
+        scheduledDate: { lt: endOfToday },
+        projectStore: { store: { storeStatus: 'OPENING' }, project: { status: { not: 'CANCELLED' } } },
+      },
+      select: { projectStore: { select: { storeId: true } } },
+    });
+    const openingStoreIds = [...new Set(dueOpenings.map((t) => t.projectStore.storeId))];
+    if (openingStoreIds.length > 0) {
+      const opened = await this.prisma.store.updateMany({
+        where: { id: { in: openingStoreIds }, storeStatus: 'OPENING' },
+        data: { storeStatus: 'ACTIVE' },
+      });
+      this.logger.log(`Auto-open: ${opened.count} store(s) OPENING → ACTIVE (store ids ${openingStoreIds.join(', ')})`);
+    }
 
     if (activated.count > 0 || completed.count > 0) {
       this.logger.log(
@@ -248,6 +273,43 @@ export class ProjectService implements OnModuleInit {
     });
   }
 
+  /**
+   * Create a brand-new store (status OPENING) and add it to the project in one step.
+   * It becomes ACTIVE on its Opening task date, or earlier via activateStore().
+   */
+  async createStoreInProject(projectId: number, dto: CreateProjectStoreDto) {
+    await this.findOne(projectId);
+    const { notes, ...storeData } = dto;
+    const store = await this.storesService.create({ ...storeData, storeStatus: 'OPENING' });
+
+    return this.prisma.projectStore.create({
+      data: { projectId, storeId: store.id, notes },
+      include: { store: { select: { id: true, storeCode: true, name: true, province: true, storeStatus: true } } },
+    });
+  }
+
+  /**
+   * Switch an OPENING store to ACTIVE before its opening day (e.g. to open incidents early).
+   */
+  async activateStore(projectId: number, storeId: number, userId: number) {
+    const ps = await this.prisma.projectStore.findUnique({
+      where: { projectId_storeId: { projectId, storeId } },
+      include: { store: { select: { storeCode: true, name: true, storeStatus: true } } },
+    });
+    if (!ps) throw new NotFoundException('Store not found in this project');
+    if (ps.store.storeStatus !== 'OPENING') {
+      throw new BadRequestException('สาขานี้ไม่ได้อยู่ในสถานะ "กำลังเปิดร้าน"');
+    }
+
+    const store = await this.prisma.store.update({
+      where: { id: storeId },
+      data: { storeStatus: 'ACTIVE' },
+      select: { id: true, storeCode: true, name: true, storeStatus: true },
+    });
+    this.logger.log(`Store ${store.storeCode} activated manually by user #${userId} (project #${projectId})`);
+    return store;
+  }
+
   // ── Project Tasks ─────────────────────────────────────────────────────────
 
   async getPendingVerifyTasks() {
@@ -278,7 +340,7 @@ export class ProjectService implements OnModuleInit {
         projectStore: {
           include: {
             project: { select: { id: true, name: true, status: true } },
-            store: { select: { id: true, storeCode: true, name: true, province: true } },
+            store: { select: { id: true, storeCode: true, name: true, province: true, storeStatus: true } },
           },
         },
         assignedTo: { select: { id: true, firstName: true, lastName: true, avatarPath: true, phone: true } },
@@ -303,6 +365,9 @@ export class ProjectService implements OnModuleInit {
     });
     if (!ps) throw new NotFoundException('Store not found in this project');
 
+    const taskType = dto.taskType ?? 'GENERAL';
+    await this.assertOpeningTaskRules(ps.id, taskType, dto.scheduledDate);
+
     // Same ticket series as Incidents (organization prefix + YYMM + running)
     const ticketNo = await this.jobNumberService.nextTicketNumber();
 
@@ -310,6 +375,7 @@ export class ProjectService implements OnModuleInit {
       data: {
         projectStoreId: ps.id,
         ticketNo,
+        taskType,
         title: dto.title ?? null,
         assignedToId: dto.assignedToId ?? null,
         scheduledDate: dto.scheduledDate ? new Date(dto.scheduledDate) : null,
@@ -328,8 +394,39 @@ export class ProjectService implements OnModuleInit {
     return updated;
   }
 
+  /**
+   * One Opening task per project store, and it needs a date (the store opens that day).
+   */
+  private async assertOpeningTaskRules(
+    projectStoreId: number,
+    taskType: 'GENERAL' | 'OPENING',
+    scheduledDate?: string | Date | null,
+    excludeTaskId?: number,
+  ) {
+    if (taskType !== 'OPENING') return;
+    if (!scheduledDate) {
+      throw new BadRequestException('งาน Opening ต้องระบุวันนัด (วันเปิดร้าน)');
+    }
+    const other = await this.prisma.projectTask.findFirst({
+      where: { projectStoreId, taskType: 'OPENING', ...(excludeTaskId && { id: { not: excludeTaskId } }) },
+      select: { ticketNo: true },
+    });
+    if (other) {
+      throw new BadRequestException(`สาขานี้มีงาน Opening อยู่แล้ว (${other.ticketNo})`);
+    }
+  }
+
   async updateTask(taskId: number, dto: UpdateTaskDto, userId?: number) {
     const old = await this.findTask(taskId);
+
+    if (dto.taskType !== undefined || dto.scheduledDate) {
+      await this.assertOpeningTaskRules(
+        old.projectStoreId,
+        dto.taskType ?? old.taskType,
+        dto.scheduledDate ?? old.scheduledDate,
+        taskId,
+      );
+    }
 
     // Auto-advance PENDING → SCHEDULED when a tech is assigned and a date is set
     const willHaveAssignee = dto.assignedToId !== undefined ? dto.assignedToId : old.assignedToId;
@@ -344,6 +441,7 @@ export class ProjectService implements OnModuleInit {
       where: { id: taskId },
       data: {
         ...(dto.title !== undefined && { title: dto.title || null }),
+        ...(dto.taskType !== undefined && { taskType: dto.taskType }),
         ...(dto.assignedToId !== undefined && { assignedToId: dto.assignedToId }),
         ...(dto.scheduledDate && { scheduledDate: new Date(dto.scheduledDate) }),
         ...(dto.status && { status: dto.status }),
@@ -596,20 +694,42 @@ export class ProjectService implements OnModuleInit {
     }
 
     const verifiedAt = new Date();
-    const updated = await this.prisma.projectTask.update({
-      where: { id: taskId },
-      data: { status: 'ACCEPTED', verifiedAt, verifiedById: userId },
-    });
-
     const verifier = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { firstName: true, lastName: true },
     });
     const name = verifier ? `${verifier.firstName} ${verifier.lastName}` : 'ผู้ตรวจสอบ';
     const taskLabel = task.title || task.ticketNo || `Task #${taskId}`;
-    await this.prisma.projectTaskLog.create({
-      data: { taskId, userId, action: 'VERIFY', message: `${name} ยืนยันปิดงาน (ACCEPTED) ${taskLabel}` },
+    const storeId = task.projectStore.storeId;
+
+    // Accept + push the task's equipment into the store's register atomically
+    const { updated, sync } = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.projectTask.update({
+        where: { id: taskId },
+        data: { status: 'ACCEPTED', verifiedAt, verifiedById: userId },
+      });
+      const sync = await this.syncTaskEquipment(tx, taskId, storeId, task.equipment, userId, task.ticketNo || taskLabel);
+      await tx.projectTaskLog.create({
+        data: { taskId, userId, action: 'VERIFY', message: `${name} ยืนยันปิดงาน (ACCEPTED) ${taskLabel}` },
+      });
+      if (sync.created + sync.moved + sync.updated + sync.removed > 0) {
+        await tx.projectTaskLog.create({
+          data: {
+            taskId,
+            userId,
+            action: 'EQUIPMENT_SYNC',
+            message: `อัปเดตทะเบียนอุปกรณ์ของสาขา: เพิ่มใหม่ ${sync.created}, ย้ายเข้า ${sync.moved}, อัปเดต ${sync.updated}, ถอดออก ${sync.removed}`,
+          },
+        });
+      }
+      return { updated, sync };
     });
+
+    if (sync.created + sync.moved + sync.removed > 0) {
+      syncOpenPmEquipment(this.prisma, [storeId, ...sync.fromStoreIds]).catch((err) =>
+        this.logger.error('Failed to sync open PM equipment', err),
+      );
+    }
 
     // Send close-notification email (fire-and-forget — don't block response)
     this.sendVerifyNotificationEmail(task, verifier, verifiedAt).catch((err) =>
@@ -617,6 +737,103 @@ export class ProjectService implements OnModuleInit {
     );
 
     return updated;
+  }
+
+  /**
+   * Apply a verified task's equipment rows to the store's Equipment register.
+   * - new S/N: create it in this store, or move/update the existing record (S/N is unique system-wide)
+   * - old S/N (the unit taken out): mark INACTIVE when it is still ACTIVE in this store
+   * Every change is written to equipment_logs with source PROJECT and sourceId = task id.
+   */
+  private async syncTaskEquipment(
+    tx: Prisma.TransactionClient,
+    taskId: number,
+    storeId: number,
+    rows: { itemName: string; oldSN: string | null; newModel: string | null; newSN: string | null }[],
+    userId: number,
+    ref: string,
+  ) {
+    const res = { created: 0, moved: 0, updated: 0, removed: 0, fromStoreIds: [] as number[] };
+    const logBase = { source: EquipmentLogSource.PROJECT, sourceId: String(taskId), changedBy: userId };
+
+    for (const row of rows) {
+      const newSN = row.newSN?.trim() || null;
+      const oldSN = row.oldSN?.trim() || null;
+      const newModel = row.newModel?.trim() || null;
+
+      if (oldSN && oldSN !== newSN) {
+        const old = await tx.equipment.findUnique({ where: { serialNumber: oldSN } });
+        if (old && old.storeId === storeId && old.status === EquipmentStatus.ACTIVE) {
+          await tx.equipment.update({ where: { id: old.id }, data: { status: EquipmentStatus.INACTIVE } });
+          await tx.equipmentLog.create({
+            data: {
+              ...logBase,
+              equipmentId: old.id,
+              action: EquipmentLogAction.REPLACED_OUT,
+              description: `ถอดออกจากงานโปรเจกต์ ${ref}${newSN ? ` (แทนด้วย S/N ${newSN})` : ''}`,
+              oldValue: { status: old.status },
+              newValue: { status: EquipmentStatus.INACTIVE },
+            },
+          });
+          res.removed++;
+        }
+      }
+
+      if (!newSN) continue;
+      const existing = await tx.equipment.findUnique({ where: { serialNumber: newSN } });
+
+      if (!existing) {
+        const created = await tx.equipment.create({
+          data: { serialNumber: newSN, name: row.itemName, category: row.itemName, model: newModel, storeId, status: EquipmentStatus.ACTIVE },
+        });
+        await tx.equipmentLog.create({
+          data: {
+            ...logBase,
+            equipmentId: created.id,
+            action: EquipmentLogAction.CREATED,
+            description: `เพิ่มจากงานโปรเจกต์ ${ref}`,
+            newValue: { name: created.name, serialNumber: newSN, model: newModel, storeId },
+          },
+        });
+        res.created++;
+      } else if (existing.storeId !== storeId) {
+        await tx.equipment.update({
+          where: { id: existing.id },
+          data: { storeId, status: EquipmentStatus.ACTIVE, ...(newModel && { model: newModel }) },
+        });
+        await tx.equipmentLog.create({
+          data: {
+            ...logBase,
+            equipmentId: existing.id,
+            action: EquipmentLogAction.TRANSFERRED,
+            description: `ย้ายเข้าสาขาจากงานโปรเจกต์ ${ref}`,
+            oldValue: { storeId: existing.storeId, status: existing.status },
+            newValue: { storeId, status: EquipmentStatus.ACTIVE },
+          },
+        });
+        res.moved++;
+        res.fromStoreIds.push(existing.storeId);
+      } else {
+        const data: Prisma.EquipmentUpdateInput = {};
+        if (existing.status !== EquipmentStatus.ACTIVE) data.status = EquipmentStatus.ACTIVE;
+        if (newModel && newModel !== existing.model) data.model = newModel;
+        if (Object.keys(data).length > 0) {
+          await tx.equipment.update({ where: { id: existing.id }, data });
+          await tx.equipmentLog.create({
+            data: {
+              ...logBase,
+              equipmentId: existing.id,
+              action: EquipmentLogAction.UPDATED,
+              description: `อัปเดตจากงานโปรเจกต์ ${ref}`,
+              oldValue: { status: existing.status, model: existing.model },
+              newValue: data as any,
+            },
+          });
+          res.updated++;
+        }
+      }
+    }
+    return res;
   }
 
   private async sendVerifyNotificationEmail(

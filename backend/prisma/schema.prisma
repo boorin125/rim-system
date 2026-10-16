@@ -569,6 +569,7 @@ enum StoreStatus {
   ACTIVE
   TEMPORARILY_CLOSED
   PERMANENTLY_CLOSED
+  OPENING // กำลังเปิดร้าน (สร้างจาก Project) → ACTIVE อัตโนมัติตามวันนัด Task Opening หรือกดเอง
 }
 
 enum EquipmentStatus {
@@ -609,6 +610,7 @@ enum EquipmentLogSource {
   INCIDENT // เปลี่ยนแปลงจาก Incident (SparePart / Resolve)
   IMPORT // นำเข้าจาก Excel
   RETIREMENT // การยกเลิกใช้งาน
+  PROJECT // จาก Project Task ที่ตรวจรับแล้ว
 }
 
 enum Priority {
@@ -1953,6 +1955,7 @@ model ProjectTask {
   title            String?
   assignedToId     Int?              @map("assigned_to_id")
   scheduledDate    DateTime?         @map("scheduled_date")
+  taskType         ProjectTaskType   @default(GENERAL) @map("task_type")
   status           ProjectTaskStatus @default(PENDING)
   checkInAt        DateTime?         @map("check_in_at")
   checkInLat       Float?            @map("check_in_lat")
@@ -2054,6 +2057,11 @@ enum ProjectStatus {
 enum ProjectStoreStatus {
   ACTIVE
   PAUSED
+}
+
+enum ProjectTaskType {
+  GENERAL
+  OPENING // วันเปิดร้าน — scheduledDate ของงานนี้ทำให้ร้าน OPENING เป็น ACTIVE
 }
 
 enum ProjectTaskStatus {

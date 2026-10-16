@@ -13,6 +13,7 @@ export enum StoreStatus {
   ACTIVE = 'ACTIVE',
   TEMPORARILY_CLOSED = 'TEMPORARILY_CLOSED',
   PERMANENTLY_CLOSED = 'PERMANENTLY_CLOSED',
+  OPENING = 'OPENING',
 }
 
 export class CreateStoreDto {

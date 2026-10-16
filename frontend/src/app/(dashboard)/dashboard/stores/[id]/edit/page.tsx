@@ -451,6 +451,7 @@ export default function EditStorePage() {
                   >
                     <option value="ACTIVE">Active</option>
                     <option value="TEMPORARILY_CLOSED">Temporarily Closed</option>
+                    <option value="OPENING">Opening (กำลังเปิดร้าน)</option>
                     <option value="PERMANENTLY_CLOSED">Permanently Closed</option>
                   </select>
                 </div>

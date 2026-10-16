@@ -33,13 +33,13 @@ export class StoresService {
       where: {
         storeCode: data.storeCode,
         storeStatus: {
-          in: ['ACTIVE', 'TEMPORARILY_CLOSED'],
+          in: ['ACTIVE', 'TEMPORARILY_CLOSED', 'OPENING'],
         },
       },
     });
 
     if (existingStore) {
-      const statusText = existingStore.storeStatus === 'ACTIVE' ? 'เปิดใช้งาน' : 'ปิดชั่วคราว';
+      const statusText = existingStore.storeStatus === 'ACTIVE' ? 'เปิดใช้งาน' : existingStore.storeStatus === 'OPENING' ? 'กำลังเปิดร้าน' : 'ปิดชั่วคราว';
       throw new BadRequestException(
         `รหัสสาขา "${data.storeCode}" มีการใช้งานอยู่ในระบบ (สถานะ: ${statusText}) กรุณาใช้รหัสสาขาอื่น หรือเปลี่ยนสถานะสาขาเดิมเป็น "ปิดถาวร" ก่อน`,
       );

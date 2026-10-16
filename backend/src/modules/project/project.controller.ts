@@ -29,6 +29,7 @@ import { UpdateTaskDto } from './dto/update-task.dto';
 import { CheckInDto } from './dto/check-in.dto';
 import { AddPhotoDto } from './dto/add-photo.dto';
 import { AddEquipmentDto } from './dto/add-equipment.dto';
+import { CreateProjectStoreDto } from './dto/create-project-store.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -129,6 +130,22 @@ export class ProjectController {
   @Roles(UserRole.SUPER_ADMIN, UserRole.IT_MANAGER, UserRole.HELP_DESK)
   addStore(@Param('id', ParseIntPipe) id: number, @Body() dto: AddStoreDto) {
     return this.projectService.addStore(id, dto);
+  }
+
+  @Post(':id/stores/new')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.IT_MANAGER, UserRole.HELP_DESK)
+  createStoreInProject(@Param('id', ParseIntPipe) id: number, @Body() dto: CreateProjectStoreDto) {
+    return this.projectService.createStoreInProject(id, dto);
+  }
+
+  @Patch(':id/stores/:storeId/activate')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.IT_MANAGER, UserRole.HELP_DESK, UserRole.SUPERVISOR)
+  activateStore(
+    @Param('id', ParseIntPipe) projectId: number,
+    @Param('storeId', ParseIntPipe) storeId: number,
+    @Request() req: any,
+  ) {
+    return this.projectService.activateStore(projectId, storeId, req.user.id);
   }
 
   @Patch(':id/stores/:storeId')

@@ -6,7 +6,7 @@ import {
   ArrowLeft, Building2, Plus, Calendar,
   Trash2, CheckCircle2, X, Save, AlertTriangle, MoreVertical,
   ChevronDown, ChevronUp, Copy, CheckSquare, Square, Search,
-  PauseCircle, PlayCircle, ExternalLink, Phone, MapPin, Pencil,
+  PauseCircle, PlayCircle, ExternalLink, Phone, MapPin, Pencil, DoorOpen,
 } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
@@ -74,6 +74,28 @@ function getStoreStatus(tasks: any[]): 'CLOSED' | 'ON_PROCESS' | 'PENDING' | 'EM
   return 'ON_PROCESS'
 }
 
+// Task type: Opening = store opening day (the store turns ACTIVE automatically on that date)
+function TaskTypeField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div>
+      <label className="block text-sm text-gray-300 mb-1.5">ประเภทงาน</label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 [&>option]:bg-slate-800 [&>option]:text-white rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
+      >
+        <option value="GENERAL">งานทั่วไป</option>
+        <option value="OPENING">Opening — วันเปิดร้าน</option>
+      </select>
+      {value === 'OPENING' && (
+        <p className="text-xs text-sky-400 mt-1.5">
+          ต้องระบุวันนัด — สาขาที่ &quot;กำลังเปิดร้าน&quot; จะเปลี่ยนเป็น Active อัตโนมัติในวันนัด (1 สาขามีงาน Opening ได้ 1 งาน)
+        </p>
+      )}
+    </div>
+  )
+}
+
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
@@ -106,15 +128,21 @@ export default function ProjectDetailPage() {
   const [selectedStoreIds, setSelectedStoreIds] = useState<Set<number>>(new Set())
   const [addingStore, setAddingStore] = useState(false)
 
+  // New store (status OPENING) created from this project
+  const EMPTY_NEW_STORE = { storeCode: '', name: '', company: '', province: '', address: '', phone: '' }
+  const [showNewStore, setShowNewStore] = useState(false)
+  const [newStoreForm, setNewStoreForm] = useState(EMPTY_NEW_STORE)
+  const [creatingStore, setCreatingStore] = useState(false)
+
   // Add task modal
   const [showAddTask, setShowAddTask] = useState<{ projectStoreId: number; storeId: number } | null>(null)
-  const [taskForm, setTaskForm] = useState({ title: '', assignedToId: '', scheduledDate: '', notes: '' })
+  const [taskForm, setTaskForm] = useState({ title: '', taskType: 'GENERAL', assignedToId: '', scheduledDate: '', notes: '' })
   const [techUsers, setTechUsers] = useState<any[]>([])
   const [addingTask, setAddingTask] = useState(false)
 
   // Edit task modal (PM/Helpdesk)
   const [editTask, setEditTask] = useState<any>(null)
-  const [editForm, setEditForm] = useState({ title: '', assignedToId: '', scheduledDate: '', notes: '', reason: '' })
+  const [editForm, setEditForm] = useState({ title: '', taskType: 'GENERAL', assignedToId: '', scheduledDate: '', notes: '', reason: '' })
   const [savingEdit, setSavingEdit] = useState(false)
 
   // Store filter
@@ -232,6 +260,65 @@ export default function ProjectDetailPage() {
     }
   }
 
+  const openNewStore = () => {
+    // Pre-fill company with the one most stores use
+    const counts: Record<string, number> = {}
+    for (const s of allStores) if (s.company) counts[s.company] = (counts[s.company] || 0) + 1
+    const company = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || ''
+    setNewStoreForm({ ...EMPTY_NEW_STORE, company })
+    setShowAddStore(false)
+    setShowNewStore(true)
+  }
+
+  const handleCreateStore = async () => {
+    const f = newStoreForm
+    if (!f.storeCode.trim() || !f.name.trim() || !f.company.trim()) {
+      toast.error('กรุณากรอกรหัสสาขา ชื่อสาขา และบริษัท')
+      return
+    }
+    const token = localStorage.getItem('token')
+    setCreatingStore(true)
+    try {
+      const payload: any = { storeCode: f.storeCode.trim(), name: f.name.trim(), company: f.company.trim() }
+      if (f.province.trim()) payload.province = f.province.trim()
+      if (f.address.trim()) payload.address = f.address.trim()
+      if (f.phone.trim()) payload.phone = f.phone.trim()
+      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/projects/${id}/stores/new`, payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      toast.success('สร้างสาขาใหม่แล้ว (กำลังเปิดร้าน) — เพิ่มงาน Opening เพื่อกำหนดวันเปิดร้าน')
+      setShowNewStore(false)
+      fetchProject()
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'สร้างสาขาไม่สำเร็จ')
+    } finally {
+      setCreatingStore(false)
+    }
+  }
+
+  const handleActivateStore = async (storeId: number) => {
+    const ok = await confirmDialog({
+      title: 'เปิดร้านตอนนี้ (Active)?',
+      message: 'สาขาจะเปลี่ยนเป็น Active ทันทีโดยไม่รอวันนัด Opening และเปิด Incident ได้',
+      confirmLabel: 'เปิดร้าน',
+      cancelLabel: 'ยกเลิก',
+      variant: 'warning',
+    })
+    if (!ok) return
+    const token = localStorage.getItem('token')
+    try {
+      await axios.patch(`${process.env.NEXT_PUBLIC_API_URL}/projects/${id}/stores/${storeId}/activate`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      toast.success('สาขาเปลี่ยนเป็น Active แล้ว')
+      setStoreMenuId(null)
+      setStoreMenuPos(null)
+      fetchProject()
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'เปิดร้านไม่สำเร็จ')
+    }
+  }
+
   const handleRemoveStore = async (storeId: number) => {
     const ok = await confirmDialog({
       title: 'นำสาขาออกจากโปรเจกต์',
@@ -296,16 +383,20 @@ export default function ProjectDetailPage() {
 
   const openAddTask = async (projectStoreId: number, storeId: number) => {
     await fetchTechUsers()
-    setTaskForm({ title: '', assignedToId: '', scheduledDate: '', notes: '' })
+    setTaskForm({ title: '', taskType: 'GENERAL', assignedToId: '', scheduledDate: '', notes: '' })
     setShowAddTask({ projectStoreId, storeId })
   }
 
   const handleAddTask = async () => {
     if (!showAddTask) return
+    if (taskForm.taskType === 'OPENING' && !taskForm.scheduledDate) {
+      toast.error('งาน Opening ต้องระบุวันนัด (วันเปิดร้าน)')
+      return
+    }
     const token = localStorage.getItem('token')
     setAddingTask(true)
     try {
-      const payload: any = {}
+      const payload: any = { taskType: taskForm.taskType }
       if (taskForm.title.trim()) payload.title = taskForm.title.trim()
       if (taskForm.assignedToId) payload.assignedToId = parseInt(taskForm.assignedToId)
       if (taskForm.scheduledDate) payload.scheduledDate = taskForm.scheduledDate
@@ -330,6 +421,7 @@ export default function ProjectDetailPage() {
     await fetchTechUsers()
     setEditForm({
       title: task.title || '',
+      taskType: task.taskType || 'GENERAL',
       assignedToId: task.assignedToId ? String(task.assignedToId) : '',
       scheduledDate: task.scheduledDate ? task.scheduledDate.slice(0, 10) : '',
       notes: task.notes || '',
@@ -355,6 +447,11 @@ export default function ProjectDetailPage() {
       const payload: any = {
         title: editForm.title.trim() || null,
         notes: editForm.notes.trim() || null,
+      }
+      if (editForm.taskType !== (editTask.taskType || 'GENERAL')) {
+        payload.taskType = editForm.taskType
+        // backend requires a date for Opening — send it with the type change
+        if (editForm.taskType === 'OPENING' && editForm.scheduledDate) payload.scheduledDate = editForm.scheduledDate
       }
       if (editForm.assignedToId) payload.assignedToId = parseInt(editForm.assignedToId)
       else payload.assignedToId = null
@@ -454,6 +551,8 @@ export default function ProjectDetailPage() {
     canPerformAction(currentUser, '/dashboard/projects', 'create') ||
     _projectRoles.includes('SUPERVISOR')
   )
+  // Creating a new (OPENING) store: Admin / IT Manager / Help Desk only (matches backend)
+  const canCreateStore = !!currentUser && canPerformAction(currentUser, '/dashboard/projects', 'create')
 
   const filteredStores = allStores.filter(s => {
     const existing = project?.projectStores?.some((ps: any) => ps.storeId === s.id)
@@ -637,6 +736,18 @@ export default function ProjectDetailPage() {
                           <PauseCircle className="w-2.5 h-2.5" /> หยุดชั่วคราว
                         </span>
                       )}
+                      {ps.store.storeStatus === 'OPENING' && (() => {
+                        const openingTask = (ps.tasks || []).find((t: any) => t.taskType === 'OPENING')
+                        return (
+                          <span
+                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-sky-900/40 text-sky-400"
+                            title="สาขาจะเปลี่ยนเป็น Active อัตโนมัติในวันนัดของงาน Opening"
+                          >
+                            <DoorOpen className="w-2.5 h-2.5" />
+                            กำลังเปิดร้าน{openingTask?.scheduledDate ? ` · ${formatDate(openingTask.scheduledDate)}` : ' · ยังไม่มีงาน Opening'}
+                          </span>
+                        )
+                      })()}
 
                       {/* Inline mini progress bar */}
                       {total > 0 && (
@@ -779,8 +890,15 @@ export default function ProjectDetailPage() {
                               </span>
 
                               {/* Task Name */}
-                              <span className="text-sm text-white truncate font-medium">
-                                {task.title || <span className="text-gray-500 italic text-xs">ไม่มีชื่อ Task</span>}
+                              <span className="text-sm text-white truncate font-medium flex items-center gap-1.5 min-w-0">
+                                {task.taskType === 'OPENING' && (
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-sky-900/40 text-sky-400 flex-shrink-0">
+                                    <DoorOpen className="w-2.5 h-2.5" /> Opening
+                                  </span>
+                                )}
+                                <span className="truncate">
+                                  {task.title || <span className="text-gray-500 italic text-xs">ไม่มีชื่อ Task</span>}
+                                </span>
                               </span>
 
                               {/* วันนัดหมาย */}
@@ -841,7 +959,16 @@ export default function ProjectDetailPage() {
                 <h3 className="text-white font-semibold text-lg">เพิ่มสาขาในโปรเจกต์</h3>
                 <p className="text-xs text-gray-400 mt-0.5">เลือกได้หลายสาขาพร้อมกัน</p>
               </div>
-              <button onClick={() => setShowAddStore(false)} className="text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
+              <div className="flex items-center gap-2">
+                {canCreateStore && <button
+                  onClick={openNewStore}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium border border-sky-700/60 text-sky-300 hover:bg-sky-900/30 transition-colors"
+                  title="สาขาใหม่ที่ยังไม่เปิด — สถานะกำลังเปิดร้าน"
+                >
+                  <DoorOpen className="w-3.5 h-3.5" /> สร้างร้านใหม่
+                </button>}
+                <button onClick={() => setShowAddStore(false)} className="text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
+              </div>
             </div>
 
             {/* Search + Select All */}
@@ -881,14 +1008,15 @@ export default function ProjectDetailPage() {
               {filteredStores.length === 0 ? (
                 <div className="py-8 text-center space-y-3">
                   <p className="text-gray-500 text-sm">ไม่พบสาขา</p>
-                  <Link
-                    href="/dashboard/stores/new"
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-colors"
-                    style={{ backgroundColor: themeHighlight }}
-                    onClick={() => setShowAddStore(false)}
-                  >
-                    <Plus className="w-3.5 h-3.5" /> สร้างสาขาใหม่
-                  </Link>
+                  {canCreateStore && (
+                    <button
+                      onClick={openNewStore}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-colors"
+                      style={{ backgroundColor: themeHighlight }}
+                    >
+                      <Plus className="w-3.5 h-3.5" /> สร้างร้านใหม่ (กำลังเปิดร้าน)
+                    </button>
+                  )}
                 </div>
               ) : filteredStores.map((s: any) => {
                 const selected = selectedStoreIds.has(s.id)
@@ -952,6 +1080,8 @@ export default function ProjectDetailPage() {
               <input type="text" value={taskForm.title} onChange={(e) => setTaskForm(f => ({ ...f, title: e.target.value }))}
                 placeholder="เช่น ติดตั้ง Barcode Scanner..." className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-gray-400 text-sm focus:outline-none focus:border-blue-500" />
             </div>
+            <TaskTypeField value={taskForm.taskType} onChange={(v) => setTaskForm(f => ({ ...f, taskType: v }))} />
+
             <div>
               <label className="block text-sm text-gray-300 mb-1.5">มอบหมายช่าง</label>
               <select value={taskForm.assignedToId} onChange={(e) => setTaskForm(f => ({ ...f, assignedToId: e.target.value }))}
@@ -998,6 +1128,7 @@ export default function ProjectDetailPage() {
               <input type="text" value={editForm.title} onChange={(e) => setEditForm(f => ({ ...f, title: e.target.value }))}
                 className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500" />
             </div>
+            <TaskTypeField value={editForm.taskType} onChange={(v) => setEditForm(f => ({ ...f, taskType: v }))} />
             <div>
               <label className="block text-sm text-gray-300 mb-1.5">มอบหมายช่าง</label>
               <select value={editForm.assignedToId} onChange={(e) => setEditForm(f => ({ ...f, assignedToId: e.target.value }))}
@@ -1273,6 +1404,58 @@ export default function ProjectDetailPage() {
         </div>
       )}
 
+      {/* ── New Store Modal (OPENING) ── */}
+      {showNewStore && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="glass-card rounded-xl w-full max-w-md p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-white font-semibold text-lg flex items-center gap-2">
+                  <DoorOpen className="w-5 h-5 text-sky-400" /> สร้างร้านใหม่
+                </h3>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  สถานะ &quot;กำลังเปิดร้าน&quot; — เปิด Incident ไม่ได้จนกว่าจะ Active (อัตโนมัติตามวันนัดงาน Opening หรือกดเปิดเอง)
+                </p>
+              </div>
+              <button onClick={() => setShowNewStore(false)} className="text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
+            </div>
+            {([
+              { key: 'storeCode', label: 'รหัสสาขา', required: true, placeholder: 'เช่น 711' },
+              { key: 'name', label: 'ชื่อสาขา', required: true, placeholder: 'เช่น Central World' },
+              { key: 'company', label: 'บริษัท', required: true, placeholder: 'เช่น WATSONS' },
+              { key: 'province', label: 'จังหวัด', required: false, placeholder: 'เช่น BANGKOK' },
+              { key: 'address', label: 'ที่อยู่', required: false, placeholder: '' },
+              { key: 'phone', label: 'เบอร์โทร', required: false, placeholder: '' },
+            ] as const).map(({ key, label, required, placeholder }) => (
+              <div key={key}>
+                <label className="block text-sm text-gray-300 mb-1.5">
+                  {label} {required && <span className="text-red-400">*</span>}
+                </label>
+                <input
+                  type="text"
+                  value={newStoreForm[key]}
+                  onChange={(e) => setNewStoreForm(f => ({ ...f, [key]: e.target.value }))}
+                  placeholder={placeholder}
+                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500"
+                />
+              </div>
+            ))}
+            <p className="text-xs text-gray-500">ข้อมูลอื่น (IP, SLA Region, ฯลฯ) แก้ไขภายหลังได้ที่หน้า Stores</p>
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={handleCreateStore}
+                disabled={creatingStore}
+                className="flex-1 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 disabled:opacity-40"
+                style={{ backgroundColor: themeHighlight }}
+              >
+                {creatingStore ? 'กำลังสร้าง...' : 'สร้างและเพิ่มในโปรเจกต์'}
+              </button>
+              <button onClick={() => setShowNewStore(false)} className="flex-1 py-2 rounded-lg text-gray-400 hover:text-white text-sm hover:bg-slate-700/50 transition-colors">ยกเลิก</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Store 3-dot dropdown (fixed — renders above all cards) ── */}
       {storeMenuId !== null && storeMenuPos && (() => {
         const menuPs = (project?.projectStores || []).find((ps: any) => ps.id === storeMenuId)
@@ -1289,6 +1472,14 @@ export default function ProjectDetailPage() {
             >
               <ExternalLink className="w-3.5 h-3.5 text-gray-400" /> แก้ไขข้อมูลสาขา
             </button>
+            {menuPs.store?.storeStatus === 'OPENING' && (
+              <button
+                onClick={() => handleActivateStore(menuPs.storeId)}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-sky-300 hover:bg-slate-700 hover:text-white transition-colors text-left"
+              >
+                <DoorOpen className="w-3.5 h-3.5 text-sky-400" /> เปิดร้านตอนนี้ (Active)
+              </button>
+            )}
             <button
               onClick={() => handleToggleStorePause(menuPs.storeId, menuPs.status || 'ACTIVE')}
               className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-gray-300 hover:bg-slate-700 hover:text-white transition-colors text-left"

@@ -210,6 +210,7 @@ export default function StoresPage() {
     const badges: any = {
       ACTIVE: 'bg-green-500/20 text-green-400 border-green-500/30',
       TEMPORARILY_CLOSED: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+      OPENING: 'bg-sky-500/20 text-sky-400 border-sky-500/30',
       PERMANENTLY_CLOSED: 'bg-red-500/20 text-red-400 border-red-500/30',
     }
     return badges[status] || 'bg-gray-500/20 text-gray-400 border-gray-500/30'
@@ -219,6 +220,7 @@ export default function StoresPage() {
     const labels: any = {
       ACTIVE: 'Active',
       TEMPORARILY_CLOSED: 'Temp. Closed',
+      OPENING: 'Opening',
       PERMANENTLY_CLOSED: 'Perm. Closed',
     }
     return labels[status] || status
@@ -461,6 +463,7 @@ export default function StoresPage() {
               <option value="ALL">All Status</option>
               <option value="ACTIVE">Active</option>
               <option value="TEMPORARILY_CLOSED">Temporarily Closed</option>
+              <option value="OPENING">Opening (กำลังเปิดร้าน)</option>
               <option value="PERMANENTLY_CLOSED">Permanently Closed</option>
             </select>
           </div>
