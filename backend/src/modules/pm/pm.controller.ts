@@ -43,6 +43,22 @@ export class PmController {
   }
 
   /**
+   * GET /pm/store/:storeId/latest-inventory
+   * Inventory List of the store's latest CLOSED PM job (null when none).
+   */
+  @Get('store/:storeId/latest-inventory')
+  @Roles(
+    UserRole.TECHNICIAN,
+    UserRole.SUPERVISOR,
+    UserRole.HELP_DESK,
+    UserRole.IT_MANAGER,
+    UserRole.SUPER_ADMIN,
+  )
+  getLatestStoreInventory(@Param('storeId', ParseIntPipe) storeId: number) {
+    return this.pmService.getLatestStoreInventory(storeId);
+  }
+
+  /**
    * GET /pm/incident/:incidentId
    * Get the full PM record (all equipment records) for an incident.
    */

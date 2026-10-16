@@ -1,6 +1,16 @@
 {
   "releases": [
     {
+      "version": "1.0.32",
+      "date": "2026-10-16",
+      "changes": [
+        {
+          "type": "new",
+          "text": "Store › อุปกรณ์ — ปุ่ม \"ดู Inventory\" ข้างปุ่มจัดการอุปกรณ์ แสดง Inventory List จากงาน Preventive Maintenance ล่าสุดของร้านที่ปิดงาน (Closed) แล้ว พร้อม Download PDF ได้ / ร้านที่ยังไม่มีงาน PM ที่ปิดแล้วจะแจ้งว่า \"ร้านยังไม่มีประวัติการทำ PM\""
+        }
+      ]
+    },
+    {
       "version": "1.0.31",
       "date": "2026-10-16",
       "changes": [

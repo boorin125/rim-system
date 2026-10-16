@@ -5,7 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { EquipmentLogAction, EquipmentLogSource, EquipmentStatus, IncidentStatus, AuditModule, AuditAction } from '@prisma/client';
+import { EquipmentLogAction, EquipmentLogSource, EquipmentStatus, IncidentStatus, AuditModule, AuditAction, Prisma } from '@prisma/client';
 import { UpdatePmEquipmentRecordDto, SignInventoryListDto, AddPmEquipmentDto } from './dto/index';
 import { AuditTrailService } from '../audit-trail/audit-trail.service';
 import { EquipmentService } from '../../equipment/equipment.service';
@@ -13,6 +13,19 @@ import { OPEN_PM_INCIDENT_WHERE } from './pm-sync.helper';
 import { EmailService } from '../../email/email.service';
 import { SettingsService } from '../../settings/settings.service';
 import { saveBase64File, saveBase64Files, deleteUploadFile } from '../../utils/file-storage';
+
+// PM record shape used by the PM Report / Inventory List documents
+const PM_REPORT_INCLUDE = {
+  store: { select: { id: true, storeCode: true, name: true, province: true, address: true } },
+  equipmentRecords: {
+    include: {
+      equipment: {
+        select: { id: true, name: true, category: true, brand: true, model: true, serialNumber: true },
+      },
+    },
+    orderBy: { equipmentId: 'asc' },
+  },
+} satisfies Prisma.PmRecordInclude;
 
 @Injectable()
 export class PmService {
@@ -771,17 +784,7 @@ export class PmService {
   async getPmReportByToken(token: string) {
     const record = await this.prisma.pmRecord.findUnique({
       where: { inventoryListToken: token },
-      include: {
-        store: { select: { id: true, storeCode: true, name: true, province: true, address: true } },
-        equipmentRecords: {
-          include: {
-            equipment: {
-              select: { id: true, name: true, category: true, brand: true, model: true, serialNumber: true },
-            },
-          },
-          orderBy: { equipmentId: 'asc' },
-        },
-      },
+      include: PM_REPORT_INCLUDE,
     });
 
     if (!record) throw new NotFoundException('ไม่พบรายงาน หรือลิงก์ไม่ถูกต้อง');
@@ -789,6 +792,23 @@ export class PmService {
       throw new BadRequestException('ลิงก์หมดอายุแล้ว');
     }
 
+    return this.withReportDetails(record);
+  }
+
+  /**
+   * Inventory of the store's latest CLOSED PM job (Store page › "ดู Inventory").
+   * Returns null when the store has no closed PM yet.
+   */
+  async getLatestStoreInventory(storeId: number) {
+    const record = await this.prisma.pmRecord.findFirst({
+      where: { storeId, performedAt: { not: null }, incident: { status: IncidentStatus.CLOSED } },
+      orderBy: { performedAt: 'desc' },
+      include: PM_REPORT_INCLUDE,
+    });
+    return record ? this.withReportDetails(record) : null;
+  }
+
+  private async withReportDetails<T extends { technicianId: number | null; incidentId: string }>(record: T) {
     // Fetch technician separately
     const technician = record.technicianId
       ? await this.prisma.user.findUnique({

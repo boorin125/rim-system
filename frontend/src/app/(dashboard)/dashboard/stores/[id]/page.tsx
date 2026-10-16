@@ -44,6 +44,7 @@ import { compressImage } from '@/utils/imageUtils'
 import toast from 'react-hot-toast'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts'
 import BackButton from '@/components/BackButton'
+import StoreInventoryButton from '@/components/StoreInventoryButton'
 import { TimeInput } from '@/components/TimeInput'
 import { canPerformAction, getUserRoles } from '@/config/permissions'
 import { useThemeHighlight } from '@/hooks/useThemeHighlight'
@@ -1515,13 +1516,16 @@ export default function StoreDetailPage() {
               <Monitor className="w-5 h-5 text-blue-400" />
               อุปกรณ์ในสาขา
             </h2>
-            <button
-              onClick={() => router.push(`/dashboard/equipment?storeId=${store.id}`)}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-600/30 transition-colors"
-            >
-              <ExternalLink className="w-4 h-4" />
-              จัดการอุปกรณ์
-            </button>
+            <div className="flex items-center gap-2">
+              <StoreInventoryButton storeId={store.id} />
+              <button
+                onClick={() => router.push(`/dashboard/equipment?storeId=${store.id}`)}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-600/30 transition-colors"
+              >
+                <ExternalLink className="w-4 h-4" />
+                จัดการอุปกรณ์
+              </button>
+            </div>
           </div>
 
           {equipmentTabLoading ? (
