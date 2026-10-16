@@ -25,6 +25,7 @@ import {
   Award,
   ChevronDown,
   Check,
+  Receipt,
 } from 'lucide-react'
 import {
   Cell,
@@ -117,7 +118,21 @@ const REPORT_TYPES = [
   { id: 'technician-detail', label: 'Technician Detail', icon: Users, description: 'รายงานรายบุคคล: Login/Logout, Check-in, คะแนน Performance', color: 'indigo' },
   { id: 'customer-ratings', label: 'Customer Ratings', icon: Star, description: 'Rating Statistics & Distribution', color: 'amber' },
   { id: 'incident-list', label: 'Incident List', icon: FileText, description: 'รายการ Incidents ทั้งหมดแบบละเอียด', color: 'cyan' },
+  { id: 'billing-cycle', label: 'Billing Cycle', icon: Receipt, description: 'นับงานที่ปิดแล้วตามรอบวางบิล ตัด Reopen แล้วคงเหลือ', color: 'green' },
 ] as const
+
+// Billing Cycle parameters are remembered per user until changed
+interface BillingParams { from: string; to: string; jobTypes: string[]; excludeReopen: boolean }
+const DEFAULT_BILLING_PARAMS: BillingParams = { from: '', to: '', jobTypes: ['MA', 'Adhoc'], excludeReopen: true }
+const billingStorageKey = () => {
+  try { return `rim_billing_cycle_${JSON.parse(localStorage.getItem('user') || '{}').id ?? 'anon'}` } catch { return 'rim_billing_cycle_anon' }
+}
+
+interface BillingCycleData {
+  summary: { total: number; reopened: number; remaining: number }
+  byJobType: { jobType: string; total: number; reopened: number; remaining: number }[]
+  items: { ticketNumber: string | null; title: string; jobType: string | null; confirmedAt: string; isReopened: boolean; reopenCount: number; store: { storeCode: string; name: string } | null }[]
+}
 
 type ReportTypeId = typeof REPORT_TYPES[number]['id']
 
@@ -250,6 +265,24 @@ export default function ReportsPage() {
     const next = all ? ALL_INCIDENT_COL_KEYS : [ALL_INCIDENT_COL_KEYS[0]]
     setSelectedIncidentCols(next)
     localStorage.setItem('rim_incident_cols', JSON.stringify(next))
+    setIsGenerated(false)
+  }
+
+  // Billing Cycle report — params persisted per user
+  const [billing, setBilling] = useState<BillingParams>(DEFAULT_BILLING_PARAMS)
+  const [billingData, setBillingData] = useState<BillingCycleData | null>(null)
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(billingStorageKey())
+      if (saved) setBilling({ ...DEFAULT_BILLING_PARAMS, ...JSON.parse(saved) })
+    } catch {}
+  }, [])
+  const updateBilling = (patch: Partial<BillingParams>) => {
+    setBilling(prev => {
+      const next = { ...prev, ...patch }
+      try { localStorage.setItem(billingStorageKey(), JSON.stringify(next)) } catch {}
+      return next
+    })
     setIsGenerated(false)
   }
 
@@ -572,6 +605,32 @@ export default function ReportsPage() {
           break
         }
 
+        case 'billing-cycle': {
+          if (!billing.from || !billing.to) { toast.error('กรุณาเลือกช่วงวันที่ของรอบบิล'); setIsLoading(false); return }
+          const r = await axios.get(`${API}/incidents/analytics/billing-cycle`, {
+            headers,
+            params: { from: billing.from, to: billing.to, jobTypes: billing.jobTypes.join(',') },
+          })
+          const data: BillingCycleData = r.data
+          setBillingData(data)
+
+          const h = ['#', 'Ticket No.', 'Job Type', 'Store ID', 'Store Name', 'Title', 'Closed Date', 'Reopen', 'นับวางบิล']
+          const rows = data.items.map((inc, idx) => [
+            idx + 1,
+            inc.ticketNumber || '',
+            inc.jobType || '',
+            inc.store?.storeCode ?? '',
+            inc.store?.name || '',
+            inc.title || '',
+            inc.confirmedAt ? new Date(inc.confirmedAt).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' }) : '',
+            inc.isReopened ? `Reopen ${inc.reopenCount} ครั้ง` : '-',
+            billing.excludeReopen && inc.isReopened ? 'ไม่นับ' : 'นับ',
+          ])
+          setPreviewHeaders(h)
+          setPreviewRows(rows)
+          break
+        }
+
         case 'technician-detail': {
           if (!selectedTechnicianId) { toast.error('กรุณาเลือก Technician'); setIsLoading(false); return }
           const r = await axios.get(`${API}/incidents/analytics/technician-detail`, {
@@ -633,7 +692,13 @@ export default function ReportsPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [selectedReport, dateFrom, dateTo, filterCategory, filterPriority, filterStatuses, filterJobType, inventorySubType, inventoryStoreId, inventoryCategory, inventoryStatus, selectedTechnicianId, selectedIncidentCols])
+  }, [selectedReport, dateFrom, dateTo, filterCategory, filterPriority, filterStatuses, filterJobType, inventorySubType, inventoryStoreId, inventoryCategory, inventoryStatus, selectedTechnicianId, selectedIncidentCols, billing])
+
+  // Billing Cycle is a monitor: opening it with a remembered cycle shows the numbers right away
+  useEffect(() => {
+    if (selectedReport === 'billing-cycle' && billing.from && billing.to && !isGenerated && !isLoading) handleGenerate()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedReport])
 
   // ==================== EXPORT HANDLERS ====================
 
@@ -653,6 +718,10 @@ export default function ReportsPage() {
         const store = storeList.find((s: any) => String(s.id) === inventoryStoreId)
         filters.Store = store ? formatStore(store) : inventoryStoreId
       }
+    } else if (selectedReport === 'billing-cycle') {
+      filters['นับตาม'] = 'วันที่ปิดงาน (Closed)'
+      filters['Job Type'] = billing.jobTypes.length === 0 ? 'All' : billing.jobTypes.join(', ')
+      filters['ตัดงาน Reopen'] = billing.excludeReopen ? 'ใช่' : 'ไม่'
     } else if (selectedReport === 'technician-detail' && techDetailData?.performance) {
       const p = techDetailData.performance
       filters['Technician'] = techDetailData.technician.name
@@ -690,7 +759,7 @@ export default function ReportsPage() {
     return {
       title: reportLabel,
       reportType: reportLabel,
-      dateRange: { from: dateFrom, to: dateTo },
+      dateRange: selectedReport === 'billing-cycle' ? { from: billing.from, to: billing.to } : { from: dateFrom, to: dateTo },
       filters,
       headers: previewHeaders,
       rows: previewRows,
@@ -703,6 +772,10 @@ export default function ReportsPage() {
         ? `Total: ${previewRows.length} items`
         : selectedReport === 'technician-detail' && techDetailData?.performance
         ? `${techDetailData.performance.overallScore.toFixed(1)} pts — Grade ${techDetailData.performance.grade}`
+        : selectedReport === 'billing-cycle' && billingData
+        ? billing.excludeReopen
+          ? `ปิดงาน ${billingData.summary.total} · Reopen ${billingData.summary.reopened} · คงเหลือวางบิล ${billingData.summary.remaining}`
+          : `ปิดงาน ${billingData.summary.total} (นับรวม Reopen)`
         : undefined,
       columnWidths: selectedReport === 'customer-ratings'
         ? [4, 7, 30, 8, 14, 10, 27]
@@ -786,8 +859,61 @@ export default function ReportsPage() {
             Filters
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-            {/* Date Range — hidden for Inventory (dates not applicable) */}
-            {selectedReport !== 'inventory' && (
+            {/* Billing Cycle — own remembered params (close date, job types, exclude reopen) */}
+            {selectedReport === 'billing-cycle' && (
+              <>
+                <div>
+                  <label className="block text-gray-400 text-xs font-medium mb-1.5">รอบบิล ตั้งแต่ (วันที่ปิดงาน)</label>
+                  <input
+                    type="date"
+                    value={billing.from}
+                    onChange={(e) => updateBilling({ from: e.target.value })}
+                    className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-400 text-xs font-medium mb-1.5">ถึง</label>
+                  <input
+                    type="date"
+                    value={billing.to}
+                    onChange={(e) => updateBilling({ to: e.target.value })}
+                    className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-400 text-xs font-medium mb-1.5">Job Type</label>
+                  <MultiSearchSelect
+                    value={billing.jobTypes}
+                    onChange={(v) => updateBilling({ jobTypes: v })}
+                    placeholder="All"
+                    buttonClassName="w-full bg-slate-800 border border-slate-600 text-white text-sm rounded-lg px-3 py-2 flex items-center justify-between gap-2 text-left focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    options={jobTypeList.map((jt) => jt.name)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-400 text-xs font-medium mb-1.5">งาน Reopen</label>
+                  <button
+                    type="button"
+                    onClick={() => updateBilling({ excludeReopen: !billing.excludeReopen })}
+                    className="w-full flex items-center justify-between gap-2 bg-slate-800 border border-slate-700 text-sm rounded-lg px-3 py-2"
+                  >
+                    <span className="text-white">{billing.excludeReopen ? 'ตัดออก' : 'นับรวม'}</span>
+                    <span
+                      className="relative w-9 h-5 rounded-full transition-colors"
+                      style={{ backgroundColor: billing.excludeReopen ? themeHighlight : '#475569' }}
+                    >
+                      <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${billing.excludeReopen ? 'right-0.5' : 'left-0.5'}`} />
+                    </span>
+                  </button>
+                </div>
+                <p className="sm:col-span-2 lg:col-span-4 xl:col-span-6 text-xs text-gray-500">
+                  นับเฉพาะงานสถานะ Closed ที่วันที่ปิดงานอยู่ในรอบ · งาน Reopen = งานที่เคยถูกเปิดใหม่อย่างน้อย 1 ครั้ง · ค่าที่ตั้งจะถูกจำไว้จนกว่าจะเปลี่ยน
+                </p>
+              </>
+            )}
+
+            {/* Date Range — hidden for Inventory (dates not applicable) and Billing Cycle (own range) */}
+            {selectedReport !== 'inventory' && selectedReport !== 'billing-cycle' && (
               <>
                 <div>
                   <label className="block text-gray-400 text-xs font-medium mb-1.5">From</label>
@@ -1256,6 +1382,9 @@ export default function ReportsPage() {
           {selectedReport === 'customer-ratings' && (
             <RatingCharts ratingStats={ratingStats} />
           )}
+          {selectedReport === 'billing-cycle' && billingData && (
+            <BillingCycleCards data={billingData} excludeReopen={billing.excludeReopen} from={billing.from} to={billing.to} />
+          )}
 
           {/* Data Preview Table */}
           <div className="glass-card p-6 rounded-2xl">
@@ -1408,6 +1537,56 @@ function TechnicianCharts({ techPerf }: { techPerf: TechPerformance[] }) {
               <Bar dataKey="total" fill="#3b82f680" name="Total" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function BillingCycleCards({ data, excludeReopen, from, to }: { data: BillingCycleData; excludeReopen: boolean; from: string; to: string }) {
+  const fmt = (s: string) => { const [y, m, d] = s.split('-'); return `${d}/${m}/${y}` }
+  const s = data.summary
+  return (
+    <div className="glass-card p-5 rounded-2xl space-y-5">
+      <p className="text-sm text-gray-400">
+        รอบบิล <span className="text-white font-medium">{fmt(from)} – {fmt(to)}</span> · นับตามวันที่ปิดงาน (Closed)
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="p-4 rounded-xl bg-slate-800/50 border border-slate-700">
+          <p className="text-xs text-gray-400">งานที่ปิดแล้วในรอบ</p>
+          <p className="text-3xl font-bold text-white mt-1">{s.total}</p>
+        </div>
+        <div className="p-4 rounded-xl bg-slate-800/50 border border-slate-700">
+          <p className="text-xs text-gray-400">งาน Reopen {excludeReopen ? '(ตัดออก)' : '(นับรวม)'}</p>
+          <p className="text-3xl font-bold text-amber-400 mt-1">{excludeReopen ? `−${s.reopened}` : s.reopened}</p>
+        </div>
+        <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/30">
+          <p className="text-xs text-green-300">คงเหลือวางบิล</p>
+          <p className="text-3xl font-bold text-green-400 mt-1">{excludeReopen ? s.remaining : s.total}</p>
+        </div>
+      </div>
+      {data.byJobType.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-700/50 text-xs text-gray-400">
+                <th className="text-left py-2 px-3">Job Type</th>
+                <th className="text-right py-2 px-3">ปิดแล้ว</th>
+                <th className="text-right py-2 px-3">Reopen</th>
+                <th className="text-right py-2 px-3">คงเหลือวางบิล</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.byJobType.map((r) => (
+                <tr key={r.jobType} className="border-b border-slate-700/30 text-gray-300">
+                  <td className="py-2 px-3">{r.jobType}</td>
+                  <td className="py-2 px-3 text-right">{r.total}</td>
+                  <td className="py-2 px-3 text-right text-amber-400">{r.reopened}</td>
+                  <td className="py-2 px-3 text-right font-semibold text-green-400">{excludeReopen ? r.remaining : r.total}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

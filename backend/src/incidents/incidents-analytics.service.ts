@@ -1,6 +1,6 @@
 // backend/src/incidents/incidents-analytics.service.ts
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserRole, IncidentStatus, SlaDefenseStatus } from '@prisma/client';
 
@@ -208,6 +208,61 @@ export class IncidentsAnalyticsService {
   /**
    * Get SLA performance metrics
    */
+  /**
+   * Billing cycle: CLOSED incidents closed (confirmedAt) between from and to (YYYY-MM-DD, Bangkok time).
+   * A job counts as "reopened" when it was ever reopened (reopenCount > 0).
+   */
+  async getBillingCycle(from: string, to: string, jobTypes: string[]) {
+    const isDate = (s?: string) => !!s && /^\d{4}-\d{2}-\d{2}$/.test(s);
+    if (!isDate(from) || !isDate(to)) {
+      throw new BadRequestException('กรุณาระบุช่วงวันที่ (from / to) รูปแบบ YYYY-MM-DD');
+    }
+
+    const items = await this.prisma.incident.findMany({
+      where: {
+        status: IncidentStatus.CLOSED,
+        confirmedAt: {
+          gte: new Date(`${from}T00:00:00.000+07:00`),
+          lte: new Date(`${to}T23:59:59.999+07:00`),
+        },
+        ...(jobTypes.length > 0 ? { jobType: { in: jobTypes } } : {}),
+      },
+      select: {
+        id: true,
+        ticketNumber: true,
+        title: true,
+        jobType: true,
+        reopenCount: true,
+        confirmedAt: true,
+        store: { select: { storeCode: true, name: true } },
+      },
+      orderBy: { confirmedAt: 'asc' },
+    });
+
+    const byType = new Map<string, { jobType: string; total: number; reopened: number }>();
+    for (const t of jobTypes) byType.set(t, { jobType: t, total: 0, reopened: 0 });
+    let reopened = 0;
+    for (const i of items) {
+      const key = i.jobType || '-';
+      const row = byType.get(key) ?? { jobType: key, total: 0, reopened: 0 };
+      row.total++;
+      if (i.reopenCount > 0) {
+        row.reopened++;
+        reopened++;
+      }
+      byType.set(key, row);
+    }
+
+    return {
+      from,
+      to,
+      jobTypes,
+      summary: { total: items.length, reopened, remaining: items.length - reopened },
+      byJobType: [...byType.values()].map((r) => ({ ...r, remaining: r.total - r.reopened })),
+      items: items.map((i) => ({ ...i, isReopened: i.reopenCount > 0 })),
+    };
+  }
+
   async getSlaPerformance(user: any, from?: string, to?: string) {
     const where = this.buildWhereClause(user, from, to);
 

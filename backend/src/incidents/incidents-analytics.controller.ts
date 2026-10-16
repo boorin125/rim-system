@@ -123,6 +123,28 @@ export class IncidentsAnalyticsController {
   }
 
   /**
+   * Billing cycle monitor (Reports › Billing Cycle)
+   * CLOSED incidents whose close date (confirmedAt, Bangkok time) is within from–to,
+   * limited to the given job types; reopened jobs are flagged so they can be excluded.
+   */
+  @Get('billing-cycle')
+  @Roles(
+    UserRole.IT_MANAGER,
+    UserRole.FINANCE_ADMIN,
+    UserRole.SUPERVISOR,
+    UserRole.HELP_DESK,
+    UserRole.READ_ONLY,
+  )
+  async getBillingCycle(
+    @Query('from') from: string,
+    @Query('to') to: string,
+    @Query('jobTypes') jobTypes?: string,
+  ) {
+    const types = (jobTypes || '').split(',').map((t) => t.trim()).filter(Boolean);
+    return this.analyticsService.getBillingCycle(from, to, types);
+  }
+
+  /**
    * Get technician performance
    */
   @Get('technician-performance')
