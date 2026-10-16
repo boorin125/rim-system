@@ -1,6 +1,20 @@
 {
   "releases": [
     {
+      "version": "1.0.31",
+      "date": "2026-10-16",
+      "changes": [
+        {
+          "type": "fixed",
+          "text": "PM — หลัง Submit PM ช่างยังแก้ไขข้อมูลอุปกรณ์ได้ทุกช่อง (รูป / สภาพ / Comment / Brand / Model / S/N) จนกว่าจะกด \"ยืนยันปิดงาน\" ไม่ต้องหาปุ่ม \"แก้ไขข้อมูล\" ด้านบนอีก — แก้กรณี Helpdesk Reject ให้ใส่ S/N แล้วช่างแก้ไม่ได้"
+        },
+        {
+          "type": "improved",
+          "text": "PM — ถ้าแก้ข้อมูลหลัง Submit PM ระบบจะแจ้งให้กด \"ยืนยัน Re-submit PM\" ก่อน (เพื่ออัปเดต Brand / Model / S/N เข้า Inventory) แล้วจึงกดยืนยันปิดงานได้"
+        }
+      ]
+    },
+    {
       "version": "1.0.30",
       "date": "2026-10-15",
       "changes": [

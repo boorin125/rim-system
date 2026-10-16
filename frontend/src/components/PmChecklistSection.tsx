@@ -100,7 +100,7 @@ interface Props {
   techConfirmedAt?: string | null
   currentUserId?: number | null
   onPmSubmitted?: () => void
-  onPmLoaded?: (status: { performedAt: string | null; storeSignedAt: string | null; signedInventoryPhotosCount: number }) => void
+  onPmLoaded?: (status: { performedAt: string | null; storeSignedAt: string | null; signedInventoryPhotosCount: number; needsResubmit?: boolean }) => void
 }
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
@@ -819,7 +819,6 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
   const [pmRecord, setPmRecord] = useState<PmRecord | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
-  const [localEditMode, setLocalEditMode] = useState(false) // tech re-edits after submit PM
   const [generatingToken, setGeneratingToken] = useState(false)
   // Add equipment (Helpdesk / Supervisor)
   const [showAddEquipment, setShowAddEquipment] = useState(false)
@@ -892,6 +891,11 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
 
   useEffect(() => { fetchPmRecord() }, [incidentId])
 
+  // Equipment edited after the last Submit PM → must Re-submit (Submit applies Brand/Model/S/N to Inventory)
+  const needsResubmit = !!pmRecord?.performedAt && pmRecord.equipmentRecords.some(
+    (r) => new Date(r.updatedAt) > new Date(pmRecord.performedAt!),
+  )
+
   // Sync pmRecord state changes → parent page (for canResolve gate)
   // Needed because optimistic updates (upload/delete doc) update local state
   // without re-calling fetchPmRecord, so parent's pmSignedDocsCount must follow
@@ -901,8 +905,9 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
       performedAt: pmRecord.performedAt ?? null,
       storeSignedAt: pmRecord.storeSignedAt ?? null,
       signedInventoryPhotosCount: pmRecord.signedInventoryPhotos?.length ?? 0,
+      needsResubmit,
     })
-  }, [pmRecord?.performedAt, pmRecord?.storeSignedAt, pmRecord?.signedInventoryPhotos?.length]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pmRecord?.performedAt, pmRecord?.storeSignedAt, pmRecord?.signedInventoryPhotos?.length, needsResubmit]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Poll every 15 s when sign link is active but customer hasn't signed yet
   // (storeSignedAt only updates when customer signs via the link — requires a refetch)
@@ -1053,7 +1058,6 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
       }
       setSerialConflictIds(new Set())
       setSerialConflictModal(null)
-      setLocalEditMode(false)
       await fetchPmRecord()
       onPmSubmitted?.()
     } catch (e: any) {
@@ -1547,29 +1551,31 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
         )
       })()}
 
-      {/* PM Completed Badge + Edit button */}
-      {pmRecord.performedAt && !localEditMode && (
-        <div className="flex items-center gap-2 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
-          <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0" />
-          <div className="flex-1">
-            <p className="text-green-400 text-sm font-medium">PM เสร็จสิ้นแล้ว</p>
-            <p className="text-gray-400 text-xs">
-              {new Date(pmRecord.performedAt).toLocaleDateString('th-TH', {
-                year: 'numeric', month: 'long', day: 'numeric',
-                hour: '2-digit', minute: '2-digit',
-              })}
-            </p>
+      {/* PM Completed Badge — tech can keep editing until tech-confirm; edits after Submit need Re-submit */}
+      {pmRecord.performedAt && (
+        needsResubmit && !techConfirmedAt ? (
+          <div className="flex items-center gap-2 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+            <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-amber-300 text-sm font-medium">มีการแก้ไขข้อมูลหลัง Submit PM</p>
+              <p className="text-gray-400 text-xs">กรุณากด &quot;ยืนยัน Re-submit PM&quot; ด้านล่าง ก่อนยืนยันปิดงาน</p>
+            </div>
           </div>
-          {/* Tech can re-edit until tech-confirm */}
-          {isPmOwner && !techConfirmedAt && (
-            <button
-              onClick={() => setLocalEditMode(true)}
-              className="flex-shrink-0 px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 text-xs font-medium rounded-lg transition-colors"
-            >
-              แก้ไขข้อมูล
-            </button>
-          )}
-        </div>
+        ) : (
+          <div className="flex items-center gap-2 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+            <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-green-400 text-sm font-medium">PM เสร็จสิ้นแล้ว</p>
+              <p className="text-gray-400 text-xs">
+                {new Date(pmRecord.performedAt).toLocaleDateString('th-TH', {
+                  year: 'numeric', month: 'long', day: 'numeric',
+                  hour: '2-digit', minute: '2-digit',
+                })}
+                {isPmOwner && !techConfirmedAt && ' — ยังแก้ไขข้อมูลอุปกรณ์ได้จนกว่าจะยืนยันปิดงาน'}
+              </p>
+            </div>
+          </div>
+        )
       )}
 
       {/* Equipment Records */}
@@ -1582,8 +1588,8 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
           <EquipmentCard
             key={record.id}
             record={record}
-            canEdit={(canEdit && (!pmRecord.performedAt || localEditMode) && !techConfirmedAt) || !!canHelpdeskEdit}
-            canEditPhotos={(canEdit && (!pmRecord.performedAt || localEditMode) && !techConfirmedAt) || !!canHelpdeskEdit}
+            canEdit={(canEdit && !techConfirmedAt) || !!canHelpdeskEdit}
+            canEditPhotos={(canEdit && !techConfirmedAt) || !!canHelpdeskEdit}
             onUpdated={handleEquipmentUpdated}
             brandSuggestions={brandSuggestions}
             modelSuggestions={modelSuggestions}
@@ -1708,16 +1714,8 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
       )}
 
       {/* Submit PM Button — first submit or re-submit after edit */}
-      {isPmOwner && (!pmRecord.performedAt || localEditMode) && !techConfirmedAt && (
+      {isPmOwner && (!pmRecord.performedAt || needsResubmit) && !techConfirmedAt && (
         <div className="space-y-2">
-          {localEditMode && (
-            <button
-              onClick={() => setLocalEditMode(false)}
-              className="w-full py-2 text-sm text-gray-400 hover:text-gray-300 border border-slate-600 rounded-xl transition-colors"
-            >
-              ยกเลิกการแก้ไข
-            </button>
-          )}
         <button
           onClick={handleSubmitPm}
           disabled={submitting || !allComplete}
@@ -1734,7 +1732,7 @@ export default function PmChecklistSection({ incidentId, ticketNumber, canEdit, 
             ? conflictCount > 0
               ? `ข้อมูลขัดแย้ง (${conflictCount} อุปกรณ์) — ลบรูปหลัง PM และถ่ายใหม่`
               : `ทำรายการให้ครบก่อน (${completedCount}/${totalCount})`
-            : localEditMode ? 'ยืนยัน Re-submit PM' : 'Submit PM'}
+            : needsResubmit ? 'ยืนยัน Re-submit PM' : 'Submit PM'}
         </button>
         </div>
       )}

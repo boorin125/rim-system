@@ -98,6 +98,7 @@ export default function IncidentDetailPage() {
   const [pmPerformedAt, setPmPerformedAt] = useState<string | null>(null)
   const [pmStoreSignedAt, setPmStoreSignedAt] = useState<string | null>(null)
   const [pmSignedDocsCount, setPmSignedDocsCount] = useState(0)
+  const [pmNeedsResubmit, setPmNeedsResubmit] = useState(false)
 
 
   // Photo Viewer state
@@ -1196,7 +1197,7 @@ SLA Breach Time: ${slaBreachText}`
     !incident?.techConfirmedAt &&
     (
       incident?.status === 'RESOLVED' ||  // normal flow
-      (isPmIncident && incident?.status === 'IN_PROGRESS' && !!pmPerformedAt && pmSigned && hasCheckedIn)  // PM direct confirm
+      (isPmIncident && incident?.status === 'IN_PROGRESS' && !!pmPerformedAt && !pmNeedsResubmit && pmSigned && hasCheckedIn)  // PM direct confirm
     )
 
   // Confirm & Close - HELP_DESK หรือ IT_MANAGER AND tech must have confirmed
@@ -1251,6 +1252,12 @@ SLA Breach Time: ${slaBreachText}`
           return {
             message: '📋 กรุณาถ่ายรูปอุปกรณ์ให้ครบ แล้วกด Submit PM ในส่วน PM Checklist',
             type: 'info',
+          }
+        }
+        if (isPmIncident && pmPerformedAt && pmNeedsResubmit) {
+          return {
+            message: '📋 มีการแก้ไขข้อมูลหลัง Submit PM — กรุณากด "ยืนยัน Re-submit PM" ในส่วน PM Checklist',
+            type: 'warning',
           }
         }
         if (isPmIncident && pmPerformedAt && !pmSigned) {
@@ -2294,10 +2301,11 @@ SLA Breach Time: ${slaBreachText}`
           techConfirmedAt={incident.techConfirmedAt ?? null}
           currentUserId={currentUserId}
           onPmSubmitted={() => fetchIncident()}
-          onPmLoaded={({ performedAt, storeSignedAt, signedInventoryPhotosCount }) => {
+          onPmLoaded={({ performedAt, storeSignedAt, signedInventoryPhotosCount, needsResubmit }) => {
             setPmPerformedAt(performedAt)
             setPmStoreSignedAt(storeSignedAt)
             setPmSignedDocsCount(signedInventoryPhotosCount)
+            setPmNeedsResubmit(!!needsResubmit)
           }}
         />
       )}

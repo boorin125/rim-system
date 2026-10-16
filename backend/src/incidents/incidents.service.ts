@@ -3585,6 +3585,13 @@ export class IncidentsService {
       if (!pmRecord?.performedAt) {
         throw new BadRequestException('กรุณา Submit PM ก่อนยืนยันปิดงาน');
       }
+      // Equipment edited after Submit PM → Re-submit first so Brand/Model/S/N reach Inventory
+      const editedAfterSubmit = await this.prisma.pmEquipmentRecord.count({
+        where: { pmRecordId: pmRecord.id, updatedAt: { gt: pmRecord.performedAt } },
+      });
+      if (editedAfterSubmit > 0) {
+        throw new BadRequestException('มีการแก้ไขข้อมูล PM หลัง Submit — กรุณากด "ยืนยัน Re-submit PM" ก่อนยืนยันปิดงาน');
+      }
       const isSigned =
         !!pmRecord.storeSignedAt ||
         (pmRecord.signedInventoryPhoto !== null && pmRecord.signedInventoryPhoto !== '[]' && pmRecord.signedInventoryPhoto !== '');
