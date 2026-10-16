@@ -46,4 +46,9 @@ export class CreateIncidentDto {
   @IsDateString()
   @IsOptional()
   scheduledAt?: string; // วันเวลานัดเข้าดำเนินการ (Project/Adhoc)
+
+  @Type(() => Number)
+  @IsInt()
+  @IsOptional()
+  forProjectStoreId?: number | null; // ทำงานให้สาขาในโปรเจกต์ (Project module) — ใช้นับครั้งเข้างาน
 }

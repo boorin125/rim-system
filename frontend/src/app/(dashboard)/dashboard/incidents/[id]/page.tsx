@@ -1743,6 +1743,19 @@ SLA Breach Time: ${slaBreachText}`
         </div>
       )}
 
+      {/* Work done for a project store (Project module) — counted as a visit for that store */}
+      {incident.forProjectStore && (
+        <div className="bg-sky-500/10 border border-sky-500/30 rounded-2xl px-5 py-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="text-sm font-semibold text-sky-300">ทำงานให้โปรเจกต์</span>
+          <Link
+            href={`/dashboard/projects/${incident.forProjectStore.project.id}`}
+            className="text-sm text-gray-200 hover:text-white hover:underline"
+          >
+            {incident.forProjectStore.project.name} — {formatStore(incident.forProjectStore.store)}
+          </Link>
+        </div>
+      )}
+
       {/* Related Incident chain */}
       {(incident.relatedIncident || (incident.childIncidents && incident.childIncidents.length > 0)) && (
         <div className="bg-orange-500/10 border border-orange-500/30 rounded-2xl p-5">

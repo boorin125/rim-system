@@ -6,7 +6,7 @@ import {
   ArrowLeft, Building2, Plus, Calendar,
   Trash2, CheckCircle2, X, Save, AlertTriangle, MoreVertical,
   ChevronDown, ChevronUp, Copy, CheckSquare, Square, Search,
-  PauseCircle, PlayCircle, ExternalLink, Phone, MapPin, Pencil, DoorOpen,
+  PauseCircle, PlayCircle, ExternalLink, Phone, MapPin, Pencil, DoorOpen, Footprints,
 } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
@@ -748,6 +748,14 @@ export default function ProjectDetailPage() {
                           </span>
                         )
                       })()}
+                      {ps.visits?.total > 0 && (
+                        <span
+                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-slate-700/60 text-gray-300"
+                          title={`เข้างานจาก Project Task ${ps.visits.tasks} ครั้ง · จาก Incident ที่ทำงานให้สาขานี้ ${ps.visits.incidents} ครั้ง`}
+                        >
+                          <Footprints className="w-2.5 h-2.5" /> เข้างาน {ps.visits.total} ครั้ง
+                        </span>
+                      )}
 
                       {/* Inline mini progress bar */}
                       {total > 0 && (
@@ -940,6 +948,25 @@ export default function ProjectDetailPage() {
                       })}
                     </div>
                   </div>
+                  </div>
+                )}
+
+                {/* Incidents opened (at any store) to work for this project store */}
+                {!isCollapsed && ps.supportIncidents?.length > 0 && (
+                  <div className="border-t border-slate-700/40 px-4 py-3 space-y-1.5">
+                    <p className="text-xs font-semibold text-gray-400">Incident ที่ทำงานให้สาขานี้</p>
+                    {ps.supportIncidents.map((inc: any) => (
+                      <Link
+                        key={inc.id}
+                        href={`/dashboard/incidents/${inc.id}`}
+                        className="flex items-center gap-2 text-xs hover:bg-slate-700/30 rounded-lg px-2 py-1.5 transition-colors"
+                      >
+                        <span className="font-mono text-orange-300 flex-shrink-0">{inc.ticketNumber}</span>
+                        <span className="text-gray-300 truncate flex-1">{inc.title}</span>
+                        <span className="text-gray-500 flex-shrink-0 hidden sm:inline">ที่ {formatStore({ storeCode: inc.storeCode, name: inc.storeName })}</span>
+                        <span className="text-gray-500 flex-shrink-0">{inc.status}</span>
+                      </Link>
+                    ))}
                   </div>
                 )}
               </div>

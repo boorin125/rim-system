@@ -329,6 +329,7 @@ model Incident {
   createdById       Int             @map("created_by_id")
   assigneeId        Int?            @map("assignee_id")
   relatedIncidentId String?         @map("related_incident_id")
+  forProjectStoreId Int?            @map("for_project_store_id") // งานนี้ทำให้สาขาในโปรเจกต์ไหน (เช่น MA ร้าน A เพื่อเซ็ตเครื่องให้ร้าน B) — นับครั้งเข้างาน
   slaDeadline       DateTime?       @map("sla_deadline")
   notes             String?
   incidentDate      DateTime?       @map("incident_date") // วันที่ลูกค้าแจ้ง (อาจก่อน createdAt)
@@ -419,6 +420,7 @@ model Incident {
   slaDefenses     SlaDefense[]
   pmRecord        PmRecord?
   workRounds      IncidentWorkRound[]
+  forProjectStore ProjectStore?           @relation(fields: [forProjectStoreId], references: [id], onDelete: SetNull)
 
   @@index([ratingToken])
   @@index([status])
@@ -431,6 +433,7 @@ model Incident {
   @@index([status, priority])
   @@index([resolutionType])
   @@index([resolutionType, status])
+  @@index([forProjectStoreId])
   @@map("incidents")
 }
 
@@ -1941,6 +1944,8 @@ model ProjectStore {
   project Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   store   Store         @relation(fields: [storeId], references: [id])
   tasks   ProjectTask[]
+  // Incidents opened at any store to do work for this project store (visit counting)
+  supportIncidents Incident[]
 
   @@unique([projectId, storeId])
   @@index([projectId])

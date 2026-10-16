@@ -78,6 +78,18 @@ export class ProjectController {
     return this.projectService.getActiveCheckins();
   }
 
+  @Get('analytics/store-visits')
+  getStoreVisits(@Query('projectId') projectId?: string) {
+    return this.projectService.getStoreVisits(projectId ? parseInt(projectId) : undefined);
+  }
+
+  // Choices for "ทำงานให้โปรเจกต์" on the incident form (incident creators)
+  @Get('project-store-options')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.IT_MANAGER, UserRole.HELP_DESK, UserRole.SUPERVISOR)
+  getProjectStoreOptions() {
+    return this.projectService.getProjectStoreOptions();
+  }
+
   @Get('analytics/weekly-stores')
   getWeeklyStores(@Query('projectId') projectId?: string) {
     return this.projectService.getWeeklyStores(projectId ? parseInt(projectId) : undefined);

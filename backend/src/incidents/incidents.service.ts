@@ -735,6 +735,11 @@ export class IncidentsService {
       throw new NotFoundException(`ไม่พบสาขา ID ${createIncidentDto.storeId} ในระบบ`);
     }
 
+    if (createIncidentDto.forProjectStoreId) {
+      const ps = await this.prisma.projectStore.findUnique({ where: { id: createIncidentDto.forProjectStoreId }, select: { id: true } });
+      if (!ps) throw new BadRequestException('ไม่พบสาขาในโปรเจกต์ที่เลือก (ทำงานให้โปรเจกต์)');
+    }
+
     // Stores still being opened (Project module) can't take incidents until switched to ACTIVE
     if (store.storeStatus === 'OPENING') {
       throw new BadRequestException(
@@ -830,6 +835,7 @@ export class IncidentsService {
         scheduledAt: createIncidentDto.scheduledAt
           ? new Date(createIncidentDto.scheduledAt)
           : null,
+        forProjectStoreId: createIncidentDto.forProjectStoreId || null,
       },
       include: {
         store: true,
@@ -1138,6 +1144,13 @@ export class IncidentsService {
       where: { id },
       include: {
         store: true,
+        forProjectStore: {
+          select: {
+            id: true,
+            project: { select: { id: true, name: true } },
+            store: { select: { id: true, storeCode: true, name: true } },
+          },
+        },
         equipment: true,
         assignee: {
           select: {
@@ -2440,6 +2453,7 @@ export class IncidentsService {
           createdById: userId,
           assigneeId: assignTo ?? null,
           relatedIncidentId: id,
+          forProjectStoreId: original.forProjectStoreId,
           slaDeadline: newSlaDeadline,
           reopenReason,
           reopenReportedAt: reportedAt,

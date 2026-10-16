@@ -55,6 +55,9 @@ const SCOPE_TABLES = {
     'stores', 'equipment',
     // Store/equipment lifecycle requests
     'store_delete_requests', 'equipment_retirement_requests',
+    // Project module (before incidents: incidents.for_project_store_id → project_stores)
+    'projects', 'project_stores', 'project_tasks', 'project_task_logs',
+    'project_photos', 'project_equipment', 'project_checklists',
     // Knowledge base (categories before articles; self-ref handled specially)
     'knowledge_categories', 'knowledge_articles',
     'knowledge_article_feedbacks', 'knowledge_article_usages',
@@ -65,8 +68,6 @@ const SCOPE_TABLES = {
     'outsource_jobs', 'outsource_bids',
     // PM
     'pm_records', 'pm_equipment_records',
-    'projects', 'project_stores', 'project_tasks', 'project_task_logs',
-    'project_photos', 'project_equipment', 'project_checklists',
     // Equipment logs
     'equipment_logs',
     // Performance scores
@@ -80,14 +81,15 @@ const SCOPE_TABLES = {
     'users', 'user_role_assignments',
     'stores', 'equipment',
     'store_delete_requests', 'equipment_retirement_requests',
+    // Project module (before incidents: incidents.for_project_store_id → project_stores)
+    'projects', 'project_stores', 'project_tasks', 'project_task_logs',
+    'project_photos', 'project_equipment', 'project_checklists',
     'knowledge_categories', 'knowledge_articles',
     'knowledge_article_feedbacks', 'knowledge_article_usages',
     'incidents', 'incident_assignees', 'incident_reassignments', 'incident_ratings',
     'sla_defenses', 'comments', 'spare_parts', 'incident_history', 'notifications',
     'outsource_jobs', 'outsource_bids',
     'pm_records', 'pm_equipment_records',
-    'projects', 'project_stores', 'project_tasks', 'project_task_logs',
-    'project_photos', 'project_equipment', 'project_checklists',
     'equipment_logs',
     'technician_performance_scores',
     'audit_logs',
@@ -981,6 +983,9 @@ export class BackupService {
       'stores', 'equipment',
       // Store/equipment lifecycle (depends on stores/equipment)
       'store_delete_requests', 'equipment_retirement_requests',
+      // Project module (before incidents: incidents.for_project_store_id → project_stores)
+      'projects', 'project_stores', 'project_tasks', 'project_task_logs',
+      'project_photos', 'project_equipment', 'project_checklists',
       // Knowledge base (self-ref categories: root nodes first, then children)
       'knowledge_categories', 'knowledge_articles',
       'knowledge_article_feedbacks', 'knowledge_article_usages',
@@ -991,8 +996,6 @@ export class BackupService {
       'outsource_jobs', 'outsource_bids',
       // PM
       'pm_records', 'pm_equipment_records',
-      'projects', 'project_stores', 'project_tasks', 'project_task_logs',
-      'project_photos', 'project_equipment', 'project_checklists',
       // Equipment logs (depends on equipment + users)
       'equipment_logs',
       // Performance scores (depends on users)
@@ -1101,13 +1104,13 @@ export class BackupService {
     // Reverse FK order: children deleted before parents
     const deleteOrder = [
       'audit_logs', 'technician_performance_scores', 'equipment_logs',
-      'project_checklists', 'project_equipment', 'project_photos', 'project_task_logs',
-      'project_tasks', 'project_stores', 'projects',
       'pm_equipment_records', 'pm_records',
       'outsource_bids', 'outsource_jobs',
       'notifications', 'incident_history', 'spare_parts', 'comments',
       'sla_defenses', 'incident_ratings', 'incident_reassignments', 'incident_assignees',
       'incidents',
+      'project_checklists', 'project_equipment', 'project_photos', 'project_task_logs',
+      'project_tasks', 'project_stores', 'projects',
       'knowledge_article_usages', 'knowledge_article_feedbacks',
       'knowledge_articles', 'knowledge_categories',
       'equipment_retirement_requests', 'store_delete_requests',
@@ -1415,14 +1418,15 @@ export class BackupService {
       'users', 'user_role_assignments',
       'stores', 'equipment',
       'store_delete_requests', 'equipment_retirement_requests',
+      // Project module (before incidents: incidents.for_project_store_id → project_stores)
+      'projects', 'project_stores', 'project_tasks', 'project_task_logs',
+      'project_photos', 'project_equipment', 'project_checklists',
       'knowledge_categories', 'knowledge_articles',
       'knowledge_article_feedbacks', 'knowledge_article_usages',
       'incidents', 'incident_assignees', 'incident_reassignments', 'incident_ratings',
       'sla_defenses', 'comments', 'spare_parts', 'incident_history', 'notifications',
       'outsource_jobs', 'outsource_bids',
       'pm_records', 'pm_equipment_records',
-      'projects', 'project_stores', 'project_tasks', 'project_task_logs',
-      'project_photos', 'project_equipment', 'project_checklists',
       'equipment_logs',
       'technician_performance_scores',
       'audit_logs',

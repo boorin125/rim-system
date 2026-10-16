@@ -12,6 +12,7 @@ import {
   XCircle,
   FileEdit,
   MoreVertical,
+  BarChart2,
 } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
@@ -104,16 +105,25 @@ export default function ProjectsPage() {
             บริหารจัดการโปรเจกต์ทั้งหมด ({total} รายการ)
           </p>
         </div>
-        {canCreate && (
+        <div className="flex items-center gap-2">
           <Link
-            href="/dashboard/projects/new"
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-white text-sm font-medium transition-colors hover:opacity-90"
-            style={{ backgroundColor: themeHighlight }}
+            href="/dashboard/projects/overview"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border border-slate-600 text-gray-300 hover:text-white hover:bg-slate-700/50 transition-colors"
           >
-            <Plus className="w-4 h-4" />
-            สร้าง Project ใหม่
+            <BarChart2 className="w-4 h-4" />
+            Dashboard
           </Link>
-        )}
+          {canCreate && (
+            <Link
+              href="/dashboard/projects/new"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-white text-sm font-medium transition-colors hover:opacity-90"
+              style={{ backgroundColor: themeHighlight }}
+            >
+              <Plus className="w-4 h-4" />
+              สร้าง Project ใหม่
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Filters */}

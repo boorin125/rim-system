@@ -131,7 +131,19 @@ export default function CreateIncidentPage() {
     incidentDateTime: getCurrentTime(), // เวลาลูกค้าแจ้ง - default เวลาปัจจุบัน
     scheduledAtDate: '', // วันที่นัดเข้าดำเนินการ (Project/Adhoc)
     scheduledAtTime: '', // เวลานัดเข้าดำเนินการ (Project/Adhoc)
+    forProjectStoreId: '', // ทำงานให้สาขาในโปรเจกต์ (Project module) — นับครั้งเข้างานของสาขานั้น
   })
+
+  // Project module: project stores this incident may be doing work for
+  const [projectStoreOptions, setProjectStoreOptions] = useState<any[]>([])
+  useEffect(() => {
+    if (!modules.project) return
+    const token = localStorage.getItem('token')
+    axios
+      .get(`${process.env.NEXT_PUBLIC_API_URL}/projects/project-store-options`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => setProjectStoreOptions(res.data || []))
+      .catch(() => setProjectStoreOptions([]))
+  }, [modules.project])
 
   // Close store dropdown when clicking outside
   useEffect(() => {
@@ -420,6 +432,8 @@ export default function CreateIncidentPage() {
       if (['Project', 'Adhoc'].includes(formData.jobType) && formData.scheduledAtDate && formData.scheduledAtTime) {
         payload.scheduledAt = new Date(`${formData.scheduledAtDate}T${formData.scheduledAtTime}:00`).toISOString()
       }
+
+      if (formData.forProjectStoreId) payload.forProjectStoreId = parseInt(formData.forProjectStoreId)
 
       await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/incidents`,
@@ -717,6 +731,30 @@ export default function CreateIncidentPage() {
                       />
                     </div>
                     <p className="text-xs text-gray-400 mt-1">วันเวลานัดหมายกับลูกค้า / ร้านค้าในการเข้าดำเนินการ</p>
+                  </div>
+                )}
+
+                {/* Work done for a project store (e.g. MA here to set up devices for a new store) */}
+                {modules.project && projectStoreOptions.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      ทำงานให้โปรเจกต์ <span className="text-gray-500 font-normal">(ไม่บังคับ)</span>
+                    </label>
+                    <select
+                      value={formData.forProjectStoreId}
+                      onChange={(e) => setFormData({ ...formData, forProjectStoreId: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-800 border border-slate-600 [&>option]:bg-slate-800 [&>option]:text-white rounded-lg text-white focus:outline-none focus:border-blue-500 transition-colors"
+                    >
+                      <option value="">— ไม่เกี่ยวกับโปรเจกต์ —</option>
+                      {projectStoreOptions.map((ps: any) => (
+                        <option key={ps.id} value={ps.id}>
+                          {ps.project.name} — {formatStore(ps.store)}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-400 mt-1">
+                      เช่น เปิดงานที่ร้านนี้เพื่อเซ็ตเครื่องให้ร้านใหม่ในโปรเจกต์ — นับเป็นการเข้างานของร้านนั้น
+                    </p>
                   </div>
                 )}
 

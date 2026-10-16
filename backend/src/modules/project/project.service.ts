@@ -29,6 +29,30 @@ import { AddPhotoDto } from './dto/add-photo.dto';
 import { AddEquipmentDto } from './dto/add-equipment.dto';
 import { CreateProjectStoreDto } from './dto/create-project-store.dto';
 
+// Incidents linked to a project store via Incident.forProjectStoreId
+const SUPPORT_INCIDENT_SELECT = {
+  id: true,
+  ticketNumber: true,
+  title: true,
+  status: true,
+  jobType: true,
+  storeCode: true,
+  storeName: true,
+  checkInAt: true,
+  createdAt: true,
+  workRounds: { where: { checkInAt: { not: null } }, select: { id: true } },
+} satisfies Prisma.IncidentSelect;
+
+/** One visit per checked-in project task, per checked-in incident work round (or the incident check-in) */
+function countVisits(
+  tasks: { checkInAt: Date | null }[],
+  incidents: { checkInAt: Date | null; workRounds: { id: number }[] }[],
+) {
+  const taskVisits = tasks.filter((t) => t.checkInAt).length;
+  const incidentVisits = incidents.reduce((sum, i) => sum + (i.workRounds.length || (i.checkInAt ? 1 : 0)), 0);
+  return { tasks: taskVisits, incidents: incidentVisits, total: taskVisits + incidentVisits };
+}
+
 @Injectable()
 export class ProjectService implements OnModuleInit {
   private readonly logger = new Logger(ProjectService.name);
@@ -179,13 +203,51 @@ export class ProjectService implements OnModuleInit {
                 _count: { select: { photos: true, equipment: true, checklists: true } },
               },
             },
+            supportIncidents: { select: SUPPORT_INCIDENT_SELECT, orderBy: { createdAt: 'asc' } },
           },
         },
       },
     });
 
     if (!project) throw new NotFoundException(`Project #${id} not found`);
-    return project;
+    return {
+      ...project,
+      projectStores: project.projectStores.map((ps) => ({ ...ps, visits: countVisits(ps.tasks, ps.supportIncidents) })),
+    };
+  }
+
+  /**
+   * Store visit counts (for future cost estimates): project task check-ins + check-ins of
+   * incidents opened (at any store) to work for that project store.
+   */
+  async getStoreVisits(projectId?: number) {
+    const rows = await this.prisma.projectStore.findMany({
+      where: projectId ? { projectId } : undefined,
+      select: {
+        id: true,
+        project: { select: { id: true, name: true, color: true } },
+        store: { select: { id: true, storeCode: true, name: true, storeStatus: true } },
+        tasks: { select: { checkInAt: true } },
+        supportIncidents: { select: SUPPORT_INCIDENT_SELECT },
+      },
+    });
+    return rows
+      .map(({ tasks, supportIncidents, ...ps }) => ({ ...ps, visits: countVisits(tasks, supportIncidents) }))
+      .sort((a, b) => b.visits.total - a.visits.total);
+  }
+
+  /** Project stores of open projects — choices for "ทำงานให้โปรเจกต์" on the incident form */
+  async getProjectStoreOptions() {
+    const rows = await this.prisma.projectStore.findMany({
+      where: { project: { status: { in: ['DRAFT', 'ACTIVE', 'PAUSED'] } } },
+      select: {
+        id: true,
+        project: { select: { id: true, name: true } },
+        store: { select: { id: true, storeCode: true, name: true, storeStatus: true } },
+      },
+      orderBy: [{ projectId: 'desc' }, { id: 'asc' }],
+    });
+    return rows;
   }
 
   async create(dto: CreateProjectDto, userId: number) {
