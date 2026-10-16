@@ -683,7 +683,56 @@ export default function EquipmentPage() {
             )}
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          {/* Phone: card list (picture, name + warranty, category · brand model, S/N, store, incidents) */}
+          <div className="sm:hidden p-3 space-y-2.5">
+            {equipment.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => router.push(`/dashboard/equipment/${item.id}`)}
+                className={`w-full text-left flex gap-3 rounded-xl border border-slate-700 bg-slate-800/50 hover:bg-slate-700/50 p-3 transition-colors ${activeTab === 'RETIRED' ? 'opacity-75' : ''}`}
+              >
+                {item.imagePath && !brokenImages.has(item.id) ? (
+                  <img
+                    src={getPhotoUrl(item.imagePath)}
+                    alt=""
+                    onError={() => setBrokenImages(prev => new Set(prev).add(item.id))}
+                    className="w-16 h-16 shrink-0 object-cover rounded-lg border border-slate-600"
+                  />
+                ) : (
+                  <div
+                    className="w-16 h-16 shrink-0 rounded-lg flex items-center justify-center"
+                    style={{ backgroundColor: getCategoryColor(item.category) + '33', color: getCategoryColor(item.category) }}
+                  >
+                    {getCategoryIcon(item.category)}
+                  </div>
+                )}
+                <div className="flex-1 min-w-0 space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-semibold text-white truncate">{item.name}</span>
+                    <span className="shrink-0 [&>*]:!text-[10px]">{getWarrantyBadge(item.warrantyExpiry)}</span>
+                  </div>
+                  <p className="text-xs text-gray-300 truncate">
+                    {item.category}{(item.brand || item.model) ? ` · ${[item.brand, item.model].filter(Boolean).join(' ')}` : ''}
+                  </p>
+                  <p className="text-xs font-mono text-gray-400 truncate">S/N {item.serialNumber}</p>
+                  <div className="flex items-center justify-between gap-2 text-xs">
+                    <span className="text-gray-400 truncate">{item.store ? formatStore(item.store) : '-'}</span>
+                    <span className={`shrink-0 font-semibold ${
+                      (item._count?.incidents || 0) > 5 ? 'text-red-400' :
+                      (item._count?.incidents || 0) > 2 ? 'text-yellow-400' : 'text-gray-400'
+                    }`}>
+                      {item._count?.incidents || 0} tickets
+                    </span>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {/* Tablet / desktop: table */}
+          <div className="hidden sm:block overflow-x-auto">
             <table className="w-full">
               <thead className="bg-slate-800/80 border-b border-slate-600">
                 <tr>
@@ -838,6 +887,7 @@ export default function EquipmentPage() {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
 

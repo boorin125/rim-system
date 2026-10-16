@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "version": "1.0.34",
+      "date": "2026-10-16",
+      "changes": [
+        {
+          "type": "improved",
+          "text": "แอปบนมือถือ — แถบเมนูล่าง: เมนูที่เลือกอยู่แสดงไอคอนและชื่อเป็นสีธีม (ไม่มีพื้นหลังไฮไลต์) / เปลี่ยน Dashboard เป็น Home พร้อมไอคอนรูปบ้าน"
+        },
+        {
+          "type": "improved",
+          "text": "Incidents บนมือถือ — เพิ่ม Priority ต่อจาก Incident No. และแถบ SLA ใต้การ์ด (On Track: เหลือเวลาเท่าไร / Breached: เกินมาเท่าไร / Achieved / Failed)"
+        },
+        {
+          "type": "improved",
+          "text": "หน้า Stores, Equipment, Users บนมือถือ — แสดงเป็นการ์ดเห็นข้อมูลสำคัญครบ (เช่น Store: จังหวัด, Service Center, เบอร์, PM ล่าสุด / Equipment: รูป, S/N, ร้าน, ประกัน, จำนวนงาน / Users: Role, ติดต่อ, เข้าระบบล่าสุด) และ Audit Trail เป็นแถวกระชับ / แท็บเล็ตและคอมพิวเตอร์ยังเป็นตารางเหมือนเดิม"
+        }
+      ]
+    },
+    {
       "version": "1.0.33",
       "date": "2026-10-16",
       "changes": [

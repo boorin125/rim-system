@@ -5,13 +5,13 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutGrid, X, ChevronRight, Moon, Sun, LogOut } from 'lucide-react'
+import { LayoutGrid, X, ChevronRight, Moon, Sun, LogOut, Home, type LucideIcon } from 'lucide-react'
 import { getHighestRole } from '@/config/permissions'
 
 export interface AppNavItem {
   name: string
   href: string
-  icon: React.ComponentType<{ className?: string }>
+  icon: LucideIcon
 }
 
 /** True when running as an installed app (standalone) on a phone/tablet-sized screen */
@@ -43,8 +43,9 @@ const TAB_PREFERENCE: Record<string, string[]> = {
 }
 const TAB_COUNT = 4
 
-// Short labels so 5 tabs fit a phone width without "..."
+// Short labels so 5 tabs fit a phone width without "..." (Dashboard is "Home" in the app)
 const SHORT_LABEL: Record<string, string> = {
+  '/dashboard': 'Home',
   '/dashboard/map': 'Tracking',
   '/dashboard/knowledge-base': 'Knowledge',
   '/dashboard/performance': 'Perform',
@@ -100,17 +101,17 @@ export default function MobileAppNav({
   const renderTab = (key: string, label: string, Icon: AppNavItem['icon'], active: boolean, content: { href?: string; onClick?: () => void }) => {
     const inner = (
       <>
-        {/* Active tab: theme-colored bubble, slightly larger */}
+        {/* Active tab: icon + label in the theme color, no background */}
         <span
-          className={`flex items-center justify-center rounded-full transition-all duration-200 ${
-            active ? 'w-14 h-9 -translate-y-0.5 scale-110 shadow-lg' : 'w-12 h-8 text-gray-400'
-          }`}
-          // inline color: html.light overrides .text-white to dark text
-          style={active ? { backgroundColor: 'var(--theme-highlight)', color: '#ffffff' } : undefined}
+          className={`flex items-center justify-center h-8 transition-colors duration-200 ${active ? '' : 'text-gray-400'}`}
+          style={active ? { color: 'var(--theme-highlight)' } : undefined}
         >
-          <Icon className={active ? 'w-[22px] h-[22px]' : 'w-5 h-5'} />
+          <Icon className="w-6 h-6" strokeWidth={active ? 2.4 : 2} />
         </span>
-        <span className={`text-[11px] leading-tight truncate max-w-full ${active ? 'text-white font-semibold' : 'text-gray-400'}`}>
+        <span
+          className={`text-[11px] leading-tight truncate max-w-full ${active ? 'font-semibold' : 'text-gray-400'}`}
+          style={active ? { color: 'var(--theme-highlight)' } : undefined}
+        >
           {label}
         </span>
       </>
@@ -207,7 +208,7 @@ export default function MobileAppNav({
         }}
       >
         {tabItems.map((item) =>
-          renderTab(item.href, SHORT_LABEL[item.href] ?? item.name, item.icon, !sheetOpen && isActivePath(pathname, item.href), { href: item.href }),
+          renderTab(item.href, SHORT_LABEL[item.href] ?? item.name, item.href === '/dashboard' ? Home : item.icon, !sheetOpen && isActivePath(pathname, item.href), { href: item.href }),
         )}
         {renderTab('more', sheetOpen ? 'ปิด' : 'เมนู', sheetOpen ? X : LayoutGrid, moreActive, { onClick: () => setSheetOpen((v) => !v) })}
       </nav>

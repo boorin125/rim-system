@@ -255,7 +255,28 @@ export default function AuditTrailPage() {
             <p className="text-gray-400">No audit trail records found</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          {/* Phone: compact rows (module + action + time, details, performed by) */}
+          <div className="sm:hidden divide-y divide-slate-700/50">
+            {logs.map((log) => (
+              <div key={log.id} className="px-3.5 py-2.5 space-y-1">
+                <div className="flex items-center gap-1.5">
+                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${MODULE_COLORS[log.module] || 'bg-gray-500/20 text-gray-400 border border-gray-500/30'}`}>
+                    {log.module}
+                  </span>
+                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${ACTION_COLORS[log.action] || 'bg-gray-500/20 text-gray-400 border border-gray-500/30'}`}>
+                    {log.action}
+                  </span>
+                  <span className="ml-auto text-[11px] text-gray-400 whitespace-nowrap">{formatDate(log.createdAt)}</span>
+                </div>
+                <p className="text-[13px] text-gray-200 break-words">{log.description}</p>
+                <p className="text-xs text-gray-400">โดย {log.user.firstName} {log.user.lastName}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Tablet / desktop: table */}
+          <div className="hidden sm:block overflow-x-auto">
             <table className="w-full">
               <thead className="bg-slate-800/80 border-b border-slate-600">
                 <tr>
@@ -296,6 +317,7 @@ export default function AuditTrailPage() {
               </tbody>
             </table>
           </div>
+          </>
         )}
 
         {/* Pagination */}

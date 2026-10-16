@@ -783,18 +783,36 @@ export default function IncidentsPage() {
               const agingHours = Math.floor((totalMinutes % 1440) / 60)
               const agingMinutes = totalMinutes % 60
               const totalDays = diffMs / 86400000
+              // SLA strip: label + time left / over (open) or result (closed); hidden when N/A
+              const sla = getSLAStatus(incident)
+              const fmtSpan = (ms: number) => {
+                const m = Math.floor(Math.abs(ms) / 60000)
+                const d = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60), mm = m % 60
+                return d > 0 ? `${d} วัน ${h} ชม.` : h > 0 ? `${h} ชม. ${mm} น.` : `${mm} น.`
+              }
+              const slaMs = incident.slaDeadline ? new Date(incident.slaDeadline).getTime() - Date.now() : 0
+              const slaNote = sla.label === 'On Track' ? `เหลือ ${fmtSpan(slaMs)}`
+                : sla.label === 'Breached' ? `เกินมา ${fmtSpan(slaMs)}`
+                : sla.defended ? 'ผ่านโดย Defense'
+                : null
               return (
                 <button
                   key={incident.id}
                   type="button"
                   onClick={() => router.push(`/dashboard/incidents/${incident.id}`)}
-                  className="w-full text-left rounded-xl border border-slate-700 bg-slate-800/50 hover:bg-slate-700/50 px-3.5 py-3 space-y-1.5 transition-colors"
+                  className="w-full text-left rounded-xl border border-slate-700 bg-slate-800/50 hover:bg-slate-700/50 overflow-hidden transition-colors"
                 >
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="px-3.5 py-3 space-y-1.5">
+                  <div className="flex items-center gap-2">
                     <span className="text-sm font-mono font-semibold text-blue-400">
                       {incident.ticketNumber || `WAT-${String(incident.id).padStart(6, '0')}`}
                     </span>
-                    <span className={`${statusBadge.class} !text-[10px] !px-2 !py-0.5 shrink-0`}>{incident.status}</span>
+                    {incident.priority && (
+                      <span className={`${getPriorityBadge(incident.priority)} !text-[10px] !px-2 !py-0.5`}>
+                        {getPriorityDisplayName(incident.priority)}
+                      </span>
+                    )}
+                    <span className={`${statusBadge.class} !text-[10px] !px-2 !py-0.5 shrink-0 ml-auto`}>{incident.status}</span>
                   </div>
                   <p className="text-sm font-medium text-white line-clamp-2">{incident.title}</p>
                   <p className="text-[13px] text-gray-300 truncate">{formatStore(incident.store)}</p>
@@ -812,6 +830,12 @@ export default function IncidentsPage() {
                       </span>
                     )}
                   </div>
+                  </div>
+                  {sla.label !== 'N/A' && (
+                    <div className={`px-3.5 py-1.5 text-xs font-semibold ${sla.color}`}>
+                      SLA {sla.label}{slaNote ? ` · ${slaNote}` : ''}
+                    </div>
+                  )}
                 </button>
               )
             })}

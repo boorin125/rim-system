@@ -334,8 +334,45 @@ export default function UsersPage() {
         </div>
       </div>
 
-      {/* Users Table */}
-      <div className="glass-card rounded-2xl overflow-hidden">
+      {/* Phone: card list (avatar, name + status, roles, email · phone, department · last login) */}
+      <div className="sm:hidden space-y-2.5">
+        {currentUsers.map((user) => (
+          <button
+            key={user.id}
+            type="button"
+            onClick={() => router.push(`/dashboard/users/${user.id}`)}
+            className="w-full text-left flex gap-3 rounded-xl border border-slate-700 bg-slate-800/50 hover:bg-slate-700/50 p-3 transition-colors"
+          >
+            <div className="w-11 h-11 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold shrink-0">
+              {user.firstName?.[0]}{user.lastName?.[0]}
+            </div>
+            <div className="flex-1 min-w-0 space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-semibold text-white truncate">{user.firstName} {user.lastName}</span>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border shrink-0 ${getStatusBadge(user.status)}`}>
+                  {getStatusLabel(user.status)}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {(user.roles || []).map((role, idx) => (
+                  <span key={idx} className={`px-1.5 py-0.5 rounded text-[10px] font-semibold border ${getRoleBadge(role)}`}>
+                    {getRoleLabel(role)}
+                  </span>
+                ))}
+              </div>
+              <p className="text-xs text-gray-300 truncate">
+                {user.email || `@${user.username}`}{user.phone ? ` · ${user.phone}` : ''}
+              </p>
+              <p className="text-xs text-gray-400 truncate">
+                {user.department || '-'} · เข้าระบบล่าสุด {formatDate(user.lastLogin)}
+              </p>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {/* Tablet / desktop: table */}
+      <div className="hidden sm:block glass-card rounded-2xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-slate-800/80 border-b border-slate-600">

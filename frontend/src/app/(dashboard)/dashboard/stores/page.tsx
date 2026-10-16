@@ -475,8 +475,43 @@ export default function StoresPage() {
         </div>
       </div>
 
-      {/* Stores Table */}
-      <div className="glass-card rounded-2xl overflow-hidden">
+      {/* Phone: card list (store + status, province · service center, type · phone, last PM) */}
+      <div className="sm:hidden space-y-2.5">
+        {currentStores.map((store) => (
+          <button
+            key={store.id}
+            type="button"
+            onClick={() => navigateToStore(`/dashboard/stores/${store.id}`)}
+            className="w-full text-left rounded-xl border border-slate-700 bg-slate-800/50 hover:bg-slate-700/50 px-3.5 py-3 space-y-1.5 transition-colors"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[15px] font-semibold text-white truncate">
+                <span className="text-blue-400">{store.storeCode}</span> {store.name}
+              </span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border shrink-0 ${getStatusBadge(store.storeStatus)}`}>
+                {getStatusLabel(store.storeStatus)}
+              </span>
+            </div>
+            <p className="text-[13px] text-gray-300 truncate">
+              {store.province || '-'}{store.serviceCenter ? ` · ${store.serviceCenter}` : ''}
+            </p>
+            <div className="flex items-center justify-between gap-2 text-xs">
+              <span className="text-gray-400 truncate">
+                {store.storeType === 'PERMANENT' ? 'Permanent' : store.storeType === 'POP_UP' ? 'Pop-up' : store.storeType === 'SEASONAL' ? 'Seasonal' : store.storeType || '-'}
+                {store.phone ? ` · ${store.phone}` : ''}
+              </span>
+              <span className={`shrink-0 ${store.lastPmAt ? 'text-purple-300' : 'text-amber-400'}`}>
+                PM ล่าสุด {store.lastPmAt
+                  ? new Date(store.lastPmAt).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' })
+                  : 'ยังไม่เคย'}
+              </span>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {/* Tablet / desktop: table */}
+      <div className="hidden sm:block glass-card rounded-2xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-slate-800/80 border-b border-slate-600">
