@@ -1,5 +1,5 @@
 // app/layout.tsx - Root Layout with Auth Provider
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import Providers from '@/components/Providers'
 
@@ -15,6 +15,13 @@ export const metadata: Metadata = {
   other: {
     'mobile-web-app-capable': 'yes',
   },
+}
+
+// viewportFit cover: lets the installed app use env(safe-area-inset-*) (notch / home indicator)
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({

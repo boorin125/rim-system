@@ -39,6 +39,7 @@ import { hasMenuAccess, getUserRoles, getHighestRole } from '@/config/permission
 import { LicenseProvider, useLicense } from '@/context/LicenseContext'
 import { usePushNotification } from '@/hooks/usePushNotification'
 import ScrollRestorer from '@/components/ScrollRestorer'
+import MobileAppNav, { useIsInstalledApp } from '@/components/MobileAppNav'
 
 // Organization settings interface
 interface OrgSettings {
@@ -161,6 +162,8 @@ export default function DashboardLayout({
   const router = useRouter()
   const pathname = usePathname()
   usePushNotification()
+  // Installed PWA on a phone → bottom tab bar instead of the sidebar (browser keeps the sidebar)
+  const isApp = useIsInstalledApp()
   // Desktop always shows sidebar via lg:translate-x-0 — start hidden so mobile doesn't flash open
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [appVersion, setAppVersion] = useState('1.0.0')
@@ -697,7 +700,17 @@ export default function DashboardLayout({
       {/* Background Pattern */}
       <div className="fixed inset-0 bg-pattern"></div>
 
-      {/* Sidebar */}
+      {/* Sidebar (browser) / bottom tab bar (installed app) */}
+      {isApp ? (
+        <MobileAppNav
+          user={user}
+          navItems={navItems}
+          isDark={isDark}
+          onToggleTheme={toggleTheme}
+          onLogout={handleLogout}
+          appVersion={appVersion}
+        />
+      ) : (
       <aside
         className={`fixed top-0 left-0 z-40 h-screen transition-transform ${
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
@@ -772,11 +785,16 @@ export default function DashboardLayout({
           </div>
         </div>
       </aside>
+      )}
 
       {/* Main Content */}
-      <div className="transition-all duration-300 lg:ml-64">
+      <div className={`transition-all duration-300 ${isApp ? '' : 'lg:ml-64'}`}>
         {/* Top Navbar - FIXED (ไม่เคลื่อนไหว) */}
-        <header className="fixed top-0 right-0 left-0 lg:left-64 z-30 glass-card border-b border-slate-700/50" style={chromeStyle}>
+        <header
+          className={`fixed top-0 right-0 left-0 z-30 glass-card border-b border-slate-700/50 ${isApp ? '' : 'lg:left-64'}`}
+          // App mode: clear the iOS status bar (statusBarStyle black-translucent + viewportFit cover)
+          style={isApp ? { ...chromeStyle, paddingTop: 'env(safe-area-inset-top)' } : chromeStyle}
+        >
           <MaintenanceBanner />
           <LicenseExpiredBanner />
           {profileIncompleteFields.length > 0 && (
@@ -804,13 +822,22 @@ export default function DashboardLayout({
             </div>
           )}
           <div className="flex items-center justify-between px-4 lg:px-6 py-3 lg:py-4">
-            {/* Mobile Menu Toggle */}
+            {/* Mobile Menu Toggle (app mode: org logo — menu lives in the bottom tab bar) */}
+            {isApp ? (
+              <img
+                src={orgSettings?.logoPath ? `${(process.env.NEXT_PUBLIC_API_URL || '').replace('/api', '')}${orgSettings.logoPath}` : '/logo.png'}
+                alt=""
+                className="w-9 h-9 rounded-lg object-contain mr-3"
+                onError={(e) => { ;(e.target as HTMLImageElement).src = '/logo.png' }}
+              />
+            ) : (
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
               className="p-2 rounded-lg hover:bg-slate-700/50 transition duration-200 lg:hidden"
             >
               <Menu className="w-6 h-6 text-gray-300" />
             </button>
+            )}
 
             {/* Page Title - ✅ FIXED */}
             <div className="flex-1 lg:flex-none">
@@ -821,7 +848,8 @@ export default function DashboardLayout({
 
             {/* Right Side - Notifications & User Info (All screens) */}
             <div className="flex items-center gap-2">
-              {/* Theme Toggle */}
+              {/* Theme Toggle (app mode: in the bottom bar's เมนู sheet) */}
+              {!isApp && (
               <button
                 onClick={toggleTheme}
                 title={isDark ? 'เปลี่ยนเป็น Light Mode' : 'เปลี่ยนเป็น Dark Mode'}
@@ -837,10 +865,13 @@ export default function DashboardLayout({
                   <><Sun className="w-3.5 h-3.5" /><span className="hidden sm:inline">Light</span></>
                 )}
               </button>
+              )}
 
               {/* Notification Bell */}
               <NotificationBell />
 
+              {/* User menu (app mode: Profile / Logout are in the เมนู sheet) */}
+              {!isApp && (
               <div className="relative">
                 <button
                   onClick={(e) => {
@@ -916,12 +947,21 @@ export default function DashboardLayout({
                   </>
                 )}
               </div>
+              )}
             </div>
           </div>
         </header>
 
-        {/* Page Content - เพิ่ม pt-28 เพื่อไม่ให้ header ทับ */}
-        <main className="relative z-10 p-4 lg:p-6 pt-20 lg:pt-28">{children}</main>
+        {/* Page Content - เพิ่ม pt-28 เพื่อไม่ให้ header ทับ (app mode: + safe areas, room for the bottom tab bar) */}
+        <main
+          className="relative z-10 p-4 lg:p-6 pt-20 lg:pt-28"
+          style={isApp ? {
+            paddingTop: 'calc(5rem + env(safe-area-inset-top))',
+            paddingBottom: 'calc(6rem + env(safe-area-inset-bottom))',
+          } : undefined}
+        >
+          {children}
+        </main>
       </div>
 
       {/* Mobile Sidebar Overlay */}
