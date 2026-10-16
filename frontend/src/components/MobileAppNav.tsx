@@ -1,7 +1,7 @@
 'use client'
 
 // Bottom navigation for the installed PWA (standalone, < 1024px).
-// Browser users keep the sidebar layout â€” see useIsInstalledApp() in (dashboard)/layout.tsx.
+// Browser users keep the sidebar layout — see useIsInstalledApp() in (dashboard)/layout.tsx.
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -33,7 +33,7 @@ export function useIsInstalledApp() {
   return isApp
 }
 
-// Preferred bottom tabs per role (only menus the user can access are used; the rest go to "à¹€à¸¡à¸™à¸¹")
+// Preferred bottom tabs per role (only menus the user can access are used; the rest go to "เมนู")
 const TAB_PREFERENCE: Record<string, string[]> = {
   TECHNICIAN: ['/dashboard', '/dashboard/incidents', '/dashboard/stores', '/dashboard/knowledge-base'],
   OUTSOURCE: ['/dashboard', '/dashboard/incidents', '/dashboard/outsource', '/dashboard/knowledge-base'],
@@ -42,6 +42,13 @@ const TAB_PREFERENCE: Record<string, string[]> = {
   MONITOR: ['/dashboard/performance', '/dashboard/map'],
 }
 const TAB_COUNT = 4
+
+// Short labels so 5 tabs fit a phone width without "..."
+const SHORT_LABEL: Record<string, string> = {
+  '/dashboard/map': 'Tracking',
+  '/dashboard/knowledge-base': 'Knowledge',
+  '/dashboard/performance': 'Perform',
+}
 
 const isActivePath = (pathname: string, href: string) =>
   href === '/dashboard' ? pathname === '/dashboard' : pathname === href || pathname.startsWith(`${href}/`)
@@ -122,7 +129,7 @@ export default function MobileAppNav({
 
   return (
     <>
-      {/* "à¹€à¸¡à¸™à¸¹" bottom sheet */}
+      {/* "เมนู" bottom sheet */}
       {sheetOpen && (
         <div className="fixed inset-0 z-40 bg-black/60" onClick={() => setSheetOpen(false)}>
           <div
@@ -142,7 +149,7 @@ export default function MobileAppNav({
               )}
               <span className="flex-1 min-w-0">
                 <span className="block text-sm font-semibold text-white truncate">{user?.firstName} {user?.lastName}</span>
-                <span className="block text-xs text-gray-400 truncate">{user?.role} Â· à¸”à¸¹à¹‚à¸›à¸£à¹„à¸Ÿà¸¥à¹Œ</span>
+                <span className="block text-xs text-gray-400 truncate">{user?.role} · ดูโปรไฟล์</span>
               </span>
               <ChevronRight className="w-4 h-4 text-gray-400" />
             </Link>
@@ -170,7 +177,7 @@ export default function MobileAppNav({
             <div className="rounded-2xl bg-slate-900/50 overflow-hidden">
               <button type="button" onClick={onToggleTheme} className="w-full flex items-center gap-3 min-h-[52px] px-3.5 text-sm text-gray-200">
                 {isDark ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
-                <span className="flex-1 text-left">à¹‚à¸«à¸¡à¸”à¸¡à¸·à¸”</span>
+                <span className="flex-1 text-left">โหมดมืด</span>
                 <span
                   className="relative w-11 h-6 rounded-full transition-colors"
                   style={{ backgroundColor: isDark ? 'var(--theme-highlight)' : '#475569' }}
@@ -181,7 +188,7 @@ export default function MobileAppNav({
               <div className="h-px bg-slate-700/60 mx-3.5" />
               <button type="button" onClick={onLogout} className="w-full flex items-center gap-3 min-h-[52px] px-3.5 text-sm text-red-400">
                 <LogOut className="w-5 h-5" />
-                <span>à¸­à¸­à¸à¸ˆà¸²à¸à¸£à¸°à¸šà¸š</span>
+                <span>ออกจากระบบ</span>
               </button>
             </div>
 
@@ -192,7 +199,7 @@ export default function MobileAppNav({
 
       {/* Bottom tab bar */}
       <nav
-        aria-label="à¹€à¸¡à¸™à¸¹à¸«à¸¥à¸±à¸"
+        aria-label="เมนูหลัก"
         className="fixed bottom-0 left-0 right-0 z-40 bg-slate-900/80 backdrop-blur-xl border-t border-slate-700/50 grid px-2 pt-2"
         style={{
           gridTemplateColumns: `repeat(${tabItems.length + 1}, minmax(0, 1fr))`,
@@ -200,9 +207,9 @@ export default function MobileAppNav({
         }}
       >
         {tabItems.map((item) =>
-          renderTab(item.href, item.name, item.icon, !sheetOpen && isActivePath(pathname, item.href), { href: item.href }),
+          renderTab(item.href, SHORT_LABEL[item.href] ?? item.name, item.icon, !sheetOpen && isActivePath(pathname, item.href), { href: item.href }),
         )}
-        {renderTab('more', sheetOpen ? 'à¸›à¸´à¸”' : 'à¹€à¸¡à¸™à¸¹', sheetOpen ? X : LayoutGrid, moreActive, { onClick: () => setSheetOpen((v) => !v) })}
+        {renderTab('more', sheetOpen ? 'ปิด' : 'เมนู', sheetOpen ? X : LayoutGrid, moreActive, { onClick: () => setSheetOpen((v) => !v) })}
       </nav>
     </>
   )

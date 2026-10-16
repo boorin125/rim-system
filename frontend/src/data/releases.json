@@ -1,6 +1,20 @@
 {
   "releases": [
     {
+      "version": "1.0.33",
+      "date": "2026-10-16",
+      "changes": [
+        {
+          "type": "fixed",
+          "text": "แอปบนมือถือ — ข้อความภาษาไทยในแถบเมนูล่างและแท็บ \"เมนู\" (เมนู, ปิด, ดูโปรไฟล์, โหมดมืด, ออกจากระบบ) แสดงเป็นตัวอักษรเพี้ยน"
+        },
+        {
+          "type": "improved",
+          "text": "แอปบนมือถือ — ย่อชื่อแท็บล่างให้พอดีจอ (Realtime Tracking → Tracking, Performance → Perform, Knowledge Base → Knowledge)"
+        }
+      ]
+    },
+    {
       "version": "1.0.32",
       "date": "2026-10-16",
       "changes": [
