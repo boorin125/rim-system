@@ -843,6 +843,14 @@ export default function StoreDetailPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {/* Last PM date — next to Request PM */}
+          <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800/50 border border-slate-700 text-sm">
+            <ClipboardCheck className="w-4 h-4 text-purple-400" />
+            <span className="text-gray-400">PM ล่าสุด</span>
+            <span className={`font-medium ${store.lastPmAt ? 'text-white' : 'text-gray-500'}`}>
+              {store.lastPmAt ? formatDate(store.lastPmAt) : 'ยังไม่เคย PM'}
+            </span>
+          </div>
           {canRequestPm && (
             <button
               onClick={() => setShowPmModal(true)}
