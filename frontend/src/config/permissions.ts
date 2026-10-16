@@ -80,6 +80,21 @@ export const menuPermissions: Record<string, MenuPermission> = {
       MONITOR: 'none',
     },
   },
+  // Project module (optional — menu also hidden unless Settings › Modules › Project is on)
+  '/dashboard/projects': {
+    roles: ['SUPER_ADMIN', 'IT_MANAGER', 'HELP_DESK', 'SUPERVISOR', 'TECHNICIAN', 'READ_ONLY'],
+    accessLevel: {
+      SUPER_ADMIN: 'full',
+      IT_MANAGER: 'full',
+      FINANCE_ADMIN: 'none',
+      HELP_DESK: 'full',
+      SUPERVISOR: 'view',          // assign/schedule tasks (backend controls)
+      TECHNICIAN: 'view',          // check-in, photos, complete (backend controls)
+      END_USER: 'none',
+      READ_ONLY: 'view',
+      MONITOR: 'none',
+    },
+  },
   '/dashboard/stores': {
     roles: ['SUPER_ADMIN', 'IT_MANAGER', 'HELP_DESK', 'SUPERVISOR', 'TECHNICIAN', 'READ_ONLY'],
     accessLevel: {

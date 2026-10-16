@@ -34,10 +34,11 @@ export function useIsInstalledApp() {
 }
 
 // Preferred bottom tabs per role (only menus the user can access are used; the rest go to "เมนู")
+// Projects is listed early but only exists in navItems when the Project module is on — otherwise the next item fills in
 const TAB_PREFERENCE: Record<string, string[]> = {
-  TECHNICIAN: ['/dashboard', '/dashboard/incidents', '/dashboard/stores', '/dashboard/knowledge-base'],
+  TECHNICIAN: ['/dashboard', '/dashboard/incidents', '/dashboard/projects', '/dashboard/stores', '/dashboard/knowledge-base'],
   OUTSOURCE: ['/dashboard', '/dashboard/incidents', '/dashboard/outsource', '/dashboard/knowledge-base'],
-  HELP_DESK: ['/dashboard', '/dashboard/incidents', '/dashboard/stores', '/dashboard/equipment'],
+  HELP_DESK: ['/dashboard', '/dashboard/incidents', '/dashboard/projects', '/dashboard/stores', '/dashboard/equipment'],
   SUPERVISOR: ['/dashboard', '/dashboard/incidents', '/dashboard/map', '/dashboard/performance'],
   MONITOR: ['/dashboard/performance', '/dashboard/map'],
 }

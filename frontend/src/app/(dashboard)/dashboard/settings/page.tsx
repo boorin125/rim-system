@@ -57,6 +57,7 @@ import {
   Lock,
   Wrench,
   DownloadCloud,
+  Blocks,
   CalendarClock,
 } from 'lucide-react'
 import Link from 'next/link'
@@ -69,6 +70,7 @@ import LicenseManagementModal from '@/components/LicenseManagementModal'
 import { getUserRoles } from '@/config/permissions'
 import releasesData from '@/data/releases.json'
 import UpdateTab from '@/components/settings/UpdateTab'
+import ModulesTab from '@/components/settings/ModulesTab'
 
 type ReleaseEntry = {
   version: string
@@ -79,7 +81,7 @@ type ReleaseEntry = {
 }
 
 // Tab types
-type TabType = 'organization' | 'incident' | 'email' | 'sla' | 'service-report' | 'backup' | 'info' | 'theme' | 'mobile-app' | 'maintenance' | 'update'
+type TabType = 'organization' | 'incident' | 'email' | 'sla' | 'service-report' | 'backup' | 'info' | 'theme' | 'mobile-app' | 'maintenance' | 'modules' | 'update'
 
 // Organization Settings Interface
 interface OrganizationSettings {
@@ -1796,6 +1798,7 @@ export default function SettingsPage() {
     { id: 'theme' as TabType, label: 'Theme', icon: Palette },
     { id: 'mobile-app' as TabType, label: 'Mobile App', icon: Smartphone },
     ...(isSuperAdmin ? [{ id: 'maintenance' as TabType, label: 'Maintenance', icon: Wrench }] : []),
+    ...(isSuperAdmin ? [{ id: 'modules' as TabType, label: 'Modules', icon: Blocks }] : []),
     ...(isSuperAdmin ? [{ id: 'update' as TabType, label: 'System Update', icon: DownloadCloud }] : []),
     { id: 'info' as TabType, label: 'Info', icon: Info },
   ]
@@ -4309,6 +4312,7 @@ export default function SettingsPage() {
         )}
 
         {/* Info Tab */}
+        {activeTab === 'modules' && isSuperAdmin && <ModulesTab />}
         {activeTab === 'update' && isSuperAdmin && <UpdateTab />}
 
         {activeTab === 'info' && (

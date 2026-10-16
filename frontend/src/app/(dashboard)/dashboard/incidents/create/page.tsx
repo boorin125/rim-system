@@ -10,6 +10,7 @@ import toast from 'react-hot-toast'
 import BackButton from '@/components/BackButton'
 import { TimeInput } from '@/components/TimeInput'
 import { useThemeHighlight } from '@/hooks/useThemeHighlight'
+import { useModules } from '@/hooks/useModules'
 import { canPerformAction, getUserRoles } from '@/config/permissions'
 import ParseLineMessageModal from '@/components/ParseLineMessageModal'
 import type { ParsedLineMessage } from '@/utils/lineMessageParser'
@@ -56,6 +57,7 @@ export default function CreateIncidentPage() {
   const [users, setUsers] = useState<any[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [jobTypes, setJobTypes] = useState<JobType[]>([])
+  const { modules } = useModules()
   const [priorities, setPriorities] = useState<SlaConfig[]>([])
   const [equipment, setEquipment] = useState<any[]>([]) // Equipment for selected store
   const [selectedEquipmentIds, setSelectedEquipmentIds] = useState<number[]>([])
@@ -650,7 +652,10 @@ export default function CreateIncidentPage() {
                     required
                   >
                     <option value="" className="bg-slate-800">เลือก Job Type</option>
-                    {jobTypes.map((type) => (
+                    {jobTypes
+                      // Project work moves to the Project module once it is enabled
+                      .filter((type) => !(modules.project && type.name === 'Project'))
+                      .map((type) => (
                       <option key={type.id} value={type.name} className="bg-slate-800">
                         {type.name}
                       </option>

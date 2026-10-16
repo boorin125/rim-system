@@ -19,6 +19,7 @@ import {
   Monitor,
   TrendingUp,
   Briefcase,
+  FolderKanban,
   ScrollText,
   BookOpen,
   MapPin,
@@ -38,6 +39,7 @@ import PwaInstallPrompt from '@/components/PwaInstallPrompt'
 import { hasMenuAccess, getUserRoles, getHighestRole } from '@/config/permissions'
 import { LicenseProvider, useLicense } from '@/context/LicenseContext'
 import { usePushNotification } from '@/hooks/usePushNotification'
+import { useModules } from '@/hooks/useModules'
 import ScrollRestorer from '@/components/ScrollRestorer'
 import MobileAppNav, { useIsInstalledApp } from '@/components/MobileAppNav'
 
@@ -167,6 +169,7 @@ export default function DashboardLayout({
   // Desktop always shows sidebar via lg:translate-x-0 — start hidden so mobile doesn't flash open
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [appVersion, setAppVersion] = useState('1.0.0')
+  const { modules } = useModules()
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false) // For top-right menu
   const [user, setUser] = useState<any>(null)
   // Init from cache so logo/name show instantly on refresh (no flash of default)
@@ -583,6 +586,11 @@ export default function DashboardLayout({
       icon: AlertCircle,
     },
     {
+      name: 'Projects',
+      href: '/dashboard/projects',
+      icon: FolderKanban,
+    },
+    {
       name: 'Stores',
       href: '/dashboard/stores',
       icon: Store,
@@ -650,12 +658,13 @@ export default function DashboardLayout({
       user?.technicianType === 'OUTSOURCE'
     return allNavItems
       .filter(item => hasMenuAccess(user, item.href))
+      .filter(item => item.href !== '/dashboard/projects' || modules.project)
       .map(item =>
         item.href === '/dashboard/outsource' && isOutsourceTech
           ? { ...item, name: 'Market Place' }
           : item
       )
-  }, [user])
+  }, [user, modules.project])
 
   // ✅ FIX: Get current page name based on pathname
   const getCurrentPageName = () => {
