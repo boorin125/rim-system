@@ -25,6 +25,7 @@ import {
 } from './dto';
 import { OutsourceJobStatus, BidStatus, TechnicianType, UserRole, NotificationType, IncidentAction, IncidentStatus } from '@prisma/client';
 import { IncidentHistoryService } from '../../incidents/incident-history.service';
+import { JobNumberService } from '../job-number/job-number.service';
 
 @Injectable()
 export class OutsourceService {
@@ -33,32 +34,8 @@ export class OutsourceService {
     private readonly notificationsService: NotificationsService,
     private readonly emailService: EmailService,
     private readonly historyService: IncidentHistoryService,
+    private readonly jobNumberService: JobNumberService,
   ) {}
-
-  /**
-   * Generate unique job code
-   */
-  private async generateJobCode(): Promise<string> {
-    const today = new Date();
-    const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
-
-    const lastJob = await this.prisma.outsourceJob.findFirst({
-      where: {
-        jobCode: {
-          startsWith: `OUT-${dateStr}`,
-        },
-      },
-      orderBy: { jobCode: 'desc' },
-    });
-
-    let sequence = 1;
-    if (lastJob) {
-      const lastSequence = parseInt(lastJob.jobCode.slice(-4), 10);
-      sequence = lastSequence + 1;
-    }
-
-    return `OUT-${dateStr}-${String(sequence).padStart(4, '0')}`;
-  }
 
   /**
    * Create new outsource job (IT_MANAGER, HELP_DESK)
@@ -111,7 +88,7 @@ export class OutsourceService {
       }
     }
 
-    const jobCode = await this.generateJobCode();
+    const jobCode = await this.jobNumberService.nextOutsourceJobCode();
 
     const job = await this.prisma.outsourceJob.create({
       data: {

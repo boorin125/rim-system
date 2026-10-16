@@ -21,6 +21,7 @@ import { AuditTrailService } from '../modules/audit-trail/audit-trail.service';
 import { RatingsService } from '../modules/ratings/ratings.service';
 import { PmService } from '../modules/pm/pm.service';
 import { PerformanceService } from '../modules/performance/performance.service';
+import { JobNumberService } from '../modules/job-number/job-number.service';
 import { addWatermark } from '../utils/image-watermark';
 import { saveBase64Files } from '../utils/file-storage';
 import * as fs from 'fs/promises';
@@ -39,6 +40,7 @@ export class IncidentsService {
     private ratingsService: RatingsService,
     private pmService: PmService,
     private performanceService: PerformanceService,
+    private jobNumberService: JobNumberService,
   ) {}
 
   /**
@@ -720,52 +722,9 @@ export class IncidentsService {
   }
 
   /**
-   * Generate ticket number in format: [PREFIX][YY][MM][XXXX]
-   * Example: WAT25110001 = Watsons, November 2025, incident #1
-   * Prefix is fetched from organization settings (default: INC)
-   */
-  private async generateTicketNumber(): Promise<string> {
-    // Get prefix from organization settings
-    const companyPrefix = await this.settingsService.getIncidentPrefix();
-
-    const now = new Date();
-    const year = now.getFullYear().toString().slice(-2); // "25"
-    const month = (now.getMonth() + 1).toString().padStart(2, '0'); // "11"
-
-    // Find the last ticket in this month
-    const monthPrefix = `${companyPrefix}${year}${month}`;
-
-    const lastTicket = await this.prisma.incident.findFirst({
-      where: {
-        ticketNumber: {
-          startsWith: monthPrefix,
-        },
-      },
-      orderBy: {
-        ticketNumber: 'desc',
-      },
-    });
-
-    let runningNumber = 1;
-    if (lastTicket && lastTicket.ticketNumber) {
-      // Extract running number from ticket (last 4 digits)
-      const lastNumber = parseInt(lastTicket.ticketNumber.slice(-4));
-      runningNumber = lastNumber + 1;
-    }
-
-    // Pad to 4 digits (supports up to 9999 incidents per month)
-    const paddedNumber = runningNumber.toString().padStart(4, '0');
-
-    return `${monthPrefix}${paddedNumber}`;
-  }
-
-  /**
    * Create a new incident
    */
   async create(createIncidentDto: CreateIncidentDto, userId: number) {
-    // Generate ticket number using organization prefix from settings
-    const ticketNumber = await this.generateTicketNumber();
-
     // Get store information to save storeName and storeCode for historical reference
     const store = await this.prisma.store.findUnique({
       where: { id: createIncidentDto.storeId },
@@ -832,6 +791,9 @@ export class IncidentsService {
 
     const primaryEquipmentId: number | undefined =
       createIncidentDto.equipmentId || equipmentIds[0];
+
+    // Ticket number is issued only after validation passes (atomic, see JobNumberService)
+    const ticketNumber = await this.jobNumberService.nextTicketNumber();
 
     // Create incident with UUID
     const { randomUUID } = await import('crypto');
@@ -2444,7 +2406,7 @@ export class IncidentsService {
     );
 
     // Generate a new ticket number for the new incident
-    const newTicketNumber = await this.generateTicketNumber();
+    const newTicketNumber = await this.jobNumberService.nextTicketNumber();
     const { randomUUID } = await import('crypto');
     const newId = randomUUID();
 
@@ -4358,7 +4320,7 @@ export class IncidentsService {
     }
 
     // Generate new ticket number using organization prefix from settings
-    const ticketNumber = await this.generateTicketNumber();
+    const ticketNumber = await this.jobNumberService.nextTicketNumber();
 
     // Create UUID for new incident
     const { randomUUID } = await import('crypto');

@@ -29,11 +29,13 @@ import { SystemModule } from './modules/system/system.module';
 import { AppMobileModule } from './modules/app-mobile/app-mobile.module';
 import { PushModule } from './modules/push/push.module';
 import { SetupModule } from './setup/setup.module';
+import { JobNumberModule } from './modules/job-number/job-number.module';
 
 @Module({
   imports: [
     ScheduleModule.forRoot(),
     PrismaModule,
+    JobNumberModule,
     SetupModule,
     AuthModule,
     UsersModule,

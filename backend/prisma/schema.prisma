@@ -1889,6 +1889,16 @@ model UserActivityLog {
   @@map("user_activity_logs")
 }
 
+// Atomic running-number counters (JobNumberService)
+// key = series + period, e.g. "WAT2610" (ticket prefix + YYMM) or "OUT-20261016"
+model NumberSequence {
+  key       String   @id
+  lastValue Int      @map("last_value")
+  updatedAt DateTime @default(now()) @map("updated_at")
+
+  @@map("number_sequences")
+}
+
 model Patch {
   id            Int       @id @default(autoincrement())
   version       String // e.g. "1.2.3"
