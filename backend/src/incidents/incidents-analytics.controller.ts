@@ -128,13 +128,7 @@ export class IncidentsAnalyticsController {
    * limited to the given job types; reopened jobs are flagged so they can be excluded.
    */
   @Get('billing-cycle')
-  @Roles(
-    UserRole.IT_MANAGER,
-    UserRole.FINANCE_ADMIN,
-    UserRole.SUPERVISOR,
-    UserRole.HELP_DESK,
-    UserRole.READ_ONLY,
-  )
+  @Roles(UserRole.IT_MANAGER, UserRole.FINANCE_ADMIN, UserRole.SUPERVISOR)
   async getBillingCycle(
     @Query('from') from: string,
     @Query('to') to: string,

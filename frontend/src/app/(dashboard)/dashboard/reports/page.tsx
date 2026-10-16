@@ -7,6 +7,7 @@ import MultiSearchSelect from '@/components/MultiSearchSelect'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import { useLicense } from '@/context/LicenseContext'
+import { getUserRoles } from '@/config/permissions'
 import {
   BarChart3,
   TrendingUp,
@@ -120,6 +121,9 @@ const REPORT_TYPES = [
   { id: 'incident-list', label: 'Incident List', icon: FileText, description: 'รายการ Incidents ทั้งหมดแบบละเอียด', color: 'cyan' },
   { id: 'billing-cycle', label: 'Billing Cycle', icon: Receipt, description: 'นับงานที่ปิดแล้วตามรอบวางบิล ตัด Reopen แล้วคงเหลือ', color: 'green' },
 ] as const
+
+// Billing Cycle is limited to these roles (backend enforces the same)
+const BILLING_CYCLE_ROLES = ['IT_MANAGER', 'FINANCE_ADMIN', 'SUPERVISOR']
 
 // Billing Cycle parameters are remembered per user until changed
 interface BillingParams { from: string; to: string; jobTypes: string[]; excludeReopen: boolean }
@@ -269,6 +273,14 @@ export default function ReportsPage() {
   }
 
   // Billing Cycle report — params persisted per user
+  const [canSeeBilling, setCanSeeBilling] = useState(false)
+  useEffect(() => {
+    try {
+      const roles = getUserRoles(JSON.parse(localStorage.getItem('user') || '{}'))
+      setCanSeeBilling(roles.some((r: string) => BILLING_CYCLE_ROLES.includes(r)))
+    } catch {}
+  }, [])
+  const visibleReportTypes = REPORT_TYPES.filter((rt) => rt.id !== 'billing-cycle' || canSeeBilling)
   const [billing, setBilling] = useState<BillingParams>(DEFAULT_BILLING_PARAMS)
   const [billingData, setBillingData] = useState<BillingCycleData | null>(null)
   useEffect(() => {
@@ -826,7 +838,7 @@ export default function ReportsPage() {
           Select Report Type
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
-          {REPORT_TYPES.map((rt) => {
+          {visibleReportTypes.map((rt) => {
             const Icon = rt.icon
             const c = colorMap[rt.color]
             const isActive = selectedReport === rt.id
