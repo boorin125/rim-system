@@ -764,7 +764,61 @@ export default function IncidentsPage() {
             )}
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          {/* Phone: card list (No. + small status, title, store, date · technician, aging) */}
+          <div className="sm:hidden p-3 space-y-2.5">
+            {incidents.map((incident) => {
+              const statusBadge = getStatusBadge(incident.status)
+              const tech = incident.assignees?.[0]?.user || incident.assignee
+              const workLabel = incident.resolutionType === 'PHONE_SUPPORT' ? 'Phone'
+                : incident.resolutionType === 'REMOTE_SUPPORT' ? 'Remote'
+                : (incident.resolutionType || tech) ? 'Onsite' : null
+              const workColor = incident.resolutionType === 'PHONE_SUPPORT' ? 'text-emerald-400'
+                : incident.resolutionType === 'REMOTE_SUPPORT' ? 'text-blue-400'
+                : 'text-amber-400'
+              const isOpen = incident.status !== 'CLOSED' && incident.status !== 'CANCELLED'
+              const diffMs = new Date().getTime() - new Date(incident.createdAt).getTime()
+              const totalMinutes = Math.max(0, Math.floor(diffMs / 60000))
+              const agingDays = Math.floor(totalMinutes / 1440)
+              const agingHours = Math.floor((totalMinutes % 1440) / 60)
+              const agingMinutes = totalMinutes % 60
+              const totalDays = diffMs / 86400000
+              return (
+                <button
+                  key={incident.id}
+                  type="button"
+                  onClick={() => router.push(`/dashboard/incidents/${incident.id}`)}
+                  className="w-full text-left rounded-xl border border-slate-700 bg-slate-800/50 hover:bg-slate-700/50 px-3.5 py-3 space-y-1.5 transition-colors"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-mono font-semibold text-blue-400">
+                      {incident.ticketNumber || `WAT-${String(incident.id).padStart(6, '0')}`}
+                    </span>
+                    <span className={`${statusBadge.class} !text-[10px] !px-2 !py-0.5 shrink-0`}>{incident.status}</span>
+                  </div>
+                  <p className="text-sm font-medium text-white line-clamp-2">{incident.title}</p>
+                  <p className="text-[13px] text-gray-300 truncate">{formatStore(incident.store)}</p>
+                  <div className="flex items-center justify-between gap-2 text-xs">
+                    <span className="text-gray-400 truncate">
+                      {incident.incidentDate ? formatDateTime(incident.incidentDate) : formatDateTime(incident.createdAt)}
+                      {workLabel && <span className={workColor}> · {workLabel}</span>}
+                      {tech && <span> · {tech.firstName} {tech.lastName}</span>}
+                    </span>
+                    {isOpen && (
+                      <span className={`shrink-0 font-semibold tabular-nums ${
+                        totalDays > 7 ? 'text-red-400' : totalDays > 3 ? 'text-yellow-400' : 'text-green-400'
+                      }`}>
+                        {agingDays}d {String(agingHours).padStart(2, '0')}:{String(agingMinutes).padStart(2, '0')}h
+                      </span>
+                    )}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Tablet / desktop: table */}
+          <div className="hidden sm:block overflow-x-auto">
             <table className="w-full">
               <thead className="bg-slate-800/80 border-b border-slate-600">
                 <tr>
@@ -904,6 +958,7 @@ export default function IncidentsPage() {
               </tbody>
             </table>
           </div>
+          </>
         )}
 
         {/* Pagination */}

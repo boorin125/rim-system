@@ -23,6 +23,10 @@
         {
           "type": "improved",
           "text": "Store Detail — แสดงวันที่ PM ล่าสุดไว้ข้างปุ่ม Request PM (ร้านที่ยังไม่เคยทำ PM จะแสดง \"ยังไม่เคย PM\")"
+        },
+        {
+          "type": "improved",
+          "text": "Incidents บนมือถือ — แสดงเป็นการ์ดแทนตาราง: Incident No. + สถานะ (ป้ายเล็ก), Title 2 บรรทัด, Store, Incident Date · Onsite/ช่าง และ Aging (สีตามความเร่งด่วน) / แท็บเล็ตและคอมพิวเตอร์ยังเป็นตารางเหมือนเดิม"
         }
       ]
     },
