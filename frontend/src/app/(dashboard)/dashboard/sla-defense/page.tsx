@@ -189,7 +189,7 @@ export default function SlaDefensePage() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-xl bg-orange-500/20">
             <Shield className="w-6 h-6 text-orange-400" />
@@ -214,8 +214,8 @@ export default function SlaDefensePage() {
           <span className="text-xs text-gray-500">(บันทึกไว้จนกว่าจะเลือกใหม่)</span>
         </div>
 
-        {/* Custom date range + nav arrows */}
-        <div className="flex items-center gap-2">
+        {/* Custom date range + nav arrows (month label wraps to its own line on phones) */}
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
           <button
             onClick={() => shiftMonth(-1)}
             className="p-1.5 bg-slate-700 hover:bg-slate-600 text-gray-300 rounded-lg transition-colors"
@@ -224,19 +224,19 @@ export default function SlaDefensePage() {
             <ChevronLeft className="w-4 h-4" />
           </button>
 
-          <div className="flex items-center gap-2 flex-1">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
             <input
               type="date"
               value={dateRange.from}
               onChange={e => saveDateRange({ ...dateRange, from: e.target.value })}
-              className="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:border-blue-500"
+              className="flex-1 min-w-0 bg-slate-800 border border-slate-600 rounded-lg px-2 sm:px-3 py-1.5 text-white text-sm focus:outline-none focus:border-blue-500"
             />
             <span className="text-gray-500 text-sm">–</span>
             <input
               type="date"
               value={dateRange.to}
               onChange={e => saveDateRange({ ...dateRange, to: e.target.value })}
-              className="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:border-blue-500"
+              className="flex-1 min-w-0 bg-slate-800 border border-slate-600 rounded-lg px-2 sm:px-3 py-1.5 text-white text-sm focus:outline-none focus:border-blue-500"
             />
           </div>
 
@@ -248,7 +248,7 @@ export default function SlaDefensePage() {
             <ChevronRight className="w-4 h-4" />
           </button>
 
-          <div className="px-3 py-1.5 bg-slate-800/60 border border-slate-700 rounded-lg text-xs text-blue-300 font-medium whitespace-nowrap">
+          <div className="w-full sm:w-auto text-center px-3 py-1.5 bg-slate-800/60 border border-slate-700 rounded-lg text-xs text-blue-300 font-medium whitespace-nowrap">
             {formatMonthLabel(dateRange.from)}
             {dateRange.from.slice(0, 7) !== dateRange.to.slice(0, 7) && ` – ${formatMonthLabel(dateRange.to)}`}
           </div>
@@ -452,8 +452,9 @@ function DefenseCard({
   const isClosedIncident = CLOSED_STATUSES.includes(defense.incident?.status)
 
   return (
-    <div className={`glass-card p-6 rounded-2xl ${isApproved ? 'border border-green-500/20' : ''}`}>
-      <div className="flex items-start justify-between gap-4">
+    <div className={`glass-card p-4 sm:p-6 rounded-2xl ${isApproved ? 'border border-green-500/20' : ''}`}>
+      {/* Phone: content full width, action buttons in a row underneath */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-2 flex-wrap">
             <Link
@@ -463,8 +464,9 @@ function DefenseCard({
               {defense.incident.ticketNumber}
               <ExternalLink className="w-3 h-3" />
             </Link>
-            <span className="text-gray-500">·</span>
-            <span className="text-sm text-gray-300 truncate">{defense.incident.title}</span>
+            <span className="hidden sm:inline text-gray-500">·</span>
+            {/* Phone: title on its own line, wrapped instead of truncated */}
+            <span className="w-full sm:w-auto order-last sm:order-none text-sm text-gray-300 sm:truncate">{defense.incident.title}</span>
             {showStatus && (
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${
                 isApproved
@@ -522,7 +524,7 @@ function DefenseCard({
           </div>
         </div>
 
-        <div className="flex flex-col gap-2 flex-shrink-0">
+        <div className="flex flex-row sm:flex-col gap-2 flex-shrink-0 [&>button]:flex-1 sm:[&>button]:flex-none [&>button]:justify-center">
           {isApproved ? (
             <button
               onClick={() => onAction('revoke')}

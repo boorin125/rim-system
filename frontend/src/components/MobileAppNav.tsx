@@ -38,7 +38,7 @@ const TAB_PREFERENCE: Record<string, string[]> = {
   TECHNICIAN: ['/dashboard', '/dashboard/incidents', '/dashboard/stores', '/dashboard/knowledge-base'],
   OUTSOURCE: ['/dashboard', '/dashboard/incidents', '/dashboard/outsource', '/dashboard/knowledge-base'],
   HELP_DESK: ['/dashboard', '/dashboard/incidents', '/dashboard/stores', '/dashboard/equipment'],
-  SUPERVISOR: ['/dashboard', '/dashboard/incidents', '/dashboard/performance', '/dashboard/map'],
+  SUPERVISOR: ['/dashboard', '/dashboard/incidents', '/dashboard/map', '/dashboard/performance'],
   MONITOR: ['/dashboard/performance', '/dashboard/map'],
 }
 const TAB_COUNT = 4
