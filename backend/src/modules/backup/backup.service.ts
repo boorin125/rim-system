@@ -62,7 +62,7 @@ const SCOPE_TABLES = {
     'knowledge_categories', 'knowledge_articles',
     'knowledge_article_feedbacks', 'knowledge_article_usages',
     // Incidents & related
-    'incidents', 'incident_assignees', 'incident_reassignments', 'incident_ratings',
+    'incidents', 'incident_assignees', 'incident_reassignments', 'incident_ratings', 'incident_work_rounds',
     'sla_defenses', 'comments', 'spare_parts', 'incident_history', 'notifications',
     // Outsource
     'outsource_jobs', 'outsource_bids',
@@ -86,7 +86,7 @@ const SCOPE_TABLES = {
     'project_photos', 'project_equipment', 'project_checklists',
     'knowledge_categories', 'knowledge_articles',
     'knowledge_article_feedbacks', 'knowledge_article_usages',
-    'incidents', 'incident_assignees', 'incident_reassignments', 'incident_ratings',
+    'incidents', 'incident_assignees', 'incident_reassignments', 'incident_ratings', 'incident_work_rounds',
     'sla_defenses', 'comments', 'spare_parts', 'incident_history', 'notifications',
     'outsource_jobs', 'outsource_bids',
     'pm_records', 'pm_equipment_records',
@@ -592,6 +592,7 @@ export class BackupService {
       }),
       incident_reassignments: () => this.prisma.incidentReassignment.findMany(wc()),
       incident_ratings: () => this.prisma.incidentRating.findMany(w()),
+      incident_work_rounds: () => this.prisma.incidentWorkRound.findMany(wc()),
       sla_defenses: () => this.prisma.slaDefense.findMany(wc()),
       comments: () => this.prisma.comment.findMany(w()),
       spare_parts: () => this.prisma.sparePart.findMany(w()),
@@ -990,7 +991,7 @@ export class BackupService {
       'knowledge_categories', 'knowledge_articles',
       'knowledge_article_feedbacks', 'knowledge_article_usages',
       // Incidents & relations
-      'incidents', 'incident_assignees', 'incident_reassignments', 'incident_ratings',
+      'incidents', 'incident_assignees', 'incident_reassignments', 'incident_ratings', 'incident_work_rounds',
       'sla_defenses', 'comments', 'spare_parts', 'incident_history', 'notifications',
       // Outsource
       'outsource_jobs', 'outsource_bids',
@@ -1107,7 +1108,7 @@ export class BackupService {
       'pm_equipment_records', 'pm_records',
       'outsource_bids', 'outsource_jobs',
       'notifications', 'incident_history', 'spare_parts', 'comments',
-      'sla_defenses', 'incident_ratings', 'incident_reassignments', 'incident_assignees',
+      'incident_work_rounds', 'sla_defenses', 'incident_ratings', 'incident_reassignments', 'incident_assignees',
       'incidents',
       'project_checklists', 'project_equipment', 'project_photos', 'project_task_logs',
       'project_tasks', 'project_stores', 'projects',
@@ -1141,6 +1142,7 @@ export class BackupService {
       comments:                      () => this.prisma.comment.deleteMany({ where: { createdAt: after } }),
       sla_defenses:                  () => this.prisma.slaDefense.deleteMany({ where: { createdAt: after } }),
       incident_ratings:              () => this.prisma.incidentRating.deleteMany({ where: { createdAt: after } }),
+      incident_work_rounds:          () => this.prisma.incidentWorkRound.deleteMany({ where: { createdAt: after } }),
       incident_reassignments:        () => this.prisma.incidentReassignment.deleteMany({ where: { createdAt: after } }),
       incident_assignees:            () => this.prisma.incidentAssignee.deleteMany({ where: { assignedAt: after } }),
       incidents:                     () => this.prisma.incident.deleteMany({ where: { createdAt: after } }),
@@ -1423,7 +1425,7 @@ export class BackupService {
       'project_photos', 'project_equipment', 'project_checklists',
       'knowledge_categories', 'knowledge_articles',
       'knowledge_article_feedbacks', 'knowledge_article_usages',
-      'incidents', 'incident_assignees', 'incident_reassignments', 'incident_ratings',
+      'incidents', 'incident_assignees', 'incident_reassignments', 'incident_ratings', 'incident_work_rounds',
       'sla_defenses', 'comments', 'spare_parts', 'incident_history', 'notifications',
       'outsource_jobs', 'outsource_bids',
       'pm_records', 'pm_equipment_records',
@@ -1630,6 +1632,8 @@ export class BackupService {
       'startDate', 'endDate', 'calculatedAt',
       // Project module
       'scheduledDate', 'uploadedAt',
+      // Incident work rounds
+      'reportedAt', 'progressNoteAt',
     ];
 
     const processed = data.map(record => {
@@ -1800,6 +1804,13 @@ export class BackupService {
       incident_assignees: (d) => this.upsertRaw('incident_assignees', d),
       incident_reassignments: (d) => this.upsertRaw('incident_reassignments', d),
       incident_ratings: (d) => this.upsertRaw('incident_ratings', d),
+      // Work rounds have array fields (before/after/signed report photos)
+      incident_work_rounds: (d) => this.upsertWithArrayFields(
+        (ids) => this.prisma.incidentWorkRound.findMany({ where: { id: { in: ids } }, select: { id: true } }),
+        (id, data) => this.prisma.incidentWorkRound.update({ where: { id }, data: data as any }),
+        (data) => this.prisma.incidentWorkRound.createMany({ data: data as any[], skipDuplicates: true }),
+        d,
+      ),
       sla_defenses: (d) => this.upsertRaw('sla_defenses', d),
       // comments has array field: attachments
       comments: (d) => this.upsertWithArrayFields(

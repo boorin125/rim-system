@@ -27,6 +27,10 @@
         {
           "type": "improved",
           "text": "Backup / Restore รองรับข้อมูลโมดูล Project"
+        },
+        {
+          "type": "fixed",
+          "text": "Backup / Restore — เพิ่มข้อมูลรอบซ่อมของ Incident (Check-in และรูปก่อน/หลังแต่ละรอบ) ที่เดิมไม่ถูกสำรองไว้"
         }
       ]
     },
