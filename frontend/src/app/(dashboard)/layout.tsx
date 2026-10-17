@@ -962,8 +962,10 @@ export default function DashboardLayout({
         </header>
 
         {/* Page Content - เพิ่ม pt-28 เพื่อไม่ให้ header ทับ (app mode: + safe areas, room for the bottom tab bar) */}
+        {/* App mode: no z-index on <main> — it would create a stacking context that traps every page modal (z-50)
+            underneath the fixed header (z-30) and bottom tab bar (z-40), hiding modal buttons. bg-pattern sits earlier in the DOM, so main still paints above it. */}
         <main
-          className="relative z-10 p-4 lg:p-6 pt-20 lg:pt-28"
+          className={`relative ${isApp ? '' : 'z-10'} p-4 lg:p-6 pt-20 lg:pt-28`}
           style={isApp ? {
             paddingTop: 'calc(5rem + env(safe-area-inset-top))',
             paddingBottom: 'calc(6rem + env(safe-area-inset-bottom))',

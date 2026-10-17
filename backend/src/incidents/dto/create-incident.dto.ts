@@ -50,5 +50,10 @@ export class CreateIncidentDto {
   @Type(() => Number)
   @IsInt()
   @IsOptional()
+  assignedToId?: number; // Helpdesk มอบหมายช่างตั้งแต่ตอนเปิดงาน (→ Onsite + assign)
+
+  @Type(() => Number)
+  @IsInt()
+  @IsOptional()
   forProjectStoreId?: number | null; // ทำงานให้สาขาในโปรเจกต์ (Project module) — ใช้นับครั้งเข้างาน
 }

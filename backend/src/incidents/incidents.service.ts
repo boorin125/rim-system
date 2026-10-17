@@ -735,6 +735,19 @@ export class IncidentsService {
       throw new NotFoundException(`ไม่พบสาขา ID ${createIncidentDto.storeId} ในระบบ`);
     }
 
+    // Optional direct assignment at creation — validate before anything is written
+    if (createIncidentDto.assignedToId) {
+      const tech = await this.prisma.user.findFirst({
+        where: {
+          id: createIncidentDto.assignedToId,
+          status: 'ACTIVE',
+          roles: { some: { role: UserRole.TECHNICIAN } },
+        },
+        select: { id: true },
+      });
+      if (!tech) throw new BadRequestException('ช่างที่เลือกไม่พบ หรือไม่ได้อยู่ในสถานะ Active');
+    }
+
     if (createIncidentDto.forProjectStoreId) {
       const ps = await this.prisma.projectStore.findUnique({ where: { id: createIncidentDto.forProjectStoreId }, select: { id: true } });
       if (!ps) throw new BadRequestException('ไม่พบสาขาในโปรเจกต์ที่เลือก (ทำงานให้โปรเจกต์)');
@@ -896,6 +909,27 @@ export class IncidentsService {
         `${ticketNumber} - ${store.storeCode} ${store.name} — ขอ Preventive Maintenance`,
         id,
       );
+    }
+
+    // Helpdesk picked a technician on the create form: mark Onsite and assign through the normal
+    // assign flow (status ASSIGNED, assignees, history, technician notification)
+    if (createIncidentDto.assignedToId) {
+      if (createIncidentDto.jobType !== 'Preventive Maintenance') {
+        await this.prisma.incident.update({ where: { id }, data: { resolutionType: 'ONSITE' } });
+        await this.historyService.createHistory(
+          id,
+          IncidentAction.REQUESTED_ONSITE as any,
+          userId,
+          IncidentStatus.OPEN,
+          IncidentStatus.OPEN,
+          'Onsite — technician assigned when the incident was created',
+        );
+      }
+      await this.assign(id, [createIncidentDto.assignedToId], userId);
+      return this.prisma.incident.findUnique({
+        where: { id },
+        include: { store: true, equipment: true },
+      });
     }
 
     return incident;
@@ -1321,10 +1355,13 @@ export class IncidentsService {
       throw new NotFoundException(`ไม่พบ Incident ${id}`);
     }
 
+    // assignedToId is create-only (assignment has its own endpoints) — not an incident column
+    const { assignedToId: _ignored, ...updateData } = updateIncidentDto;
+
     return this.prisma.incident.update({
       where: { id },
       data: {
-        ...updateIncidentDto,
+        ...updateData,
         updatedAt: new Date(),
       },
       include: {
