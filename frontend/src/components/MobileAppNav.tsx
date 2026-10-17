@@ -33,6 +33,35 @@ export function useIsInstalledApp() {
   return isApp
 }
 
+// A modal = full-screen fixed overlay at z-50 or above (`fixed inset-0 z-50` / `z-[9999]` …).
+// The tab bar's own sheet backdrop and the header menu backdrop are z-40, so they don't count.
+const MODAL_Z = /(^|\s)z-(50|\[\d+\])(\s|$)/
+function isModalOpen() {
+  return Array.from(document.querySelectorAll('div.fixed.inset-0')).some(
+    (el) => MODAL_Z.test(el.className) && el.getClientRects().length > 0, // skip mounted-but-hidden (display:none)
+  )
+}
+
+/** True while any modal is mounted anywhere in the document */
+function useModalOpen() {
+  const [open, setOpen] = useState(false)
+  useEffect(() => {
+    let frame = 0
+    const check = () => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => setOpen(isModalOpen()))
+    }
+    check()
+    const observer = new MutationObserver(check)
+    observer.observe(document.body, { childList: true, subtree: true })
+    return () => {
+      observer.disconnect()
+      cancelAnimationFrame(frame)
+    }
+  }, [])
+  return open
+}
+
 // Preferred bottom tabs per role (only menus the user can access are used; the rest go to "เมนู")
 // Projects is listed early but only exists in navItems when the Project module is on — otherwise the next item fills in
 const TAB_PREFERENCE: Record<string, string[]> = {
@@ -75,6 +104,10 @@ export default function MobileAppNav({
 
   // Close the sheet whenever the page changes
   useEffect(() => { setSheetOpen(false) }, [pathname])
+
+  // Hide the tab bar while any modal is open so it can never cover modal buttons
+  // (stacking contexts / iOS Safari can otherwise put the bar above a z-50 modal)
+  const modalOpen = useModalOpen()
 
   const role = getHighestRole(user) || 'TECHNICIAN'
   const prefKey =
@@ -202,7 +235,8 @@ export default function MobileAppNav({
       {/* Bottom tab bar */}
       <nav
         aria-label="เมนูหลัก"
-        className="fixed bottom-0 left-0 right-0 z-40 bg-slate-900/80 backdrop-blur-xl border-t border-slate-700/50 grid px-2 pt-2"
+        aria-hidden={modalOpen || undefined}
+        className={`fixed bottom-0 left-0 right-0 z-40 bg-slate-900/80 backdrop-blur-xl border-t border-slate-700/50 grid px-2 pt-2 transition-transform duration-200 ${modalOpen ? 'translate-y-full pointer-events-none' : ''}`}
         style={{
           gridTemplateColumns: `repeat(${tabItems.length + 1}, minmax(0, 1fr))`,
           paddingBottom: 'calc(8px + env(safe-area-inset-bottom))',
