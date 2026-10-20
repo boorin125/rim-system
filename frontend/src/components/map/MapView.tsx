@@ -6,6 +6,7 @@ import { MapContainer, TileLayer, Marker, Tooltip, Popup, GeoJSON } from 'react-
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { regionColors, getRegion } from './thailand-regions'
+import { findProvince } from '@/data/thai-provinces'
 
 interface MapCheckin {
   id: string
@@ -428,7 +429,10 @@ export default function MapView({ checkins, technicianLocations = [] }: MapViewP
           // Use tech.province first; fall back to responsibleProvinces[0] for outsource techs
           const displayProvince = tech.province ||
             (tech.responsibleProvinces && tech.responsibleProvinces.length > 0 ? tech.responsibleProvinces[0] : null)
-          const coords = displayProvince ? PROVINCE_COORDS[displayProvince] : null
+          // Stored provinces are canonical English (e.g. CHIANG MAI); coordinates are keyed by Thai name
+          const coords = displayProvince
+            ? PROVINCE_COORDS[displayProvince] ?? PROVINCE_COORDS[findProvince(displayProvince)?.th ?? '']
+            : null
           if (!coords) return null
           const usingFallback = !tech.province && !!displayProvince
           // Use English initials when available, fall back to Thai

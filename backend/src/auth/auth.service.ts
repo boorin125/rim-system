@@ -16,6 +16,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { UserStatus, NotificationType } from '@prisma/client';
 import { getUserCache, setUserCache, invalidateUserCache, USER_CACHE_TTL } from './user-cache';
+import { requireProvince } from '../utils/thai-provinces';
 
 @Injectable()
 export class AuthService {
@@ -537,8 +538,10 @@ export class AuthService {
         address: dto.address,
         ...(dto.subDistrict !== undefined && { subDistrict: dto.subDistrict }),
         ...(dto.district !== undefined && { district: dto.district }),
-        ...(dto.province !== undefined && { province: dto.province }),
-        ...(dto.responsibleProvinces !== undefined && { responsibleProvinces: dto.responsibleProvinces }),
+        ...(dto.province !== undefined && { province: requireProvince(dto.province) }),
+        ...(dto.responsibleProvinces !== undefined && {
+          responsibleProvinces: [...new Set(dto.responsibleProvinces.map((p) => requireProvince(p)).filter((p): p is string => !!p))],
+        }),
       },
       select: {
         id: true,

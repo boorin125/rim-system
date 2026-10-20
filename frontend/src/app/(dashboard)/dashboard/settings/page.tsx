@@ -71,6 +71,7 @@ import { getUserRoles } from '@/config/permissions'
 import releasesData from '@/data/releases.json'
 import UpdateTab from '@/components/settings/UpdateTab'
 import ModulesTab from '@/components/settings/ModulesTab'
+import ProvinceAuditCard from '@/components/settings/ProvinceAuditCard'
 
 type ReleaseEntry = {
   version: string
@@ -2036,6 +2037,8 @@ export default function SettingsPage() {
                 </div>
               </div>
             </div>
+
+            {(isSuperAdmin || userRoles.includes('IT_MANAGER')) && <ProvinceAuditCard />}
           </div>
         )}
 

@@ -31,25 +31,8 @@ import axios from 'axios'
 import toast from 'react-hot-toast'
 import { useThemeHighlight } from '@/hooks/useThemeHighlight'
 import { compressImage } from '@/utils/imageUtils'
-
-const THAI_PROVINCES = [
-  'กระบี่', 'กรุงเทพมหานคร', 'กาญจนบุรี', 'กาฬสินธุ์', 'กำแพงเพชร',
-  'ขอนแก่น', 'จันทบุรี', 'ฉะเชิงเทรา', 'ชลบุรี', 'ชัยนาท',
-  'ชัยภูมิ', 'ชุมพร', 'เชียงราย', 'เชียงใหม่', 'ตรัง',
-  'ตราด', 'ตาก', 'นครนายก', 'นครปฐม', 'นครพนม',
-  'นครราชสีมา', 'นครศรีธรรมราช', 'นครสวรรค์', 'นนทบุรี', 'นราธิวาส',
-  'น่าน', 'บึงกาฬ', 'บุรีรัมย์', 'ปทุมธานี', 'ประจวบคีรีขันธ์',
-  'ปราจีนบุรี', 'ปัตตานี', 'พระนครศรีอยุธยา', 'พะเยา', 'พังงา',
-  'พัทลุง', 'พิจิตร', 'พิษณุโลก', 'เพชรบุรี', 'เพชรบูรณ์',
-  'แพร่', 'ภูเก็ต', 'มหาสารคาม', 'มุกดาหาร', 'แม่ฮ่องสอน',
-  'ยโสธร', 'ยะลา', 'ร้อยเอ็ด', 'ระนอง', 'ระยอง',
-  'ราชบุรี', 'ลพบุรี', 'ลำปาง', 'ลำพูน', 'เลย',
-  'ศรีสะเกษ', 'สกลนคร', 'สงขลา', 'สตูล', 'สมุทรปราการ',
-  'สมุทรสงคราม', 'สมุทรสาคร', 'สระแก้ว', 'สระบุรี', 'สิงห์บุรี',
-  'สุโขทัย', 'สุพรรณบุรี', 'สุราษฎร์ธานี', 'สุรินทร์', 'หนองคาย',
-  'หนองบัวลำภู', 'อ่างทอง', 'อำนาจเจริญ', 'อุดรธานี', 'อุตรดิตถ์',
-  'อุทัยธานี', 'อุบลราชธานี',
-]
+import { PROVINCE_OPTIONS, provinceLabel } from '@/data/thai-provinces'
+import ProvinceSelect from '@/components/ProvinceSelect'
 
 interface UserProfile {
   id: number
@@ -180,17 +163,9 @@ export default function ProfilePage() {
     }
   }
 
-  const fetchProvinces = async () => {
-    try {
-      const token = localStorage.getItem('token')
-      const response = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/stores/provinces`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
-      setAllProvinces(response.data || [])
-    } catch {
-      // silently fail — province list not critical
-    }
+  // Canonical 77 provinces (stored value = UPPERCASE English name)
+  const fetchProvinces = () => {
+    setAllProvinces(PROVINCE_OPTIONS.map((p) => p.en))
   }
 
   const fetchProviderName = async () => {
@@ -927,16 +902,11 @@ export default function ProfilePage() {
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-400 mb-1.5">จังหวัด</label>
-                    <select
+                    <ProvinceSelect
                       value={province}
-                      onChange={(e) => setProvince(e.target.value)}
-                      className="w-full px-3 py-2.5 bg-slate-800 border border-slate-600 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                    >
-                      <option value="">-- เลือกจังหวัด --</option>
-                      {THAI_PROVINCES.map((p) => (
-                        <option key={p} value={p}>{p}</option>
-                      ))}
-                    </select>
+                      onChange={setProvince}
+                      className="px-3 py-2.5 text-sm rounded-xl"
+                    />
                   </div>
                 </div>
               </div>
@@ -1029,7 +999,7 @@ export default function ProfilePage() {
                 {/* Province checkboxes */}
                 {(() => {
                   const filtered = allProvinces.filter(
-                    (p) => !provinceSearch || p.toLowerCase().includes(provinceSearch.toLowerCase())
+                    (p) => !provinceSearch || provinceLabel(p).toLowerCase().includes(provinceSearch.toLowerCase())
                   )
                   return filtered.length === 0 ? (
                     <p className="text-sm text-gray-500 py-3 text-center">
@@ -1054,7 +1024,7 @@ export default function ProfilePage() {
                             }
                             className="w-4 h-4 rounded accent-orange-500"
                           />
-                          <span className="text-sm text-white">{province}</span>
+                          <span className="text-sm text-white">{provinceLabel(province)}</span>
                         </label>
                       ))}
                     </div>

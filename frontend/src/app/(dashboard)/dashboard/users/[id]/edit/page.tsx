@@ -22,6 +22,7 @@ import axios from 'axios'
 import toast from 'react-hot-toast'
 import BackButton from '@/components/BackButton'
 import { useThemeHighlight } from '@/hooks/useThemeHighlight'
+import { PROVINCE_OPTIONS, provinceLabel } from '@/data/thai-provinces'
 
 interface UserData {
   id: number
@@ -120,17 +121,9 @@ const [allProvinces, setAllProvinces] = useState<string[]>([])
     }
   }, [userData, currentUser, userId, router])
 
-  const fetchProvinces = async () => {
-    try {
-      const token = localStorage.getItem('token')
-      const response = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/stores/provinces`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
-      setAllProvinces(response.data || [])
-    } catch (error) {
-      console.error('Failed to load provinces', error)
-    }
+  // Canonical 77 provinces (stored value = UPPERCASE English name)
+  const fetchProvinces = () => {
+    setAllProvinces(PROVINCE_OPTIONS.map((p) => p.en))
   }
 
   const fetchUser = async () => {
@@ -593,7 +586,7 @@ const [allProvinces, setAllProvinces] = useState<string[]>([])
               </div>
               {(() => {
                 const filtered = provinces.filter(p =>
-                  !provinceSearch || p.toLowerCase().includes(provinceSearch.toLowerCase())
+                  !provinceSearch || provinceLabel(p).toLowerCase().includes(provinceSearch.toLowerCase())
                 )
                 return filtered.length === 0 ? (
                   <p className="text-sm text-gray-500 py-3 text-center">ไม่พบจังหวัด "{provinceSearch}"</p>
@@ -616,7 +609,7 @@ const [allProvinces, setAllProvinces] = useState<string[]>([])
                           }}
                           className="w-4 h-4 rounded accent-orange-500"
                         />
-                        <span className="text-sm text-white">{province}</span>
+                        <span className="text-sm text-white">{provinceLabel(province)}</span>
                       </label>
                     ))}
                   </div>

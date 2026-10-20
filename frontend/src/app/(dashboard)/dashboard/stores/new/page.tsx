@@ -23,6 +23,7 @@ import toast from 'react-hot-toast'
 import BackButton from '@/components/BackButton'
 import { TimeInput } from '@/components/TimeInput'
 import { useThemeHighlight } from '@/hooks/useThemeHighlight'
+import ProvinceSelect from '@/components/ProvinceSelect'
 
 interface StoreFormData {
   storeCode: string
@@ -458,13 +459,10 @@ export default function CreateStorePage() {
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     Province
                   </label>
-                  <input
-                    type="text"
+                  <ProvinceSelect
                     name="province"
                     value={formData.province}
-                    onChange={handleChange}
-                    placeholder="Province"
-                    className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onChange={(v) => setFormData((prev) => ({ ...prev, province: v }))}
                   />
                 </div>
 

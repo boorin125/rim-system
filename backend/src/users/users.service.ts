@@ -8,6 +8,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateUserRolesDto } from './dto/update-user-roles.dto';
 import { UserStatus, UserRole, NotificationType } from '@prisma/client';
+import { requireProvince } from '../utils/thai-provinces';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -278,7 +279,7 @@ export class UsersService {
         technicianType: dto.technicianType,
         serviceCenter: dto.serviceCenter,
         responsibleProvinces: dto.responsibleProvinces
-          ? dto.responsibleProvinces.map((p: string) => p.toUpperCase().trim())
+          ? [...new Set(dto.responsibleProvinces.map((p: string) => requireProvince(p)).filter((p): p is string => !!p))]
           : undefined,
         status: dto.status,
       },

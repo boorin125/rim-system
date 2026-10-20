@@ -8,6 +8,7 @@ import { AuditModule, AuditAction } from '@prisma/client';
 import { ExcelService, ParsedStoreRow } from './services/excel.service';
 import { ImportStoresDto } from './dto/import-stores.dto';
 import { ExportStoresDto } from './dto/export-stores.dto';
+import { matchProvince, requireProvince } from '../../utils/thai-provinces';
 
 // Store codes are text but mostly numbers: compare numerically (201 < 399 < 3001), text codes after A→Z
 const compareStoreCode = (a: string, b: string) =>
@@ -57,7 +58,7 @@ export class StoresService {
 
           // Optional fields
           address: data.address || null,
-          province: data.province ? data.province.toUpperCase().trim() : null,
+          province: requireProvince(data.province),
           district: data.district || null,
           subDistrict: data.subDistrict || null,
           postalCode: data.postalCode || null,
@@ -231,8 +232,8 @@ export class StoresService {
     await this.findOne(id);
 
     if (data.storeCode) data.storeCode = data.storeCode.trim();
-    if (data.province) {
-      data.province = data.province.toUpperCase().trim();
+    if (data.province !== undefined) {
+      data.province = requireProvince(data.province);
     }
 
     return this.prisma.store.update({
@@ -1219,6 +1220,11 @@ export class StoresService {
           continue;
         }
 
+        if (row.province && !matchProvince(row.province)) {
+          errors.push({ row: row.rowNumber, code: row.code, error: `ไม่รู้จักจังหวัด "${row.province}"` });
+          continue;
+        }
+
         // Validate IP addresses
         const ipFields: Array<keyof ParsedStoreRow> = [
           'routerIp',
@@ -1378,7 +1384,7 @@ export class StoresService {
 
       // Address Information
       address: row.address || null,
-      province: row.province || null,
+      province: matchProvince(row.province),
       slaRegion: this.normalizeSlaRegion(row.slaRegion),
       postalCode: row.postalCode || null,
       area: row.area || null,
@@ -1664,6 +1670,12 @@ export class StoresService {
           code: row.code,
           error: 'ข้อมูลไม่ครบ: รหัสสาขา, ชื่อสาขา หรือบริษัท',
         });
+        failed++;
+        continue;
+      }
+
+      if (row.province && !matchProvince(row.province)) {
+        errors.push({ row: row.rowNumber, code: row.code, error: `ไม่รู้จักจังหวัด "${row.province}"` });
         failed++;
         continue;
       }

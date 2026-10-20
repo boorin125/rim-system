@@ -15,6 +15,7 @@ import { useThemeHighlight } from '@/hooks/useThemeHighlight'
 import { canPerformAction, getUserRoles } from '@/config/permissions'
 import { formatStore } from '@/utils/formatStore'
 import { useConfirm } from '@/components/ConfirmDialog'
+import ProvinceSelect from '@/components/ProvinceSelect'
 
 const TASK_STATUS_LABELS: Record<string, { label: string; color: string }> = {
   PENDING:        { label: 'รอมอบหมาย',    color: 'text-gray-400 bg-gray-800/60' },
@@ -1450,7 +1451,6 @@ export default function ProjectDetailPage() {
               { key: 'storeCode', label: 'รหัสสาขา', required: true, placeholder: 'เช่น 711' },
               { key: 'name', label: 'ชื่อสาขา', required: true, placeholder: 'เช่น Central World' },
               { key: 'company', label: 'บริษัท', required: true, placeholder: 'เช่น WATSONS' },
-              { key: 'province', label: 'จังหวัด', required: false, placeholder: 'เช่น BANGKOK' },
               { key: 'address', label: 'ที่อยู่', required: false, placeholder: '' },
               { key: 'phone', label: 'เบอร์โทร', required: false, placeholder: '' },
             ] as const).map(({ key, label, required, placeholder }) => (
@@ -1467,6 +1467,14 @@ export default function ProjectDetailPage() {
                 />
               </div>
             ))}
+            <div>
+              <label className="block text-sm text-gray-300 mb-1.5">จังหวัด</label>
+              <ProvinceSelect
+                value={newStoreForm.province}
+                onChange={(v) => setNewStoreForm(f => ({ ...f, province: v }))}
+                className="px-3 py-2 text-sm"
+              />
+            </div>
             <p className="text-xs text-gray-500">ข้อมูลอื่น (IP, SLA Region, ฯลฯ) แก้ไขภายหลังได้ที่หน้า Stores</p>
             <div className="flex gap-2 pt-1">
               <button
