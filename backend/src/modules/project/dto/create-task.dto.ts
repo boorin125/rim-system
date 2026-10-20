@@ -3,6 +3,7 @@ import { IsInt, IsOptional, IsDateString, IsString, IsEnum } from 'class-validat
 export enum ProjectTaskTypeDto {
   GENERAL = 'GENERAL',
   OPENING = 'OPENING', // store opening day — the store turns ACTIVE on scheduledDate
+  CLOSING = 'CLOSING', // Closed Store — the store is closed when the technician completes the task
 }
 
 export class CreateTaskDto {

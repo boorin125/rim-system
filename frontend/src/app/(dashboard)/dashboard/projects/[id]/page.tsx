@@ -87,10 +87,16 @@ function TaskTypeField({ value, onChange }: { value: string; onChange: (v: strin
       >
         <option value="GENERAL">งานทั่วไป</option>
         <option value="OPENING">Opening — วันเปิดร้าน</option>
+        <option value="CLOSING">Closed Store — ปิดร้าน</option>
       </select>
       {value === 'OPENING' && (
         <p className="text-xs text-sky-400 mt-1.5">
           ต้องระบุวันนัด — สาขาที่ &quot;กำลังเปิดร้าน&quot; จะเปลี่ยนเป็น Active อัตโนมัติในวันนัด (1 สาขามีงาน Opening ได้ 1 งาน)
+        </p>
+      )}
+      {value === 'CLOSING' && (
+        <p className="text-xs text-red-400 mt-1.5">
+          เมื่อช่างส่งงานนี้ สาขาจะถูก &quot;ปิดถาวร&quot; ทันทีในวันนั้น (1 สาขามีงาน Closed Store ได้ 1 งาน)
         </p>
       )}
     </div>
@@ -130,10 +136,37 @@ export default function ProjectDetailPage() {
   const [addingStore, setAddingStore] = useState(false)
 
   // New store (status OPENING) created from this project
-  const EMPTY_NEW_STORE = { storeCode: '', name: '', company: '', province: '', address: '', phone: '' }
+  const EMPTY_NEW_STORE = {
+    kind: 'PERMANENT' as 'PERMANENT' | 'POP_UP' | 'EVENT',
+    storeCode: '', name: '', company: '', province: '', address: '', phone: '',
+    openDate: '', closeDate: '',
+    hostStoreId: '', hostSearch: '', eventName: '',
+  }
   const [showNewStore, setShowNewStore] = useState(false)
   const [newStoreForm, setNewStoreForm] = useState(EMPTY_NEW_STORE)
   const [creatingStore, setCreatingStore] = useState(false)
+
+  // Extend close date of a Pop-up / Event
+  const [closeDateEdit, setCloseDateEdit] = useState<{ storeId: number; value: string } | null>(null)
+  const [savingCloseDate, setSavingCloseDate] = useState(false)
+  const handleSaveCloseDate = async () => {
+    if (!closeDateEdit?.value) return
+    setSavingCloseDate(true)
+    try {
+      await axios.patch(
+        `${process.env.NEXT_PUBLIC_API_URL}/projects/${id}/stores/${closeDateEdit.storeId}/close-date`,
+        { closeDate: closeDateEdit.value },
+        { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } },
+      )
+      toast.success('เปลี่ยนวันปิดแล้ว')
+      setCloseDateEdit(null)
+      fetchProject()
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'บันทึกไม่สำเร็จ')
+    } finally {
+      setSavingCloseDate(false)
+    }
+  }
 
   // Add task modal
   const [showAddTask, setShowAddTask] = useState<{ projectStoreId: number; storeId: number } | null>(null)
@@ -271,23 +304,55 @@ export default function ProjectDetailPage() {
     setShowNewStore(true)
   }
 
+  // Another store still open on the typed code (Event stores borrow their host's code, so they don't count)
+  const openStoreWithCode = (code: string) =>
+    code.trim()
+      ? allStores.find((s: any) =>
+          s.storeCode === code.trim() && s.storeType !== 'EVENT' && s.storeStatus !== 'PERMANENTLY_CLOSED')
+      : undefined
+
   const handleCreateStore = async () => {
     const f = newStoreForm
-    if (!f.storeCode.trim() || !f.name.trim() || !f.company.trim()) {
+    if (f.kind === 'EVENT') {
+      if (!f.hostStoreId || !f.eventName.trim()) {
+        toast.error('กรุณาเลือกสาขาหลักและระบุชื่องาน Event')
+        return
+      }
+    } else if (!f.storeCode.trim() || !f.name.trim() || !f.company.trim()) {
       toast.error('กรุณากรอกรหัสสาขา ชื่อสาขา และบริษัท')
+      return
+    }
+    if (f.kind !== 'PERMANENT' && (!f.openDate || !f.closeDate)) {
+      toast.error('Pop-up / Event ต้องระบุวันเปิดและวันปิด')
       return
     }
     const token = localStorage.getItem('token')
     setCreatingStore(true)
     try {
-      const payload: any = { storeCode: f.storeCode.trim(), name: f.name.trim(), company: f.company.trim() }
-      if (f.province.trim()) payload.province = f.province.trim()
-      if (f.address.trim()) payload.address = f.address.trim()
-      if (f.phone.trim()) payload.phone = f.phone.trim()
+      const payload: any = { kind: f.kind }
+      if (f.kind === 'EVENT') {
+        payload.hostStoreId = parseInt(f.hostStoreId)
+        payload.eventName = f.eventName.trim()
+      } else {
+        payload.storeCode = f.storeCode.trim()
+        payload.name = f.name.trim()
+        payload.company = f.company.trim()
+        if (f.province.trim()) payload.province = f.province.trim()
+        if (f.address.trim()) payload.address = f.address.trim()
+        if (f.phone.trim()) payload.phone = f.phone.trim()
+      }
+      if (f.kind !== 'PERMANENT') {
+        payload.openDate = f.openDate
+        payload.closeDate = f.closeDate
+      }
       await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/projects/${id}/stores/new`, payload, {
         headers: { Authorization: `Bearer ${token}` },
       })
-      toast.success('สร้างสาขาใหม่แล้ว (กำลังเปิดร้าน) — เพิ่มงาน Opening เพื่อกำหนดวันเปิดร้าน')
+      toast.success(
+        f.kind === 'PERMANENT'
+          ? 'สร้างสาขาใหม่แล้ว (กำลังเปิดร้าน) — เพิ่มงาน Opening เพื่อกำหนดวันเปิดร้าน'
+          : 'สร้างร้านแล้ว — เปิดอัตโนมัติตามวันเปิด (หรือวันนัดงาน Opening) และปิดอัตโนมัติหลังวันปิด',
+      )
       setShowNewStore(false)
       fetchProject()
     } catch (err: any) {
@@ -749,6 +814,22 @@ export default function ProjectDetailPage() {
                           </span>
                         )
                       })()}
+                      {(ps.store.storeType === 'POP_UP' || ps.store.storeType === 'EVENT') && (
+                        <span
+                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-fuchsia-900/40 text-fuchsia-300"
+                          title={ps.store.storeType === 'EVENT' && ps.store.hostStore ? `จัดในพื้นที่ ${formatStore(ps.store.hostStore)}` : undefined}
+                        >
+                          {ps.store.storeType === 'POP_UP' ? 'Pop-up' : 'Event'}
+                          {ps.store.openDate || ps.store.closeDate
+                            ? ` · ${ps.store.openDate ? formatDate(ps.store.openDate) : '?'} – ${ps.store.closeDate ? formatDate(ps.store.closeDate) : '?'}`
+                            : ''}
+                        </span>
+                      )}
+                      {ps.store.storeStatus === 'PERMANENTLY_CLOSED' && (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-red-900/40 text-red-400">
+                          ปิดแล้ว
+                        </span>
+                      )}
                       {ps.visits?.total > 0 && (
                         <span
                           className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-slate-700/60 text-gray-300"
@@ -903,6 +984,11 @@ export default function ProjectDetailPage() {
                                 {task.taskType === 'OPENING' && (
                                   <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-sky-900/40 text-sky-400 flex-shrink-0">
                                     <DoorOpen className="w-2.5 h-2.5" /> Opening
+                                  </span>
+                                )}
+                                {task.taskType === 'CLOSING' && (
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-red-900/40 text-red-400 flex-shrink-0">
+                                    Closed Store
                                   </span>
                                 )}
                                 <span className="truncate">
@@ -1442,50 +1528,188 @@ export default function ProjectDetailPage() {
                   <DoorOpen className="w-5 h-5 text-sky-400" /> สร้างร้านใหม่
                 </h3>
                 <p className="text-xs text-gray-400 mt-0.5">
-                  สถานะ &quot;กำลังเปิดร้าน&quot; — เปิด Incident ไม่ได้จนกว่าจะ Active (อัตโนมัติตามวันนัดงาน Opening หรือกดเปิดเอง)
+                  สถานะ &quot;กำลังเปิดร้าน&quot; — เปิด Incident ไม่ได้จนกว่าจะ Active
                 </p>
               </div>
               <button onClick={() => setShowNewStore(false)} className="text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
             </div>
-            {([
-              { key: 'storeCode', label: 'รหัสสาขา', required: true, placeholder: 'เช่น 711' },
-              { key: 'name', label: 'ชื่อสาขา', required: true, placeholder: 'เช่น Central World' },
-              { key: 'company', label: 'บริษัท', required: true, placeholder: 'เช่น WATSONS' },
-              { key: 'address', label: 'ที่อยู่', required: false, placeholder: '' },
-              { key: 'phone', label: 'เบอร์โทร', required: false, placeholder: '' },
-            ] as const).map(({ key, label, required, placeholder }) => (
-              <div key={key}>
-                <label className="block text-sm text-gray-300 mb-1.5">
-                  {label} {required && <span className="text-red-400">*</span>}
-                </label>
-                <input
-                  type="text"
-                  value={newStoreForm[key]}
-                  onChange={(e) => setNewStoreForm(f => ({ ...f, [key]: e.target.value }))}
-                  placeholder={placeholder}
-                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500"
-                />
-              </div>
-            ))}
-            <div>
-              <label className="block text-sm text-gray-300 mb-1.5">จังหวัด</label>
-              <ProvinceSelect
-                value={newStoreForm.province}
-                onChange={(v) => setNewStoreForm(f => ({ ...f, province: v }))}
-                className="px-3 py-2 text-sm"
-              />
+
+            {/* Store kind */}
+            <div className="grid grid-cols-3 gap-2">
+              {([
+                { kind: 'PERMANENT', label: 'สาขาใหม่', hint: 'ร้านถาวร' },
+                { kind: 'POP_UP', label: 'Pop-up', hint: 'มีกำหนดปิด' },
+                { kind: 'EVENT', label: 'Event', hint: 'ในพื้นที่สาขา' },
+              ] as const).map((k) => (
+                <button
+                  key={k.kind}
+                  type="button"
+                  onClick={() => setNewStoreForm(f => ({ ...f, kind: k.kind }))}
+                  className={`rounded-lg border px-2 py-2 text-left transition-colors ${
+                    newStoreForm.kind === k.kind ? 'border-sky-500 bg-sky-500/15 text-white' : 'border-slate-600 text-gray-400 hover:bg-slate-700/40'
+                  }`}
+                >
+                  <span className="block text-sm font-medium">{k.label}</span>
+                  <span className="block text-[11px] opacity-70">{k.hint}</span>
+                </button>
+              ))}
             </div>
+
+            {newStoreForm.kind === 'EVENT' ? (
+              <>
+                {/* Host branch */}
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1.5">สาขาหลักที่จัด Event <span className="text-red-400">*</span></label>
+                  <input
+                    type="text"
+                    value={newStoreForm.hostSearch}
+                    onChange={(e) => setNewStoreForm(f => ({ ...f, hostSearch: e.target.value, hostStoreId: '' }))}
+                    placeholder="ค้นหารหัสหรือชื่อสาขา..."
+                    className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500"
+                  />
+                  {!newStoreForm.hostStoreId && newStoreForm.hostSearch.trim() && (
+                    <div className="mt-1 max-h-40 overflow-y-auto border border-slate-600 rounded-lg divide-y divide-slate-700/50">
+                      {allStores
+                        .filter((s: any) => s.storeType !== 'EVENT' && s.storeStatus === 'ACTIVE')
+                        .filter((s: any) => formatStore(s).toLowerCase().includes(newStoreForm.hostSearch.trim().toLowerCase()))
+                        .slice(0, 20)
+                        .map((s: any) => (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => setNewStoreForm(f => ({ ...f, hostStoreId: String(s.id), hostSearch: formatStore(s) }))}
+                            className="w-full text-left px-3 py-2 text-sm text-gray-200 hover:bg-slate-700/50"
+                          >
+                            {formatStore(s)}
+                          </button>
+                        ))}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1.5">ชื่องาน Event <span className="text-red-400">*</span></label>
+                  <input
+                    type="text"
+                    value={newStoreForm.eventName}
+                    onChange={(e) => setNewStoreForm(f => ({ ...f, eventName: e.target.value }))}
+                    placeholder="เช่น Eucerin Event"
+                    className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                {newStoreForm.hostStoreId && newStoreForm.eventName.trim() && (() => {
+                  const host = allStores.find((s: any) => String(s.id) === newStoreForm.hostStoreId)
+                  return host ? (
+                    <p className="text-xs text-sky-300">
+                      ชื่อร้าน: {formatStore({ storeCode: host.storeCode, name: `${host.name} (${newStoreForm.eventName.trim()})` })} — ใช้ที่อยู่/จังหวัดของสาขาหลัก
+                    </p>
+                  ) : null
+                })()}
+              </>
+            ) : (
+              <>
+                {([
+                  { key: 'storeCode', label: 'รหัสสาขา', required: true, placeholder: 'เช่น 711' },
+                  { key: 'name', label: 'ชื่อสาขา', required: true, placeholder: newStoreForm.kind === 'POP_UP' ? "เช่น Lotus's Srinakharin" : 'เช่น Central World' },
+                  { key: 'company', label: 'บริษัท', required: true, placeholder: 'เช่น WATSONS' },
+                  { key: 'address', label: 'ที่อยู่', required: false, placeholder: '' },
+                  { key: 'phone', label: 'เบอร์โทร', required: false, placeholder: '' },
+                ] as const).map(({ key, label, required, placeholder }) => (
+                  <div key={key}>
+                    <label className="block text-sm text-gray-300 mb-1.5">
+                      {label} {required && <span className="text-red-400">*</span>}
+                    </label>
+                    <input
+                      type="text"
+                      value={newStoreForm[key]}
+                      onChange={(e) => setNewStoreForm(f => ({ ...f, [key]: e.target.value }))}
+                      placeholder={placeholder}
+                      className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500"
+                    />
+                    {key === 'storeCode' && (() => {
+                      const taken = openStoreWithCode(newStoreForm.storeCode)
+                      return taken ? (
+                        <p className="text-xs text-red-400 mt-1">
+                          รหัสนี้ยังเปิดอยู่: {formatStore(taken)}
+                          {taken.closeDate ? ` (กำหนดปิด ${formatDate(taken.closeDate)})` : ''} — ต้องปิดร้านเดิมก่อน{' '}
+                          <Link href={`/dashboard/stores/${taken.id}`} className="underline hover:text-red-300">ไปที่ร้านเดิม</Link>
+                        </p>
+                      ) : null
+                    })()}
+                  </div>
+                ))}
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1.5">จังหวัด</label>
+                  <ProvinceSelect
+                    value={newStoreForm.province}
+                    onChange={(v) => setNewStoreForm(f => ({ ...f, province: v }))}
+                    className="px-3 py-2 text-sm"
+                  />
+                </div>
+              </>
+            )}
+
+            {newStoreForm.kind !== 'PERMANENT' && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1.5">วันเปิด <span className="text-red-400">*</span></label>
+                  <input type="date" value={newStoreForm.openDate} onChange={(e) => setNewStoreForm(f => ({ ...f, openDate: e.target.value }))}
+                    className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500 [color-scheme:dark]" />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1.5">วันปิด <span className="text-red-400">*</span></label>
+                  <input type="date" value={newStoreForm.closeDate} onChange={(e) => setNewStoreForm(f => ({ ...f, closeDate: e.target.value }))}
+                    className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500 [color-scheme:dark]" />
+                </div>
+                <p className="col-span-2 text-xs text-gray-500">
+                  เปิดอัตโนมัติในวันเปิด (หรือวันนัดงาน Opening) และปิดถาวรอัตโนมัติหลังวันปิด — เลื่อนปิดได้ที่เมนู ⋮ › ขยายวันปิด
+                </p>
+              </div>
+            )}
+
             <p className="text-xs text-gray-500">ข้อมูลอื่น (IP, SLA Region, ฯลฯ) แก้ไขภายหลังได้ที่หน้า Stores</p>
             <div className="flex gap-2 pt-1">
               <button
                 onClick={handleCreateStore}
-                disabled={creatingStore}
+                disabled={creatingStore || (newStoreForm.kind !== 'EVENT' && !!openStoreWithCode(newStoreForm.storeCode))}
                 className="flex-1 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 disabled:opacity-40"
                 style={{ backgroundColor: themeHighlight }}
               >
                 {creatingStore ? 'กำลังสร้าง...' : 'สร้างและเพิ่มในโปรเจกต์'}
               </button>
               <button onClick={() => setShowNewStore(false)} className="flex-1 py-2 rounded-lg text-gray-400 hover:text-white text-sm hover:bg-slate-700/50 transition-colors">ยกเลิก</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Extend close date (Pop-up / Event) ── */}
+      {closeDateEdit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="glass-card rounded-xl w-full max-w-sm p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-white font-semibold text-lg">ขยายวันปิด</h3>
+              <button onClick={() => setCloseDateEdit(null)} className="text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
+            </div>
+            <div>
+              <label className="block text-sm text-gray-300 mb-1.5">วันปิดใหม่</label>
+              <input
+                type="date"
+                value={closeDateEdit.value}
+                onChange={(e) => setCloseDateEdit(c => c && { ...c, value: e.target.value })}
+                className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500 [color-scheme:dark]"
+              />
+              <p className="text-xs text-gray-500 mt-1.5">ร้านจะปิดถาวรอัตโนมัติหลังสิ้นวันที่เลือก</p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleSaveCloseDate}
+                disabled={!closeDateEdit.value || savingCloseDate}
+                className="flex-1 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 disabled:opacity-40"
+                style={{ backgroundColor: themeHighlight }}
+              >
+                {savingCloseDate ? 'กำลังบันทึก...' : 'บันทึก'}
+              </button>
+              <button onClick={() => setCloseDateEdit(null)} className="flex-1 py-2 rounded-lg text-gray-400 hover:text-white text-sm hover:bg-slate-700/50">ยกเลิก</button>
             </div>
           </div>
         </div>
@@ -1501,8 +1725,33 @@ export default function ProjectDetailPage() {
             style={{ position: 'fixed', top: storeMenuPos.top, right: storeMenuPos.right, zIndex: 9999 }}
             className="w-48 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden"
           >
+            {(menuPs.store?.storeType === 'POP_UP' || menuPs.store?.storeType === 'EVENT') && menuPs.store?.storeStatus !== 'PERMANENTLY_CLOSED' && (
+              <button
+                onClick={() => {
+                  setStoreMenuId(null); setStoreMenuPos(null)
+                  setCloseDateEdit({ storeId: menuPs.storeId, value: menuPs.store?.closeDate ? menuPs.store.closeDate.slice(0, 10) : '' })
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-fuchsia-300 hover:bg-slate-700 hover:text-white transition-colors text-left"
+              >
+                <Calendar className="w-3.5 h-3.5 text-fuchsia-400" /> ขยายวันปิด
+              </button>
+            )}
             <button
-              onClick={() => { setStoreMenuId(null); setStoreMenuPos(null); router.push(`/dashboard/stores/${menuPs.storeId}/edit`) }}
+              onClick={async () => {
+                setStoreMenuId(null); setStoreMenuPos(null)
+                // A store that already existed is the real branch record — editing it changes it everywhere
+                if (menuPs.store?.storeStatus !== 'OPENING') {
+                  const ok = await confirmDialog({
+                    title: 'แก้ไขข้อมูลร้านจริง?',
+                    message: `การแก้ไขจะเปลี่ยนข้อมูลของ ${formatStore(menuPs.store)} ทุกที่ในระบบ — ถ้าเป็นร้านใหม่คนละสถานที่ (เช่น Pop-up ย้ายที่) ให้ "สร้างร้านใหม่" แทน`,
+                    confirmLabel: 'แก้ไขร้านนี้',
+                    cancelLabel: 'ยกเลิก',
+                    variant: 'warning',
+                  })
+                  if (!ok) return
+                }
+                router.push(`/dashboard/stores/${menuPs.storeId}/edit`)
+              }}
               className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-gray-300 hover:bg-slate-700 hover:text-white transition-colors text-left"
             >
               <ExternalLink className="w-3.5 h-3.5 text-gray-400" /> แก้ไขข้อมูลสาขา

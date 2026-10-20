@@ -437,6 +437,7 @@ export default function EditStorePage() {
                     <option value="PERMANENT">Permanent</option>
                     <option value="POP_UP">Pop-up</option>
                     <option value="SEASONAL">Seasonal</option>
+                    <option value="EVENT">Event</option>
                   </select>
                 </div>
 

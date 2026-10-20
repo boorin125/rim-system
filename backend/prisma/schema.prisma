@@ -219,6 +219,12 @@ model Store {
   holidayClose     String?              @map("holiday_close")
   openDate         DateTime?            @map("open_date")
   closeDate        DateTime?            @map("close_date")
+  // Pop-up / Event created from a Project: closed automatically (PERMANENTLY_CLOSED) after closeDate
+  autoClose        Boolean              @default(false) @map("auto_close")
+  // Event store: the branch whose space the event uses (same store code, e.g. "599 Siam Square 2 (Eucerin Event)")
+  hostStoreId      Int?                 @map("host_store_id")
+  hostStore        Store?               @relation("EventHostStore", fields: [hostStoreId], references: [id], onDelete: SetNull)
+  eventStores      Store[]              @relation("EventHostStore")
   storeStatus      StoreStatus          @default(ACTIVE) @map("store_status")
   layoutImagePath  String?              @map("layout_image_path")
   ipRangeImagePath String?              @map("ip_range_image_path")
@@ -236,6 +242,7 @@ model Store {
   @@index([company])
   @@index([storeStatus])
   @@index([province])
+  @@index([hostStoreId])
   @@map("stores")
 }
 
@@ -566,6 +573,7 @@ enum StoreType {
   PERMANENT
   POP_UP
   SEASONAL
+  EVENT // Vendor event in a branch's space (hostStoreId)
 }
 
 enum StoreStatus {
@@ -2067,6 +2075,7 @@ enum ProjectStoreStatus {
 enum ProjectTaskType {
   GENERAL
   OPENING // วันเปิดร้าน — scheduledDate ของงานนี้ทำให้ร้าน OPENING เป็น ACTIVE
+  CLOSING // Closed Store — the store is closed when the technician completes this task
 }
 
 enum ProjectTaskStatus {

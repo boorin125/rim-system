@@ -150,6 +150,17 @@ export class ProjectController {
     return this.projectService.createStoreInProject(id, dto);
   }
 
+  @Patch(':id/stores/:storeId/close-date')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.IT_MANAGER, UserRole.HELP_DESK, UserRole.SUPERVISOR)
+  updateStoreCloseDate(
+    @Param('id', ParseIntPipe) projectId: number,
+    @Param('storeId', ParseIntPipe) storeId: number,
+    @Body('closeDate') closeDate: string,
+    @Request() req: any,
+  ) {
+    return this.projectService.updateStoreCloseDate(projectId, storeId, closeDate, req.user.id);
+  }
+
   @Patch(':id/stores/:storeId/activate')
   @Roles(UserRole.SUPER_ADMIN, UserRole.IT_MANAGER, UserRole.HELP_DESK, UserRole.SUPERVISOR)
   activateStore(

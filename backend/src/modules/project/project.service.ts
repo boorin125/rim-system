@@ -111,13 +111,36 @@ export class ProjectService implements OnModuleInit {
       },
       select: { projectStore: { select: { storeId: true } } },
     });
-    const openingStoreIds = [...new Set(dueOpenings.map((t) => t.projectStore.storeId))];
+    // Pop-up / Event without an Opening task open on their own openDate
+    const dueByDate = await this.prisma.store.findMany({
+      where: {
+        storeStatus: 'OPENING',
+        openDate: { not: null, lt: endOfToday },
+        projectStores: { some: { tasks: { none: { taskType: 'OPENING' } } } },
+      },
+      select: { id: true },
+    });
+    const openingStoreIds = [...new Set([...dueOpenings.map((t) => t.projectStore.storeId), ...dueByDate.map((s) => s.id)])];
     if (openingStoreIds.length > 0) {
       const opened = await this.prisma.store.updateMany({
         where: { id: { in: openingStoreIds }, storeStatus: 'OPENING' },
         data: { storeStatus: 'ACTIVE' },
       });
       this.logger.log(`Auto-open: ${opened.count} store(s) OPENING → ACTIVE (store ids ${openingStoreIds.join(', ')})`);
+    }
+
+    // Pop-up / Event stores from a project close once their close day is over (extend = change closeDate).
+    // Only autoClose stores — existing stores are closed by hand.
+    const dueClose = await this.prisma.store.findMany({
+      where: { autoClose: true, closeDate: { not: null, lt: today }, storeStatus: { not: 'PERMANENTLY_CLOSED' } },
+      select: { id: true, storeCode: true, name: true },
+    });
+    if (dueClose.length > 0) {
+      await this.prisma.store.updateMany({
+        where: { id: { in: dueClose.map((s) => s.id) } },
+        data: { storeStatus: 'PERMANENTLY_CLOSED' },
+      });
+      this.logger.log(`Auto-close: ${dueClose.map((s) => `${s.storeCode} ${s.name}`).join(', ')} → PERMANENTLY_CLOSED`);
     }
 
     if (activated.count > 0 || completed.count > 0) {
@@ -194,6 +217,11 @@ export class ProjectService implements OnModuleInit {
                 googleMapLink: true,
                 company: true,
                 storeStatus: true,
+                storeType: true,
+                openDate: true,
+                closeDate: true,
+                autoClose: true,
+                hostStore: { select: { id: true, storeCode: true, name: true } },
               },
             },
             tasks: {
@@ -337,12 +365,45 @@ export class ProjectService implements OnModuleInit {
 
   /**
    * Create a brand-new store (status OPENING) and add it to the project in one step.
-   * It becomes ACTIVE on its Opening task date, or earlier via activateStore().
+   * It becomes ACTIVE on its Opening task date (or its openDate when there is no Opening task),
+   * or earlier via activateStore(). Pop-up / Event stores close automatically after closeDate.
+   * A store code can't be reused while another store with that code is still open (StoresService).
    */
   async createStoreInProject(projectId: number, dto: CreateProjectStoreDto) {
     await this.findOne(projectId);
-    const { notes, ...storeData } = dto;
-    const store = await this.storesService.create({ ...storeData, storeStatus: 'OPENING' });
+    const kind = dto.kind ?? 'PERMANENT';
+    const { notes, kind: _kind, eventName, hostStoreId, ...rest } = dto;
+
+    if (kind !== 'PERMANENT') {
+      if (!dto.openDate || !dto.closeDate) throw new BadRequestException('Pop-up / Event ต้องระบุวันเปิดและวันปิด');
+      if (new Date(dto.closeDate) < new Date(dto.openDate)) throw new BadRequestException('วันปิดต้องไม่ก่อนวันเปิด');
+    }
+
+    let storeData: any = { ...rest, storeType: kind, storeStatus: 'OPENING', autoClose: kind !== 'PERMANENT' };
+
+    if (kind === 'EVENT') {
+      const host = await this.prisma.store.findUnique({ where: { id: hostStoreId! } });
+      if (!host) throw new NotFoundException('ไม่พบสาขาหลักของ Event');
+      if (host.storeType === 'EVENT') throw new BadRequestException('สาขาหลักต้องไม่ใช่ร้าน Event');
+      // Event borrows the host branch's identity; the event name tells events at the same branch apart
+      storeData = {
+        ...storeData,
+        storeCode: host.storeCode,
+        name: `${host.name} (${eventName!.trim()})`,
+        company: host.company,
+        province: host.province,
+        address: host.address,
+        district: host.district,
+        subDistrict: host.subDistrict,
+        postalCode: host.postalCode,
+        phone: host.phone,
+        googleMapLink: host.googleMapLink,
+        slaRegion: host.slaRegion,
+        hostStoreId: host.id,
+      };
+    }
+
+    const store = await this.storesService.create(storeData);
 
     return this.prisma.projectStore.create({
       data: { projectId, storeId: store.id, notes },
@@ -369,6 +430,31 @@ export class ProjectService implements OnModuleInit {
       select: { id: true, storeCode: true, name: true, storeStatus: true },
     });
     this.logger.log(`Store ${store.storeCode} activated manually by user #${userId} (project #${projectId})`);
+    return store;
+  }
+
+  /**
+   * Move the planned close date of a Pop-up / Event (e.g. selling well, or the new site isn't ready).
+   */
+  async updateStoreCloseDate(projectId: number, storeId: number, closeDate: string, userId: number) {
+    const ps = await this.prisma.projectStore.findUnique({
+      where: { projectId_storeId: { projectId, storeId } },
+      include: { store: { select: { storeCode: true, name: true, storeStatus: true, openDate: true, closeDate: true } } },
+    });
+    if (!ps) throw new NotFoundException('Store not found in this project');
+    if (ps.store.storeStatus === 'PERMANENTLY_CLOSED') throw new BadRequestException('สาขานี้ปิดแล้ว');
+    const date = new Date(closeDate);
+    if (isNaN(date.getTime())) throw new BadRequestException('วันปิดไม่ถูกต้อง');
+    if (ps.store.openDate && date < ps.store.openDate) throw new BadRequestException('วันปิดต้องไม่ก่อนวันเปิด');
+
+    const store = await this.prisma.store.update({
+      where: { id: storeId },
+      data: { closeDate: date },
+      select: { id: true, storeCode: true, name: true, closeDate: true },
+    });
+    this.logger.log(
+      `Store ${store.storeCode} close date ${ps.store.closeDate?.toISOString().slice(0, 10) ?? '-'} → ${closeDate} by user #${userId}`,
+    );
     return store;
   }
 
@@ -402,7 +488,7 @@ export class ProjectService implements OnModuleInit {
         projectStore: {
           include: {
             project: { select: { id: true, name: true, status: true } },
-            store: { select: { id: true, storeCode: true, name: true, province: true, storeStatus: true } },
+            store: { select: { id: true, storeCode: true, name: true, province: true, storeStatus: true, storeType: true, closeDate: true } },
           },
         },
         assignedTo: { select: { id: true, firstName: true, lastName: true, avatarPath: true, phone: true } },
@@ -457,24 +543,26 @@ export class ProjectService implements OnModuleInit {
   }
 
   /**
-   * One Opening task per project store, and it needs a date (the store opens that day).
+   * One Opening and one Closed Store task per project store.
+   * Opening needs a date (the store opens that day); Closed Store closes the store when the technician completes it.
    */
   private async assertOpeningTaskRules(
     projectStoreId: number,
-    taskType: 'GENERAL' | 'OPENING',
+    taskType: 'GENERAL' | 'OPENING' | 'CLOSING',
     scheduledDate?: string | Date | null,
     excludeTaskId?: number,
   ) {
-    if (taskType !== 'OPENING') return;
-    if (!scheduledDate) {
+    if (taskType === 'GENERAL') return;
+    if (taskType === 'OPENING' && !scheduledDate) {
       throw new BadRequestException('งาน Opening ต้องระบุวันนัด (วันเปิดร้าน)');
     }
     const other = await this.prisma.projectTask.findFirst({
-      where: { projectStoreId, taskType: 'OPENING', ...(excludeTaskId && { id: { not: excludeTaskId } }) },
+      where: { projectStoreId, taskType, ...(excludeTaskId && { id: { not: excludeTaskId } }) },
       select: { ticketNo: true },
     });
     if (other) {
-      throw new BadRequestException(`สาขานี้มีงาน Opening อยู่แล้ว (${other.ticketNo})`);
+      const label = taskType === 'OPENING' ? 'Opening' : 'Closed Store';
+      throw new BadRequestException(`สาขานี้มีงาน ${label} อยู่แล้ว (${other.ticketNo})`);
     }
   }
 
@@ -730,9 +818,10 @@ export class ProjectService implements OnModuleInit {
       throw new BadRequestException('Task must be IN_PROGRESS to complete');
     }
 
+    const completedAt = new Date();
     const updated = await this.prisma.projectTask.update({
       where: { id: taskId },
-      data: { status: 'PENDING_VERIFY', completedAt: new Date() },
+      data: { status: 'PENDING_VERIFY', completedAt },
     });
 
     const name = task.assignedTo ? `${task.assignedTo.firstName} ${task.assignedTo.lastName}` : 'ช่าง';
@@ -740,6 +829,19 @@ export class ProjectService implements OnModuleInit {
     await this.prisma.projectTaskLog.create({
       data: { taskId, userId, action: 'COMPLETE', message: `${name} ปิดงานและส่งตรวจสอบ ${taskLabel}` },
     });
+
+    // Closed Store: the store closes on the day the technician finishes the job.
+    // It stays closed even if the task is later sent back — the shop front is already closed.
+    if (task.taskType === 'CLOSING' && task.projectStore.store.storeStatus !== 'PERMANENTLY_CLOSED') {
+      const store = task.projectStore.store;
+      await this.prisma.store.update({
+        where: { id: store.id },
+        data: { storeStatus: 'PERMANENTLY_CLOSED', closeDate: completedAt },
+      });
+      await this.prisma.projectTaskLog.create({
+        data: { taskId, userId, action: 'STORE_CLOSED', message: `ปิดสาขา ${store.storeCode} ${store.name} (ปิดถาวร) จากงาน Closed Store` },
+      });
+    }
 
     this.notificationsService
       .notifyProjectTaskCompleted(taskId, taskLabel, task.projectStore.project.name, [userId])

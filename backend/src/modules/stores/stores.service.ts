@@ -29,10 +29,13 @@ export class StoresService {
 
   async create(data: any) {
     data.storeCode = data.storeCode?.trim();
-    // Check if store code already exists with ACTIVE or TEMPORARILY_CLOSED status
-    const existingStore = await this.prisma.store.findFirst({
+    // A store code may be reused (e.g. pop-ups) only after the previous store with that code is
+    // PERMANENTLY_CLOSED — the customer never runs two stores on one code (stock transfers).
+    // Event stores borrow their host branch's code, so they don't count here.
+    const existingStore = data.storeType === 'EVENT' ? null : await this.prisma.store.findFirst({
       where: {
         storeCode: data.storeCode,
+        storeType: { not: 'EVENT' },
         storeStatus: {
           in: ['ACTIVE', 'TEMPORARILY_CLOSED', 'OPENING'],
         },
@@ -41,8 +44,11 @@ export class StoresService {
 
     if (existingStore) {
       const statusText = existingStore.storeStatus === 'ACTIVE' ? 'เปิดใช้งาน' : existingStore.storeStatus === 'OPENING' ? 'กำลังเปิดร้าน' : 'ปิดชั่วคราว';
+      const closeText = existingStore.closeDate
+        ? `, กำหนดปิด ${existingStore.closeDate.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}`
+        : '';
       throw new BadRequestException(
-        `รหัสสาขา "${data.storeCode}" มีการใช้งานอยู่ในระบบ (สถานะ: ${statusText}) กรุณาใช้รหัสสาขาอื่น หรือเปลี่ยนสถานะสาขาเดิมเป็น "ปิดถาวร" ก่อน`,
+        `รหัสสาขา "${data.storeCode}" ยังเปิดอยู่: ${existingStore.storeCode} ${existingStore.name} (สถานะ: ${statusText}${closeText}) — ต้องปิดร้านเดิมเป็น "ปิดถาวร" ก่อน จึงจะใช้รหัสนี้ได้`,
       );
     }
 
@@ -109,6 +115,9 @@ export class StoresService {
           // Dates
           openDate: data.openDate ? new Date(data.openDate) : null,
           closeDate: data.closeDate ? new Date(data.closeDate) : null,
+          ...(data.slaRegion && { slaRegion: data.slaRegion }),
+          autoClose: !!data.autoClose,
+          hostStoreId: data.hostStoreId ?? null,
 
           notes: data.notes || null,
         },

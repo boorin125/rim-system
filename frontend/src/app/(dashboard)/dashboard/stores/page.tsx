@@ -241,7 +241,7 @@ export default function StoresPage() {
     ? Array.from(new Set(stores.map(s => s.company).filter(Boolean))).sort()
     : []
 
-  const storeTypes = ['PERMANENT', 'POP_UP', 'SEASONAL']
+  const storeTypes = ['PERMANENT', 'POP_UP', 'SEASONAL', 'EVENT']
 
   if (isLoading) {
     return (
@@ -450,6 +450,7 @@ export default function StoresPage() {
               <option value="PERMANENT">Permanent</option>
               <option value="POP_UP">Pop-up</option>
               <option value="SEASONAL">Seasonal</option>
+              <option value="EVENT">Event</option>
             </select>
           </div>
 
@@ -500,7 +501,7 @@ export default function StoresPage() {
             </p>
             <div className="flex items-center justify-between gap-2 text-xs">
               <span className="text-gray-400 truncate">
-                {store.storeType === 'PERMANENT' ? 'Permanent' : store.storeType === 'POP_UP' ? 'Pop-up' : store.storeType === 'SEASONAL' ? 'Seasonal' : store.storeType || '-'}
+                {store.storeType === 'PERMANENT' ? 'Permanent' : store.storeType === 'POP_UP' ? 'Pop-up' : store.storeType === 'SEASONAL' ? 'Seasonal' : store.storeType === 'EVENT' ? 'Event' : store.storeType || '-'}
                 {store.phone ? ` · ${store.phone}` : ''}
               </span>
               <span className={`shrink-0 ${store.lastPmAt ? 'text-purple-300' : 'text-amber-400'}`}>
@@ -675,6 +676,7 @@ export default function StoresPage() {
                         {store.storeType === 'PERMANENT' ? 'Permanent' :
                          store.storeType === 'POP_UP' ? 'Pop-up' :
                          store.storeType === 'SEASONAL' ? 'Seasonal' :
+                         store.storeType === 'EVENT' ? 'Event' :
                          store.storeType || '-'}
                       </span>
                     </td>

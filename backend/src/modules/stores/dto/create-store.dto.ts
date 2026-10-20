@@ -7,6 +7,7 @@ export enum StoreType {
   PERMANENT = 'PERMANENT',
   POP_UP = 'POP_UP',
   SEASONAL = 'SEASONAL',
+  EVENT = 'EVENT',
 }
 
 export enum StoreStatus {
