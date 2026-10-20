@@ -5,6 +5,8 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Logger,
+  OnModuleInit,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../../notifications/notifications.service';
@@ -26,9 +28,12 @@ import {
 import { OutsourceJobStatus, BidStatus, TechnicianType, UserRole, NotificationType, IncidentAction, IncidentStatus } from '@prisma/client';
 import { IncidentHistoryService } from '../../incidents/incident-history.service';
 import { JobNumberService } from '../job-number/job-number.service';
+import { OPEN_OUTSOURCE_JOB_STATUSES } from '../../incidents/incidents.service';
 
 @Injectable()
-export class OutsourceService {
+export class OutsourceService implements OnModuleInit {
+  private readonly logger = new Logger(OutsourceService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
@@ -36,6 +41,26 @@ export class OutsourceService {
     private readonly historyService: IncidentHistoryService,
     private readonly jobNumberService: JobNumberService,
   ) {}
+
+  /**
+   * Older versions left outsource jobs open when their incident was cancelled —
+   * cancel those on startup (idempotent; incidents.cancel now does this itself).
+   */
+  async onModuleInit() {
+    try {
+      const stale = await this.prisma.outsourceJob.updateMany({
+        where: { status: { in: OPEN_OUTSOURCE_JOB_STATUSES }, incident: { status: 'CANCELLED' } },
+        data: {
+          status: 'CANCELLED',
+          cancellationReason: 'Incident ถูกยกเลิก',
+          cancellationConfirmedAt: new Date(),
+        },
+      });
+      if (stale.count > 0) this.logger.log(`Cancelled ${stale.count} outsource job(s) left open under cancelled incidents`);
+    } catch (err) {
+      this.logger.error('Stale outsource job cleanup failed', err as any);
+    }
+  }
 
   /**
    * Create new outsource job (IT_MANAGER, HELP_DESK)

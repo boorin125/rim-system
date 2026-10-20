@@ -9,7 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateIncidentDto } from './dto/create-incident.dto';
 import { UpdateIncidentDto } from './dto/update-incident.dto';
 import { syncOpenPmEquipment } from '../modules/pm/pm-sync.helper';
-import { IncidentStatus, Priority, UserRole, IncidentAction, IncidentType, EquipmentStatus, EquipmentLogAction, EquipmentLogSource, RepairType, AuditModule, AuditAction, NotificationType, SlaDefenseStatus, SlaRegion } from '@prisma/client';
+import { IncidentStatus, Priority, UserRole, IncidentAction, IncidentType, EquipmentStatus, EquipmentLogAction, EquipmentLogSource, RepairType, AuditModule, AuditAction, NotificationType, SlaDefenseStatus, SlaRegion, OutsourceJobStatus } from '@prisma/client';
 import { ResolveIncidentDto, UpdateResolveDto, ConfirmCloseDto, RejectCloseDto, SaveRoundProgressDto } from './dto/resolve-incident.dto';
 import { SubmitResponseDto } from './dto/submit-response.dto';
 import { IncidentHistoryService } from './incident-history.service';
@@ -26,6 +26,11 @@ import { addWatermark } from '../utils/image-watermark';
 import { saveBase64Files } from '../utils/file-storage';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+
+// Outsource jobs not yet delivered by the technician — cancelled together with their incident
+export const OPEN_OUTSOURCE_JOB_STATUSES: OutsourceJobStatus[] = [
+  'DRAFT', 'PENDING_APPROVAL', 'OPEN', 'BIDDING_CLOSED', 'PENDING_CANCEL', 'AWARDED', 'IN_PROGRESS',
+];
 
 @Injectable()
 export class IncidentsService {
@@ -1994,10 +1999,42 @@ export class IncidentsService {
       },
     });
 
+    // Cancel outsource jobs that haven't been delivered yet (completed / paid jobs are left for payment)
+    const openJobs = await this.prisma.outsourceJob.findMany({
+      where: { incidentId: id, status: { in: OPEN_OUTSOURCE_JOB_STATUSES } },
+      select: { id: true, jobCode: true, awardedToId: true },
+    });
+    if (openJobs.length > 0) {
+      const now = new Date();
+      await this.prisma.outsourceJob.updateMany({
+        where: { id: { in: openJobs.map((j) => j.id) } },
+        data: {
+          status: 'CANCELLED',
+          cancellationReason: `Incident ถูกยกเลิก: ${cancellationReason}`,
+          cancellationRequestedById: userId,
+          cancellationRequestedAt: now,
+          cancellationConfirmedById: userId,
+          cancellationConfirmedAt: now,
+        },
+      });
+      for (const job of openJobs.filter((j) => j.awardedToId)) {
+        this.notificationsService
+          .createNotification(
+            job.awardedToId!,
+            NotificationType.INCIDENT_CANCELLED,
+            'งาน Outsource ถูกยกเลิก',
+            `งาน ${job.jobCode} ถูกยกเลิกเพราะ Incident ${incident.ticketNumber} ถูกยกเลิก: ${cancellationReason}`,
+            id,
+          )
+          .catch(() => {});
+      }
+    }
+    const jobsNote = openJobs.length ? ` — ยกเลิกงาน Outsource ${openJobs.map((j) => j.jobCode).join(', ')}` : '';
+
     // Create history entry
-    const historyDetails = wasCheckedIn
+    const historyDetails = (wasCheckedIn
       ? `Incident cancelled after technician check-in. Reason: ${cancellationReason}`
-      : `Incident cancelled. Reason: ${cancellationReason}`;
+      : `Incident cancelled. Reason: ${cancellationReason}`) + jobsNote;
 
     await this.historyService.createHistory(
       id,
@@ -2015,7 +2052,7 @@ export class IncidentsService {
       entityType: 'Incident',
       entityId: id,
       userId,
-      description: `ยกเลิก Incident ${incident.ticketNumber || id} สถานะเดิม: ${incident.status} เหตุผล: ${cancellationReason}${wasCheckedIn ? ' (ยกเลิกหลัง Check-in)' : ''}`,
+      description: `ยกเลิก Incident ${incident.ticketNumber || id} สถานะเดิม: ${incident.status} เหตุผล: ${cancellationReason}${wasCheckedIn ? ' (ยกเลิกหลัง Check-in)' : ''}${jobsNote}`,
     });
 
     // Notify supervisors if cancelled after check-in
