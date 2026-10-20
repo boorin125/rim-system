@@ -549,7 +549,7 @@ export default function TaskDetailPage() {
       {/* Breadcrumb */}
       <div className="flex items-center gap-2">
         {projectId ? (
-          <Link href={`/dashboard/projects/${projectId}`} className="p-2 rounded-lg hover:bg-slate-700/50 transition-colors text-gray-400 hover:text-white">
+          <Link href={`/dashboard/projects/${projectId}${task?.projectStoreId ? `?store=${task.projectStoreId}` : ""}`} className="p-2 rounded-lg hover:bg-slate-700/50 transition-colors text-gray-400 hover:text-white">
             <ArrowLeft className="w-5 h-5" />
           </Link>
         ) : (

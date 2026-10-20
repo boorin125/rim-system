@@ -202,6 +202,16 @@ export default function ProjectDetailPage() {
 
   // Collapse / expand per store
   const [collapsedStores, setCollapsedStores] = useState<Set<number>>(new Set())
+  // The expanded store survives refresh, saving a task and coming back from a task page (?store=<projectStoreId>)
+  const expandedRef = useRef<number | null>(null)
+  const firstLoadRef = useRef(true)
+  const setExpandedInUrl = (psId: number | null) => {
+    expandedRef.current = psId
+    const url = new URL(window.location.href)
+    if (psId) url.searchParams.set('store', String(psId))
+    else url.searchParams.delete('store')
+    window.history.replaceState(window.history.state, '', url.toString())
+  }
 
   // Duplicate Tasks modal
   const [showDuplicateModal, setShowDuplicateModal] = useState(false)
@@ -224,7 +234,18 @@ export default function ProjectDetailPage() {
         headers: { Authorization: `Bearer ${token}` },
       })
       setProject(res.data)
-      setCollapsedStores(new Set((res.data.projectStores || []).map((ps: any) => ps.id)))
+      const ids: number[] = (res.data.projectStores || []).map((ps: any) => ps.id)
+      if (firstLoadRef.current) {
+        firstLoadRef.current = false
+        const fromUrl = Number(new URLSearchParams(window.location.search).get('store'))
+        expandedRef.current = ids.includes(fromUrl) ? fromUrl : null
+        if (expandedRef.current) {
+          const target = expandedRef.current
+          setTimeout(() => document.getElementById(`ps-${target}`)?.scrollIntoView({ block: 'start' }), 150)
+        }
+      }
+      // Keep the store the user is working in open after every reload
+      setCollapsedStores(new Set(ids.filter((psId) => psId !== expandedRef.current)))
     } catch {
       toast.error('โหลดข้อมูล Project ไม่สำเร็จ')
       router.push('/dashboard/projects')
@@ -555,9 +576,11 @@ export default function ProjectDetailPage() {
         (project?.projectStores || []).map((ps: any) => ps.id).filter((id: number) => id !== psId)
       )
       setCollapsedStores(allOtherIds)
+      setExpandedInUrl(psId)
     } else {
       // Collapsing this one
       setCollapsedStores(prev => new Set([...prev, psId]))
+      setExpandedInUrl(null)
     }
   }
 
@@ -628,7 +651,8 @@ export default function ProjectDetailPage() {
     return s.name.toLowerCase().includes(q) || s.storeCode.toLowerCase().includes(q) || (s.province || '').toLowerCase().includes(q)
   })
 
-  if (isLoading) {
+  // Full-page spinner only on first load — refetches keep the list (and scroll position) on screen
+  if (isLoading && !project) {
     return (
       <div className="space-y-4">
         <div className="h-8 bg-slate-700 rounded w-48 animate-pulse" />
@@ -787,7 +811,7 @@ export default function ProjectDetailPage() {
               const isCollapsed = collapsedStores.has(ps.id)
               const altBg = idx % 2 !== 0 ? 'bg-slate-700/20' : ''
               return (
-              <div key={ps.id} className={`glass-card rounded-xl overflow-hidden ${borderClass} ${altBg} ${ps.status === 'PAUSED' ? 'opacity-60' : ''}`}>
+              <div key={ps.id} id={`ps-${ps.id}`} className={`scroll-mt-24 glass-card rounded-xl overflow-hidden ${borderClass} ${altBg} ${ps.status === 'PAUSED' ? 'opacity-60' : ''}`}>
                 {/* Compact single-row header — click to expand/collapse */}
                 <div
                   className="flex items-center gap-2 px-4 py-2.5 cursor-pointer select-none hover:bg-slate-700/20 transition-colors"
