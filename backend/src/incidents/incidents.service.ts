@@ -54,6 +54,69 @@ export class IncidentsService {
   }
 
   /**
+   * Who may do the technician's steps (check-in, before photos, resolve, tech-confirm):
+   * - the assigned technician, or
+   * - a SUPERVISOR, only on work handed to an outsource technician (an awarded OutsourceJob for the
+   *   current round) — for outsource techs who never close jobs in the app.
+   * When acting on behalf, `techId` is the outsource technician so job-owned records (assignee row,
+   * work round) stay theirs; history/audit use the supervisor's own user id.
+   */
+  private async getTechActor(
+    incident: { id: string; assigneeId: number | null; reopenCount: number | null; jobType?: string | null; ticketNumber?: string | null },
+    userId: number,
+    forbiddenMessage: string,
+  ): Promise<{ onBehalf: false; techId: number } | { onBehalf: true; techId: number; supervisorName: string; techName: string; jobCode: string }> {
+    const assigned = (await this.isAssignedToIncident(incident.id, userId)) || incident.assigneeId === userId;
+    if (assigned) return { onBehalf: false, techId: userId };
+
+    const supervisor = await this.prisma.user.findFirst({
+      where: { id: userId, roles: { some: { role: UserRole.SUPERVISOR } } },
+      select: { firstName: true, lastName: true },
+    });
+    if (supervisor && incident.jobType !== 'Preventive Maintenance') {
+      const job = await this.prisma.outsourceJob.findFirst({
+        where: {
+          incidentId: incident.id,
+          roundNumber: (incident.reopenCount ?? 0) + 1,
+          status: { in: ['AWARDED', 'IN_PROGRESS'] },
+          awardedToId: { not: null },
+        },
+        select: { jobCode: true, awardedTo: { select: { id: true, firstName: true, lastName: true } } },
+      });
+      if (job?.awardedTo) {
+        return {
+          onBehalf: true,
+          techId: job.awardedTo.id,
+          supervisorName: `${supervisor.firstName ?? ''} ${supervisor.lastName ?? ''}`.trim(),
+          techName: `${job.awardedTo.firstName ?? ''} ${job.awardedTo.lastName ?? ''}`.trim(),
+          jobCode: job.jobCode,
+        };
+      }
+    }
+    throw new ForbiddenException(forbiddenMessage);
+  }
+
+  /** Audit entry for a step a supervisor did on behalf of the outsource technician */
+  private async auditOnBehalf(
+    incident: { id: string; ticketNumber?: string | null },
+    userId: number,
+    actor: { supervisorName: string; techName: string; jobCode: string },
+    step: string,
+    action: AuditAction,
+  ) {
+    await this.auditTrailService
+      .logDirect({
+        module: AuditModule.INCIDENT,
+        action,
+        entityType: 'Incident',
+        entityId: incident.id,
+        userId,
+        description: `Supervisor ${actor.supervisorName} ${step}แทนช่าง Outsource ${actor.techName} (${actor.jobCode}) — Incident ${incident.ticketNumber || incident.id}`,
+      })
+      .catch((e) => console.error(`on-behalf audit failed for ${incident.id}: ${e}`));
+  }
+
+  /**
    * Helper to check if user has a specific role (supports multi-roles)
    */
   private hasRole(user: any, role: UserRole): boolean {
@@ -2766,10 +2829,8 @@ export class IncidentsService {
     }
 
     // Only assigned technician can check-in
-    const isAssignedForCheckin = await this.isAssignedToIncident(id, userId);
-    if (!isAssignedForCheckin && incident.assigneeId !== userId) {
-      throw new ForbiddenException('เฉพาะช่างเทคนิคที่ได้รับมอบหมายเท่านั้นที่สามารถ Check-in ได้');
-    }
+    const actor = await this.getTechActor(incident, userId, 'เฉพาะช่างเทคนิคที่ได้รับมอบหมายเท่านั้นที่สามารถ Check-in ได้');
+    const techId = actor.techId; // owner of the assignee row / work round (the outsource tech when on behalf)
 
     // Must be ASSIGNED or IN_PROGRESS (allow subsequent check-ins until resolved)
     if (incident.status !== IncidentStatus.ASSIGNED && incident.status !== IncidentStatus.IN_PROGRESS) {
@@ -2851,10 +2912,10 @@ export class IncidentsService {
       // Use upsert because outsource technicians are assigned via incident.assigneeId
       // (in outsource acceptJob) and may not have a row in incidentAssignee yet.
       await tx.incidentAssignee.upsert({
-        where: { incidentId_userId: { incidentId: id, userId } },
+        where: { incidentId_userId: { incidentId: id, userId: techId } },
         create: {
           incidentId: id,
-          userId,
+          userId: techId,
           assignedAt: now,
           checkedInAt: now,
           checkInLatitude: checkInLatitude ?? null,
@@ -2874,7 +2935,7 @@ export class IncidentsService {
         create: {
           incidentId: id,
           roundNumber,
-          technicianId: userId,
+          technicianId: techId,
           checkInAt: now,
           checkInLatitude: checkInLatitude ?? null,
           checkInLongitude: checkInLongitude ?? null,
@@ -2908,11 +2969,14 @@ export class IncidentsService {
         userId,
         prevStatus,
         isFirstCheckIn ? IncidentStatus.IN_PROGRESS : prevStatus,
-        `${techUser?.firstName} ${techUser?.lastName} checked in with ${beforePhotos.length} before photo(s)${gpsInfo}`,
+        actor.onBehalf
+          ? `${actor.supervisorName} (Supervisor) checked in แทนช่าง Outsource ${actor.techName} with ${beforePhotos.length} before photo(s)${gpsInfo}`
+          : `${techUser?.firstName} ${techUser?.lastName} checked in with ${beforePhotos.length} before photo(s)${gpsInfo}`,
       );
     } catch (e) {
       console.error(`checkin history failed for ${id}: ${e}`);
     }
+    if (actor.onBehalf) await this.auditOnBehalf(updated, userId, actor, 'Check-in ', AuditAction.UPDATE);
 
     try {
       await this.notificationsService.notifyAllSupervisors(
@@ -2945,10 +3009,7 @@ export class IncidentsService {
     }
 
     // Only assigned technician can add photos
-    const isAssignedForPhotos = await this.isAssignedToIncident(id, userId);
-    if (!isAssignedForPhotos && incident.assigneeId !== userId) {
-      throw new ForbiddenException('เฉพาะช่างเทคนิคที่ได้รับมอบหมายเท่านั้นที่สามารถเพิ่มรูปได้');
-    }
+    await this.getTechActor(incident, userId, 'เฉพาะช่างเทคนิคที่ได้รับมอบหมายเท่านั้นที่สามารถเพิ่มรูปได้');
 
     // Must be IN_PROGRESS or RESOLVED (can still edit before confirmation)
     const editableStatuses: IncidentStatus[] = [IncidentStatus.IN_PROGRESS, IncidentStatus.RESOLVED];
@@ -3097,11 +3158,8 @@ export class IncidentsService {
       throw new NotFoundException(`ไม่พบ Incident ${id}`);
     }
 
-    // Only assigned technician can resolve
-    const isAssignedForResolve = await this.isAssignedToIncident(id, userId);
-    if (!isAssignedForResolve && incident.assigneeId !== userId) {
-      throw new ForbiddenException('เฉพาะช่างเทคนิคที่ได้รับมอบหมายเท่านั้นที่สามารถปิดงานได้');
-    }
+    // Assigned technician — or a supervisor on outsource work (resolvedById = the supervisor who pressed it)
+    const actor = await this.getTechActor(incident, userId, 'เฉพาะช่างเทคนิคที่ได้รับมอบหมายเท่านั้นที่สามารถปิดงานได้');
 
     // Must be IN_PROGRESS
     if (incident.status !== IncidentStatus.IN_PROGRESS) {
@@ -3309,7 +3367,9 @@ export class IncidentsService {
         userId,
         IncidentStatus.IN_PROGRESS,
         IncidentStatus.RESOLVED,
-        `Incident resolved${sparePartsInfo}`,
+        actor.onBehalf
+          ? `Incident resolved by ${actor.supervisorName} (Supervisor) แทนช่าง Outsource ${actor.techName}${sparePartsInfo}`
+          : `Incident resolved${sparePartsInfo}`,
       );
 
       // Audit trail
@@ -3319,7 +3379,9 @@ export class IncidentsService {
         entityType: 'Incident',
         entityId: id,
         userId,
-        description: `แก้ไข Incident ${incident.ticketNumber || id} สำเร็จ${sparePartsInfo}`,
+        description: actor.onBehalf
+          ? `Supervisor ${actor.supervisorName} ส่งปิดงานแทนช่าง Outsource ${actor.techName} (${actor.jobCode}) — Incident ${incident.ticketNumber || id}${sparePartsInfo}`
+          : `แก้ไข Incident ${incident.ticketNumber || id} สำเร็จ${sparePartsInfo}`,
       });
 
       // Get incident with creator info for notification
@@ -3376,6 +3438,19 @@ export class IncidentsService {
       }
     } catch (e) {
       console.error(`resolveIncident notification failed for ${id}: ${e}`);
+    }
+
+    // Let the outsource technician know their job was closed for them
+    if (actor.onBehalf) {
+      this.notificationsService
+        .createNotification(
+          actor.techId,
+          NotificationType.INCIDENT_RESOLVED,
+          'Supervisor ส่งปิดงานแทนคุณ',
+          `${actor.supervisorName} ส่งปิดงาน ${incident.ticketNumber} แทนคุณแล้ว (${actor.jobCode}) — กรุณาส่งเอกสารใบงานและคืนอะไหล่ตามขั้นตอนปกติ`,
+          id,
+        )
+        .catch((e) => console.error(`on-behalf notification failed for ${id}: ${e}`));
     }
 
     return result;
@@ -3624,12 +3699,7 @@ export class IncidentsService {
       );
     }
 
-    const isAssigned = await this.isAssignedToIncident(id, userId);
-    if (!isAssigned && incident.assigneeId !== userId) {
-      throw new ForbiddenException(
-        'เฉพาะช่างเทคนิคที่ได้รับมอบหมายเท่านั้นที่สามารถยืนยันได้',
-      );
-    }
+    const actor = await this.getTechActor(incident, userId, 'เฉพาะช่างเทคนิคที่ได้รับมอบหมายเท่านั้นที่สามารถยืนยันได้');
 
     if (incident.techConfirmedAt) {
       throw new BadRequestException('ช่างเทคนิคยืนยันการปิดงานแล้ว');
@@ -3678,7 +3748,9 @@ export class IncidentsService {
       IncidentStatus.RESOLVED,
       isPmIncident && incident.status === IncidentStatus.IN_PROGRESS
         ? 'PM Completed — ช่างเทคนิคยืนยันปิดงาน'
-        : 'Technician confirmed resolve',
+        : actor.onBehalf
+          ? `${actor.supervisorName} (Supervisor) ยืนยันการปิดงานแทนช่าง Outsource ${actor.techName}`
+          : 'Technician confirmed resolve',
     );
 
     // Audit
@@ -3688,7 +3760,9 @@ export class IncidentsService {
       entityType: 'Incident',
       entityId: id,
       userId,
-      description: `ช่างเทคนิคยืนยันปิดงาน Incident ${incident.ticketNumber || id}`,
+      description: actor.onBehalf
+        ? `Supervisor ${actor.supervisorName} ยืนยันการปิดงาน (Tech Confirm) แทนช่าง Outsource ${actor.techName} (${actor.jobCode}) — Incident ${incident.ticketNumber || id}`
+        : `ช่างเทคนิคยืนยันปิดงาน Incident ${incident.ticketNumber || id}`,
     });
 
     // Notify all Help Desk users

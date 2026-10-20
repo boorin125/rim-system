@@ -327,7 +327,7 @@ export class IncidentsController {
    * 5. Status changes to IN_PROGRESS
    */
   @Post(':id/checkin')
-  @Roles(UserRole.TECHNICIAN)
+  @Roles(UserRole.TECHNICIAN, UserRole.SUPERVISOR) // SUPERVISOR: outsource work only (service checks)
   checkin(
     @Param('id') id: string,
     @Body('beforePhotos') beforePhotos: string[],
@@ -351,7 +351,7 @@ export class IncidentsController {
    * Max total: 5 photos
    */
   @Post(':id/add-before-photos')
-  @Roles(UserRole.TECHNICIAN)
+  @Roles(UserRole.TECHNICIAN, UserRole.SUPERVISOR) // SUPERVISOR: outsource work only (service checks)
   addBeforePhotos(
     @Param('id') id: string,
     @Body('beforePhotos') beforePhotos: string[],
@@ -391,7 +391,7 @@ export class IncidentsController {
    * 7. Waits for Help Desk confirmation
    */
   @Post(':id/resolve')
-  @Roles(UserRole.TECHNICIAN, UserRole.IT_MANAGER)
+  @Roles(UserRole.TECHNICIAN, UserRole.IT_MANAGER, UserRole.SUPERVISOR) // SUPERVISOR: outsource work only (service checks)
   resolve(
     @Param('id') id: string,
     @Body() resolveDto: ResolveIncidentDto,
@@ -412,7 +412,7 @@ export class IncidentsController {
    * - Correct resolution note
    */
   @Patch(':id/update-resolve')
-  @Roles(UserRole.TECHNICIAN, UserRole.IT_MANAGER)
+  @Roles(UserRole.TECHNICIAN, UserRole.IT_MANAGER, UserRole.SUPERVISOR) // SUPERVISOR: outsource work only (service checks)
   updateResolve(
     @Param('id') id: string,
     @Body() updateDto: UpdateResolveDto,
@@ -427,7 +427,7 @@ export class IncidentsController {
    * Sets techConfirmedAt, sends notification to Help Desk
    */
   @Post(':id/tech-confirm')
-  @Roles(UserRole.TECHNICIAN, UserRole.IT_MANAGER)
+  @Roles(UserRole.TECHNICIAN, UserRole.IT_MANAGER, UserRole.SUPERVISOR) // SUPERVISOR: outsource work only (service checks)
   techConfirmResolve(@Param('id') id: string, @Request() req) {
     return this.incidentsService.techConfirmResolve(id, req.user.id);
   }

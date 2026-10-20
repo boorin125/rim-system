@@ -1139,11 +1139,19 @@ SLA Breach Time: ${slaBreachText}`
   const currentWorkRound = workRounds.find((r: any) => r.roundNumber === currentRoundNumber)
   const hasCheckedIn = !!currentWorkRound?.checkInAt
 
-  // Check In - TECHNICIAN ที่ถูก assign, ASSIGNED หรือ IN_PROGRESS, ยังไม่เคย check in
+  // Supervisor may do the technician's steps on work handed to an outsource technician
+  // (outsource techs who never close jobs in the app) — backend records the supervisor in Timeline/Audit
+  const currentOutsourceJob = incident?.outsourceJobs?.find(
+    (j: any) => j.roundNumber === currentRoundNumber && ['AWARDED', 'IN_PROGRESS'].includes(j.status) && j.awardedTo,
+  )
+  const actsForOutsource =
+    isSupervisor && !isAssignedToMe && incident?.jobType !== 'Preventive Maintenance' && !!currentOutsourceJob
+  const actsAsTech = (hasTechnicianRole && isAssignedToMe) || actsForOutsource
+
+  // Check In - TECHNICIAN ที่ถูก assign (หรือ Supervisor แทนช่าง Outsource), ASSIGNED หรือ IN_PROGRESS, ยังไม่เคย check in
   const canCheckIn =
     (incident?.status === 'ASSIGNED' || incident?.status === 'IN_PROGRESS') &&
-    hasTechnicianRole &&
-    isAssignedToMe &&
+    actsAsTech &&
     !hasCheckedIn
 
   // Resolve - TECHNICIAN ที่ถูก assign (PM ข้ามขั้นตอน Resolve → ใช้ Tech Confirm โดยตรง)
@@ -1153,16 +1161,14 @@ SLA Breach Time: ${slaBreachText}`
   const canResolve =
     !isPmIncident &&   // PM skips this step — tech-confirm handles resolve+confirm in one step
     incident?.status === 'IN_PROGRESS' &&
-    hasTechnicianRole &&
-    isAssignedToMe &&
+    actsAsTech &&
     hasCheckedIn
 
-  // Add Before Photos - TECHNICIAN ที่ถูก assign, สถานะ IN_PROGRESS หรือ RESOLVED, รูปยังไม่ครบ 5
+  // Add Before Photos - TECHNICIAN ที่ถูก assign (หรือ Supervisor แทน Outsource), สถานะ IN_PROGRESS หรือ RESOLVED, รูปยังไม่ครบ 5
   const currentBeforePhotosCount = incident?.beforePhotos?.length || 0
   const canAddBeforePhotos =
     (incident?.status === 'IN_PROGRESS' || incident?.status === 'RESOLVED') &&
-    hasTechnicianRole &&
-    isAssignedToMe &&
+    actsAsTech &&
     currentBeforePhotosCount < 5
 
   // Edit/Delete Before Photos - ก่อน CLOSED/CANCELLED
@@ -1173,8 +1179,8 @@ SLA Breach Time: ${slaBreachText}`
   // Update Resolution - TECHNICIAN ที่ถูก assign (รวม IT_MANAGER+TECH)
   const canUpdate =
     incident?.status === 'RESOLVED' &&
-    hasTechnicianRole &&
-    isAssignedToMe
+    ((hasTechnicianRole && isAssignedToMe) ||
+      (actsForOutsource && Number(incident?.resolvedById ?? incident?.resolvedBy?.id) === currentUserId))
 
   // Direct Close (Phone/Remote Support) - HELP_DESK, OPEN or PENDING, no resolutionType yet
   const canDirectClose =
@@ -1192,8 +1198,7 @@ SLA Breach Time: ${slaBreachText}`
   // PM: รับ IN_PROGRESS (เมื่อ Submit PM + sign ครบ) → backend auto-resolve + confirm ในครั้งเดียว
   // Non-PM: ต้องเป็น RESOLVED ก่อน
   const canTechConfirm =
-    hasTechnicianRole &&
-    isAssignedToMe &&
+    actsAsTech &&
     !incident?.techConfirmedAt &&
     (
       incident?.status === 'RESOLVED' ||  // normal flow
@@ -1434,6 +1439,18 @@ SLA Breach Time: ${slaBreachText}`
           Incident #{incident.ticketNumber || incident.id}
         </h1>
       </div>
+
+      {/* Supervisor acting for the outsource technician */}
+      {actsForOutsource && (canCheckIn || canResolve || canAddBeforePhotos || canTechConfirm || canUpdate) && (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+          คุณดำเนินการแทนช่าง Outsource{' '}
+          <span className="font-semibold text-white">
+            {currentOutsourceJob?.awardedTo?.firstName} {currentOutsourceJob?.awardedTo?.lastName}
+          </span>{' '}
+          ({currentOutsourceJob?.jobCode}) ได้ — Check-in / ส่งปิดงาน / ยืนยันการปิดงาน จะบันทึกชื่อคุณใน Timeline และ Audit Trail
+          ส่วนงาน Outsource ยังเป็นของช่างคนเดิม (เอกสาร / คืนอะไหล่ / จ่ายเงิน ตามขั้นตอนปกติ)
+        </div>
+      )}
 
       {/* Action Buttons — 2 sides */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">

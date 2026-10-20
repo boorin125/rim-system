@@ -1,6 +1,20 @@
 {
   "releases": [
     {
+      "version": "1.1.6",
+      "date": "2026-10-20",
+      "changes": [
+        {
+          "type": "new",
+          "text": "งาน Outsource — Supervisor กด Check-in, ส่งปิดงาน และยืนยันการปิดงาน แทนช่าง Outsource ได้ (กรณีช่างไม่ปิดงานในระบบ) หลังจากนั้น Helpdesk ยืนยันปิดงาน และงาน Outsource เดินต่อตามขั้นตอนเดิม (เอกสาร / คืนอะไหล่ / จ่ายเงิน)"
+        },
+        {
+          "type": "improved",
+          "text": "Incident Timeline แสดงชื่อ Supervisor ที่กดแต่ละขั้นตอนพร้อมระบุว่าทำแทนช่าง Outsource คนใด และ Audit Trail บันทึกทุกครั้ง; ช่าง Outsource ได้รับแจ้งเตือนเมื่อมีการส่งปิดงานแทน"
+        }
+      ]
+    },
+    {
       "version": "1.1.5",
       "date": "2026-10-20",
       "changes": [
