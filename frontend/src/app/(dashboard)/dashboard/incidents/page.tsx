@@ -24,6 +24,7 @@ import * as XLSX from 'xlsx'
 import { isViewOnly, canPerformAction, getUserRoles, isPureTechnician } from '@/config/permissions'
 import { formatDateTime } from '@/utils/dateUtils'
 import MultiSearchSelect from '@/components/MultiSearchSelect'
+import MyProjectTasks from '@/components/MyProjectTasks'
 
 interface SearchableSelectProps {
   value: string
@@ -631,6 +632,9 @@ export default function IncidentsPage() {
           )}
         </div>
       </div>
+
+      {/* Open project tasks assigned to me (hidden when there are none / module off) */}
+      <MyProjectTasks />
 
       {/* Filters */}
       <div className="glass-card p-6 rounded-2xl sticky top-0 z-10">

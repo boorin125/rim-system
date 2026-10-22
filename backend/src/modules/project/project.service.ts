@@ -391,6 +391,41 @@ export class ProjectService implements OnModuleInit {
     return row.taskId;
   }
 
+  /**
+   * Open project tasks assigned to the user (not yet sent for verification), nearest date first,
+   * and whether the user is a Project Manager of an open project (keeps the Projects menu for them).
+   */
+  async getMyWork(userId: number) {
+    const [tasks, managed] = await Promise.all([
+      this.prisma.projectTask.findMany({
+        where: {
+          assignedToId: userId,
+          status: { notIn: ['PENDING_VERIFY', 'COMPLETED', 'ACCEPTED'] },
+          projectStore: { project: { status: { notIn: ['CANCELLED', 'COMPLETED'] } } },
+        },
+        orderBy: [{ scheduledDate: { sort: 'asc', nulls: 'last' } }, { id: 'asc' }],
+        select: {
+          id: true,
+          ticketNo: true,
+          title: true,
+          status: true,
+          taskType: true,
+          scheduledDate: true,
+          projectStore: {
+            select: {
+              store: { select: { storeCode: true, name: true } },
+              project: { select: { id: true, name: true, color: true } },
+            },
+          },
+        },
+      }),
+      this.prisma.projectManager.count({
+        where: { userId, project: { status: { notIn: ['CANCELLED', 'COMPLETED'] } } },
+      }),
+    ]);
+    return { tasks, managesProjects: managed > 0 };
+  }
+
   async updatePhotoComment(photoId: number, comment: string | null) {
     const text = (comment ?? '').trim();
     return this.prisma.projectPhoto.update({
@@ -734,9 +769,12 @@ export class ProjectService implements OnModuleInit {
   }
 
   async duplicateTasks(projectId: number, taskIds: number[], targetStoreIds: number[]) {
+    // Same order as the source store shows them (scheduledDate, no date last, then id) —
+    // copies have no date, so the store lists them in creation order
     const sourceTasks = await this.prisma.projectTask.findMany({
       where: { id: { in: taskIds } },
       select: { id: true, title: true },
+      orderBy: [{ scheduledDate: { sort: 'asc', nulls: 'last' } }, { id: 'asc' }],
     });
 
     let created = 0;

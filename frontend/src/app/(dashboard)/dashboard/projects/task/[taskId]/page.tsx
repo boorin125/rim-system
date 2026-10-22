@@ -27,6 +27,7 @@ import {
   AlertTriangle,
   ScanLine,
   Pencil,
+  Image as ImageIcon,
 } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
@@ -588,9 +589,13 @@ export default function TaskDetailPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-5">
 
-      {/* Breadcrumb */}
+      {/* Breadcrumb — technicians (not a PM) work from the Incidents page, so ← goes back there */}
       <div className="flex items-center gap-2">
-        {projectId ? (
+        {isTech && !canManage && !isProjectManager ? (
+          <Link href="/dashboard/incidents" className="p-2 rounded-lg hover:bg-slate-700/50 transition-colors text-gray-400 hover:text-white">
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
+        ) : projectId ? (
           <Link href={`/dashboard/projects/${projectId}${task?.projectStoreId ? `?store=${task.projectStoreId}` : ""}`} className="p-2 rounded-lg hover:bg-slate-700/50 transition-colors text-gray-400 hover:text-white">
             <ArrowLeft className="w-5 h-5" />
           </Link>
@@ -1014,12 +1019,20 @@ export default function TaskDetailPage() {
                     <Camera className="w-4 h-4" style={{ color: themeHighlight }} />
                     รูปภาพงาน ({workPhotos.length})
                   </h2>
+                  {/* Two explicit sources — some phones open only the gallery (or only the camera) from one picker */}
                   {canMedia && (
-                    <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-sm cursor-pointer hover:opacity-90" style={{ backgroundColor: themeHighlight }}>
-                      <Plus className="w-3.5 h-3.5" />
-                      เพิ่มรูป
-                      <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleFileSelect(e.target.files)} />
-                    </label>
+                    <div className="flex items-center gap-2">
+                      <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-sm cursor-pointer hover:opacity-90" style={{ backgroundColor: themeHighlight }}>
+                        <Camera className="w-3.5 h-3.5" />
+                        ถ่ายรูป
+                        <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { handleFileSelect(e.target.files); e.target.value = '' }} />
+                      </label>
+                      <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm cursor-pointer border border-slate-600 text-gray-200 hover:bg-slate-700/50">
+                        <ImageIcon className="w-3.5 h-3.5" />
+                        คลังภาพ
+                        <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => { handleFileSelect(e.target.files); e.target.value = '' }} />
+                      </label>
+                    </div>
                   )}
                 </div>
                 {workPhotos.length === 0 ? (

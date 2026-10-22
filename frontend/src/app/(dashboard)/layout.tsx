@@ -40,6 +40,7 @@ import { hasMenuAccess, getUserRoles, getHighestRole } from '@/config/permission
 import { LicenseProvider, useLicense } from '@/context/LicenseContext'
 import { usePushNotification } from '@/hooks/usePushNotification'
 import { useModules } from '@/hooks/useModules'
+import { useMyProjectWork } from '@/hooks/useMyProjectWork'
 import ScrollRestorer from '@/components/ScrollRestorer'
 import MobileAppNav, { useIsInstalledApp } from '@/components/MobileAppNav'
 
@@ -171,6 +172,8 @@ export default function DashboardLayout({
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [appVersion, setAppVersion] = useState('1.0.0')
   const { modules } = useModules()
+  // Technicians work their project tasks from the Incidents page — only Project Managers keep the Projects menu
+  const { managesProjects } = useMyProjectWork()
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false) // For top-right menu
   const [user, setUser] = useState<any>(null)
   // Init from cache so logo/name show instantly on refresh (no flash of default)
@@ -653,19 +656,17 @@ export default function DashboardLayout({
     if (!user) return []
     const roles = getUserRoles(user)
     const higherThanTech = ['SUPER_ADMIN', 'IT_MANAGER', 'FINANCE_ADMIN', 'SUPERVISOR', 'HELP_DESK']
-    const isOutsourceTech =
-      roles.includes('TECHNICIAN') &&
-      !roles.some(r => higherThanTech.includes(r)) &&
-      user?.technicianType === 'OUTSOURCE'
+    const isTechOnly = roles.includes('TECHNICIAN') && !roles.some(r => higherThanTech.includes(r))
+    const isOutsourceTech = isTechOnly && user?.technicianType === 'OUTSOURCE'
     return allNavItems
       .filter(item => hasMenuAccess(user, item.href))
-      .filter(item => item.href !== '/dashboard/projects' || modules.project)
+      .filter(item => item.href !== '/dashboard/projects' || (modules.project && (!isTechOnly || managesProjects)))
       .map(item =>
         item.href === '/dashboard/outsource' && isOutsourceTech
           ? { ...item, name: 'Market Place' }
           : item
       )
-  }, [user, modules.project])
+  }, [user, modules.project, managesProjects])
 
   // ✅ FIX: Get current page name based on pathname
   const getCurrentPageName = () => {

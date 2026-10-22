@@ -1002,11 +1002,12 @@ export default function ProjectDetailPage() {
                 {/* Phone: one card per task so the full task name fits */}
                 {!isCollapsed && ps.tasks?.length > 0 && (
                   <div className="sm:hidden divide-y divide-slate-700/30 border-t border-slate-700/40">
-                    {sortTasks(ps.tasks).map((task: any) => {
+                    {sortTasks(ps.tasks).map((task: any, tIdx: number) => {
                       const { label, color } = TASK_STATUS_LABELS[task.status] || { label: task.status, color: 'text-gray-400 bg-gray-800/60' }
                       const overdue = isOverdue(task)
                       return (
-                        <div key={task.id} className="relative">
+                        // Alternate row shade so neighbouring tasks are easy to tell apart
+                        <div key={task.id} className={`relative ${tIdx % 2 === 1 ? 'bg-slate-700/30' : 'bg-slate-900/20'}`}>
                           <Link href={`/dashboard/projects/task/${task.id}`} className="block px-4 py-3 space-y-1.5 active:bg-slate-700/30">
                             <div className="flex items-center gap-2">
                               <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${color}`}>{label}</span>

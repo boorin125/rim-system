@@ -16,6 +16,8 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 type Platform = 'ios' | 'android' | 'inapp' | 'desktop'
+// iPhone browsers put "Add to Home Screen" in different places
+type IosBrowser = 'safari' | 'chrome' | 'other'
 
 const POPUP_SEEN_KEY = 'pwaPromptDismissed'
 const HIDDEN_KEY = 'pwaInstallHidden'
@@ -44,9 +46,23 @@ function detectPlatform(): Platform {
   return 'desktop'
 }
 
+function detectIosBrowser(): IosBrowser {
+  const ua = navigator.userAgent
+  if (/CriOS/i.test(ua)) return 'chrome'
+  if (/FxiOS|EdgiOS|OPiOS/i.test(ua)) return 'other'
+  return 'safari'
+}
+
+// Phone / tablet: a touch screen, or any iOS / Android device (an iPad in landscape is wider than 1024px)
+function isTouchDevice(platform: Platform) {
+  return platform === 'ios' || platform === 'android' || platform === 'inapp' ||
+    (window.matchMedia('(pointer: coarse)').matches && window.innerWidth < 1024)
+}
+
 export function PwaInstallProvider({ children }: { children: React.ReactNode }) {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [platform, setPlatform] = useState<Platform>('desktop')
+  const [iosBrowser, setIosBrowser] = useState<IosBrowser>('safari')
   const [isInstalled, setIsInstalled] = useState(true) // until checked on the client
   const [isHidden, setIsHidden] = useState(false)
   const [isTouch, setIsTouch] = useState(false)
@@ -59,8 +75,10 @@ export function PwaInstallProvider({ children }: { children: React.ReactNode }) 
     setIsInstalled(standalone)
     if (standalone) return
 
-    setPlatform(detectPlatform())
-    setIsTouch(window.matchMedia('(pointer: coarse)').matches && window.innerWidth < 1024)
+    const p = detectPlatform()
+    setPlatform(p)
+    setIosBrowser(detectIosBrowser())
+    setIsTouch(isTouchDevice(p))
     setIsHidden(store.get(HIDDEN_KEY) === '1')
 
     fetch(`${process.env.NEXT_PUBLIC_API_URL}/settings/public/branding`)
@@ -85,8 +103,7 @@ export function PwaInstallProvider({ children }: { children: React.ReactNode }) 
 
     // One-time popup on a phone/tablet browser
     const t = setTimeout(() => {
-      const touch = window.matchMedia('(pointer: coarse)').matches && window.innerWidth < 1024
-      if (touch && !store.get(POPUP_SEEN_KEY) && store.get(HIDDEN_KEY) !== '1') setPopup(true)
+      if (isTouchDevice(p) &&!store.get(POPUP_SEEN_KEY) && store.get(HIDDEN_KEY) !== '1') setPopup(true)
     }, 2500)
 
     return () => {
@@ -210,11 +227,30 @@ export function PwaInstallProvider({ children }: { children: React.ReactNode }) 
                 </button>
               </div>
             ) : platform === 'ios' ? (
-              <ol className="space-y-2 text-sm text-gray-300">
-                <Step n={1}>แตะปุ่ม <Share className="inline w-4 h-4 text-blue-400 -mt-0.5" /> <b className="text-white">Share</b> ที่แถบล่างของ Safari</Step>
-                <Step n={2}>เลื่อนลงแล้วเลือก <PlusSquare className="inline w-4 h-4 text-blue-400 -mt-0.5" /> <b className="text-white">เพิ่มไปยังหน้าจอโฮม</b> (Add to Home Screen)</Step>
-                <Step n={3}>ตั้งชื่อเป็น <b className="text-white">{branding.name}</b> แล้วกด <b className="text-white">เพิ่ม</b></Step>
-              </ol>
+              <div className="space-y-3">
+                <p className="text-xs text-gray-400">
+                  iPhone / iPad ไม่มีปุ่มติดตั้งอัตโนมัติ (ข้อจำกัดของ Apple) — ติดตั้งผ่านเมนู Share ตามขั้นตอนนี้:
+                </p>
+                {iosBrowser === 'other' ? (
+                  <p className="text-sm text-amber-300">กรุณาเปิดลิงก์นี้ใน <b>Safari</b> แล้วกดปุ่ม 📲 อีกครั้ง</p>
+                ) : (
+                  <ol className="space-y-2 text-sm text-gray-300">
+                    {iosBrowser === 'chrome' ? (
+                      <Step n={1}>แตะปุ่ม <Share className="inline w-4 h-4 text-blue-400 -mt-0.5" /> <b className="text-white">แชร์</b> ที่ช่องที่อยู่เว็บด้านบน (มุมขวา)</Step>
+                    ) : (
+                      <Step n={1}>
+                        แตะปุ่ม <Share className="inline w-4 h-4 text-blue-400 -mt-0.5" /> <b className="text-white">แชร์</b> ที่แถบล่างของ Safari
+                        <span className="block text-xs text-gray-500 mt-0.5">ไม่เห็นปุ่มแชร์? แตะ <b className="text-gray-300">⋯</b> มุมขวาล่างก่อน แล้วเลือก แชร์</span>
+                      </Step>
+                    )}
+                    <Step n={2}>
+                      เลื่อนลงแล้วเลือก <PlusSquare className="inline w-4 h-4 text-blue-400 -mt-0.5" /> <b className="text-white">เพิ่มไปยังหน้าจอโฮม</b> (Add to Home Screen)
+                      <span className="block text-xs text-gray-500 mt-0.5">ไม่เห็น? เลื่อนรายการลงสุดแล้วแตะ <b className="text-gray-300">ดูเพิ่มเติม</b></span>
+                    </Step>
+                    <Step n={3}>ตั้งชื่อเป็น <b className="text-white">{branding.name}</b> เปิด <b className="text-white">เปิดเป็นเว็บแอป</b> (ถ้ามี) แล้วกด <b className="text-white">เพิ่ม</b></Step>
+                  </ol>
+                )}
+              </div>
             ) : deferredPrompt ? (
               <button onClick={handleInstall} className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors">
                 <Download className="w-4 h-4" /> ติดตั้ง App

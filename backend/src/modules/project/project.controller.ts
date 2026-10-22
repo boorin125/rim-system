@@ -198,6 +198,12 @@ export class ProjectController {
     return this.projectService.getPendingVerifyTasks();
   }
 
+  // Technician's open project tasks (shown on the Incidents page) + whether they manage any project
+  @Get('my-work')
+  getMyWork(@Request() req: any) {
+    return this.projectService.getMyWork(req.user.id);
+  }
+
   @Get('tasks/:taskId')
   findTask(@Param('taskId', ParseIntPipe) taskId: number) {
     return this.projectService.findTask(taskId);
