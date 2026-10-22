@@ -28,6 +28,7 @@ import { CheckInDto } from './dto/check-in.dto';
 import { AddPhotoDto } from './dto/add-photo.dto';
 import { AddEquipmentDto } from './dto/add-equipment.dto';
 import { CreateProjectStoreDto } from './dto/create-project-store.dto';
+import { WORK_TYPES, workTypeDef, evaluateEvidence } from './work-types';
 
 // Incidents linked to a project store via Incident.forProjectStoreId
 const SUPPORT_INCIDENT_SELECT = {
@@ -74,6 +75,10 @@ export class ProjectService implements OnModuleInit {
 
   async onModuleInit() {
     await this.backfillProjectManagers();
+    // Closed Store tasks made before work types existed (task type CLOSING) → work type CLOSED_STORE
+    await this.prisma.projectTask
+      .updateMany({ where: { taskType: 'CLOSING', workType: 'GENERAL' }, data: { workType: 'CLOSED_STORE' } })
+      .catch((err) => this.logger.error('Closed Store work type backfill failed', err));
     await this.autoUpdateProjectStatuses();
   }
 
@@ -411,6 +416,7 @@ export class ProjectService implements OnModuleInit {
           title: true,
           status: true,
           taskType: true,
+          workType: true,
           scheduledDate: true,
           projectStore: {
             select: {
@@ -427,12 +433,25 @@ export class ProjectService implements OnModuleInit {
     return { tasks, managesProjects: managed > 0 };
   }
 
-  async updatePhotoComment(photoId: number, comment: string | null) {
-    const text = (comment ?? '').trim();
+  /** Edit a photo's caption and/or point name (fields left undefined are kept) */
+  async updatePhoto(photoId: number, data: { comment?: string | null; pointName?: string | null }) {
+    const clean = (v: string | null | undefined, max: number) => {
+      const t = (v ?? '').trim();
+      return t ? t.slice(0, max) : null;
+    };
     return this.prisma.projectPhoto.update({
       where: { id: photoId },
-      data: { comment: text ? text.slice(0, 500) : null },
+      data: {
+        ...(data.comment !== undefined && { comment: clean(data.comment, 500) }),
+        ...(data.pointName !== undefined && { pointName: clean(data.pointName, 100) }),
+      },
     });
+  }
+
+  async taskIdOfTestResult(id: number) {
+    const row = await this.prisma.projectTestResult.findUnique({ where: { id }, select: { taskId: true } });
+    if (!row) throw new NotFoundException(`Test result #${id} not found`);
+    return row.taskId;
   }
 
   async remove(id: number) {
@@ -611,7 +630,8 @@ export class ProjectService implements OnModuleInit {
         },
         assignedTo: { select: { id: true, firstName: true, lastName: true, avatarPath: true, phone: true } },
         verifiedBy: { select: { id: true, firstName: true, lastName: true } },
-        photos: { orderBy: { sortOrder: 'asc' } },
+        photos: { orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] },
+        testResults: { orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] },
         equipment: { orderBy: { createdAt: 'asc' } },
         checklists: { orderBy: { uploadedAt: 'asc' } },
         logs: {
@@ -622,7 +642,13 @@ export class ProjectService implements OnModuleInit {
     });
 
     if (!task) throw new NotFoundException(`Task #${taskId} not found`);
-    return task;
+    // Evidence progress for the task's work type (the UI shows it; completeTask enforces it)
+    return { ...task, evidence: evaluateEvidence(task.workType, task) };
+  }
+
+  /** Work types and the evidence each needs (UI: task forms + evidence sections) */
+  getWorkTypes() {
+    return WORK_TYPES;
   }
 
   async createTask(projectId: number, storeId: number, dto: CreateTaskDto) {
@@ -631,7 +657,7 @@ export class ProjectService implements OnModuleInit {
     });
     if (!ps) throw new NotFoundException('Store not found in this project');
 
-    const taskType = dto.taskType ?? 'GENERAL';
+    const { taskType, workType } = this.resolveTaskTypes(dto.taskType, dto.workType);
     await this.assertOpeningTaskRules(ps.id, taskType, dto.scheduledDate);
 
     // Same ticket series as Incidents (organization prefix + YYMM + running)
@@ -642,6 +668,7 @@ export class ProjectService implements OnModuleInit {
         projectStoreId: ps.id,
         ticketNo,
         taskType,
+        workType,
         title: dto.title ?? null,
         assignedToId: dto.assignedToId ?? null,
         scheduledDate: dto.scheduledDate ? new Date(dto.scheduledDate) : null,
@@ -658,6 +685,26 @@ export class ProjectService implements OnModuleInit {
     }
 
     return updated;
+  }
+
+  /**
+   * Work type and task type go together for Closed Store: work type CLOSED_STORE ⇔ task type CLOSING
+   * (closes the store on completion). OPENING (store opening day) is a flag on any work type.
+   */
+  private resolveTaskTypes(
+    taskType: 'GENERAL' | 'OPENING' | 'CLOSING' | undefined,
+    workType: string | undefined,
+    old?: { taskType: 'GENERAL' | 'OPENING' | 'CLOSING'; workType: string },
+  ) {
+    let t = taskType ?? old?.taskType ?? 'GENERAL';
+    let w = workType ?? old?.workType ?? 'GENERAL';
+    if (workType === 'CLOSED_STORE' || (workType === undefined && taskType === 'CLOSING')) {
+      t = 'CLOSING';
+      w = 'CLOSED_STORE';
+    } else if (workType !== undefined && t === 'CLOSING') {
+      t = 'GENERAL'; // moved away from Closed Store
+    }
+    return { taskType: t, workType: w as any };
   }
 
   /**
@@ -686,11 +733,13 @@ export class ProjectService implements OnModuleInit {
 
   async updateTask(taskId: number, dto: UpdateTaskDto, userId?: number) {
     const old = await this.findTask(taskId);
+    const typesChanged = dto.taskType !== undefined || dto.workType !== undefined;
+    const types = this.resolveTaskTypes(dto.taskType, dto.workType, old);
 
-    if (dto.taskType !== undefined || dto.scheduledDate) {
+    if (typesChanged || dto.scheduledDate) {
       await this.assertOpeningTaskRules(
         old.projectStoreId,
-        dto.taskType ?? old.taskType,
+        types.taskType,
         dto.scheduledDate ?? old.scheduledDate,
         taskId,
       );
@@ -709,7 +758,7 @@ export class ProjectService implements OnModuleInit {
       where: { id: taskId },
       data: {
         ...(dto.title !== undefined && { title: dto.title || null }),
-        ...(dto.taskType !== undefined && { taskType: dto.taskType }),
+        ...(typesChanged && { taskType: types.taskType, workType: types.workType }),
         ...(dto.assignedToId !== undefined && { assignedToId: dto.assignedToId }),
         ...(dto.scheduledDate && { scheduledDate: new Date(dto.scheduledDate) }),
         ...(dto.status && { status: dto.status }),
@@ -765,6 +814,7 @@ export class ProjectService implements OnModuleInit {
     await Promise.all([
       this.removeUpload(task.checkInPhotoPath),
       ...task.photos.map((p) => this.removeUpload(p.photoPath)),
+      ...task.testResults.map((t) => this.removeUpload(t.photoPath)),
       ...task.checklists.map((c) => this.removeUpload(c.filePath)),
     ]);
   }
@@ -774,7 +824,7 @@ export class ProjectService implements OnModuleInit {
     // copies have no date, so the store lists them in creation order
     const sourceTasks = await this.prisma.projectTask.findMany({
       where: { id: { in: taskIds } },
-      select: { id: true, title: true },
+      select: { id: true, title: true, workType: true },
       orderBy: [{ scheduledDate: { sort: 'asc', nulls: 'last' } }, { id: 'asc' }],
     });
 
@@ -802,9 +852,19 @@ export class ProjectService implements OnModuleInit {
           continue;
         }
 
+        // Same work type; Closed Store keeps its one-per-store rule
+        const { taskType, workType } = this.resolveTaskTypes(undefined, src.workType);
+        if (taskType === 'CLOSING') {
+          try {
+            await this.assertOpeningTaskRules(ps.id, 'CLOSING');
+          } catch {
+            skipped.push({ title: src.title || '', storeName, reason: 'สาขาปลายทางมีงาน Closed Store อยู่แล้ว' });
+            continue;
+          }
+        }
         const ticketNo = await this.jobNumberService.nextTicketNumber();
         await this.prisma.projectTask.create({
-          data: { projectStoreId: ps.id, ticketNo, title: src.title, status: 'PENDING' },
+          data: { projectStoreId: ps.id, ticketNo, title: src.title, status: 'PENDING', taskType, workType },
         });
         existingTitles.add(key);
         created++;
@@ -875,9 +935,14 @@ export class ProjectService implements OnModuleInit {
     if (!task.checkInAt) throw new BadRequestException('ต้อง Check-in ก่อนจึงจะเพิ่มรูปงาน อุปกรณ์ หรือ Checklist ได้');
   }
 
-  async addPhoto(taskId: number, dto: AddPhotoDto & { category?: string }) {
+  async addPhoto(
+    taskId: number,
+    dto: AddPhotoDto & { category?: string; section?: string; phase?: string; pointName?: string },
+  ) {
     const task = await this.findTask(taskId);
     this.assertCheckedIn(task);
+    if (dto.section) this.assertSection(task.workType, dto.section, ['photos', 'beforeAfter']);
+    if (dto.phase && !['BEFORE', 'AFTER'].includes(dto.phase)) throw new BadRequestException('phase ต้องเป็น BEFORE หรือ AFTER');
     return this.prisma.projectPhoto.create({
       data: {
         taskId,
@@ -885,8 +950,62 @@ export class ProjectService implements OnModuleInit {
         comment: dto.comment,
         sortOrder: dto.sortOrder ?? 0,
         category: dto.category ?? 'WORK',
+        section: dto.section || null,
+        phase: dto.phase || null,
+        pointName: dto.pointName?.trim().slice(0, 100) || null,
       },
     });
+  }
+
+  /** The section must exist in the task's work type and be of an allowed kind */
+  private assertSection(workType: string, section: string, kinds: string[]) {
+    const s = workTypeDef(workType).sections.find((x) => x.key === section);
+    if (!s || !kinds.includes(s.kind)) throw new BadRequestException(`หัวข้อหลักฐาน "${section}" ไม่ตรงกับประเภทงานนี้`);
+    return s;
+  }
+
+  /** Save one test item (create or update by section + item name); a new photo replaces the old one */
+  async saveTestResult(
+    taskId: number,
+    data: { section: string; itemName: string; result: string; note?: string; photoPath?: string },
+  ) {
+    const task = await this.findTask(taskId);
+    this.assertCheckedIn(task);
+    this.assertSection(task.workType, data.section, ['tests']);
+    const itemName = (data.itemName || '').trim().slice(0, 150);
+    if (!itemName) throw new BadRequestException('ต้องระบุชื่อหัวข้อทดสอบ');
+    if (!['PASS', 'FAIL', 'NA'].includes(data.result)) throw new BadRequestException('ผลทดสอบต้องเป็น PASS / FAIL / NA');
+
+    const existing = await this.prisma.projectTestResult.findUnique({
+      where: { taskId_section_itemName: { taskId, section: data.section, itemName } },
+    });
+    const row = await this.prisma.projectTestResult.upsert({
+      where: { taskId_section_itemName: { taskId, section: data.section, itemName } },
+      create: {
+        taskId,
+        section: data.section,
+        itemName,
+        result: data.result,
+        note: data.note?.trim() || null,
+        photoPath: data.photoPath ?? null,
+      },
+      update: {
+        result: data.result,
+        note: data.note !== undefined ? data.note.trim() || null : undefined,
+        ...(data.photoPath && { photoPath: data.photoPath }),
+      },
+    });
+    if (data.photoPath && existing?.photoPath && existing.photoPath !== data.photoPath) {
+      await this.removeUpload(existing.photoPath);
+    }
+    return row;
+  }
+
+  async deleteTestResult(id: number) {
+    const row = await this.prisma.projectTestResult.findUnique({ where: { id } });
+    if (!row) throw new NotFoundException(`Test result #${id} not found`);
+    await this.prisma.projectTestResult.delete({ where: { id } });
+    await this.removeUpload(row.photoPath);
   }
 
   async deletePhoto(photoId: number) {
@@ -950,11 +1069,11 @@ export class ProjectService implements OnModuleInit {
     if (task.status !== 'IN_PROGRESS') {
       throw new BadRequestException('Task must be IN_PROGRESS to complete');
     }
+    // Evidence required by the work type (GENERAL: work photo + checklist file)
     const missing: string[] = [];
     if (!task.checkInPhotoPath) missing.push('รูป Check-in');
-    if (!task.photos.some((p) => p.category !== 'CHECK_IN')) missing.push('รูปภาพงาน');
-    if (task.checklists.length === 0) missing.push('Checklist');
-    if (missing.length) throw new BadRequestException(`ต้องเพิ่ม ${missing.join(' และ ')} ก่อนปิดงาน`);
+    for (const s of task.evidence) missing.push(...s.missing);
+    if (missing.length) throw new BadRequestException(`ยังขาด: ${missing.join(' · ')}`);
 
     const completedAt = new Date();
     const updated = await this.prisma.projectTask.update({

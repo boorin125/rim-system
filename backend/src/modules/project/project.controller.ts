@@ -95,6 +95,12 @@ export class ProjectController {
     return this.projectService.getWeeklyStores(projectId ? parseInt(projectId) : undefined);
   }
 
+  // Work types and their required evidence (two segments — a single one would hit @Get(':id'))
+  @Get('meta/work-types')
+  getWorkTypes() {
+    return this.projectService.getWorkTypes();
+  }
+
   // ── Projects ────────────────────────────────────────────────────────────
 
   @Get()
@@ -353,6 +359,9 @@ export class ProjectController {
     @Body('comment') comment?: string,
     @Body('sortOrder') sortOrder?: string,
     @Body('category') category?: string,
+    @Body('section') section?: string,
+    @Body('phase') phase?: string,
+    @Body('pointName') pointName?: string,
   ) {
     if (!file) throw new BadRequestException('Photo file is required');
     await this.assertMediaUpload(taskId, req.user, file);
@@ -361,7 +370,55 @@ export class ProjectController {
       comment,
       sortOrder: sortOrder ? parseInt(sortOrder) : 0,
       category: category ?? 'WORK',
+      section,
+      phase,
+      pointName,
     }));
+  }
+
+  // Test item of the task's work type (PASS / FAIL / NA, note, optional photo) — create or update
+  @Post('tasks/:taskId/tests')
+  @UseInterceptors(
+    FileInterceptor('photo', {
+      storage: diskStorage({
+        destination: (_req, _file, cb) => {
+          const dir = 'uploads/project-photos';
+          if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+          cb(null, dir);
+        },
+        filename: (_req, file, cb) => {
+          const ext = path.extname(file.originalname);
+          cb(null, `test-${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
+        },
+      }),
+      limits: { fileSize: 10 * 1024 * 1024 },
+    }),
+  )
+  async saveTestResult(
+    @Param('taskId', ParseIntPipe) taskId: number,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Request() req: any,
+    @Body('section') section: string,
+    @Body('itemName') itemName: string,
+    @Body('result') result: string,
+    @Body('note') note?: string,
+  ) {
+    await this.assertMediaUpload(taskId, req.user, file);
+    const work = this.projectService.saveTestResult(taskId, {
+      section,
+      itemName,
+      result,
+      note,
+      photoPath: file ? file.path.replace(/\\/g, '/') : undefined,
+    });
+    return file ? this.dropFileOnError(file, work) : work;
+  }
+
+  @Delete('tests/:testId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteTestResult(@Param('testId', ParseIntPipe) testId: number, @Request() req: any) {
+    await this.projectService.assertCanEditTaskMedia(await this.projectService.taskIdOfTestResult(testId), req.user);
+    return this.projectService.deleteTestResult(testId);
   }
 
   /** The upload is already on disk — remove it when saving fails (e.g. not checked in yet) */
@@ -381,15 +438,16 @@ export class ProjectController {
     return this.projectService.deletePhoto(photoId);
   }
 
-  // Edit a photo's caption
+  // Edit a photo's caption / point name
   @Patch('photos/:photoId')
   async updatePhoto(
     @Param('photoId', ParseIntPipe) photoId: number,
-    @Body('comment') comment: string,
+    @Body('comment') comment: string | undefined,
+    @Body('pointName') pointName: string | undefined,
     @Request() req: any,
   ) {
     await this.projectService.assertCanEditTaskMedia(await this.projectService.taskIdOf('photo', photoId), req.user);
-    return this.projectService.updatePhotoComment(photoId, comment);
+    return this.projectService.updatePhoto(photoId, { comment, pointName });
   }
 
   @Post('tasks/:taskId/equipment')

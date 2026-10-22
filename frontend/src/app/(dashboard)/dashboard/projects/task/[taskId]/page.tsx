@@ -38,6 +38,9 @@ import { useConfirm } from '@/components/ConfirmDialog'
 import { getUserRoles } from '@/config/permissions'
 import { getPhotoUrl } from '@/utils/photoUtils'
 import { formatStore } from '@/utils/formatStore'
+import { resizeImage } from '@/utils/resizeImage'
+import TaskEvidence from '@/components/project/TaskEvidence'
+import { useWorkTypes } from '@/hooks/useWorkTypes'
 
 const BarcodeScanner = dynamic(() => import('@/components/BarcodeScanner'), { ssr: false })
 
@@ -66,30 +69,6 @@ function toLocalDateTimeInput(iso: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-async function resizeImage(file: File, maxDimension = 1920, quality = 0.85): Promise<File> {
-  return new Promise((resolve) => {
-    const img = new Image()
-    const objectUrl = URL.createObjectURL(file)
-    img.onload = () => {
-      URL.revokeObjectURL(objectUrl)
-      const { naturalWidth: w, naturalHeight: h } = img
-      if (w <= maxDimension && h <= maxDimension) { resolve(file); return }
-      const ratio = Math.min(maxDimension / w, maxDimension / h)
-      const canvas = document.createElement('canvas')
-      canvas.width = Math.round(w * ratio)
-      canvas.height = Math.round(h * ratio)
-      const ctx = canvas.getContext('2d')!
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-      canvas.toBlob(
-        (blob) => resolve(blob ? new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }) : file),
-        'image/jpeg',
-        quality,
-      )
-    }
-    img.onerror = () => resolve(file)
-    img.src = objectUrl
-  })
-}
 
 function LockedSection({ children }: { children: React.ReactNode }) {
   return (
@@ -197,6 +176,8 @@ export default function TaskDetailPage() {
   const checkedIn = !!task?.checkInAt
   const addLockedCls = checkedIn ? 'cursor-pointer hover:opacity-90' : 'opacity-40 cursor-not-allowed pointer-events-none'
   const addLockedTitle = checkedIn ? undefined : 'ต้อง Check-in ก่อน'
+
+  const { byKey: workTypeOf } = useWorkTypes()
 
   // Edit a photo caption (canMedia)
   const [captionEdit, setCaptionEdit] = useState<{ id: number; text: string } | null>(null)
@@ -589,6 +570,11 @@ export default function TaskDetailPage() {
   const projectColor = task.projectStore?.project?.color ?? themeHighlight
   const store = task.projectStore?.store
   const project = task.projectStore?.project
+  // Work type → evidence sections (General keeps the plain "รูปภาพงาน" + Checklist)
+  const workDef = workTypeOf(task.workType)
+  const isTyped = !!workDef && !workDef.legacy
+  const plainPhotos = (task.photos || []).filter((p: any) => p.category !== 'CHECK_IN' && !p.section)
+  const showPlainPhotos = !isTyped || plainPhotos.length > 0
 
   return (
     <div className="max-w-3xl mx-auto space-y-5">
@@ -648,6 +634,11 @@ export default function TaskDetailPage() {
                 <Building2 className="w-3 h-3" />
                 <span>{formatStore(store)}</span>
                 {store.province && <span className="text-gray-500">· {store.province}</span>}
+              </span>
+            )}
+            {isTyped && workDef && (
+              <span className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg bg-indigo-900/30 text-indigo-300 border border-indigo-500/30">
+                {workDef.label}
               </span>
             )}
             {task.taskType === 'OPENING' && (
@@ -1001,8 +992,29 @@ export default function TaskDetailPage() {
         )
       })()}
 
-      {/* ── Work Photos ── */}
-      {isBlocked ? (
+      {/* ── Evidence by work type (Wiring, Clear Data, Renovate, ...) ── */}
+      {isTyped && workDef && (isBlocked ? (
+        <LockedSection>
+          <div className="p-5 opacity-30 pointer-events-none">
+            <h2 className="text-white font-semibold">หลักฐานงาน — {workDef.label}</h2>
+            <p className="text-gray-500 text-sm py-4">{workDef.description}</p>
+          </div>
+        </LockedSection>
+      ) : (
+        <TaskEvidence
+          task={task}
+          def={workDef}
+          canEdit={canMedia && checkedIn}
+          canDelete={canEditMedia}
+          onChanged={fetchTask}
+          onView={setLightboxUrl}
+          confirmDelete={(title) => confirmDialog({ title, variant: 'danger', confirmLabel: 'ลบ' })}
+          highlight={themeHighlight}
+        />
+      ))}
+
+      {/* ── Work Photos (General tasks; typed tasks only show photos added before the type was set) ── */}
+      {showPlainPhotos && (isBlocked ? (
         <LockedSection>
           <div className="p-5 opacity-30 pointer-events-none">
             <h2 className="text-white font-semibold flex items-center gap-2 mb-4">
@@ -1015,7 +1027,7 @@ export default function TaskDetailPage() {
       ) : (
         <div className="glass-card rounded-xl p-5 space-y-4">
           {(() => {
-            const workPhotos = (task.photos || []).filter((p: any) => p.category !== 'CHECK_IN')
+            const workPhotos = plainPhotos
             return (
               <>
                 <div className="flex items-center justify-between">
@@ -1085,7 +1097,7 @@ export default function TaskDetailPage() {
             )
           })()}
         </div>
-      )}
+      ))}
 
       {/* ── Equipment ── */}
       {isBlocked ? (
@@ -1177,6 +1189,7 @@ export default function TaskDetailPage() {
             <h2 className="text-white font-semibold flex items-center gap-2">
               <ClipboardList className="w-4 h-4" style={{ color: themeHighlight }} />
               Checklist ({task.checklists?.length || 0})
+              {isTyped && <span className="text-xs font-normal text-gray-500">(ไม่บังคับ)</span>}
             </h2>
             {(canMedia) && (
               <label className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-sm ${addLockedCls}`}
@@ -1239,18 +1252,13 @@ export default function TaskDetailPage() {
       {(isAssignedTech || isProjectManager) && task.status === 'IN_PROGRESS' && (() => {
         const onBehalf = !isAssignedTech
         const techName = task.assignedTo ? `${task.assignedTo.firstName} ${task.assignedTo.lastName}` : 'ช่าง'
-        const workPhotos = (task.photos || []).filter((p: any) => p.category !== 'CHECK_IN')
-        const hasCheckIn = !!task.checkInPhotoPath
-        const hasWorkPhotos = workPhotos.length > 0
-        const hasChecklist = (task.checklists?.length || 0) > 0
-        const canComplete = hasCheckIn && hasWorkPhotos && hasChecklist
+        // Evidence the work type needs — computed by the backend (same check as on send)
+        const missing: string[] = []
+        if (!task.checkInPhotoPath) missing.push('รูป Check-in')
+        for (const s of task.evidence || []) missing.push(...s.missing)
+        const canComplete = missing.length === 0
 
         const wasRejected = (task.logs || []).some((l: any) => l.action === 'REJECT')
-
-        const missing: string[] = []
-        if (!hasCheckIn) missing.push('รูป Check-in')
-        if (!hasWorkPhotos) missing.push('รูปภาพงาน')
-        if (!hasChecklist) missing.push('Checklist')
 
         return (
           <div className="glass-card rounded-xl p-4 space-y-3">
@@ -1263,7 +1271,10 @@ export default function TaskDetailPage() {
             {!canComplete ? (
               <div className="flex items-start gap-2 text-sm text-yellow-400 bg-yellow-900/20 border border-yellow-500/30 rounded-lg px-3 py-2.5">
                 <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                <span>ต้องเพิ่ม <strong>{missing.join(' และ ')}</strong> ก่อนจึงจะปิดงานได้</span>
+                <span>
+                  ยังปิดงานไม่ได้ — ขาด:
+                  <ul className="mt-1 space-y-0.5">{missing.map((m) => <li key={m}>• {m}</li>)}</ul>
+                </span>
               </div>
             ) : wasRejected ? (
               <div className="flex items-center gap-2 text-sm text-blue-400 bg-blue-900/20 border border-blue-500/30 rounded-lg px-3 py-2.5">

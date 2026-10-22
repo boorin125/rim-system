@@ -57,7 +57,7 @@ const SCOPE_TABLES = {
     'store_delete_requests', 'equipment_retirement_requests',
     // Project module (before incidents: incidents.for_project_store_id → project_stores)
     'projects', 'project_managers', 'project_stores', 'project_tasks', 'project_task_logs',
-    'project_photos', 'project_equipment', 'project_checklists',
+    'project_photos', 'project_test_results', 'project_equipment', 'project_checklists',
     // Knowledge base (categories before articles; self-ref handled specially)
     'knowledge_categories', 'knowledge_articles',
     'knowledge_article_feedbacks', 'knowledge_article_usages',
@@ -83,7 +83,7 @@ const SCOPE_TABLES = {
     'store_delete_requests', 'equipment_retirement_requests',
     // Project module (before incidents: incidents.for_project_store_id → project_stores)
     'projects', 'project_managers', 'project_stores', 'project_tasks', 'project_task_logs',
-    'project_photos', 'project_equipment', 'project_checklists',
+    'project_photos', 'project_test_results', 'project_equipment', 'project_checklists',
     'knowledge_categories', 'knowledge_articles',
     'knowledge_article_feedbacks', 'knowledge_article_usages',
     'incidents', 'incident_assignees', 'incident_reassignments', 'incident_ratings', 'incident_work_rounds',
@@ -611,6 +611,7 @@ export class BackupService {
       project_tasks: () => this.prisma.projectTask.findMany(w()),
       project_task_logs: () => this.prisma.projectTaskLog.findMany(wc()),
       project_photos: () => this.prisma.projectPhoto.findMany(wc()),
+      project_test_results: () => this.prisma.projectTestResult.findMany(w()),
       project_equipment: () => this.prisma.projectEquipment.findMany(wc()),
       project_checklists: () => this.prisma.projectChecklist.findMany({
         where: s ? { uploadedAt: { gt: s } } : undefined,
@@ -987,7 +988,7 @@ export class BackupService {
       'store_delete_requests', 'equipment_retirement_requests',
       // Project module (before incidents: incidents.for_project_store_id → project_stores)
       'projects', 'project_managers', 'project_stores', 'project_tasks', 'project_task_logs',
-      'project_photos', 'project_equipment', 'project_checklists',
+      'project_photos', 'project_test_results', 'project_equipment', 'project_checklists',
       // Knowledge base (self-ref categories: root nodes first, then children)
       'knowledge_categories', 'knowledge_articles',
       'knowledge_article_feedbacks', 'knowledge_article_usages',
@@ -1111,7 +1112,7 @@ export class BackupService {
       'notifications', 'incident_history', 'spare_parts', 'comments',
       'incident_work_rounds', 'sla_defenses', 'incident_ratings', 'incident_reassignments', 'incident_assignees',
       'incidents',
-      'project_checklists', 'project_equipment', 'project_photos', 'project_task_logs',
+      'project_checklists', 'project_equipment', 'project_test_results', 'project_photos', 'project_task_logs',
       'project_tasks', 'project_stores', 'project_managers', 'projects',
       'knowledge_article_usages', 'knowledge_article_feedbacks',
       'knowledge_articles', 'knowledge_categories',
@@ -1131,6 +1132,7 @@ export class BackupService {
       project_checklists:            () => this.prisma.projectChecklist.deleteMany({ where: { uploadedAt: after } }),
       project_equipment:             () => this.prisma.projectEquipment.deleteMany({ where: { createdAt: after } }),
       project_photos:                () => this.prisma.projectPhoto.deleteMany({ where: { createdAt: after } }),
+      project_test_results:          () => this.prisma.projectTestResult.deleteMany({ where: { createdAt: after } }),
       project_task_logs:             () => this.prisma.projectTaskLog.deleteMany({ where: { createdAt: after } }),
       project_tasks:                 () => this.prisma.projectTask.deleteMany({ where: { createdAt: after } }),
       project_stores:                () => this.prisma.projectStore.deleteMany({ where: { createdAt: after } }),
@@ -1424,7 +1426,7 @@ export class BackupService {
       'store_delete_requests', 'equipment_retirement_requests',
       // Project module (before incidents: incidents.for_project_store_id → project_stores)
       'projects', 'project_managers', 'project_stores', 'project_tasks', 'project_task_logs',
-      'project_photos', 'project_equipment', 'project_checklists',
+      'project_photos', 'project_test_results', 'project_equipment', 'project_checklists',
       'knowledge_categories', 'knowledge_articles',
       'knowledge_article_feedbacks', 'knowledge_article_usages',
       'incidents', 'incident_assignees', 'incident_reassignments', 'incident_ratings', 'incident_work_rounds',
@@ -1859,6 +1861,7 @@ export class BackupService {
       project_tasks: (d) => this.upsertRaw('project_tasks', d),
       project_task_logs: (d) => this.upsertRaw('project_task_logs', d),
       project_photos: (d) => this.upsertRaw('project_photos', d),
+      project_test_results: (d) => this.upsertRaw('project_test_results', d),
       // via Prisma: toSnakeCase would turn oldSN/newSN into old_s_n/new_s_n and drop them
       project_equipment: (d) => this.upsertWithArrayFields(
         (ids) => this.prisma.projectEquipment.findMany({ where: { id: { in: ids } }, select: { id: true } }),

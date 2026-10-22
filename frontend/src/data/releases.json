@@ -57,6 +57,10 @@
           "text": "Projects — เพิ่มรูปงาน อุปกรณ์ และ Checklist ได้หลังช่าง Check-in แล้วเท่านั้น (ก่อน Check-in ปุ่มจะกดไม่ได้)"
         },
         {
+          "type": "new",
+          "text": "Projects — ประเภทงาน 10 แบบ (Rollout, Wiring, Install Equipment, Clear Data, Stand by, Closed Store, Renovate, Refit, External Promotion, Software Rollout) แต่ละแบบกำหนดหลักฐานที่ช่างต้องมีก่อนส่งงาน: ชุดรูปพร้อมชื่อจุด, รูปก่อน–หลังทีละจุด, รายการทดสอบ ผ่าน / ไม่ผ่าน / ไม่มี พร้อมรูปผลเทส (เพิ่มหัวข้อเองได้) — งานทั่วไปใช้กติกาเดิม, Opening เป็นช่องติ๊ก \"งานวันเปิดร้าน\""
+        },
+        {
           "type": "improved",
           "text": "Projects — เพิ่มรูปงานเลือกได้ทั้ง \"ถ่ายรูป\" และ \"คลังภาพ\"; Duplicate Tasks เรียงตามต้นฉบับ; รายการ Task บนมือถือสีสลับแถวให้อ่านง่าย"
         },

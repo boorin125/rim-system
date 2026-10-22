@@ -1,4 +1,5 @@
-import { IsInt, IsOptional, IsDateString, IsString, IsEnum } from 'class-validator';
+import { IsInt, IsOptional, IsDateString, IsString, IsEnum, IsIn } from 'class-validator';
+import { WORK_TYPE_KEYS, WorkTypeKey } from '../work-types';
 
 export enum ProjectTaskTypeDto {
   GENERAL = 'GENERAL',
@@ -14,6 +15,11 @@ export class CreateTaskDto {
   @IsEnum(ProjectTaskTypeDto)
   @IsOptional()
   taskType?: ProjectTaskTypeDto;
+
+  // Work type → evidence needed before sending (work-types.ts); CLOSED_STORE ⇔ taskType CLOSING
+  @IsIn(WORK_TYPE_KEYS)
+  @IsOptional()
+  workType?: WorkTypeKey;
 
   @IsInt()
   @IsOptional()

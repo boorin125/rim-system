@@ -1987,6 +1987,7 @@ model ProjectTask {
   assignedToId     Int?              @map("assigned_to_id")
   scheduledDate    DateTime?         @map("scheduled_date")
   taskType         ProjectTaskType   @default(GENERAL) @map("task_type")
+  workType         ProjectWorkType   @default(GENERAL) @map("work_type")
   status           ProjectTaskStatus @default(PENDING)
   checkInAt        DateTime?         @map("check_in_at")
   checkInLat       Float?            @map("check_in_lat")
@@ -2004,6 +2005,7 @@ model ProjectTask {
   assignedTo   User?              @relation("ProjectTaskAssignedTo", fields: [assignedToId], references: [id])
   verifiedBy   User?              @relation("ProjectTaskVerifiedBy", fields: [verifiedById], references: [id])
   photos       ProjectPhoto[]
+  testResults  ProjectTestResult[]
   equipment    ProjectEquipment[]
   checklists   ProjectChecklist[]
   logs         ProjectTaskLog[]
@@ -2038,12 +2040,36 @@ model ProjectPhoto {
   comment   String?  @db.Text
   sortOrder Int      @default(0) @map("sort_order")
   category  String   @default("WORK")
+  // Evidence slot of the task's work type (see project/work-types.ts) — null = plain work photo
+  section   String?
+  phase     String? // BEFORE | AFTER (before/after sections)
+  pointName String?  @map("point_name") // e.g. "POS#1", "AP หน้าร้าน"
   createdAt DateTime @default(now()) @map("created_at")
 
   task ProjectTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   @@index([taskId])
   @@map("project_photos")
+}
+
+// One test item of a task (Clear Data, network test, ...) — PASS / FAIL / NA + photo
+model ProjectTestResult {
+  id        Int      @id @default(autoincrement())
+  taskId    Int      @map("task_id")
+  section   String
+  itemName  String   @map("item_name")
+  result    String // PASS | FAIL | NA
+  note      String?  @db.Text
+  photoPath String?  @map("photo_path")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  task ProjectTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, section, itemName])
+  @@index([taskId])
+  @@map("project_test_results")
 }
 
 model ProjectEquipment {
@@ -2094,6 +2120,21 @@ enum ProjectTaskType {
   GENERAL
   OPENING // วันเปิดร้าน — scheduledDate ของงานนี้ทำให้ร้าน OPENING เป็น ACTIVE
   CLOSING // Closed Store — the store is closed when the technician completes this task
+}
+
+// What the job is — decides the evidence needed before the task can be sent (project/work-types.ts)
+enum ProjectWorkType {
+  GENERAL
+  ROLLOUT
+  WIRING
+  INSTALL
+  CLEAR_DATA
+  STANDBY
+  CLOSED_STORE
+  RENOVATE
+  REFIT
+  EXT_PROMOTION
+  SOFTWARE_ROLLOUT
 }
 
 enum ProjectTaskStatus {

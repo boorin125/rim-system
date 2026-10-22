@@ -15,6 +15,7 @@ import { useThemeHighlight } from '@/hooks/useThemeHighlight'
 import { canPerformAction, getUserRoles } from '@/config/permissions'
 import { formatStore } from '@/utils/formatStore'
 import { useConfirm } from '@/components/ConfirmDialog'
+import { useWorkTypes, workTypeShort } from '@/hooks/useWorkTypes'
 import ProvinceSelect from '@/components/ProvinceSelect'
 
 const TASK_STATUS_LABELS: Record<string, { label: string; color: string }> = {
@@ -100,29 +101,58 @@ function storeSortKey(tasks: any[]): [number, number] {
   return [2, -Math.max(...days)]
 }
 
-// Task type: Opening = store opening day (the store turns ACTIVE automatically on that date)
-function TaskTypeField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+/** Task type sent to the backend: Closed Store closes the store; Opening (store opening day) is a flag */
+function taskTypeFor(workType: string, opening: boolean) {
+  if (workType === 'CLOSED_STORE') return 'CLOSING'
+  return opening ? 'OPENING' : 'GENERAL'
+}
+
+// Work type (decides the evidence the technician must provide) + "store opening day" flag
+function WorkTypeField({ workType, opening, onChange }: {
+  workType: string
+  opening: boolean
+  onChange: (v: { workType: string; opening: boolean }) => void
+}) {
+  const { workTypes, byKey } = useWorkTypes()
+  const def = byKey(workType)
+  const closing = workType === 'CLOSED_STORE'
   return (
-    <div>
-      <label className="block text-sm text-gray-300 mb-1.5">ประเภทงาน</label>
+    <div className="space-y-2">
+      <label className="block text-sm text-gray-300">ประเภทงาน</label>
       <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
+        value={workType}
+        onChange={(e) => onChange({ workType: e.target.value, opening: e.target.value === 'CLOSED_STORE' ? false : opening })}
         className="w-full px-3 py-2 bg-slate-800 border border-slate-600 [&>option]:bg-slate-800 [&>option]:text-white rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
       >
-        <option value="GENERAL">งานทั่วไป</option>
-        <option value="OPENING">Opening — วันเปิดร้าน</option>
-        <option value="CLOSING">Closed Store — ปิดร้าน</option>
+        {workTypes.length === 0 && <option value={workType}>{workType}</option>}
+        {workTypes.map((w) => <option key={w.key} value={w.key}>{w.label}</option>)}
       </select>
-      {value === 'OPENING' && (
-        <p className="text-xs text-sky-400 mt-1.5">
-          ต้องระบุวันนัด — สาขาที่ &quot;กำลังเปิดร้าน&quot; จะเปลี่ยนเป็น Active อัตโนมัติในวันนัด (1 สาขามีงาน Opening ได้ 1 งาน)
+      {def && (
+        <p className="text-xs text-gray-400">
+          <span className="text-gray-500">หลักฐานที่ช่างต้องมี:</span> {def.description}
         </p>
       )}
-      {value === 'CLOSING' && (
-        <p className="text-xs text-red-400 mt-1.5">
+      {closing ? (
+        <p className="text-xs text-red-400">
           เมื่อช่างส่งงานนี้ สาขาจะถูก &quot;ปิดถาวร&quot; ทันทีในวันนั้น (1 สาขามีงาน Closed Store ได้ 1 งาน)
         </p>
+      ) : (
+        <label className="flex items-start gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={opening}
+            onChange={(e) => onChange({ workType, opening: e.target.checked })}
+            className="mt-0.5 w-4 h-4 accent-sky-500"
+          />
+          <span className="text-xs text-gray-300">
+            งานวันเปิดร้าน (Opening)
+            {opening && (
+              <span className="block text-sky-400 mt-0.5">
+                ต้องระบุวันนัด — สาขาที่ &quot;กำลังเปิดร้าน&quot; จะเปลี่ยนเป็น Active อัตโนมัติในวันนัด (1 สาขามีงาน Opening ได้ 1 งาน)
+              </span>
+            )}
+          </span>
+        </label>
       )}
     </div>
   )
@@ -133,6 +163,7 @@ export default function ProjectDetailPage() {
   const router = useRouter()
   const themeHighlight = useThemeHighlight()
   const { confirm: confirmDialog, dialog: confirmDialogEl } = useConfirm()
+  const { byKey: workTypeOf } = useWorkTypes()
 
   const [isDark, setIsDark] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
@@ -195,13 +226,13 @@ export default function ProjectDetailPage() {
 
   // Add task modal
   const [showAddTask, setShowAddTask] = useState<{ projectStoreId: number; storeId: number } | null>(null)
-  const [taskForm, setTaskForm] = useState({ title: '', taskType: 'GENERAL', assignedToId: '', scheduledDate: '', notes: '' })
+  const [taskForm, setTaskForm] = useState({ title: '', workType: 'GENERAL', opening: false, assignedToId: '', scheduledDate: '', notes: '' })
   const [techUsers, setTechUsers] = useState<any[]>([])
   const [addingTask, setAddingTask] = useState(false)
 
   // Edit task modal (PM/Helpdesk)
   const [editTask, setEditTask] = useState<any>(null)
-  const [editForm, setEditForm] = useState({ title: '', taskType: 'GENERAL', assignedToId: '', scheduledDate: '', notes: '', reason: '' })
+  const [editForm, setEditForm] = useState({ title: '', workType: 'GENERAL', opening: false, assignedToId: '', scheduledDate: '', notes: '', reason: '' })
   const [savingEdit, setSavingEdit] = useState(false)
 
   // Store filter
@@ -495,21 +526,24 @@ export default function ProjectDetailPage() {
 
   const openAddTask = async (projectStoreId: number, storeId: number) => {
     await fetchTechUsers()
-    setTaskForm({ title: '', taskType: 'GENERAL', assignedToId: '', scheduledDate: '', notes: '' })
+    setTaskForm({ title: '', workType: 'GENERAL', opening: false, assignedToId: '', scheduledDate: '', notes: '' })
     setShowAddTask({ projectStoreId, storeId })
   }
 
   const handleAddTask = async () => {
     if (!showAddTask) return
-    if (taskForm.taskType === 'OPENING' && !taskForm.scheduledDate) {
+    const taskType = taskTypeFor(taskForm.workType, taskForm.opening)
+    if (taskType === 'OPENING' && !taskForm.scheduledDate) {
       toast.error('งาน Opening ต้องระบุวันนัด (วันเปิดร้าน)')
       return
     }
     const token = localStorage.getItem('token')
     setAddingTask(true)
     try {
-      const payload: any = { taskType: taskForm.taskType }
-      if (taskForm.title.trim()) payload.title = taskForm.title.trim()
+      const payload: any = { taskType, workType: taskForm.workType }
+      // No title → the work type's short name ("Wiring", "Clear Data", ...)
+      const title = taskForm.title.trim() || (taskForm.workType !== 'GENERAL' ? workTypeShort(workTypeOf(taskForm.workType)) : '')
+      if (title) payload.title = title
       if (taskForm.assignedToId) payload.assignedToId = parseInt(taskForm.assignedToId)
       if (taskForm.scheduledDate) payload.scheduledDate = taskForm.scheduledDate
       if (taskForm.notes.trim()) payload.notes = taskForm.notes.trim()
@@ -533,7 +567,8 @@ export default function ProjectDetailPage() {
     await fetchTechUsers()
     setEditForm({
       title: task.title || '',
-      taskType: task.taskType || 'GENERAL',
+      workType: task.workType || (task.taskType === 'CLOSING' ? 'CLOSED_STORE' : 'GENERAL'),
+      opening: task.taskType === 'OPENING',
       assignedToId: task.assignedToId ? String(task.assignedToId) : '',
       scheduledDate: task.scheduledDate ? task.scheduledDate.slice(0, 10) : '',
       notes: task.notes || '',
@@ -560,10 +595,12 @@ export default function ProjectDetailPage() {
         title: editForm.title.trim() || null,
         notes: editForm.notes.trim() || null,
       }
-      if (editForm.taskType !== (editTask.taskType || 'GENERAL')) {
-        payload.taskType = editForm.taskType
+      const newTaskType = taskTypeFor(editForm.workType, editForm.opening)
+      if (newTaskType !== (editTask.taskType || 'GENERAL') || editForm.workType !== (editTask.workType || 'GENERAL')) {
+        payload.taskType = newTaskType
+        payload.workType = editForm.workType
         // backend requires a date for Opening — send it with the type change
-        if (editForm.taskType === 'OPENING' && editForm.scheduledDate) payload.scheduledDate = editForm.scheduledDate
+        if (newTaskType === 'OPENING' && editForm.scheduledDate) payload.scheduledDate = editForm.scheduledDate
       }
       if (editForm.assignedToId) payload.assignedToId = parseInt(editForm.assignedToId)
       else payload.assignedToId = null
@@ -1024,6 +1061,11 @@ export default function ProjectDetailPage() {
                                   Closed Store
                                 </span>
                               )}
+                              {task.workType && !['GENERAL', 'CLOSED_STORE'].includes(task.workType) && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 mr-1.5 rounded-full text-[10px] font-medium bg-indigo-900/40 text-indigo-300 align-middle">
+                                  {workTypeShort(workTypeOf(task.workType)) || task.workType}
+                                </span>
+                              )}
                               {task.title || <span className="text-gray-500 italic text-xs">ไม่มีชื่อ Task</span>}
                             </p>
                             <div className="flex items-center justify-between gap-3 text-xs">
@@ -1109,6 +1151,11 @@ export default function ProjectDetailPage() {
                                 {task.taskType === 'CLOSING' && (
                                   <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-red-900/40 text-red-400 flex-shrink-0">
                                     Closed Store
+                                  </span>
+                                )}
+                                {task.workType && !['GENERAL', 'CLOSED_STORE'].includes(task.workType) && (
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-indigo-900/40 text-indigo-300 flex-shrink-0">
+                                    {workTypeShort(workTypeOf(task.workType)) || task.workType}
                                   </span>
                                 )}
                                 <span className="truncate">
@@ -1314,7 +1361,11 @@ export default function ProjectDetailPage() {
               <input type="text" value={taskForm.title} onChange={(e) => setTaskForm(f => ({ ...f, title: e.target.value }))}
                 placeholder="เช่น ติดตั้ง Barcode Scanner..." className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-gray-400 text-sm focus:outline-none focus:border-blue-500" />
             </div>
-            <TaskTypeField value={taskForm.taskType} onChange={(v) => setTaskForm(f => ({ ...f, taskType: v }))} />
+            <WorkTypeField
+              workType={taskForm.workType}
+              opening={taskForm.opening}
+              onChange={(v) => setTaskForm(f => ({ ...f, ...v }))}
+            />
 
             <div>
               <label className="block text-sm text-gray-300 mb-1.5">มอบหมายช่าง</label>
@@ -1362,7 +1413,11 @@ export default function ProjectDetailPage() {
               <input type="text" value={editForm.title} onChange={(e) => setEditForm(f => ({ ...f, title: e.target.value }))}
                 className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500" />
             </div>
-            <TaskTypeField value={editForm.taskType} onChange={(v) => setEditForm(f => ({ ...f, taskType: v }))} />
+            <WorkTypeField
+              workType={editForm.workType}
+              opening={editForm.opening}
+              onChange={(v) => setEditForm(f => ({ ...f, ...v }))}
+            />
             <div>
               <label className="block text-sm text-gray-300 mb-1.5">มอบหมายช่าง</label>
               <select value={editForm.assignedToId} onChange={(e) => setEditForm(f => ({ ...f, assignedToId: e.target.value }))}

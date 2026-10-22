@@ -1,5 +1,6 @@
-import { IsInt, IsOptional, IsDateString, IsString, IsEnum } from 'class-validator';
+import { IsInt, IsOptional, IsDateString, IsString, IsEnum, IsIn } from 'class-validator';
 import { ProjectTaskTypeDto } from './create-task.dto';
+import { WORK_TYPE_KEYS, WorkTypeKey } from '../work-types';
 
 export enum TaskStatusDto {
   PENDING = 'PENDING',
@@ -18,6 +19,10 @@ export class UpdateTaskDto {
   @IsEnum(ProjectTaskTypeDto)
   @IsOptional()
   taskType?: ProjectTaskTypeDto;
+
+  @IsIn(WORK_TYPE_KEYS)
+  @IsOptional()
+  workType?: WorkTypeKey;
 
   @IsInt()
   @IsOptional()
