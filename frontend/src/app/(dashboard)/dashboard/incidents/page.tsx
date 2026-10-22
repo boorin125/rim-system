@@ -24,7 +24,8 @@ import * as XLSX from 'xlsx'
 import { isViewOnly, canPerformAction, getUserRoles, isPureTechnician } from '@/config/permissions'
 import { formatDateTime } from '@/utils/dateUtils'
 import MultiSearchSelect from '@/components/MultiSearchSelect'
-import MyProjectTasks from '@/components/MyProjectTasks'
+import { useMyProjectWork } from '@/hooks/useMyProjectWork'
+import { ProjectTaskCard, ProjectTaskRow, taskMatchesFilters, taskIncidentStatus } from '@/components/ProjectTaskIncidentItem'
 
 interface SearchableSelectProps {
   value: string
@@ -157,6 +158,8 @@ export default function IncidentsPage() {
   const currentUserId = useRef<number | null>(null)
 
   const itemsPerPage = 50
+  // Project tasks assigned to me (empty for everyone without one / module off)
+  const { tasks: myProjectTasks } = useMyProjectWork()
 
   // Persist filters to localStorage on every change
   useEffect(() => {
@@ -567,6 +570,13 @@ export default function IncidentsPage() {
   const startIndex = (currentPage - 1) * itemsPerPage + 1
   const endIndex = Math.min(currentPage * itemsPerPage, total)
 
+  // The technician's project tasks, shown as items at the top of page 1 (status filter + search apply;
+  // Category / Province / Technician filters hide them — tasks have no such data)
+  const projectTasks = currentPage === 1 && filterCategory.length === 0 && filterProvince.length === 0
+    && (isPureTech.current || filterTechnicianId === 'ALL')
+    ? myProjectTasks.filter(t => taskMatchesFilters(t, filterStatus, debouncedSearch))
+    : []
+
   if (isLoading && incidents.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -632,9 +642,6 @@ export default function IncidentsPage() {
           )}
         </div>
       </div>
-
-      {/* Open project tasks assigned to me (hidden when there are none / module off) */}
-      <MyProjectTasks />
 
       {/* Filters */}
       <div className="glass-card p-6 rounded-2xl sticky top-0 z-10">
@@ -729,7 +736,8 @@ export default function IncidentsPage() {
           <p className="text-xs sm:text-sm text-gray-400">
             {total > 0
               ? `Showing ${startIndex}–${endIndex} of ${total} incidents`
-              : 'No incidents found'}
+              : projectTasks.length === 0 ? 'No incidents found' : 'ไม่มี Incident'}
+            {projectTasks.length > 0 && <span className="text-sky-300"> + งานโปรเจกต์ {projectTasks.length} งาน</span>}
             {isLoading && <span className="ml-2 text-gray-500">Loading...</span>}
           </p>
           <div className="flex items-center gap-2">
@@ -753,7 +761,7 @@ export default function IncidentsPage() {
 
       {/* Incidents Table */}
       <div className="glass-card rounded-2xl overflow-hidden">
-        {incidents.length === 0 && !isLoading ? (
+        {incidents.length === 0 && projectTasks.length === 0 && !isLoading ? (
           <div className="text-center py-12">
             <AlertCircle className="w-12 h-12 text-gray-600 mx-auto mb-4" />
             <p className="text-gray-400">No incidents found</p>
@@ -771,6 +779,9 @@ export default function IncidentsPage() {
           <>
           {/* Phone: card list (No. + small status, title, store, date · technician, aging) */}
           <div className="sm:hidden p-3 space-y-2.5">
+            {projectTasks.map((t) => (
+              <ProjectTaskCard key={`task-${t.id}`} t={t} statusClass={getStatusBadge(taskIncidentStatus(t.status)).class} />
+            ))}
             {incidents.map((incident) => {
               const statusBadge = getStatusBadge(incident.status)
               const tech = incident.assignees?.[0]?.user || incident.assignee
@@ -864,6 +875,9 @@ export default function IncidentsPage() {
                 </tr>
               </thead>
               <tbody>
+                {projectTasks.map((t) => (
+                  <ProjectTaskRow key={`task-${t.id}`} t={t} colSpan={11} statusClass={getStatusBadge(taskIncidentStatus(t.status)).class} />
+                ))}
                 {incidents.map((incident, index) => {
                   const statusBadge = getStatusBadge(incident.status)
 

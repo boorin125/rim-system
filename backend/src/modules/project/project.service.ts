@@ -392,7 +392,8 @@ export class ProjectService implements OnModuleInit {
   }
 
   /**
-   * Open project tasks assigned to the user (not yet sent for verification), nearest date first,
+   * Project tasks assigned to the user that are not accepted yet (incl. waiting for verification),
+   * nearest date first — shown in the technician's Incidents list —
    * and whether the user is a Project Manager of an open project (keeps the Projects menu for them).
    */
   async getMyWork(userId: number) {
@@ -400,7 +401,7 @@ export class ProjectService implements OnModuleInit {
       this.prisma.projectTask.findMany({
         where: {
           assignedToId: userId,
-          status: { notIn: ['PENDING_VERIFY', 'COMPLETED', 'ACCEPTED'] },
+          status: { notIn: ['COMPLETED', 'ACCEPTED'] },
           projectStore: { project: { status: { notIn: ['CANCELLED', 'COMPLETED'] } } },
         },
         orderBy: [{ scheduledDate: { sort: 'asc', nulls: 'last' } }, { id: 'asc' }],
