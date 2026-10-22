@@ -75,6 +75,16 @@ function getStoreStatus(tasks: any[]): 'CLOSED' | 'ON_PROCESS' | 'PENDING' | 'EM
   return 'ON_PROCESS'
 }
 
+// Tasks inside a store: by scheduledDate asc (no date last, by id)
+function sortTasks(tasks: any[]) {
+  return [...(tasks || [])].sort((a: any, b: any) => {
+    if (!a.scheduledDate && !b.scheduledDate) return a.id - b.id
+    if (!a.scheduledDate) return 1
+    if (!b.scheduledDate) return -1
+    return new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime()
+  })
+}
+
 // Sort key for the store list: stores with the nearest upcoming task first,
 // then open tasks with no date, then overdue, then closed / no tasks at the bottom
 function storeSortKey(tasks: any[]): [number, number] {
@@ -982,8 +992,72 @@ export default function ProjectDetailPage() {
                 {!isCollapsed && ps.tasks?.length === 0 && (
                   <div className="p-4 text-center text-gray-500 text-sm border-t border-slate-700/40">ยังไม่มี Task</div>
                 )}
+                {/* Phone: one card per task so the full task name fits */}
                 {!isCollapsed && ps.tasks?.length > 0 && (
-                  <div className="overflow-x-auto">
+                  <div className="sm:hidden divide-y divide-slate-700/30 border-t border-slate-700/40">
+                    {sortTasks(ps.tasks).map((task: any) => {
+                      const { label, color } = TASK_STATUS_LABELS[task.status] || { label: task.status, color: 'text-gray-400 bg-gray-800/60' }
+                      const overdue = isOverdue(task)
+                      return (
+                        <div key={task.id} className="relative">
+                          <Link href={`/dashboard/projects/task/${task.id}`} className="block px-4 py-3 space-y-1.5 active:bg-slate-700/30">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${color}`}>{label}</span>
+                              <span className="font-mono text-[11px] text-gray-400 tracking-wider">{task.ticketNo || '-'}</span>
+                            </div>
+                            <p className={`text-sm text-white font-medium break-words ${canManage ? 'pr-16' : ''}`}>
+                              {task.taskType === 'OPENING' && (
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 mr-1.5 rounded-full text-[10px] font-medium bg-sky-900/40 text-sky-400 align-middle">
+                                  <DoorOpen className="w-2.5 h-2.5" /> Opening
+                                </span>
+                              )}
+                              {task.taskType === 'CLOSING' && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 mr-1.5 rounded-full text-[10px] font-medium bg-red-900/40 text-red-400 align-middle">
+                                  Closed Store
+                                </span>
+                              )}
+                              {task.title || <span className="text-gray-500 italic text-xs">ไม่มีชื่อ Task</span>}
+                            </p>
+                            <div className="flex items-center justify-between gap-3 text-xs">
+                              <span className={`flex items-center gap-1 flex-shrink-0 ${overdue ? 'text-red-400' : 'text-gray-400'}`}>
+                                {overdue && <AlertTriangle className="w-3 h-3" />}
+                                <Calendar className={`w-3 h-3 ${overdue ? 'text-red-400' : 'text-gray-500'}`} />
+                                {task.scheduledDate ? formatDate(task.scheduledDate) : '-'}
+                              </span>
+                              <span className="text-gray-400 truncate">
+                                {task.assignedTo
+                                  ? `${task.assignedTo.firstName} ${task.assignedTo.lastName}`
+                                  : <span className="italic text-gray-600">ไม่มอบหมาย</span>}
+                              </span>
+                            </div>
+                          </Link>
+                          {/* No hover on a phone — edit / delete always visible */}
+                          {canManage && (
+                            <div className="absolute right-3 top-9 flex items-center gap-1">
+                              <button
+                                onClick={() => openEditTask(task)}
+                                className="p-1.5 rounded bg-slate-700/80 text-gray-400 active:text-white"
+                                title="แก้ไข Task"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteTask(task.id)}
+                                className="p-1.5 rounded bg-slate-700/80 text-gray-400 active:text-red-400"
+                                title="ลบ Task"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {!isCollapsed && ps.tasks?.length > 0 && (
+                  <div className="hidden sm:block overflow-x-auto">
                   <div className="min-w-[650px]">
                     {/* Table Header */}
                     <div
@@ -998,12 +1072,7 @@ export default function ProjectDetailPage() {
                     </div>
                     {/* Task rows — sorted by scheduledDate asc (nulls last by id) */}
                     <div className="divide-y divide-slate-700/30">
-                      {[...ps.tasks].sort((a: any, b: any) => {
-                        if (!a.scheduledDate && !b.scheduledDate) return a.id - b.id
-                        if (!a.scheduledDate) return 1
-                        if (!b.scheduledDate) return -1
-                        return new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime()
-                      }).map((task: any) => {
+                      {sortTasks(ps.tasks).map((task: any) => {
                         const { label, color } = TASK_STATUS_LABELS[task.status] || { label: task.status, color: 'text-gray-400 bg-gray-800/60' }
                         const overdue = isOverdue(task)
                         return (
