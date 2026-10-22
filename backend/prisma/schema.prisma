@@ -100,6 +100,7 @@ model User {
   // Project module relations
   projectsCreated      Project[]        @relation("ProjectCreatedBy")
   projectsManaged      Project[]        @relation("ProjectManagedBy")
+  projectManagerOf     ProjectManager[]
   projectTasksAssigned ProjectTask[]    @relation("ProjectTaskAssignedTo")
   projectTasksVerified ProjectTask[]    @relation("ProjectTaskVerifiedBy")
   projectTaskLogs      ProjectTaskLog[] @relation("ProjectTaskLogUser")
@@ -1927,18 +1928,35 @@ model Project {
   status           ProjectStatus @default(DRAFT)
   color            String?       @default("#3b82f6")
   createdById      Int           @map("created_by_id")
+  // First manager in `managers` — kept in sync for older readers; `managers` is the full list
   projectManagerId Int?          @map("project_manager_id")
   createdAt        DateTime      @default(now()) @map("created_at")
   updatedAt        DateTime      @updatedAt @map("updated_at")
 
-  createdBy      User           @relation("ProjectCreatedBy", fields: [createdById], references: [id])
-  projectManager User?          @relation("ProjectManagedBy", fields: [projectManagerId], references: [id])
+  createdBy      User             @relation("ProjectCreatedBy", fields: [createdById], references: [id])
+  projectManager User?            @relation("ProjectManagedBy", fields: [projectManagerId], references: [id])
+  managers       ProjectManager[]
   projectStores  ProjectStore[]
 
   @@index([status])
   @@index([createdById])
   @@index([projectManagerId])
   @@map("projects")
+}
+
+// Project Managers (a project can have several) — may edit task photos / captions / equipment / checklists
+model ProjectManager {
+  id        Int      @id @default(autoincrement())
+  projectId Int      @map("project_id")
+  userId    Int      @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([userId])
+  @@map("project_managers")
 }
 
 model ProjectStore {

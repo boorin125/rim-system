@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsEnum, IsNumber, IsDateString } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsEnum, IsNumber, IsDateString, IsArray, IsInt } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 
 export enum ProjectStatusDto {
@@ -45,4 +45,11 @@ export class CreateProjectDto {
   @IsOptional()
   @Type(() => Number)
   projectManagerId?: number;
+
+  // Several Project Managers — when sent, replaces the whole list (first = projectManagerId)
+  @IsOptional()
+  @IsArray()
+  @IsInt({ each: true })
+  @Type(() => Number)
+  projectManagerIds?: number[];
 }

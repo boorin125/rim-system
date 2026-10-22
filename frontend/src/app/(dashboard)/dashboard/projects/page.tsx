@@ -202,7 +202,8 @@ export default function ProjectsPage() {
             const StatusIcon = STATUS_ICONS[p.status] || Briefcase
             const { label, color } = STATUS_LABELS[p.status] || { label: p.status, color: 'text-gray-400 bg-gray-800/60' }
             const { dueSoon, overdue } = countTaskDates(p.openTaskDates)
-            const mgr = p.projectManager ?? p.createdBy
+            const managers: any[] = p.managers?.length ? p.managers : [p.projectManager ?? p.createdBy].filter(Boolean)
+            const mgr = managers[0]
             const barColor = p.color ?? '#3b82f6'
             return (
               <div key={p.id} className="relative group">
@@ -295,6 +296,14 @@ export default function ProjectsPage() {
                       <span className="text-xs text-gray-300 truncate">
                         {mgr ? `${mgr.firstName} ${mgr.lastName}` : '-'}
                       </span>
+                      {managers.length > 1 && (
+                        <span
+                          className="text-[10px] text-gray-400 bg-slate-700/60 px-1.5 py-0.5 rounded-full shrink-0"
+                          title={managers.map((m: any) => `${m.firstName} ${m.lastName}`).join(', ')}
+                        >
+                          +{managers.length - 1}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </Link>

@@ -693,12 +693,17 @@ export default function ProjectDetailPage() {
 
   const statusInfo = PROJECT_STATUS_LABELS[project.status] || { label: project.status, color: 'text-gray-400' }
 
+  // A Project Manager sees every task of the project (checks the work before it is confirmed),
+  // even when their only role is Technician
+  const isProjectManager = (project.managers || []).some((m: any) => Number(m.id) === Number(currentUser?.id))
+  const onlyOwnTasks = isTechnicianUser && !isProjectManager
+
   // For technician: keep only their own tasks per store, then hide stores with no matching tasks
   const userProjectStores = (project.projectStores || []).map((ps: any) => {
-    if (!isTechnicianUser) return ps
+    if (!onlyOwnTasks) return ps
     const myTasks = (ps.tasks || []).filter((t: any) => t.assignedToId === currentUser?.id)
     return { ...ps, tasks: myTasks }
-  }).filter((ps: any) => !isTechnicianUser || ps.tasks.length > 0)
+  }).filter((ps: any) => !onlyOwnTasks || ps.tasks.length > 0)
 
   const activeProjectStores = userProjectStores.filter((ps: any) => ps.status !== 'PAUSED')
   const totalStores = activeProjectStores.length
@@ -739,9 +744,11 @@ export default function ProjectDetailPage() {
             <span className="text-gray-600 text-xs hidden sm:inline">|</span>
             <p className="text-gray-500 text-xs">
               PM: <span className="text-gray-400">
-                {project.projectManager
-                  ? `${project.projectManager.firstName} ${project.projectManager.lastName}`
-                  : `${project.createdBy?.firstName || ''} ${project.createdBy?.lastName || ''}`}
+                {project.managers?.length
+                  ? project.managers.map((m: any) => `${m.firstName} ${m.lastName}`).join(', ')
+                  : project.projectManager
+                    ? `${project.projectManager.firstName} ${project.projectManager.lastName}`
+                    : `${project.createdBy?.firstName || ''} ${project.createdBy?.lastName || ''}`}
               </span>
               {project.startDate && <span className="ml-3">{formatDate(project.startDate)} – {formatDate(project.endDate)}</span>}
             </p>
@@ -1609,17 +1616,21 @@ export default function ProjectDetailPage() {
                   <button
                     onClick={handleDuplicate}
                     disabled={duplicating || dupSelectedTaskIds.size === 0 || dupSelectedStoreIds.size === 0}
-                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-white text-sm font-medium hover:opacity-90 disabled:opacity-40"
+                    className="flex-[3] flex flex-col items-center justify-center py-2 rounded-lg text-white hover:opacity-90 disabled:opacity-40 leading-tight"
                     style={{ backgroundColor: themeHighlight }}
                   >
-                    <Copy className="w-4 h-4" />
-                    {duplicating
-                      ? 'กำลัง Duplicate...'
-                      : `Duplicate ${dupSelectedTaskIds.size} Tasks → ${dupSelectedStoreIds.size} สาขา`}
+                    {duplicating ? (
+                      <span className="text-sm font-semibold py-1.5">กำลัง Duplicate...</span>
+                    ) : (
+                      <>
+                        <span className="text-sm font-semibold">Duplicate</span>
+                        <span className="text-[11px] opacity-85 mt-0.5">{dupSelectedTaskIds.size} Tasks → {dupSelectedStoreIds.size} สาขา</span>
+                      </>
+                    )}
                   </button>
                   <button
                     onClick={() => setShowDuplicateModal(false)}
-                    className="flex-1 py-2.5 rounded-lg text-gray-400 hover:text-white text-sm hover:bg-slate-700/50 transition-colors"
+                    className="flex-[2] py-2.5 rounded-lg text-gray-400 hover:text-white text-sm hover:bg-slate-700/50 transition-colors"
                   >
                     ยกเลิก
                   </button>

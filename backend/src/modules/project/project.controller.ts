@@ -265,8 +265,8 @@ export class ProjectController {
     return this.projectService.resetCheckIn(taskId, req.user.id);
   }
 
+  // Assigned technician, or a Project Manager of the project on their behalf (checked in the service)
   @Post('tasks/:taskId/complete')
-  @Roles(UserRole.TECHNICIAN)
   completeTask(@Param('taskId', ParseIntPipe) taskId: number, @Request() req: any) {
     return this.projectService.completeTask(taskId, req.user.id);
   }
@@ -309,10 +309,20 @@ export class ProjectController {
     return this.projectService.rescheduleTask(taskId, scheduledDate, req.user.id, reason);
   }
 
-  // ── Photos ───────────────────────────────────────────────────────────────
+  // ── Photos / Equipment / Checklists ─────────────────────────────────────
+  // Class-level roles + assertCanEditTaskMedia: technicians, staff, or a Project Manager of the project
+
+  /** Permission check after an upload — drop the stored file when refused */
+  private async assertMediaUpload(taskId: number, user: any, file?: Express.Multer.File) {
+    try {
+      await this.projectService.assertCanEditTaskMedia(taskId, user);
+    } catch (err) {
+      if (file?.path) fs.promises.unlink(file.path).catch(() => {});
+      throw err;
+    }
+  }
 
   @Post('tasks/:taskId/photos')
-  @Roles(UserRole.TECHNICIAN, UserRole.HELP_DESK, UserRole.SUPERVISOR, UserRole.IT_MANAGER, UserRole.SUPER_ADMIN)
   @UseInterceptors(
     FileInterceptor('photo', {
       storage: diskStorage({
@@ -329,14 +339,16 @@ export class ProjectController {
       limits: { fileSize: 10 * 1024 * 1024 },
     }),
   )
-  addPhoto(
+  async addPhoto(
     @Param('taskId', ParseIntPipe) taskId: number,
     @UploadedFile() file: Express.Multer.File,
+    @Request() req: any,
     @Body('comment') comment?: string,
     @Body('sortOrder') sortOrder?: string,
     @Body('category') category?: string,
   ) {
     if (!file) throw new BadRequestException('Photo file is required');
+    await this.assertMediaUpload(taskId, req.user, file);
     return this.projectService.addPhoto(taskId, {
       photoPath: file.path.replace(/\\/g, '/'),
       comment,
@@ -346,40 +358,47 @@ export class ProjectController {
   }
 
   @Delete('photos/:photoId')
-  @Roles(UserRole.TECHNICIAN, UserRole.HELP_DESK, UserRole.SUPERVISOR, UserRole.IT_MANAGER, UserRole.SUPER_ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
-  deletePhoto(@Param('photoId', ParseIntPipe) photoId: number) {
+  async deletePhoto(@Param('photoId', ParseIntPipe) photoId: number, @Request() req: any) {
+    await this.projectService.assertCanEditTaskMedia(await this.projectService.taskIdOf('photo', photoId), req.user);
     return this.projectService.deletePhoto(photoId);
   }
 
-  // ── Equipment ────────────────────────────────────────────────────────────
+  // Edit a photo's caption
+  @Patch('photos/:photoId')
+  async updatePhoto(
+    @Param('photoId', ParseIntPipe) photoId: number,
+    @Body('comment') comment: string,
+    @Request() req: any,
+  ) {
+    await this.projectService.assertCanEditTaskMedia(await this.projectService.taskIdOf('photo', photoId), req.user);
+    return this.projectService.updatePhotoComment(photoId, comment);
+  }
 
   @Post('tasks/:taskId/equipment')
-  @Roles(UserRole.TECHNICIAN, UserRole.HELP_DESK, UserRole.SUPERVISOR, UserRole.IT_MANAGER, UserRole.SUPER_ADMIN)
-  addEquipment(@Param('taskId', ParseIntPipe) taskId: number, @Body() dto: AddEquipmentDto) {
+  async addEquipment(@Param('taskId', ParseIntPipe) taskId: number, @Body() dto: AddEquipmentDto, @Request() req: any) {
+    await this.projectService.assertCanEditTaskMedia(taskId, req.user);
     return this.projectService.addEquipment(taskId, dto);
   }
 
   @Patch('equipment/:equipmentId')
-  @Roles(UserRole.TECHNICIAN, UserRole.HELP_DESK, UserRole.SUPERVISOR, UserRole.IT_MANAGER, UserRole.SUPER_ADMIN)
-  updateEquipment(
+  async updateEquipment(
     @Param('equipmentId', ParseIntPipe) equipmentId: number,
     @Body() dto: AddEquipmentDto,
+    @Request() req: any,
   ) {
+    await this.projectService.assertCanEditTaskMedia(await this.projectService.taskIdOf('equipment', equipmentId), req.user);
     return this.projectService.updateEquipment(equipmentId, dto);
   }
 
   @Delete('equipment/:equipmentId')
-  @Roles(UserRole.TECHNICIAN, UserRole.HELP_DESK, UserRole.SUPERVISOR, UserRole.IT_MANAGER, UserRole.SUPER_ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
-  deleteEquipment(@Param('equipmentId', ParseIntPipe) equipmentId: number) {
+  async deleteEquipment(@Param('equipmentId', ParseIntPipe) equipmentId: number, @Request() req: any) {
+    await this.projectService.assertCanEditTaskMedia(await this.projectService.taskIdOf('equipment', equipmentId), req.user);
     return this.projectService.deleteEquipment(equipmentId);
   }
 
-  // ── Checklists ───────────────────────────────────────────────────────────
-
   @Post('tasks/:taskId/checklists')
-  @Roles(UserRole.TECHNICIAN, UserRole.HELP_DESK, UserRole.SUPERVISOR, UserRole.IT_MANAGER, UserRole.SUPER_ADMIN)
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
@@ -396,11 +415,13 @@ export class ProjectController {
       limits: { fileSize: 20 * 1024 * 1024 },
     }),
   )
-  addChecklist(
+  async addChecklist(
     @Param('taskId', ParseIntPipe) taskId: number,
     @UploadedFile() file: Express.Multer.File,
+    @Request() req: any,
   ) {
     if (!file) throw new BadRequestException('Checklist file is required');
+    await this.assertMediaUpload(taskId, req.user, file);
     const fileName = Buffer.from(file.originalname, 'latin1').toString('utf8');
     return this.projectService.addChecklist(taskId, {
       fileName,
@@ -410,9 +431,9 @@ export class ProjectController {
   }
 
   @Delete('checklists/:checklistId')
-  @Roles(UserRole.TECHNICIAN, UserRole.HELP_DESK, UserRole.SUPERVISOR, UserRole.IT_MANAGER, UserRole.SUPER_ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
-  deleteChecklist(@Param('checklistId', ParseIntPipe) checklistId: number) {
+  async deleteChecklist(@Param('checklistId', ParseIntPipe) checklistId: number, @Request() req: any) {
+    await this.projectService.assertCanEditTaskMedia(await this.projectService.taskIdOf('checklist', checklistId), req.user);
     return this.projectService.deleteChecklist(checklistId);
   }
 }

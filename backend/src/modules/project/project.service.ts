@@ -73,7 +73,24 @@ export class ProjectService implements OnModuleInit {
   }
 
   async onModuleInit() {
+    await this.backfillProjectManagers();
     await this.autoUpdateProjectStatuses();
+  }
+
+  /**
+   * v1.1.8: projects had one manager (project_manager_id) — copy it into project_managers.
+   * Safe to re-run: projectManagerId is always the first entry of the list, so nothing new is added later.
+   */
+  private async backfillProjectManagers() {
+    try {
+      const added = await this.prisma.$executeRaw`
+        INSERT INTO project_managers (project_id, user_id)
+        SELECT id, project_manager_id FROM projects WHERE project_manager_id IS NOT NULL
+        ON CONFLICT DO NOTHING`;
+      if (added > 0) this.logger.log(`Project managers backfill: ${added} row(s)`);
+    } catch (err) {
+      this.logger.error('Project managers backfill failed', err as any);
+    }
   }
 
   @Cron(CronExpression.EVERY_HOUR)
@@ -171,6 +188,10 @@ export class ProjectService implements OnModuleInit {
         include: {
           createdBy: { select: { id: true, firstName: true, lastName: true, avatarPath: true } },
           projectManager: { select: { id: true, firstName: true, lastName: true, avatarPath: true } },
+          managers: {
+            orderBy: { createdAt: 'asc' },
+            select: { user: { select: { id: true, firstName: true, lastName: true, avatarPath: true } } },
+          },
           _count: { select: { projectStores: true } },
           projectStores: {
             select: {
@@ -187,9 +208,10 @@ export class ProjectService implements OnModuleInit {
       const allTasks = p.projectStores.flatMap((ps) => ps.tasks);
       const totalTasks = allTasks.length;
       const completedTasks = allTasks.filter((t) => t.status === 'COMPLETED').length;
-      const { projectStores: _, ...rest } = p;
+      const { projectStores: _, managers, ...rest } = p;
       return {
         ...rest,
+        managers: managers.map((m) => m.user),
         totalTasks,
         completedTasks,
         progressPercent: totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0,
@@ -209,6 +231,10 @@ export class ProjectService implements OnModuleInit {
       include: {
         createdBy: { select: { id: true, firstName: true, lastName: true, avatarPath: true } },
         projectManager: { select: { id: true, firstName: true, lastName: true, avatarPath: true } },
+        managers: {
+          orderBy: { createdAt: 'asc' },
+          select: { user: { select: { id: true, firstName: true, lastName: true, avatarPath: true, username: true } } },
+        },
         projectStores: {
           include: {
             store: {
@@ -245,6 +271,7 @@ export class ProjectService implements OnModuleInit {
     if (!project) throw new NotFoundException(`Project #${id} not found`);
     return {
       ...project,
+      managers: project.managers.map((m) => m.user),
       projectStores: project.projectStores.map((ps) => ({ ...ps, visits: countVisits(ps.tasks, ps.supportIncidents) })),
     };
   }
@@ -283,7 +310,15 @@ export class ProjectService implements OnModuleInit {
     return rows;
   }
 
+  /** Manager list from the DTO: projectManagerIds wins, else the single projectManagerId (older clients) */
+  private managerIdsFrom(dto: { projectManagerIds?: number[]; projectManagerId?: number | null }): number[] | undefined {
+    if (dto.projectManagerIds !== undefined) return [...new Set(dto.projectManagerIds.filter((id) => id > 0))];
+    if (dto.projectManagerId !== undefined) return dto.projectManagerId ? [dto.projectManagerId] : [];
+    return undefined;
+  }
+
   async create(dto: CreateProjectDto, userId: number) {
+    const managerIds = this.managerIdsFrom(dto) ?? [];
     const project = await this.prisma.project.create({
       data: {
         name: dto.name,
@@ -294,7 +329,8 @@ export class ProjectService implements OnModuleInit {
         status: dto.status ?? 'DRAFT',
         color: dto.color ?? '#3b82f6',
         createdById: userId,
-        ...(dto.projectManagerId && { projectManagerId: dto.projectManagerId }),
+        projectManagerId: managerIds[0] ?? null,
+        managers: { create: managerIds.map((id) => ({ userId: id })) },
       },
     });
 
@@ -307,6 +343,7 @@ export class ProjectService implements OnModuleInit {
 
   async update(id: number, dto: UpdateProjectDto) {
     await this.findOne(id);
+    const managerIds = this.managerIdsFrom(dto);
     return this.prisma.project.update({
       where: { id },
       data: {
@@ -317,8 +354,48 @@ export class ProjectService implements OnModuleInit {
         ...(dto.endDate !== undefined && { endDate: dto.endDate ? new Date(dto.endDate) : null }),
         ...(dto.status && { status: dto.status }),
         ...(dto.color !== undefined && { color: dto.color }),
-        ...(dto.projectManagerId !== undefined && { projectManagerId: dto.projectManagerId || null }),
+        ...(managerIds !== undefined && {
+          projectManagerId: managerIds[0] ?? null,
+          managers: { deleteMany: {}, create: managerIds.map((uid) => ({ userId: uid })) },
+        }),
       },
+    });
+  }
+
+  /**
+   * Who may add / delete / edit a task's photos, captions, equipment and checklists:
+   * technicians and staff (as before) or a Project Manager of the task's project.
+   */
+  async assertCanEditTaskMedia(taskId: number, user: any) {
+    const roles: string[] = [
+      ...(Array.isArray(user?.roles) ? user.roles.map((r: any) => (typeof r === 'string' ? r : r?.role ?? r?.name)) : []),
+      ...(typeof user?.role === 'string' ? [user.role] : []),
+    ];
+    if (roles.some((r) => ['TECHNICIAN', 'HELP_DESK', 'SUPERVISOR', 'IT_MANAGER', 'SUPER_ADMIN'].includes(r))) return;
+    const isManager = await this.prisma.projectManager.findFirst({
+      where: { userId: user?.id, project: { projectStores: { some: { tasks: { some: { id: taskId } } } } } },
+      select: { userId: true },
+    });
+    if (!isManager) throw new ForbiddenException('เฉพาะช่าง / ทีมงาน หรือ Project Manager ของโปรเจกต์นี้');
+  }
+
+  /** Task id that a photo / equipment row / checklist belongs to (for the permission check) */
+  async taskIdOf(kind: 'photo' | 'equipment' | 'checklist', id: number): Promise<number> {
+    const row =
+      kind === 'photo'
+        ? await this.prisma.projectPhoto.findUnique({ where: { id }, select: { taskId: true } })
+        : kind === 'equipment'
+          ? await this.prisma.projectEquipment.findUnique({ where: { id }, select: { taskId: true } })
+          : await this.prisma.projectChecklist.findUnique({ where: { id }, select: { taskId: true } });
+    if (!row) throw new NotFoundException(`${kind} #${id} not found`);
+    return row.taskId;
+  }
+
+  async updatePhotoComment(photoId: number, comment: string | null) {
+    const text = (comment ?? '').trim();
+    return this.prisma.projectPhoto.update({
+      where: { id: photoId },
+      data: { comment: text ? text.slice(0, 500) : null },
     });
   }
 
@@ -492,7 +569,7 @@ export class ProjectService implements OnModuleInit {
       include: {
         projectStore: {
           include: {
-            project: { select: { id: true, name: true, status: true } },
+            project: { select: { id: true, name: true, status: true, managers: { select: { userId: true } } } },
             store: { select: { id: true, storeCode: true, name: true, province: true, storeStatus: true, storeType: true, closeDate: true } },
           },
         },
@@ -813,15 +890,26 @@ export class ProjectService implements OnModuleInit {
     await this.removeUpload(cl.filePath);
   }
 
+  /**
+   * Send the task for verification. The assigned technician does it, or a Project Manager of the
+   * project does it on their behalf (technician had to leave the site) — the log names who pressed it.
+   * Check-in stays the technician's own step (GPS proof), so the task must already be IN_PROGRESS.
+   */
   async completeTask(taskId: number, userId: number) {
     const task = await this.findTask(taskId);
 
-    if (task.assignedToId !== userId) {
+    const onBehalf = task.assignedToId !== userId;
+    if (onBehalf && !task.projectStore.project.managers.some((m) => m.userId === userId)) {
       throw new ForbiddenException('You are not assigned to this task');
     }
     if (task.status !== 'IN_PROGRESS') {
       throw new BadRequestException('Task must be IN_PROGRESS to complete');
     }
+    const missing: string[] = [];
+    if (!task.checkInPhotoPath) missing.push('รูป Check-in');
+    if (!task.photos.some((p) => p.category !== 'CHECK_IN')) missing.push('รูปภาพงาน');
+    if (task.checklists.length === 0) missing.push('Checklist');
+    if (missing.length) throw new BadRequestException(`ต้องเพิ่ม ${missing.join(' และ ')} ก่อนปิดงาน`);
 
     const completedAt = new Date();
     const updated = await this.prisma.projectTask.update({
@@ -831,8 +919,13 @@ export class ProjectService implements OnModuleInit {
 
     const name = task.assignedTo ? `${task.assignedTo.firstName} ${task.assignedTo.lastName}` : 'ช่าง';
     const taskLabel = task.title || task.ticketNo || `Task #${taskId}`;
+    let message = `${name} ปิดงานและส่งตรวจสอบ ${taskLabel}`;
+    if (onBehalf) {
+      const pm = await this.prisma.user.findUnique({ where: { id: userId }, select: { firstName: true, lastName: true } });
+      message = `${pm ? `${pm.firstName} ${pm.lastName}` : 'Project Manager'} (PM) ส่งงานแทน ${name} — ปิดงานและส่งตรวจสอบ ${taskLabel}`;
+    }
     await this.prisma.projectTaskLog.create({
-      data: { taskId, userId, action: 'COMPLETE', message: `${name} ปิดงานและส่งตรวจสอบ ${taskLabel}` },
+      data: { taskId, userId, action: 'COMPLETE', message },
     });
 
     // Closed Store: the store closes on the day the technician finishes the job.

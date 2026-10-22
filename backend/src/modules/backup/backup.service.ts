@@ -56,7 +56,7 @@ const SCOPE_TABLES = {
     // Store/equipment lifecycle requests
     'store_delete_requests', 'equipment_retirement_requests',
     // Project module (before incidents: incidents.for_project_store_id → project_stores)
-    'projects', 'project_stores', 'project_tasks', 'project_task_logs',
+    'projects', 'project_managers', 'project_stores', 'project_tasks', 'project_task_logs',
     'project_photos', 'project_equipment', 'project_checklists',
     // Knowledge base (categories before articles; self-ref handled specially)
     'knowledge_categories', 'knowledge_articles',
@@ -82,7 +82,7 @@ const SCOPE_TABLES = {
     'stores', 'equipment',
     'store_delete_requests', 'equipment_retirement_requests',
     // Project module (before incidents: incidents.for_project_store_id → project_stores)
-    'projects', 'project_stores', 'project_tasks', 'project_task_logs',
+    'projects', 'project_managers', 'project_stores', 'project_tasks', 'project_task_logs',
     'project_photos', 'project_equipment', 'project_checklists',
     'knowledge_categories', 'knowledge_articles',
     'knowledge_article_feedbacks', 'knowledge_article_usages',
@@ -606,6 +606,7 @@ export class BackupService {
       pm_equipment_records: () => this.prisma.pmEquipmentRecord.findMany(w()),
       // Project module
       projects: () => this.prisma.project.findMany(w()),
+      project_managers: () => this.prisma.projectManager.findMany(wc()),
       project_stores: () => this.prisma.projectStore.findMany(wc()),
       project_tasks: () => this.prisma.projectTask.findMany(w()),
       project_task_logs: () => this.prisma.projectTaskLog.findMany(wc()),
@@ -985,7 +986,7 @@ export class BackupService {
       // Store/equipment lifecycle (depends on stores/equipment)
       'store_delete_requests', 'equipment_retirement_requests',
       // Project module (before incidents: incidents.for_project_store_id → project_stores)
-      'projects', 'project_stores', 'project_tasks', 'project_task_logs',
+      'projects', 'project_managers', 'project_stores', 'project_tasks', 'project_task_logs',
       'project_photos', 'project_equipment', 'project_checklists',
       // Knowledge base (self-ref categories: root nodes first, then children)
       'knowledge_categories', 'knowledge_articles',
@@ -1111,7 +1112,7 @@ export class BackupService {
       'incident_work_rounds', 'sla_defenses', 'incident_ratings', 'incident_reassignments', 'incident_assignees',
       'incidents',
       'project_checklists', 'project_equipment', 'project_photos', 'project_task_logs',
-      'project_tasks', 'project_stores', 'projects',
+      'project_tasks', 'project_stores', 'project_managers', 'projects',
       'knowledge_article_usages', 'knowledge_article_feedbacks',
       'knowledge_articles', 'knowledge_categories',
       'equipment_retirement_requests', 'store_delete_requests',
@@ -1133,6 +1134,7 @@ export class BackupService {
       project_task_logs:             () => this.prisma.projectTaskLog.deleteMany({ where: { createdAt: after } }),
       project_tasks:                 () => this.prisma.projectTask.deleteMany({ where: { createdAt: after } }),
       project_stores:                () => this.prisma.projectStore.deleteMany({ where: { createdAt: after } }),
+      project_managers:              () => this.prisma.projectManager.deleteMany({ where: { createdAt: after } }),
       projects:                      () => this.prisma.project.deleteMany({ where: { createdAt: after } }),
       outsource_bids:                () => this.prisma.outsourceBid.deleteMany({ where: { createdAt: after } }),
       outsource_jobs:                () => this.prisma.outsourceJob.deleteMany({ where: { createdAt: after } }),
@@ -1421,7 +1423,7 @@ export class BackupService {
       'stores', 'equipment',
       'store_delete_requests', 'equipment_retirement_requests',
       // Project module (before incidents: incidents.for_project_store_id → project_stores)
-      'projects', 'project_stores', 'project_tasks', 'project_task_logs',
+      'projects', 'project_managers', 'project_stores', 'project_tasks', 'project_task_logs',
       'project_photos', 'project_equipment', 'project_checklists',
       'knowledge_categories', 'knowledge_articles',
       'knowledge_article_feedbacks', 'knowledge_article_usages',
@@ -1852,6 +1854,7 @@ export class BackupService {
         (data) => this.prisma.project.createMany({ data: data as any[], skipDuplicates: true }),
         d,
       ),
+      project_managers: (d) => this.upsertRaw('project_managers', d),
       project_stores: (d) => this.upsertRaw('project_stores', d),
       project_tasks: (d) => this.upsertRaw('project_tasks', d),
       project_task_logs: (d) => this.upsertRaw('project_task_logs', d),

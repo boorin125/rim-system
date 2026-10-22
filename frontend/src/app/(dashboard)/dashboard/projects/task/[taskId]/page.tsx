@@ -26,6 +26,7 @@ import {
   Save,
   AlertTriangle,
   ScanLine,
+  Pencil,
 } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
@@ -185,7 +186,16 @@ export default function TaskDetailPage() {
   const isAssignedTech = isTech && task?.assignedToId != null && Number(task.assignedToId) === Number(currentUser?.id)
   const PRE_CHECKIN_STATUSES = ['PENDING', 'SCHEDULED', 'RESCHEDULED']
   const isBlocked = isAssignedTech && PRE_CHECKIN_STATUSES.includes(task?.status ?? '')
-  const canMedia = (isAssignedTech && task?.status === 'IN_PROGRESS') || userRoles.includes('HELP_DESK')
+  // Project Managers of this project may add / delete / edit photos, captions, equipment and checklists
+  const isProjectManager = !!currentUser && (task?.projectStore?.project?.managers || [])
+    .some((m: any) => Number(m.userId) === Number(currentUser.id))
+  const canMedia = (isAssignedTech && task?.status === 'IN_PROGRESS') || userRoles.includes('HELP_DESK') || isProjectManager
+  // Edit caption / delete — staff kept the delete buttons they had before
+  const canEditMedia = canMedia || canManage
+
+  // Edit a photo caption (canMedia)
+  const [captionEdit, setCaptionEdit] = useState<{ id: number; text: string } | null>(null)
+  const [savingCaption, setSavingCaption] = useState(false)
 
   // Sync assign form when task loads
   useEffect(() => {
@@ -336,6 +346,26 @@ export default function TaskDetailPage() {
       toast.success('ลบรูปสำเร็จ')
       fetchTask()
     } catch { toast.error('ลบรูปไม่สำเร็จ') }
+  }
+
+  const handleSaveCaption = async () => {
+    if (!captionEdit) return
+    const token = localStorage.getItem('token')
+    setSavingCaption(true)
+    try {
+      await axios.patch(
+        `${process.env.NEXT_PUBLIC_API_URL}/projects/photos/${captionEdit.id}`,
+        { comment: captionEdit.text },
+        { headers: { Authorization: `Bearer ${token}` } },
+      )
+      toast.success('บันทึกข้อความแล้ว')
+      setCaptionEdit(null)
+      fetchTask()
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'บันทึกข้อความไม่สำเร็จ')
+    } finally {
+      setSavingCaption(false)
+    }
   }
 
   const handleDeleteEquipment = async (eqId: number) => {
@@ -512,7 +542,10 @@ export default function TaskDetailPage() {
       }
 
       toast.success('บันทึกการมอบหมายงานสำเร็จ')
-      fetchTask()
+      // Back to the project with this store opened (same target as the ← button)
+      const pid = task?.projectStore?.project?.id
+      if (pid) router.push(`/dashboard/projects/${pid}${task?.projectStoreId ? `?store=${task.projectStoreId}` : ''}`)
+      else fetchTask()
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'บันทึกไม่สำเร็จ')
     } finally {
@@ -871,7 +904,7 @@ export default function TaskDetailPage() {
                           className="w-full aspect-video object-cover cursor-pointer"
                           onClick={() => setLightboxUrl(getPhotoUrl(photo.photoPath))}
                         />
-                        {isAssignedTech && !['COMPLETED', 'PENDING_VERIFY'].includes(task.status) && (
+                        {((isAssignedTech && !['COMPLETED', 'PENDING_VERIFY'].includes(task.status)) || isProjectManager) && (
                           <button
                             onClick={(e) => { e.stopPropagation(); handleDeletePhoto(photo.id) }}
                             className="absolute top-1.5 right-1.5 bg-black/70 p-1.5 rounded-lg text-red-400 hover:text-red-300 hover:bg-black/90 transition-colors"
@@ -1004,9 +1037,24 @@ export default function TaskDetailPage() {
                             </div>
                           </div>
                         )}
-                        <button onClick={(e) => { e.stopPropagation(); handleDeletePhoto(photo.id) }} className="absolute top-1.5 right-1.5 bg-black/70 p-1.5 rounded-lg text-red-400 hover:text-red-300 hover:bg-black/90 transition-colors">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {canEditMedia && (
+                          <div className="absolute top-1.5 right-1.5 flex items-center gap-1">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setCaptionEdit({ id: photo.id, text: photo.comment || '' }) }}
+                              className="bg-black/70 p-1.5 rounded-lg text-gray-200 hover:text-white hover:bg-black/90 transition-colors"
+                              title="แก้ไขข้อความ"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDeletePhoto(photo.id) }}
+                              className="bg-black/70 p-1.5 rounded-lg text-red-400 hover:text-red-300 hover:bg-black/90 transition-colors"
+                              title="ลบรูป"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -1072,12 +1120,14 @@ export default function TaskDetailPage() {
                         <p className="text-gray-400 text-xs">{isReplace ? 'ใหม่' : 'รุ่น'}: {eq.newModel || '-'} {eq.newSN && `(S/N: ${eq.newSN})`}</p>
                       )}
                     </div>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleDeleteEquipment(eq.id) }}
-                      className="text-gray-500 hover:text-red-400 transition-colors flex-shrink-0 ml-3"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {canEditMedia && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDeleteEquipment(eq.id) }}
+                        className="text-gray-500 hover:text-red-400 transition-colors flex-shrink-0 ml-3"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 )
               })}
@@ -1147,9 +1197,11 @@ export default function TaskDetailPage() {
                   >
                     {cl.fileName}
                   </a>
-                  <button onClick={() => handleDeleteChecklist(cl.id)} className="text-gray-500 hover:text-red-400 transition-colors flex-shrink-0 ml-2">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  {canEditMedia && (
+                    <button onClick={() => handleDeleteChecklist(cl.id)} className="text-gray-500 hover:text-red-400 transition-colors flex-shrink-0 ml-2">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -1157,8 +1209,10 @@ export default function TaskDetailPage() {
         </div>
       )}
 
-      {/* ── Complete button (tech, after checklist) ── */}
-      {isAssignedTech && task.status === 'IN_PROGRESS' && (() => {
+      {/* ── Complete button (tech, after checklist) — a Project Manager can send it on the technician's behalf ── */}
+      {(isAssignedTech || isProjectManager) && task.status === 'IN_PROGRESS' && (() => {
+        const onBehalf = !isAssignedTech
+        const techName = task.assignedTo ? `${task.assignedTo.firstName} ${task.assignedTo.lastName}` : 'ช่าง'
         const workPhotos = (task.photos || []).filter((p: any) => p.category !== 'CHECK_IN')
         const hasCheckIn = !!task.checkInPhotoPath
         const hasWorkPhotos = workPhotos.length > 0
@@ -1174,6 +1228,12 @@ export default function TaskDetailPage() {
 
         return (
           <div className="glass-card rounded-xl p-4 space-y-3">
+            {onBehalf && (
+              <div className="flex items-start gap-2 text-sm text-sky-300 bg-sky-900/20 border border-sky-500/30 rounded-lg px-3 py-2.5">
+                <User className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <span>คุณเป็น Project Manager — ส่งงานแทน <strong>{techName}</strong> ได้ (ประวัติจะบันทึกว่าคุณเป็นผู้ส่ง)</span>
+              </div>
+            )}
             {!canComplete ? (
               <div className="flex items-start gap-2 text-sm text-yellow-400 bg-yellow-900/20 border border-yellow-500/30 rounded-lg px-3 py-2.5">
                 <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
@@ -1186,12 +1246,27 @@ export default function TaskDetailPage() {
               </div>
             ) : null}
             <button
-              onClick={() => handleAction('complete')}
+              onClick={async () => {
+                if (onBehalf) {
+                  const ok = await confirmDialog({
+                    title: 'ส่งงานแทนช่าง?',
+                    message: `ส่งงานนี้ไปตรวจสอบแทน ${techName} — ประวัติจะบันทึกว่าคุณ (PM) เป็นผู้ส่ง`,
+                    confirmLabel: 'ส่งงานแทนช่าง',
+                    variant: 'success',
+                  })
+                  if (!ok) return
+                }
+                handleAction('complete')
+              }}
               disabled={actionLoading || !canComplete}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-white font-semibold text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-green-600 hover:bg-green-500"
             >
               <CheckCircle2 className="w-4 h-4" />
-              {actionLoading ? 'กำลังบันทึก...' : wasRejected ? 'ส่งตรวจสอบอีกครั้ง' : 'ปิดงาน (ส่งตรวจสอบ)'}
+              {actionLoading
+                ? 'กำลังบันทึก...'
+                : onBehalf
+                  ? 'ส่งงานแทนช่าง (ส่งตรวจสอบ)'
+                  : wasRejected ? 'ส่งตรวจสอบอีกครั้ง' : 'ปิดงาน (ส่งตรวจสอบ)'}
             </button>
           </div>
         )
@@ -1561,6 +1636,45 @@ export default function TaskDetailPage() {
             className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           />
+        </div>
+      )}
+
+      {/* Edit photo caption */}
+      {captionEdit && (
+        <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4" onClick={() => !savingCaption && setCaptionEdit(null)}>
+          <div
+            className="w-full sm:max-w-md bg-slate-800 border border-slate-600/60 rounded-t-2xl sm:rounded-2xl shadow-2xl p-5 space-y-4"
+            style={{ paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom))' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-white font-semibold flex items-center gap-2">
+                <Tag className="w-4 h-4 text-orange-400" /> ข้อความใต้รูป
+              </h3>
+              <button onClick={() => setCaptionEdit(null)} className="p-1 rounded-lg hover:bg-slate-700 text-gray-400"><X className="w-5 h-5" /></button>
+            </div>
+            <textarea
+              value={captionEdit.text}
+              onChange={(e) => setCaptionEdit({ ...captionEdit, text: e.target.value.slice(0, 500) })}
+              rows={3}
+              autoFocus
+              placeholder="เช่น หน้าเคาน์เตอร์หลังเดินสาย LAN"
+              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500 resize-none"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={handleSaveCaption}
+                disabled={savingCaption}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50"
+                style={{ backgroundColor: themeHighlight }}
+              >
+                {savingCaption ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} บันทึก
+              </button>
+              <button onClick={() => setCaptionEdit(null)} className="flex-1 py-2.5 rounded-lg text-gray-400 hover:text-white text-sm hover:bg-slate-700/50">
+                ยกเลิก
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Briefcase, Save, User, Search, X } from 'lucide-react'
+import { ArrowLeft, Briefcase, Save } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
 import { useThemeHighlight } from '@/hooks/useThemeHighlight'
-import { getPhotoUrl } from '@/utils/photoUtils'
+import ProjectManagerPicker, { PickerUser } from '@/components/ProjectManagerPicker'
 
 const PROJECT_COLORS = [
   { hex: '#3b82f6', label: 'น้ำเงิน' },
@@ -39,10 +39,7 @@ export default function NewProjectPage() {
 
   // Project Manager selector
   const [users, setUsers] = useState<any[]>([])
-  const [selectedManager, setSelectedManager] = useState<any>(null)
-  const [managerSearch, setManagerSearch] = useState('')
-  const [showManagerDropdown, setShowManagerDropdown] = useState(false)
-  const managerRef = useRef<HTMLDivElement>(null)
+  const [managers, setManagers] = useState<PickerUser[]>([])
 
   useEffect(() => {
     const token = localStorage.getItem('token')
@@ -52,25 +49,6 @@ export default function NewProjectPage() {
       setUsers(res.data.data || res.data || [])
     }).catch(() => {})
   }, [])
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (managerRef.current && !managerRef.current.contains(e.target as Node)) {
-        setShowManagerDropdown(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [])
-
-  const filteredUsers = users.filter(u => {
-    const q = managerSearch.toLowerCase()
-    return (
-      `${u.firstName} ${u.lastName}`.toLowerCase().includes(q) ||
-      (u.username || '').toLowerCase().includes(q)
-    )
-  })
 
   const handleChange = (field: string, value: string) => {
     setForm(prev => ({ ...prev, [field]: value }))
@@ -95,7 +73,7 @@ export default function NewProjectPage() {
       if (form.budget) payload.budget = parseFloat(form.budget)
       if (form.startDate) payload.startDate = form.startDate
       if (form.endDate) payload.endDate = form.endDate
-      if (selectedManager) payload.projectManagerId = selectedManager.id
+      if (managers.length) payload.projectManagerIds = managers.map(m => m.id)
 
       const res = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/projects`,
@@ -163,85 +141,10 @@ export default function NewProjectPage() {
         {/* Project Manager */}
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-1.5">
-            Project Manager
+            Project Manager <span className="text-gray-500 font-normal">(เลือกได้หลายคน)</span>
           </label>
-          <div ref={managerRef} className="relative">
-            {selectedManager ? (
-              <div className="flex items-center gap-2 px-3 py-2.5 bg-slate-700/50 border border-slate-600 rounded-lg">
-                {selectedManager.avatarPath ? (
-                  <img
-                    src={getPhotoUrl(selectedManager.avatarPath)}
-                    className="w-6 h-6 rounded-full object-cover shrink-0"
-                    alt=""
-                  />
-                ) : (
-                  <div className="w-6 h-6 rounded-full bg-slate-500 flex items-center justify-center text-[10px] text-gray-200 shrink-0 font-medium">
-                    {selectedManager.firstName?.charAt(0) ?? '?'}
-                  </div>
-                )}
-                <span className="text-sm text-white flex-1">
-                  {selectedManager.firstName} {selectedManager.lastName}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => { setSelectedManager(null); setManagerSearch('') }}
-                  className="text-gray-400 hover:text-white transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            ) : (
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                <input
-                  type="text"
-                  value={managerSearch}
-                  onChange={(e) => { setManagerSearch(e.target.value); setShowManagerDropdown(true) }}
-                  onFocus={() => setShowManagerDropdown(true)}
-                  placeholder="ค้นหาชื่อ User..."
-                  className="w-full pl-9 pr-4 py-2.5 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-gray-400 text-sm focus:outline-none focus:border-blue-500"
-                />
-              </div>
-            )}
-
-            {/* Dropdown */}
-            {showManagerDropdown && !selectedManager && (
-              <div className="absolute z-50 top-full mt-1 w-full bg-slate-800 border border-slate-600 rounded-lg shadow-xl overflow-hidden max-h-52 overflow-y-auto">
-                {filteredUsers.length === 0 ? (
-                  <div className="px-4 py-3 text-sm text-gray-400 text-center">ไม่พบ User</div>
-                ) : (
-                  filteredUsers.slice(0, 30).map(u => (
-                    <button
-                      key={u.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedManager(u)
-                        setShowManagerDropdown(false)
-                        setManagerSearch('')
-                      }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-slate-700/70 transition-colors text-left"
-                    >
-                      {u.avatarPath ? (
-                        <img
-                          src={getPhotoUrl(u.avatarPath)}
-                          className="w-7 h-7 rounded-full object-cover shrink-0"
-                          alt=""
-                        />
-                      ) : (
-                        <div className="w-7 h-7 rounded-full bg-slate-600 flex items-center justify-center text-xs text-gray-300 shrink-0 font-medium">
-                          {u.firstName?.charAt(0) ?? '?'}
-                        </div>
-                      )}
-                      <div className="min-w-0">
-                        <p className="text-sm text-white truncate">{u.firstName} {u.lastName}</p>
-                        <p className="text-xs text-gray-400 truncate">@{u.username}</p>
-                      </div>
-                    </button>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
+          <ProjectManagerPicker users={users} value={managers} onChange={setManagers} />
+          <p className="text-xs text-gray-500 mt-1.5">PM แก้ไข / เพิ่ม / ลบ รูป ข้อความใต้รูป อุปกรณ์ และ Checklist ของ Task ในโปรเจกต์นี้ได้</p>
         </div>
 
         {/* Budget */}
