@@ -199,7 +199,8 @@ export class ProjectController {
   }
 
   // Technician's open project tasks (shown on the Incidents page) + whether they manage any project
-  @Get('my-work')
+  // (two segments + declared before tasks/:taskId — a one-segment path would be caught by @Get(':id'))
+  @Get('tasks/mine')
   getMyWork(@Request() req: any) {
     return this.projectService.getMyWork(req.user.id);
   }
@@ -355,12 +356,22 @@ export class ProjectController {
   ) {
     if (!file) throw new BadRequestException('Photo file is required');
     await this.assertMediaUpload(taskId, req.user, file);
-    return this.projectService.addPhoto(taskId, {
+    return this.dropFileOnError(file, this.projectService.addPhoto(taskId, {
       photoPath: file.path.replace(/\\/g, '/'),
       comment,
       sortOrder: sortOrder ? parseInt(sortOrder) : 0,
       category: category ?? 'WORK',
-    });
+    }));
+  }
+
+  /** The upload is already on disk — remove it when saving fails (e.g. not checked in yet) */
+  private async dropFileOnError<T>(file: Express.Multer.File, work: Promise<T>): Promise<T> {
+    try {
+      return await work;
+    } catch (err) {
+      fs.promises.unlink(file.path).catch(() => {});
+      throw err;
+    }
   }
 
   @Delete('photos/:photoId')
@@ -429,11 +440,11 @@ export class ProjectController {
     if (!file) throw new BadRequestException('Checklist file is required');
     await this.assertMediaUpload(taskId, req.user, file);
     const fileName = Buffer.from(file.originalname, 'latin1').toString('utf8');
-    return this.projectService.addChecklist(taskId, {
+    return this.dropFileOnError(file, this.projectService.addChecklist(taskId, {
       fileName,
       filePath: file.path.replace(/\\/g, '/'),
       fileSize: file.size,
-    });
+    }));
   }
 
   @Delete('checklists/:checklistId')

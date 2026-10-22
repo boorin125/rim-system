@@ -26,6 +26,7 @@ export function useMyProjectWork() {
   const [tasks, setTasks] = useState<MyProjectTask[]>([])
   const [managesProjects, setManagesProjects] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  const [failed, setFailed] = useState(false)
 
   useEffect(() => {
     if (!modulesLoaded) return
@@ -34,16 +35,16 @@ export function useMyProjectWork() {
     if (!token) { setLoaded(true); return }
     let alive = true
     axios
-      .get(`${process.env.NEXT_PUBLIC_API_URL}/projects/my-work`, { headers: { Authorization: `Bearer ${token}` } })
+      .get(`${process.env.NEXT_PUBLIC_API_URL}/projects/tasks/mine`, { headers: { Authorization: `Bearer ${token}` } })
       .then((res) => {
         if (!alive) return
         setTasks(res.data?.tasks || [])
         setManagesProjects(!!res.data?.managesProjects)
       })
-      .catch(() => {})
+      .catch(() => { if (alive) setFailed(true) })
       .finally(() => { if (alive) setLoaded(true) })
     return () => { alive = false }
   }, [modules.project, modulesLoaded])
 
-  return { tasks, managesProjects, loaded }
+  return { tasks, managesProjects, loaded, failed }
 }

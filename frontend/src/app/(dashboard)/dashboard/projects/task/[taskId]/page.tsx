@@ -193,6 +193,10 @@ export default function TaskDetailPage() {
   const canMedia = (isAssignedTech && task?.status === 'IN_PROGRESS') || userRoles.includes('HELP_DESK') || isProjectManager
   // Edit caption / delete — staff kept the delete buttons they had before
   const canEditMedia = canMedia || canManage
+  // Work photos / equipment / checklists come after check-in (backend enforces it too)
+  const checkedIn = !!task?.checkInAt
+  const addLockedCls = checkedIn ? 'cursor-pointer hover:opacity-90' : 'opacity-40 cursor-not-allowed pointer-events-none'
+  const addLockedTitle = checkedIn ? undefined : 'ต้อง Check-in ก่อน'
 
   // Edit a photo caption (canMedia)
   const [captionEdit, setCaptionEdit] = useState<{ id: number; text: string } | null>(null)
@@ -1021,20 +1025,25 @@ export default function TaskDetailPage() {
                   </h2>
                   {/* Two explicit sources — some phones open only the gallery (or only the camera) from one picker */}
                   {canMedia && (
-                    <div className="flex items-center gap-2">
-                      <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-sm cursor-pointer hover:opacity-90" style={{ backgroundColor: themeHighlight }}>
+                    <div className="flex items-center gap-2" title={addLockedTitle}>
+                      <label className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-sm ${addLockedCls}`} style={{ backgroundColor: themeHighlight }}>
                         <Camera className="w-3.5 h-3.5" />
                         ถ่ายรูป
-                        <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { handleFileSelect(e.target.files); e.target.value = '' }} />
+                        <input type="file" accept="image/*" capture="environment" className="hidden" disabled={!checkedIn} onChange={(e) => { handleFileSelect(e.target.files); e.target.value = '' }} />
                       </label>
-                      <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm cursor-pointer border border-slate-600 text-gray-200 hover:bg-slate-700/50">
+                      <label className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border border-slate-600 text-gray-200 hover:bg-slate-700/50 ${addLockedCls}`}>
                         <ImageIcon className="w-3.5 h-3.5" />
                         คลังภาพ
-                        <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => { handleFileSelect(e.target.files); e.target.value = '' }} />
+                        <input type="file" accept="image/*" multiple className="hidden" disabled={!checkedIn} onChange={(e) => { handleFileSelect(e.target.files); e.target.value = '' }} />
                       </label>
                     </div>
                   )}
                 </div>
+                {canMedia && !checkedIn && (
+                  <p className="flex items-center gap-1.5 text-xs text-amber-300/90">
+                    <Lock className="w-3 h-3" /> เพิ่มรูปงาน อุปกรณ์ และ Checklist ได้หลังช่าง Check-in
+                  </p>
+                )}
                 {workPhotos.length === 0 ? (
                   <p className="text-gray-500 text-sm text-center py-4">ยังไม่มีรูปภาพ</p>
                 ) : (
@@ -1099,7 +1108,9 @@ export default function TaskDetailPage() {
             {(canMedia) && (
               <button
                 onClick={() => { setEqMode('replace'); setEqForm({ itemName: '', oldModel: '', oldSN: '', newModel: '', newSN: '', notes: '' }); setShowEquipmentForm(true) }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-sm hover:opacity-90"
+                disabled={!checkedIn}
+                title={addLockedTitle}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-sm hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{ backgroundColor: themeHighlight }}
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -1168,7 +1179,8 @@ export default function TaskDetailPage() {
               Checklist ({task.checklists?.length || 0})
             </h2>
             {(canMedia) && (
-              <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-sm cursor-pointer hover:opacity-90"
+              <label className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-sm ${addLockedCls}`}
+                title={addLockedTitle}
                 style={{ backgroundColor: themeHighlight }}>
                 <Plus className="w-3.5 h-3.5" />
                 อัปโหลด
@@ -1176,6 +1188,7 @@ export default function TaskDetailPage() {
                   type="file"
                   accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xlsx,.xls"
                   className="hidden"
+                  disabled={!checkedIn}
                   onChange={async (e) => {
                     const file = e.target.files?.[0]
                     if (!file) return

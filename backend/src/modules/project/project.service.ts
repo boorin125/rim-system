@@ -869,8 +869,14 @@ export class ProjectService implements OnModuleInit {
     });
   }
 
+  /** Work photos / equipment / checklists come after the technician's check-in */
+  private assertCheckedIn(task: { checkInAt: Date | null }) {
+    if (!task.checkInAt) throw new BadRequestException('ต้อง Check-in ก่อนจึงจะเพิ่มรูปงาน อุปกรณ์ หรือ Checklist ได้');
+  }
+
   async addPhoto(taskId: number, dto: AddPhotoDto & { category?: string }) {
-    await this.findTask(taskId);
+    const task = await this.findTask(taskId);
+    this.assertCheckedIn(task);
     return this.prisma.projectPhoto.create({
       data: {
         taskId,
@@ -890,7 +896,7 @@ export class ProjectService implements OnModuleInit {
   }
 
   async addEquipment(taskId: number, dto: AddEquipmentDto) {
-    await this.findTask(taskId);
+    this.assertCheckedIn(await this.findTask(taskId));
     return this.prisma.projectEquipment.create({ data: { taskId, ...dto } });
   }
 
@@ -917,7 +923,7 @@ export class ProjectService implements OnModuleInit {
   }
 
   async addChecklist(taskId: number, data: { fileName: string; filePath: string; fileSize?: number }) {
-    await this.findTask(taskId);
+    this.assertCheckedIn(await this.findTask(taskId));
     return this.prisma.projectChecklist.create({ data: { taskId, ...data } });
   }
 

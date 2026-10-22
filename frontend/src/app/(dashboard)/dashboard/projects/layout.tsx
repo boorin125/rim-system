@@ -1,14 +1,43 @@
 'use client'
 
-// Gate every /dashboard/projects page behind Settings › Modules › Project
+// Gate every /dashboard/projects page behind Settings › Modules › Project.
+// Technicians work their tasks from the Incidents page: unless they are a Project Manager,
+// the project pages send them there (the task page itself stays open — they close jobs on it).
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { usePathname, useRouter } from 'next/navigation'
 import { FolderKanban } from 'lucide-react'
 import { useModules } from '@/hooks/useModules'
+import { useMyProjectWork } from '@/hooks/useMyProjectWork'
+import { getUserRoles } from '@/config/permissions'
+
+const HIGHER_THAN_TECH = ['SUPER_ADMIN', 'IT_MANAGER', 'FINANCE_ADMIN', 'SUPERVISOR', 'HELP_DESK']
 
 export default function ProjectsLayout({ children }: { children: React.ReactNode }) {
   const { modules, loaded } = useModules()
+  const { managesProjects, loaded: workLoaded, failed } = useMyProjectWork()
+  const pathname = usePathname()
+  const router = useRouter()
+  const [isTechOnly, setIsTechOnly] = useState<boolean | null>(null)
 
-  if (!loaded) {
+  useEffect(() => {
+    try {
+      const roles = getUserRoles(JSON.parse(localStorage.getItem('user') || 'null')) as string[]
+      setIsTechOnly(roles.includes('TECHNICIAN') && !roles.some(r => HIGHER_THAN_TECH.includes(r)))
+    } catch {
+      setIsTechOnly(false)
+    }
+  }, [])
+
+  const isTaskPage = pathname?.startsWith('/dashboard/projects/task/')
+  // Don't lock anyone out when the check itself failed
+  const sendToIncidents = !!isTechOnly && !isTaskPage && workLoaded && !failed && !managesProjects
+
+  useEffect(() => {
+    if (sendToIncidents) router.replace('/dashboard/incidents')
+  }, [sendToIncidents, router])
+
+  if (!loaded || isTechOnly === null || (isTechOnly && !isTaskPage && !workLoaded) || sendToIncidents) {
     return (
       <div className="flex items-center justify-center py-24">
         <div className="spinner" />
