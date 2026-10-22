@@ -182,7 +182,7 @@ export default function TaskDetailPage() {
   const isHelpdesk = userRoles.includes('HELP_DESK') || userRoles.includes('IT_MANAGER') || userRoles.includes('SUPER_ADMIN')
   const canManage = isHelpdesk || isSupervisor
   const canAssign = isSupervisor || userRoles.includes('IT_MANAGER') || userRoles.includes('SUPER_ADMIN')
-  const isAssignedTech = isTech && task?.assignedToId === currentUser?.id
+  const isAssignedTech = isTech && task?.assignedToId != null && Number(task.assignedToId) === Number(currentUser?.id)
   const PRE_CHECKIN_STATUSES = ['PENDING', 'SCHEDULED', 'RESCHEDULED']
   const isBlocked = isAssignedTech && PRE_CHECKIN_STATUSES.includes(task?.status ?? '')
   const canMedia = (isAssignedTech && task?.status === 'IN_PROGRESS') || userRoles.includes('HELP_DESK')
@@ -209,24 +209,33 @@ export default function TaskDetailPage() {
 
   // ── Check-in flow ────────────────────────────────────────────────────────
 
-  // Step 1: request GPS first — on success, open file picker
-  const handleCheckInStart = () => {
+  // GPS runs in the background while the technician takes the photo; submit waits for it
+  const requestCheckInGps = () => {
     if (checkInGpsLoading) return
+    if (!navigator.geolocation) {
+      toast.error('อุปกรณ์นี้ไม่รองรับการระบุตำแหน่ง GPS')
+      return
+    }
     setCheckInGpsLoading(true)
     setCheckInGps(null)
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setCheckInGps({ lat: pos.coords.latitude, lng: pos.coords.longitude })
         setCheckInGpsLoading(false)
-        // GPS granted → open file/camera picker
-        checkInInputRef.current?.click()
       },
       () => {
-        toast.error('ไม่สามารถดึงตำแหน่ง GPS ได้ กรุณาเปิดสิทธิ์ Location แล้วลองใหม่')
+        toast.error('ไม่สามารถดึงตำแหน่ง GPS ได้ กรุณาเปิดสิทธิ์ Location แล้วกด "ระบุตำแหน่งอีกครั้ง"')
         setCheckInGpsLoading(false)
       },
-      { enableHighAccuracy: true, timeout: 15000 },
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 60000 },
     )
+  }
+
+  // Open the camera / file picker straight from the tap — iOS and some Android browsers refuse a
+  // picker opened later from the GPS callback (no longer a user gesture), so check-in never started.
+  const handleCheckInStart = () => {
+    checkInInputRef.current?.click()
+    if (!checkInGps) requestCheckInGps()
   }
 
   // Step 2: GPS already obtained — resize then set photo
@@ -251,7 +260,7 @@ export default function TaskDetailPage() {
       await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/projects/tasks/${taskId}/check-in`,
         fd,
-        { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' } },
+        { headers: { Authorization: `Bearer ${token}` } },
       )
       toast.success('Check-in สำเร็จ เริ่มงานได้เลย!')
       if (checkInPreview) URL.revokeObjectURL(checkInPreview)
@@ -431,7 +440,7 @@ export default function TaskDetailPage() {
       await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/projects/tasks/${taskId}/photos`,
         fd,
-        { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' } },
+        { headers: { Authorization: `Bearer ${token}` } },
       )
       toast.success('เพิ่มรูป Check-in สำเร็จ')
       fetchTask()
@@ -456,7 +465,7 @@ export default function TaskDetailPage() {
         await axios.post(
           `${process.env.NEXT_PUBLIC_API_URL}/projects/tasks/${taskId}/photos`,
           fd,
-          { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' } },
+          { headers: { Authorization: `Bearer ${token}` } },
         )
         successCount++
       } catch { toast.error(`อัปโหลด ${staged.file.name} ไม่สำเร็จ`) }
@@ -890,11 +899,24 @@ export default function TaskDetailPage() {
                         <X className="w-4 h-4" />
                       </button>
                     </div>
-                    {checkInGps && (
+                    {checkInGps ? (
                       <div className="flex items-center gap-2 text-sm text-green-300 bg-green-900/20 border border-green-500/30 rounded-lg px-4 py-3">
                         <Navigation className="w-4 h-4 flex-shrink-0" />
                         <span>GPS: {checkInGps.lat.toFixed(6)}, {checkInGps.lng.toFixed(6)}</span>
                       </div>
+                    ) : checkInGpsLoading ? (
+                      <div className="flex items-center gap-2 text-sm text-indigo-300 bg-indigo-900/20 border border-indigo-500/30 rounded-lg px-4 py-3">
+                        <Loader2 className="w-4 h-4 flex-shrink-0 animate-spin" />
+                        <span>กำลังระบุตำแหน่ง GPS... (กรุณาอนุญาตการเข้าถึงตำแหน่ง)</span>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={requestCheckInGps}
+                        className="w-full flex items-center justify-center gap-2 text-sm text-amber-300 bg-amber-900/20 border border-amber-500/30 rounded-lg px-4 py-3 hover:bg-amber-900/30"
+                      >
+                        <Navigation className="w-4 h-4 flex-shrink-0" /> ยังไม่ได้ตำแหน่ง GPS — แตะเพื่อระบุตำแหน่งอีกครั้ง
+                      </button>
                     )}
                     <button
                       onClick={handleCheckInSubmit}
@@ -909,18 +931,15 @@ export default function TaskDetailPage() {
                   <div className="flex flex-col items-center justify-center gap-4 p-8">
                     <button
                       onClick={handleCheckInStart}
-                      disabled={checkInGpsLoading}
-                      className="flex flex-col items-center gap-3 w-full rounded-xl border-2 border-dashed p-8 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                      style={{ borderColor: checkInGpsLoading ? '#6366f1' : `${themeHighlight}60`, backgroundColor: checkInGpsLoading ? 'rgba(99,102,241,0.08)' : `${themeHighlight}08` }}
+                      className="flex flex-col items-center gap-3 w-full rounded-xl border-2 border-dashed p-8 transition-colors"
+                      style={{ borderColor: `${themeHighlight}60`, backgroundColor: `${themeHighlight}08` }}
                     >
-                      <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ backgroundColor: checkInGpsLoading ? 'rgba(99,102,241,0.15)' : `${themeHighlight}20` }}>
-                        {checkInGpsLoading ? <Loader2 className="w-7 h-7 animate-spin text-indigo-400" /> : <Camera className="w-7 h-7" style={{ color: themeHighlight }} />}
+                      <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ backgroundColor: `${themeHighlight}20` }}>
+                        <Camera className="w-7 h-7" style={{ color: themeHighlight }} />
                       </div>
                       <div className="text-center">
-                        {checkInGpsLoading
-                          ? <><p className="text-indigo-300 font-semibold">กำลังระบุตำแหน่ง GPS...</p><p className="text-gray-400 text-xs mt-1">กรุณาอนุญาตการเข้าถึงตำแหน่ง</p></>
-                          : <><p className="text-white font-semibold">ถ่ายรูป / เลือกรูป Check-in</p><p className="text-gray-400 text-xs mt-1">ระบบจะขอสิทธิ์ GPS ก่อนเปิดกล้อง</p></>
-                        }
+                        <p className="text-white font-semibold">ถ่ายรูป / เลือกรูป Check-in</p>
+                        <p className="text-gray-400 text-xs mt-1">ระบบจะระบุตำแหน่ง GPS ระหว่างถ่ายรูป (กรุณาอนุญาตการเข้าถึงตำแหน่ง)</p>
                       </div>
                     </button>
                     <input ref={checkInInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleCheckInPhotoSelect(e.target.files)} />
@@ -1104,7 +1123,7 @@ export default function TaskDetailPage() {
                       await axios.post(
                         `${process.env.NEXT_PUBLIC_API_URL}/projects/tasks/${taskId}/checklists`,
                         fd,
-                        { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' } },
+                        { headers: { Authorization: `Bearer ${token}` } },
                       )
                       toast.success('อัปโหลด Checklist สำเร็จ')
                       fetchTask()
