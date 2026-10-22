@@ -87,7 +87,7 @@ export default function PwaInstallPrompt() {
         <div className="flex items-start gap-3">
           <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 bg-blue-600 flex items-center justify-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/api/pwa-icon" alt="App icon" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display='none' }} />
+            <img src={`${process.env.NEXT_PUBLIC_API_URL}/settings/public/pwa/icon/192`} alt="App icon" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display='none' }} />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-white">ติดตั้ง RIM System</p>

@@ -90,6 +90,8 @@ interface OrganizationSettings {
   incidentPrefix: string
   logoPath: string
   organizationAddress: string
+  appName: string
+  isTestServer: boolean
 }
 
 // Email Settings Interface
@@ -355,6 +357,8 @@ export default function SettingsPage() {
     incidentPrefix: 'INC',
     logoPath: '',
     organizationAddress: '',
+    appName: '',
+    isTestServer: false,
   })
   const [isUploadingLogo, setIsUploadingLogo] = useState(false)
   const logoInputRef = useRef<HTMLInputElement>(null)
@@ -890,6 +894,8 @@ export default function SettingsPage() {
           organizationName: orgSettings.organizationName,
           incidentPrefix: orgSettings.incidentPrefix.toUpperCase(),
           organizationAddress: orgSettings.organizationAddress,
+          appName: orgSettings.appName ?? '',
+          isTestServer: !!orgSettings.isTestServer,
         },
         { headers: { Authorization: `Bearer ${token}` } }
       )
@@ -1913,6 +1919,45 @@ export default function SettingsPage() {
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
                     Format: [PREFIX][YY][MM][XXXX]
+                  </p>
+                </div>
+
+                {/* Mobile app (PWA) identity */}
+                <div className="p-4 bg-slate-700/30 rounded-xl space-y-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-300">แอปบนมือถือ (ติดตั้งจากหน้าเว็บ)</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      ไอคอนแอปใช้ Organization Logo ด้านขวา — ช่างที่ติดตั้งแอปจากหลาย Server จะแยกได้จากชื่อและไอคอน
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-300 mb-2">ชื่อแอป</label>
+                    <input
+                      type="text"
+                      value={orgSettings.appName ?? ''}
+                      onChange={(e) => setOrgSettings({ ...orgSettings, appName: e.target.value.slice(0, 30) })}
+                      disabled={!canManage}
+                      maxLength={30}
+                      className="w-full px-3 py-2.5 md:px-4 md:py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                      placeholder={orgSettings.organizationName ? `RIM ${orgSettings.organizationName}` : 'RIM System'}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">ชื่อใต้ไอคอนบนหน้าจอมือถือ — สั้นๆ ไม่เกิน 12 ตัวอักษรจะแสดงครบ (ว่าง = ใช้ค่าตัวอย่างในช่อง)</p>
+                  </div>
+                  <label className={`flex items-start gap-3 ${canManage ? 'cursor-pointer' : 'opacity-50'}`}>
+                    <input
+                      type="checkbox"
+                      checked={!!orgSettings.isTestServer}
+                      onChange={(e) => setOrgSettings({ ...orgSettings, isTestServer: e.target.checked })}
+                      disabled={!canManage}
+                      className="mt-0.5 w-4 h-4 accent-red-500"
+                    />
+                    <span>
+                      <span className="block text-sm text-gray-300">Server ทดสอบ (Test)</span>
+                      <span className="block text-xs text-gray-500 mt-0.5">ไอคอนแอปมีแถบ TEST สีแดง และมีแถบ &quot;Server ทดสอบ&quot; ด้านบนทุกหน้า กันใช้งานจริงผิด Server</span>
+                    </span>
+                  </label>
+                  <p className="text-xs text-amber-400/80">
+                    เปลี่ยนแล้ว: Android อัปเดตไอคอน/ชื่อเองภายหลัง · iPhone ต้องลบแอปแล้ว Add to Home Screen ใหม่
                   </p>
                 </div>
               </div>

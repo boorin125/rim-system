@@ -207,8 +207,14 @@ export class SettingsController {
     data: {
       organizationName?: string;
       incidentPrefix?: string;
+      organizationAddress?: string;
+      appName?: string;
+      isTestServer?: boolean;
     }
   ) {
+    if (data.isTestServer !== undefined && typeof data.isTestServer !== 'boolean') {
+      throw new BadRequestException('isTestServer must be boolean');
+    }
     // Validate incident prefix
     if (data.incidentPrefix) {
       const prefix = data.incidentPrefix.toUpperCase();

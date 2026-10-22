@@ -1,13 +1,13 @@
 'use client'
 import { useCallback, useState } from 'react'
-import { AlertTriangle, Trash2, LogOut } from 'lucide-react'
+import { AlertTriangle, Trash2, LogOut, CheckCircle2 } from 'lucide-react'
 
 export interface ConfirmOptions {
   title: string
   message?: string
   confirmLabel?: string
   cancelLabel?: string
-  variant?: 'danger' | 'warning' | 'default'
+  variant?: 'danger' | 'warning' | 'success' | 'default'
 }
 
 interface ConfirmState extends ConfirmOptions {
@@ -69,6 +69,11 @@ function ConfirmDialogUI({
       icon: <AlertTriangle className="w-5 h-5 text-yellow-400" />,
       confirmCls: 'bg-yellow-500 hover:bg-yellow-600 shadow-yellow-500/20',
     },
+    success: {
+      iconWrap: 'bg-emerald-500/15 border border-emerald-500/20',
+      icon: <CheckCircle2 className="w-5 h-5 text-emerald-400" />,
+      confirmCls: 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/20',
+    },
     default: {
       iconWrap: 'bg-blue-500/15 border border-blue-500/20',
       icon: <LogOut className="w-5 h-5 text-blue-400" />,
@@ -88,7 +93,7 @@ function ConfirmDialogUI({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top accent bar */}
-        <div className={`h-1 w-full ${variant === 'danger' ? 'bg-gradient-to-r from-red-500 to-rose-500' : variant === 'warning' ? 'bg-gradient-to-r from-yellow-500 to-amber-500' : 'bg-gradient-to-r from-blue-500 to-indigo-500'}`} />
+        <div className={`h-1 w-full ${variant === 'danger' ? 'bg-gradient-to-r from-red-500 to-rose-500' : variant === 'warning' ? 'bg-gradient-to-r from-yellow-500 to-amber-500' : variant === 'success' ? 'bg-gradient-to-r from-emerald-500 to-green-500' : 'bg-gradient-to-r from-blue-500 to-indigo-500'}`} />
 
         <div className="p-6 space-y-5">
           {/* Icon + Title */}

@@ -48,6 +48,7 @@ interface OrgSettings {
   organizationName: string
   incidentPrefix: string
   logoPath: string
+  isTestServer?: boolean
 }
 
 function LicenseExpiredBanner() {
@@ -804,6 +805,12 @@ export default function DashboardLayout({
           // App mode: clear the iOS status bar (statusBarStyle black-translucent + viewportFit cover)
           style={isApp ? { ...chromeStyle, paddingTop: 'env(safe-area-inset-top)' } : chromeStyle}
         >
+          {orgSettings?.isTestServer && (
+            <div className="w-full px-4 py-0.5 text-[11px] font-bold tracking-wide flex items-center justify-center gap-1.5 bg-red-600 text-white">
+              <Wrench className="w-3 h-3 flex-shrink-0" />
+              <span className="truncate">TEST — Server ทดสอบ ข้อมูลในนี้ไม่ใช่งานจริง</span>
+            </div>
+          )}
           <MaintenanceBanner />
           <LicenseExpiredBanner />
           {profileIncompleteFields.length > 0 && (

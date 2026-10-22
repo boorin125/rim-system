@@ -26,6 +26,7 @@ import {
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import BackButton from '@/components/BackButton'
+import { useConfirm } from '@/components/ConfirmDialog'
 import { useThemeHighlight } from '@/hooks/useThemeHighlight'
 
 interface UserDetail {
@@ -67,6 +68,7 @@ export default function UserDetailPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [superAdminCount, setSuperAdminCount] = useState<number>(99)
   const themeHighlight = useThemeHighlight()
+  const { confirm: confirmDialog, dialog: confirmDialogEl } = useConfirm()
 
   const roles: Record<string, { label: string; color: string }> = {
     SUPER_ADMIN: { label: 'Super Admin', color: 'bg-red-500/20 text-red-400 border-red-500/30' },
@@ -245,6 +247,7 @@ export default function UserDetailPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {confirmDialogEl}
       {/* Back Button */}
       <BackButton href="/dashboard/users" label="กลับไปหน้า Users" />
 
@@ -514,9 +517,14 @@ export default function UserDetailPage() {
                 )}
                 {canModifyTarget && (user.status === 'SUSPENDED' || user.status === 'INACTIVE') && (
                   <button
-                    onClick={() => {
-                      if (confirm(`ต้องการเปิดใช้งาน Account ของ "${user.firstName} ${user.lastName}" หรือไม่?`))
-                        handleUpdateStatus('ACTIVE')
+                    onClick={async () => {
+                      const ok = await confirmDialog({
+                        title: 'เปิดใช้งาน Account',
+                        message: `ต้องการเปิดใช้งาน Account ของ "${user.firstName} ${user.lastName}" หรือไม่?`,
+                        confirmLabel: 'เปิดใช้งาน',
+                        variant: 'success',
+                      })
+                      if (ok) handleUpdateStatus('ACTIVE')
                     }}
                     className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl transition-colors"
                   >
@@ -528,9 +536,14 @@ export default function UserDetailPage() {
                 {/* Disable User */}
                 {canModifyTarget && user.status === 'ACTIVE' && user.id !== currentUser?.id && (
                   <button
-                    onClick={() => {
-                      if (confirm(`ต้องการปิดใช้งาน Account ของ "${user.firstName} ${user.lastName}" หรือไม่?`))
-                        handleUpdateStatus('INACTIVE')
+                    onClick={async () => {
+                      const ok = await confirmDialog({
+                        title: 'ปิดใช้งาน Account',
+                        message: `ต้องการปิดใช้งาน Account ของ "${user.firstName} ${user.lastName}" หรือไม่? ผู้ใช้จะเข้าสู่ระบบไม่ได้จนกว่าจะเปิดใช้งานอีกครั้ง`,
+                        confirmLabel: 'ปิดใช้งาน',
+                        variant: 'warning',
+                      })
+                      if (ok) handleUpdateStatus('INACTIVE')
                     }}
                     className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-600 hover:bg-slate-500 text-gray-300 rounded-xl transition-colors"
                   >

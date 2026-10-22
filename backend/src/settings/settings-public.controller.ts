@@ -32,6 +32,8 @@ export class SettingsPublicController {
     return {
       organizationName: org.organizationName || '',
       logoPath: org.logoPath || '',
+      appName: org.appName,
+      isTestServer: org.isTestServer,
       theme: {
         bgStart: theme.bgStart || '#0f172a',
         bgEnd: theme.bgEnd || '#1e293b',

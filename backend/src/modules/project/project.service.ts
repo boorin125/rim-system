@@ -174,7 +174,7 @@ export class ProjectService implements OnModuleInit {
           _count: { select: { projectStores: true } },
           projectStores: {
             select: {
-              tasks: { select: { id: true, status: true } },
+              tasks: { select: { id: true, status: true, scheduledDate: true } },
             },
           },
         },
@@ -182,6 +182,7 @@ export class ProjectService implements OnModuleInit {
       this.prisma.project.count({ where }),
     ]);
 
+    const DONE = ['COMPLETED', 'PENDING_VERIFY', 'ACCEPTED'];
     const mapped = data.map((p) => {
       const allTasks = p.projectStores.flatMap((ps) => ps.tasks);
       const totalTasks = allTasks.length;
@@ -192,6 +193,10 @@ export class ProjectService implements OnModuleInit {
         totalTasks,
         completedTasks,
         progressPercent: totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0,
+        // open tasks' dates — the list page counts due-soon / overdue in the viewer's timezone
+        openTaskDates: allTasks
+          .filter((t) => t.scheduledDate && !DONE.includes(t.status))
+          .map((t) => t.scheduledDate),
       };
     });
 

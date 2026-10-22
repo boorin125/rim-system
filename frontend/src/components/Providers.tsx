@@ -3,10 +3,12 @@
 
 import { Toaster } from 'react-hot-toast'
 import AuthProvider from './AuthProvider'
+import PwaBranding from './PwaBranding'
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
+      <PwaBranding />
       {children}
       <Toaster
         position="top-right"

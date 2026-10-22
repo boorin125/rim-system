@@ -75,6 +75,21 @@ function getStoreStatus(tasks: any[]): 'CLOSED' | 'ON_PROCESS' | 'PENDING' | 'EM
   return 'ON_PROCESS'
 }
 
+// Sort key for the store list: stores with the nearest upcoming task first,
+// then open tasks with no date, then overdue, then closed / no tasks at the bottom
+function storeSortKey(tasks: any[]): [number, number] {
+  const active = (tasks || []).filter(t => !DONE_STATUSES.includes(t.status))
+  if (active.length === 0) return [3, 0]
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const days = active
+    .filter(t => t.scheduledDate)
+    .map(t => { const d = new Date(t.scheduledDate); d.setHours(0, 0, 0, 0); return d.getTime() })
+  const upcoming = days.filter(d => d >= today.getTime())
+  if (upcoming.length > 0) return [0, Math.min(...upcoming)]
+  if (days.length < active.length) return [1, 0]
+  return [2, -Math.max(...days)]
+}
+
 // Task type: Opening = store opening day (the store turns ACTIVE automatically on that date)
 function TaskTypeField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
@@ -691,6 +706,10 @@ export default function ProjectDetailPage() {
       if (getStoreStatus(ps.tasks || []) !== filterStatus) return false
     }
     return true
+  }).sort((a: any, b: any) => {
+    const [ga, ka] = storeSortKey(a.tasks)
+    const [gb, kb] = storeSortKey(b.tasks)
+    return ga - gb || ka - kb
   })
 
   return (

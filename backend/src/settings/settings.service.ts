@@ -368,6 +368,8 @@ export class SettingsService {
       'organization_prefix',
       'organization_logo',
       'organization_address',
+      'pwa_app_name',
+      'pwa_test_server',
     ];
 
     const configs = await this.prisma.systemConfig.findMany({
@@ -386,6 +388,9 @@ export class SettingsService {
       incidentPrefix: configMap['organization_prefix'] || 'INC',
       logoPath: configMap['organization_logo'] || '',
       organizationAddress: configMap['organization_address'] || '',
+      // Name of the installed mobile app (PWA) — lets a technician tell servers apart on the home screen
+      appName: configMap['pwa_app_name'] || '',
+      isTestServer: configMap['pwa_test_server'] === 'true',
     };
   }
 
@@ -397,8 +402,32 @@ export class SettingsService {
     incidentPrefix?: string;
     logoPath?: string;
     organizationAddress?: string;
+    appName?: string;
+    isTestServer?: boolean;
   }) {
     const operations = [];
+
+    if (data.appName !== undefined) {
+      const appName = data.appName.trim().slice(0, 30);
+      operations.push(
+        this.prisma.systemConfig.upsert({
+          where: { key: 'pwa_app_name' },
+          create: { key: 'pwa_app_name', value: appName, category: 'organization', description: 'Installed mobile app (PWA) name' },
+          update: { value: appName },
+        })
+      );
+    }
+
+    if (data.isTestServer !== undefined) {
+      const value = data.isTestServer ? 'true' : 'false';
+      operations.push(
+        this.prisma.systemConfig.upsert({
+          where: { key: 'pwa_test_server' },
+          create: { key: 'pwa_test_server', value, category: 'organization', description: 'Test server — TEST badge on app icon and header' },
+          update: { value },
+        })
+      );
+    }
 
     if (data.organizationName !== undefined) {
       operations.push(

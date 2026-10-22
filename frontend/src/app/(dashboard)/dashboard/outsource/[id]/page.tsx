@@ -58,6 +58,25 @@ const statusLabels: Record<string, string> = {
   PENDING_CANCEL: 'รอยืนยันยกเลิก',
 }
 
+// paymentStatus becomes PENDING_APPROVAL as soon as Helpdesk confirms close,
+// but Finance still has to check spare parts / documents before approval
+function getPaymentLabel(job: any): string {
+  switch (job.paymentStatus) {
+    case 'PAID': return 'จ่ายแล้ว'
+    case 'APPROVED': return 'อนุมัติแล้ว รอจ่ายเงิน'
+    case 'DISPUTED': return 'มีข้อโต้แย้ง'
+    case 'PENDING_APPROVAL': {
+      const spareDone = !!job.sparePartsReturned
+      const docsDone = !!job.documentsReceivedAt
+      if (spareDone && docsDone) return 'รออนุมัติจ่ายเงิน'
+      if (spareDone) return 'รอตรวจสอบเอกสาร'
+      if (docsDone) return 'รอรับ Spare Parts คืน'
+      return 'รอตรวจเอกสาร / รับ Spare Parts คืน'
+    }
+    default: return job.paymentStatus
+  }
+}
+
 function getDisplayStatus(job: any): string {
   if (['PAID', 'CANCELLED', 'PENDING_CANCEL', 'REJECTED', 'DRAFT', 'PENDING_APPROVAL'].includes(job.status)) return job.status
   if (job.sparePartsConfirmedAt && job.documentsReceivedAt) {
@@ -555,8 +574,9 @@ export default function OutsourceJobDetailPage() {
           <div className="flex items-center gap-4">
             <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
               job.paymentStatus === 'PAID' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+              : job.paymentStatus === 'DISPUTED' ? 'bg-red-500/20 text-red-400 border border-red-500/30'
               : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
-            }`}>{job.paymentStatus === 'PAID' ? 'จ่ายแล้ว' : job.paymentStatus}</span>
+            }`}>{getPaymentLabel(job)}</span>
           </div>
           {job.paymentAmount && (
             <div className="mt-3 space-y-1">

@@ -13,6 +13,9 @@ import {
   FileEdit,
   MoreVertical,
   BarChart2,
+  Bell,
+  AlertTriangle,
+  Calendar,
 } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
@@ -35,6 +38,20 @@ const STATUS_ICONS: Record<string, React.ElementType> = {
   PAUSED:    PauseCircle,
   COMPLETED: CheckCircle2,
   CANCELLED: XCircle,
+}
+
+// Same rule as the "วันนี้" / "พรุ่งนี้" badges on the project detail page
+function countTaskDates(dates: string[] = []) {
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const dayAfterTomorrow = new Date(today); dayAfterTomorrow.setDate(today.getDate() + 2)
+  let dueSoon = 0
+  let overdue = 0
+  for (const s of dates) {
+    const d = new Date(s); d.setHours(0, 0, 0, 0)
+    if (d < today) overdue++
+    else if (d < dayAfterTomorrow) dueSoon++
+  }
+  return { dueSoon, overdue }
 }
 
 export default function ProjectsPage() {
@@ -152,186 +169,153 @@ export default function ProjectsPage() {
         </select>
       </div>
 
-      {/* Project List */}
-      <div className="glass-card rounded-xl overflow-hidden">
-        {/* Table header */}
-        <div className="hidden sm:grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1.5fr] gap-3 pr-4 py-2.5 border-b border-slate-700/60 text-xs font-medium text-gray-400 uppercase tracking-wide bg-slate-800/80">
-          <span className="pl-5">ชื่อโปรเจ็ค</span>
-          <span className="pl-2">สถานะ</span>
-          <span>ความคืบหน้า (%)</span>
-          <span>จำนวนสาขา</span>
-          <span>วันที่เริ่มโปรเจ็ค</span>
-          <span>วันที่จบโปรเจ็ค</span>
-          <span>Project Manager</span>
+      {/* Project Cards */}
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="glass-card rounded-xl p-5 space-y-4 animate-pulse">
+              <div className="h-5 bg-slate-700 rounded w-2/3" />
+              <div className="h-3 bg-slate-700 rounded w-1/2" />
+              <div className="h-2 bg-slate-700 rounded w-full" />
+              <div className="h-3 bg-slate-700 rounded w-3/4" />
+            </div>
+          ))}
         </div>
-
-        {isLoading ? (
-          <div>
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1.5fr] gap-3 pr-4 py-3.5 border-b border-slate-700/30 animate-pulse">
-                <div className="h-4 bg-slate-700 rounded w-3/4" />
-                <div className="h-4 bg-slate-700 rounded w-16" />
-                <div className="h-4 bg-slate-700 rounded w-12" />
-                <div className="h-4 bg-slate-700 rounded w-8" />
-                <div className="h-4 bg-slate-700 rounded w-16" />
-                <div className="h-4 bg-slate-700 rounded w-16" />
-                <div className="h-4 bg-slate-700 rounded w-20" />
-                <div className="h-4 bg-slate-700 rounded w-4" />
-              </div>
-            ))}
-          </div>
-        ) : projects.length === 0 ? (
-          <div className="p-12 text-center">
-            <Briefcase className="w-12 h-12 text-gray-500 mx-auto mb-3" />
-            <p className="text-gray-400">ยังไม่มี Project</p>
-            {canCreate && (
-              <Link
-                href="/dashboard/projects/new"
-                className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg text-white text-sm font-medium"
-                style={{ backgroundColor: themeHighlight }}
-              >
-                <Plus className="w-4 h-4" />
-                สร้าง Project แรก
-              </Link>
-            )}
-          </div>
-        ) : (
-          <div>
-            {projects.map((p, idx) => {
-              const StatusIcon = STATUS_ICONS[p.status] || Briefcase
-              const { label, color } = STATUS_LABELS[p.status] || { label: p.status, color: 'text-gray-400 bg-gray-800/60' }
-              return (
-                <div
-                  key={p.id}
-                  className={`relative group ${idx % 2 === 1 ? 'bg-slate-800/30' : ''} ${idx < projects.length - 1 ? 'border-b border-slate-700/30' : ''}`}
-                >
+      ) : projects.length === 0 ? (
+        <div className="glass-card rounded-xl p-12 text-center">
+          <Briefcase className="w-12 h-12 text-gray-500 mx-auto mb-3" />
+          <p className="text-gray-400">ยังไม่มี Project</p>
+          {canCreate && (
+            <Link
+              href="/dashboard/projects/new"
+              className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg text-white text-sm font-medium"
+              style={{ backgroundColor: themeHighlight }}
+            >
+              <Plus className="w-4 h-4" />
+              สร้าง Project แรก
+            </Link>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {projects.map((p) => {
+            const StatusIcon = STATUS_ICONS[p.status] || Briefcase
+            const { label, color } = STATUS_LABELS[p.status] || { label: p.status, color: 'text-gray-400 bg-gray-800/60' }
+            const { dueSoon, overdue } = countTaskDates(p.openTaskDates)
+            const mgr = p.projectManager ?? p.createdBy
+            const barColor = p.color ?? '#3b82f6'
+            return (
+              <div key={p.id} className="relative group">
                 <Link
                   href={`/dashboard/projects/${p.id}`}
-                  className="block sm:grid sm:grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1.5fr] gap-3 pr-10 py-3 sm:items-center hover:bg-slate-700/30 transition-colors cursor-pointer relative overflow-hidden"
+                  className="glass-card rounded-xl overflow-hidden flex flex-col h-full hover:border-slate-500 hover:bg-slate-700/30 transition-colors"
                 >
                   {/* Color bar */}
-                  <div
-                    className="absolute left-0 top-0 bottom-0 w-1 rounded-r"
-                    style={{ backgroundColor: p.color ?? '#3b82f6' }}
-                  />
+                  <div className="h-1 w-full" style={{ backgroundColor: barColor }} />
 
-                  {/* Name */}
-                  <div className="min-w-0 pl-4">
-                    <p className="text-white text-sm font-medium truncate group-hover:text-blue-300 transition-colors">
-                      {p.name}
-                    </p>
-                    {p.description && (
-                      <p className="text-gray-500 text-xs truncate mt-0.5">{p.description}</p>
-                    )}
-
-                    {/* Phone card: status, progress, stores, dates */}
-                    <div className="sm:hidden mt-2 space-y-2">
+                  <div className="p-5 flex flex-col gap-4 flex-1">
+                    {/* Name + status */}
+                    <div className="pr-8">
                       <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-white text-base font-semibold truncate group-hover:text-blue-300 transition-colors">
+                          {p.name}
+                        </h3>
                         <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${color}`}>
                           <StatusIcon className="w-3 h-3" />
                           {label}
                         </span>
-                        <span className="flex items-center gap-1 text-xs text-gray-400">
-                          <Building2 className="w-3.5 h-3.5" />
-                          {p._count?.projectStores ?? 0} สาขา
-                        </span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden flex-1">
-                          <div
-                            className="h-full rounded-full"
-                            style={{ width: `${p.progressPercent ?? 0}%`, backgroundColor: p.color ?? '#3b82f6' }}
-                          />
-                        </div>
-                        <span className="text-xs font-medium text-white w-9 text-right">{p.progressPercent ?? 0}%</span>
-                      </div>
-                      <p className="text-xs text-gray-500">
-                        {p.startDate ? formatDate(p.startDate) : '-'} → {p.endDate ? formatDate(p.endDate) : '-'}
-                      </p>
+                      {p.description && (
+                        <p className="text-gray-500 text-xs truncate mt-1">{p.description}</p>
+                      )}
                     </div>
-                  </div>
 
-                  {/* Status */}
-                  <span className={`hidden sm:inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium w-fit ${color}`}>
-                    <StatusIcon className="w-3 h-3" />
-                    {label}
-                  </span>
-
-                  {/* Progress */}
-                  <div className="hidden sm:block min-w-0">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <span className="text-xs font-medium text-white">{p.progressPercent ?? 0}%</span>
-                    </div>
-                    <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden w-full">
-                      <div
-                        className="h-full rounded-full transition-all duration-500"
-                        style={{
-                          width: `${p.progressPercent ?? 0}%`,
-                          backgroundColor: p.color ?? '#3b82f6',
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Stores */}
-                  <span className="hidden sm:flex items-center gap-1 text-xs text-gray-400">
-                    <Building2 className="w-3.5 h-3.5" />
-                    {p._count?.projectStores ?? 0}
-                  </span>
-
-                  {/* Start date */}
-                  <span className="hidden sm:inline text-xs text-gray-400">
-                    {p.startDate ? formatDate(p.startDate) : '-'}
-                  </span>
-
-                  {/* End date */}
-                  <span className="hidden sm:inline text-xs text-gray-400">
-                    {p.endDate ? formatDate(p.endDate) : '-'}
-                  </span>
-
-                  {/* Project Manager */}
-                  {(() => {
-                    const mgr = p.projectManager ?? p.createdBy
-                    return (
-                      <div className="hidden sm:flex items-center gap-1.5 min-w-0">
-                        {mgr?.avatarPath ? (
-                          <img
-                            src={getPhotoUrl(mgr.avatarPath)}
-                            className="w-5 h-5 rounded-full object-cover shrink-0"
-                            alt=""
-                          />
-                        ) : (
-                          <div className="w-5 h-5 rounded-full bg-slate-600 flex items-center justify-center text-[9px] text-gray-300 shrink-0">
-                            {mgr?.firstName?.charAt(0) ?? '?'}
-                          </div>
+                    {/* Notifications */}
+                    {(dueSoon > 0 || overdue > 0) && (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {dueSoon > 0 && (
+                          <span
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/15 text-amber-300 border border-amber-500/30"
+                            title="Task ที่ยังไม่เสร็จ นัดวันนี้หรือพรุ่งนี้"
+                          >
+                            <Bell className="w-3 h-3" /> ใกล้ถึงเวลา {dueSoon} งาน
+                          </span>
                         )}
-                        <span className="text-xs text-gray-400 truncate">
-                          {mgr ? `${mgr.firstName} ${mgr.lastName}` : '-'}
-                        </span>
+                        {overdue > 0 && (
+                          <span
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/15 text-red-400 border border-red-500/30"
+                            title="Task ที่ยังไม่เสร็จ และเลยวันนัดแล้ว"
+                          >
+                            <AlertTriangle className="w-3 h-3" /> เลยกำหนด {overdue} งาน
+                          </span>
+                        )}
                       </div>
-                    )
-                  })()}
+                    )}
 
+                    {/* Progress */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs text-gray-400">ความคืบหน้า</span>
+                        <span className="text-xs font-medium text-white">{p.progressPercent ?? 0}%</span>
+                      </div>
+                      <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{ width: `${p.progressPercent ?? 0}%`, backgroundColor: barColor }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Stores + dates */}
+                    <div className="flex items-center justify-between gap-3 text-xs text-gray-400">
+                      <span className="flex items-center gap-1">
+                        <Building2 className="w-3.5 h-3.5" />
+                        {p._count?.projectStores ?? 0} สาขา
+                      </span>
+                      <span className="flex items-center gap-1 truncate">
+                        <Calendar className="w-3.5 h-3.5 shrink-0" />
+                        {formatDate(p.startDate)} → {formatDate(p.endDate)}
+                      </span>
+                    </div>
+
+                    {/* Project Manager */}
+                    <div className="flex items-center gap-1.5 min-w-0 pt-3 mt-auto border-t border-slate-700/50">
+                      {mgr?.avatarPath ? (
+                        <img
+                          src={getPhotoUrl(mgr.avatarPath)}
+                          className="w-5 h-5 rounded-full object-cover shrink-0"
+                          alt=""
+                        />
+                      ) : (
+                        <div className="w-5 h-5 rounded-full bg-slate-600 flex items-center justify-center text-[9px] text-gray-300 shrink-0">
+                          {mgr?.firstName?.charAt(0) ?? '?'}
+                        </div>
+                      )}
+                      <span className="text-xs text-gray-500 shrink-0">PM:</span>
+                      <span className="text-xs text-gray-300 truncate">
+                        {mgr ? `${mgr.firstName} ${mgr.lastName}` : '-'}
+                      </span>
+                    </div>
+                  </div>
                 </Link>
 
                 {/* 3-dot edit button */}
                 {canCreate && (
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                  <div className="absolute right-3 top-4">
                     <button
                       onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push(`/dashboard/projects/${p.id}/edit`) }}
-                      className="p-1.5 rounded-lg text-gray-600 hover:text-gray-300 hover:bg-slate-700/60 transition-colors sm:opacity-0 sm:group-hover:opacity-100"
+                      className="p-1.5 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-slate-700/60 transition-colors sm:opacity-0 sm:group-hover:opacity-100"
                       title="แก้ไข Project"
                     >
                       <MoreVertical className="w-4 h-4" />
                     </button>
                   </div>
                 )}
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* Pagination */}
       {total > LIMIT && (
