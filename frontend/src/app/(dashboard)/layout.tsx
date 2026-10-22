@@ -35,7 +35,7 @@ import NotificationBell from '@/components/NotificationBell'
 import SupervisorPendingAlert from '@/components/SupervisorPendingAlert'
 import HelpdeskResolvedAlert from '@/components/HelpdeskResolvedAlert'
 import SingleTabGuard from '@/components/SingleTabGuard'
-import PwaInstallPrompt from '@/components/PwaInstallPrompt'
+import { PwaInstallProvider, PwaInstallButton, PwaInstallMenuItem } from '@/components/PwaInstallPrompt'
 import { hasMenuAccess, getUserRoles, getHighestRole } from '@/config/permissions'
 import { LicenseProvider, useLicense } from '@/context/LicenseContext'
 import { usePushNotification } from '@/hooks/usePushNotification'
@@ -700,12 +700,12 @@ export default function DashboardLayout({
 
   return (
     <LicenseProvider>
+    {/* PWA install: one-time popup + header 📲 button + user-menu item until the app is installed */}
+    <PwaInstallProvider>
     <div className="min-h-screen" style={{ background: mainBg }}>
       <ScrollRestorer />
       {/* Single Tab Guard — warns when app is open in multiple tabs */}
       <SingleTabGuard />
-      {/* PWA Install Prompt */}
-      <PwaInstallPrompt />
 
       {/* Background Pattern */}
       <div className="fixed inset-0 bg-pattern"></div>
@@ -856,8 +856,8 @@ export default function DashboardLayout({
             )}
 
             {/* Page Title - ✅ FIXED */}
-            <div className="flex-1 lg:flex-none">
-              <h2 className="text-xl font-semibold text-white">
+            <div className="flex-1 lg:flex-none min-w-0">
+              <h2 className="text-xl font-semibold text-white truncate">
                 {getCurrentPageName()}
               </h2>
             </div>
@@ -882,6 +882,9 @@ export default function DashboardLayout({
                 )}
               </button>
               )}
+
+              {/* Install the app — browser on a phone/tablet only, until installed */}
+              {!isApp && <PwaInstallButton />}
 
               {/* Notification Bell */}
               <NotificationBell />
@@ -949,6 +952,8 @@ export default function DashboardLayout({
                         <span className="text-sm">Profile</span>
                       </Link>
 
+                      <PwaInstallMenuItem onClick={() => setIsUserMenuOpen(false)} />
+
                       <button
                         onClick={() => {
                           setIsUserMenuOpen(false)
@@ -1006,6 +1011,7 @@ export default function DashboardLayout({
         />
       )}
     </div>
+    </PwaInstallProvider>
     </LicenseProvider>
   )
 }

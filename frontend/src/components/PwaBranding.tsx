@@ -4,14 +4,19 @@
 
 import { useEffect } from 'react'
 
+// Same naming rule as the backend manifest (settings/pwa.controller.ts)
+export function appDisplayName(b: { appName?: string; organizationName?: string; isTestServer?: boolean }) {
+  const base = b.appName || (b.organizationName ? `RIM ${b.organizationName}` : 'RIM System')
+  return b.isTestServer && !/test/i.test(base) ? `${base} TEST` : base
+}
+
 export default function PwaBranding() {
   useEffect(() => {
     fetch(`${process.env.NEXT_PUBLIC_API_URL}/settings/public/branding`)
       .then(r => (r.ok ? r.json() : null))
       .then(b => {
         if (!b) return
-        const base = b.appName || (b.organizationName ? `RIM ${b.organizationName}` : 'RIM System')
-        const name = b.isTestServer && !/test/i.test(base) ? `${base} TEST` : base
+        const name = appDisplayName(b)
         let meta = document.querySelector("meta[name='apple-mobile-web-app-title']") as HTMLMetaElement | null
         if (!meta) {
           meta = document.createElement('meta')
