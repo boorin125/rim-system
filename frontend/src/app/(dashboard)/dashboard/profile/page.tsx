@@ -33,6 +33,7 @@ import { useThemeHighlight } from '@/hooks/useThemeHighlight'
 import { compressImage } from '@/utils/imageUtils'
 import { PROVINCE_OPTIONS, provinceLabel } from '@/data/thai-provinces'
 import ProvinceSelect from '@/components/ProvinceSelect'
+import GoogleAccountCard from '@/components/GoogleAccountCard'
 
 interface UserProfile {
   id: number
@@ -57,6 +58,7 @@ interface UserProfile {
   twoFactorEnabled: boolean
   lastLogin?: string
   lastPasswordChange?: string
+  googleEmail?: string | null
   createdAt: string
   updatedAt: string
 }
@@ -133,6 +135,9 @@ export default function ProfilePage() {
     fetchProfile()
     fetchProvinces()
     fetchProviderName()
+    // Back from linking Google (?google=…) — the result is shown on the Security tab
+    if (new URLSearchParams(window.location.search).has('google')) setActiveTab('security')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const fetchProfile = async () => {
@@ -1435,6 +1440,7 @@ export default function ProfilePage() {
 
           {/* Security Info */}
           <div className="space-y-6">
+            <GoogleAccountCard googleEmail={profile.googleEmail} onChanged={fetchProfile} />
             <div className="glass-card p-6 rounded-2xl">
               <h3 className="text-lg font-semibold text-white mb-4">Security Status</h3>
               <div className="space-y-4">

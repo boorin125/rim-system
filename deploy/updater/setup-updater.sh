@@ -32,7 +32,7 @@ echo "  Project    : $RIM_PROJECT"
 echo "  Network    : $RIM_NETWORK"
 DOCKER_CONFIG_DIR="${DOCKER_CONFIG:-$HOME/.docker}"
 if [ ! -f "$DOCKER_CONFIG_DIR/config.json" ] || ! grep -q 'index.docker.io\|docker.io' "$DOCKER_CONFIG_DIR/config.json"; then
-  echo -e "${YELLOW}  ⚠️ ยังไม่ได้ docker login บนเครื่องนี้ — rim-backend เป็น private image จะ pull ไม่ได้ (รัน docker login แล้วรันสคริปต์นี้ใหม่)${NC}"
+  echo -e "${YELLOW}  (ยังไม่ได้ docker login บนเครื่องนี้ — ไม่เป็นไรถ้า image บน Docker Hub เป็น public; ถ้า pull ไม่ได้ให้ docker login แล้วรันใหม่)${NC}"
 fi
 mkdir -p "$DOCKER_CONFIG_DIR"
 ok "พบ RIM"

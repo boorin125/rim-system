@@ -9,19 +9,22 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { EmailModule } from '../email/email.module';
 import { AuthSchedulerService } from './auth-scheduler.service';
+import { GoogleAuthService } from './google-auth.service';
+import { SettingsModule } from '../settings/settings.module';
 
 @Module({
   imports: [
     PrismaModule,
     PassportModule,
     EmailModule,
+    SettingsModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'your-secret-key-change-in-production',
       signOptions: { expiresIn: '7d' },
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, AuthSchedulerService],
+  providers: [AuthService, JwtStrategy, AuthSchedulerService, GoogleAuthService],
   exports: [AuthService],
 })
 export class AuthModule {}

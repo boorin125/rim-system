@@ -8,6 +8,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import { formatDate, formatRelativeTime } from '@/utils/dateUtils';
+import { setAppBadge, NOTIFICATIONS_CHANGED_EVENT } from '@/utils/appBadge';
 
 interface Notification {
   id: number;
@@ -104,8 +105,21 @@ export default function NotificationBell() {
     fetchUnreadCount();
     // Poll for new notifications every 30 seconds
     const interval = setInterval(fetchUnreadCount, 30000);
-    return () => clearInterval(interval);
+    // Refresh right away when the app comes back to foreground or notifications change elsewhere
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchUnreadCount(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, fetchUnreadCount);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, fetchUnreadCount);
+    };
   }, []);
+
+  // Keep the installed app icon badge in sync with the unread count
+  useEffect(() => {
+    setAppBadge(unreadCount);
+  }, [unreadCount]);
 
   useEffect(() => {
     if (isOpen) {

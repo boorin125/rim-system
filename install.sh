@@ -3,9 +3,23 @@
 #  RIM System — One-Click Installer (Docker Image)
 #  Pull pre-built images จาก Docker Hub + setup อัตโนมัติ
 #  Rubjobb Development Team — rub-jobb.com
+#
+#  วิธีใช้ (บน server ใหม่ — ติดตั้งลงโฟลเดอร์ปัจจุบัน):
+#    mkdir -p ~/rim && cd ~/rim
+#    curl -fsSL https://raw.githubusercontent.com/boorin125/rim-system/main/install.sh -o install.sh
+#    bash install.sh
 # ════════════════════════════════════════════════════════════
 
 set -e
+
+REPO_RAW="https://raw.githubusercontent.com/boorin125/rim-system/main"
+
+# The questions below read the keyboard — "curl … | bash" would feed them the script itself
+if [ ! -t 0 ]; then
+  echo "กรุณาดาวน์โหลดไฟล์ก่อนแล้วรัน:"
+  echo "  curl -fsSL ${REPO_RAW}/install.sh -o install.sh && bash install.sh"
+  exit 1
+fi
 
 BLUE='\033[0;34m'
 GREEN='\033[0;32m'
@@ -65,10 +79,20 @@ echo ""
 echo -e "${YELLOW}[2/5] ตั้งค่าระบบ...${NC}"
 echo ""
 
-# Organization Name
-echo -e "${BOLD}ชื่อบริษัท / Organization Name:${NC}"
-read -rp "  ชื่อ: " ORG_NAME
-ORG_NAME="${ORG_NAME:-My Organization}"
+if [ -f docker-compose.yml ] || [ -f .env ]; then
+  echo -e "${RED}⚠️  โฟลเดอร์นี้มี docker-compose.yml / .env อยู่แล้ว ($(pwd))${NC}"
+  echo "   installer นี้สำหรับติดตั้งใหม่ — การอัปเดตทำที่ Settings › System Update"
+  read -rp "  ติดตั้งทับต่อไหม? (พิมพ์ yes): " OVERWRITE
+  [ "$OVERWRITE" = "yes" ] || exit 1
+  echo ""
+fi
+
+# Release channel — customers get :stable (tested on the Test server first), Test gets :latest
+echo -e "${BOLD}ประเภท Server:${NC}"
+echo "  1. Production (ลูกค้าใช้งานจริง) — เวอร์ชันที่ทดสอบแล้ว (:stable)"
+echo "  2. Test       — build ล่าสุดทุกครั้ง (:latest)"
+read -rp "  เลือก [1/2] (ค่าเริ่มต้น 1): " CHANNEL_CHOICE
+if [ "${CHANNEL_CHOICE:-1}" = "2" ]; then CHANNEL="latest"; else CHANNEL="stable"; fi
 echo ""
 
 # APP_URL
@@ -111,23 +135,7 @@ while true; do
 done
 echo ""
 
-# Admin account
-echo -e "${BOLD}บัญชีผู้ดูแลระบบ (Super Admin):${NC}"
-read -rp "  ชื่อ (First Name): " ADMIN_FIRST
-read -rp "  นามสกุล (Last Name): " ADMIN_LAST
-ADMIN_LAST="${ADMIN_LAST:-User}"
-read -rp "  Email: " ADMIN_EMAIL
-while true; do
-  read -rsp "  Password: " ADMIN_PASSWORD
-  echo ""
-  read -rsp "  ยืนยัน Password: " ADMIN_PASSWORD2
-  echo ""
-  if [ "$ADMIN_PASSWORD" = "$ADMIN_PASSWORD2" ] && [ ${#ADMIN_PASSWORD} -ge 6 ]; then
-    break
-  fi
-  echo -e "${RED}  รหัสผ่านไม่ตรงกัน หรือสั้นเกินไป${NC}"
-done
-echo ""
+# (Super Admin is created in the browser on first visit — not asked here)
 
 echo ""
 echo -e "${GREEN}✅ รับค่าการตั้งค่าครบแล้ว${NC}"
@@ -147,37 +155,23 @@ else
   MACHINE_ID=$(LC_ALL=C tr -dc 'a-f0-9' </dev/urandom | head -c 32)
 fi
 
-# ── Auto-register Trial License ────────────────
-echo -e "${YELLOW}→ ขอ Trial License อัตโนมัติ...${NC}"
-LICENSE_KEY=""
-REGISTER_RESPONSE=""
-if command -v curl &>/dev/null; then
-  ORG_NAME_SAFE=$(printf '%s' "$ORG_NAME" | sed 's/["\\]/\\&/g')
-  REGISTER_RESPONSE=$(curl -sf --max-time 15 \
-    -X POST "https://license.rub-jobb.com/api/register" \
-    -H "Content-Type: application/json" \
-    -d "{\"organizationName\":\"${ORG_NAME_SAFE}\",\"contactEmail\":\"${ADMIN_EMAIL}\",\"machineId\":\"${MACHINE_ID}\",\"product\":\"RIM\"}" \
-    2>/dev/null || echo "")
-  if [ -n "$REGISTER_RESPONSE" ]; then
-    LICENSE_KEY=$(echo "$REGISTER_RESPONSE" | grep -o '"licenseKey":"[^"]*"' | cut -d'"' -f4)
-  fi
-fi
+# ── License (local mode) ───────────────────────
+# The central License Server is offline (domain expired) — run in LOCAL_LICENSE_MODE like WS / Test:
+# the key below is activated in Settings › License and becomes an UNLIMITED 10-year local license.
+# Switch to the central server later: remove LOCAL_LICENSE_MODE from .env (see memory/license notes).
+LICENSE_KEY=$(LC_ALL=C tr -dc 'A-Z0-9' </dev/urandom | head -c 16 | sed -E 's/(.{4})(.{4})(.{4})(.{4})/\1-\2-\3-\4/')
+echo -e "${GREEN}✅ License Key (Local): ${BOLD}${LICENSE_KEY}${NC}"
+echo "   ใส่ key นี้ที่ Settings › License หลังสร้าง Super Admin"
+echo ""
 
-if [ -n "$LICENSE_KEY" ]; then
-  echo -e "${GREEN}✅ ได้รับ Trial License Key: ${BOLD}${LICENSE_KEY}${NC}"
-  TRIAL_DAYS=$(echo "$REGISTER_RESPONSE" | grep -o '"trialDays":[0-9]*' | cut -d':' -f2)
-  echo -e "   (ทดลองใช้ ${TRIAL_DAYS:-30} วัน — ต่ออายุได้ที่ support@rub-jobb.com)"
-else
-  echo -e "${YELLOW}⚠️  ไม่สามารถรับ License อัตโนมัติได้ กรุณาใส่ License Key ด้วยตนเอง${NC}"
-  echo "  (รูปแบบ XXXX-XXXX-XXXX-XXXX — รับจาก Rubjobb Development Team)"
-  while true; do
-    read -rp "  License Key: " LICENSE_KEY
-    if [[ "$LICENSE_KEY" =~ ^[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}$ ]]; then
-      break
-    fi
-    echo -e "${RED}  รูปแบบ License Key ไม่ถูกต้อง (ต้องเป็น XXXX-XXXX-XXXX-XXXX)${NC}"
-  done
-fi
+# ── Docker images ──────────────────────────────
+# Pull the channel's backend now: VAPID keys below are made with it, and its rim.version label
+# pins the exact version in .env (the update button moves it later)
+echo -e "${YELLOW}→ ดาวน์โหลด RIM (:${CHANNEL})...${NC}"
+docker pull "rubjobb/rim-backend:${CHANNEL}"
+RIM_VERSION=$(docker inspect --format '{{index .Config.Labels "rim.version"}}' "rubjobb/rim-backend:${CHANNEL}" 2>/dev/null || true)
+[[ "$RIM_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || RIM_VERSION="$CHANNEL"
+echo -e "${GREEN}✅ RIM เวอร์ชัน ${RIM_VERSION}${NC}"
 echo ""
 
 # Generate VAPID keys — explicit base64url (no = padding, URL-safe)
@@ -201,7 +195,7 @@ fi
 # 2. Fallback: ใช้ backend Docker image (--entrypoint node bypass entrypoint.sh)
 if [ -z "$VAPID_PUBLIC_KEY" ]; then
   echo -e "${YELLOW}→ สร้าง VAPID keys ด้วย Docker image...${NC}"
-  VAPID_KEYS=$(docker run --rm --entrypoint node rubjobb/rim-backend:latest -e "$VAPID_NODE_SCRIPT" 2>/dev/null || echo "")
+  VAPID_KEYS=$(docker run --rm --entrypoint node "rubjobb/rim-backend:${CHANNEL}" -e "$VAPID_NODE_SCRIPT" 2>/dev/null || echo "")
   [ -n "$VAPID_KEYS" ] && parse_vapid "$VAPID_KEYS"
 fi
 
@@ -212,12 +206,14 @@ fi
 
 cat > .env << EOF
 APP_URL=${APP_URL}
+RIM_VERSION=${RIM_VERSION}
 DB_NAME=rimdb
 DB_USER=rimuser
 DB_PASSWORD=${DB_PASSWORD}
 JWT_SECRET=${JWT_SECRET}
 MACHINE_ID=${MACHINE_ID}
 LICENSE_KEY=${LICENSE_KEY}
+LOCAL_LICENSE_MODE=true
 CENTRAL_LICENSE_URL=https://license.rub-jobb.com
 VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
 VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
@@ -485,6 +481,25 @@ else
   echo -e "${YELLOW}⚠️  Backend ยังไม่ healthy (${BACKEND_HEALTH}) — ดู logs ด้วย: docker logs rim-backend --tail 30${NC}"
 fi
 
+# ── Update button (Settings › System Update) ───
+# rim-updater runs beside the app; it follows this server's channel (:stable / :latest)
+echo ""
+echo -e "${YELLOW}→ ติดตั้งปุ่มอัปเดตระบบ (Settings › System Update)...${NC}"
+UPDATER_OK=false
+DL_OK=true
+mkdir -p rim-updater
+for f in Dockerfile docker-compose.yml server.mjs updater.mjs setup-updater.sh README.md; do
+  curl -fsSL "${REPO_RAW}/deploy/updater/${f}" -o "rim-updater/${f}" || { DL_OK=false; break; }
+done
+if $DL_OK; then
+  chmod +x rim-updater/setup-updater.sh
+  if bash rim-updater/setup-updater.sh "$CHANNEL"; then UPDATER_OK=true; fi
+fi
+if ! $UPDATER_OK; then
+  echo -e "${YELLOW}⚠️  ติดตั้งปุ่มอัปเดตไม่สำเร็จ — ระบบใช้งานได้ปกติ ติดตั้งภายหลังได้ด้วย:${NC}"
+  echo -e "   ${YELLOW}bash $(pwd)/rim-updater/setup-updater.sh ${CHANNEL}${NC}"
+fi
+
 # ── [5/5] Done ──────────────────────────────────
 echo ""
 echo -e "${GREEN}════════════════════════════════════════════${NC}"
@@ -492,14 +507,22 @@ echo -e "${GREEN}${BOLD}  ✅ ติดตั้ง RIM System สำเร็�
 echo -e "${GREEN}════════════════════════════════════════════${NC}"
 echo ""
 echo -e "  🌐 URL ระบบ   : ${BOLD}${APP_URL}${NC}"
+echo -e "  📦 เวอร์ชัน    : ${RIM_VERSION} (ช่อง :${CHANNEL})"
+echo -e "  🔑 License Key: ${BOLD}${LICENSE_KEY}${NC}"
 echo ""
-echo -e "  เปิด URL แล้วระบบจะนำทางสร้าง Super Admin อัตโนมัติ"
+echo -e "  ขั้นต่อไป:"
+echo -e "    1. เปิด URL — ระบบจะนำทางสร้าง Super Admin"
+echo -e "    2. Settings › License → Activate ด้วย key ด้านบน"
+echo -e "    3. Settings › Organization → ชื่อองค์กร, Prefix เลข Incident, โลโก้, ชื่อแอปบนมือถือ"
+if [ "$CHANNEL" = "latest" ]; then
+  echo -e "       (Server ทดสอบ: ติ๊ก \"Server ทดสอบ (Test)\" ด้วย)"
+fi
 echo ""
 echo -e "  คำสั่งที่ใช้บ่อย:"
 echo -e "    ดู status  : ${YELLOW}${COMPOSE_CMD} ps${NC}"
 echo -e "    ดู logs    : ${YELLOW}${COMPOSE_CMD} logs -f${NC}"
 echo -e "    หยุดระบบ   : ${YELLOW}${COMPOSE_CMD} down${NC}"
-echo -e "    อัปเดต     : ${YELLOW}./update.sh${NC}"
+echo -e "    อัปเดต     : ${YELLOW}Settings › System Update (SUPER_ADMIN)${NC}"
 echo ""
 echo -e "  📞 support@rub-jobb.com | 061-228-2879"
 echo ""

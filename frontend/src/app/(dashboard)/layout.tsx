@@ -37,6 +37,7 @@ import HelpdeskResolvedAlert from '@/components/HelpdeskResolvedAlert'
 import SingleTabGuard from '@/components/SingleTabGuard'
 import { PwaInstallProvider, PwaInstallButton, PwaInstallMenuItem } from '@/components/PwaInstallPrompt'
 import { hasMenuAccess, getUserRoles, getHighestRole } from '@/config/permissions'
+import { clearAppBadge } from '@/utils/appBadge'
 import { LicenseProvider, useLicense } from '@/context/LicenseContext'
 import { usePushNotification } from '@/hooks/usePushNotification'
 import { useModules } from '@/hooks/useModules'
@@ -589,6 +590,7 @@ export default function DashboardLayout({
     localStorage.removeItem('token')
     localStorage.removeItem('refreshToken')
     localStorage.removeItem('user')
+    clearAppBadge()
     toast.success('ออกจากระบบสำเร็จ')
     router.push('/login')
   }

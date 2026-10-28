@@ -12,6 +12,9 @@ model User {
   username                    String                       @unique
   email                       String                       @unique
   password                    String
+  // Google Sign-In — linked Google account (sub) and its email (may differ from `email`)
+  googleId                    String?                      @unique @map("google_id")
+  googleEmail                 String?                      @map("google_email")
   firstName                   String?                      @map("first_name")
   lastName                    String?                      @map("last_name")
   firstNameEn                 String?                      @map("first_name_en")

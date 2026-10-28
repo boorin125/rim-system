@@ -58,6 +58,7 @@ import {
   Wrench,
   DownloadCloud,
   Blocks,
+  KeyRound,
   CalendarClock,
 } from 'lucide-react'
 import Link from 'next/link'
@@ -71,6 +72,7 @@ import { getUserRoles } from '@/config/permissions'
 import releasesData from '@/data/releases.json'
 import UpdateTab from '@/components/settings/UpdateTab'
 import ModulesTab from '@/components/settings/ModulesTab'
+import GoogleSignInTab from '@/components/settings/GoogleSignInTab'
 import ProvinceAuditCard from '@/components/settings/ProvinceAuditCard'
 
 type ReleaseEntry = {
@@ -82,7 +84,7 @@ type ReleaseEntry = {
 }
 
 // Tab types
-type TabType = 'organization' | 'incident' | 'email' | 'sla' | 'service-report' | 'backup' | 'info' | 'theme' | 'mobile-app' | 'maintenance' | 'modules' | 'update'
+type TabType = 'organization' | 'incident' | 'email' | 'sla' | 'service-report' | 'backup' | 'info' | 'theme' | 'mobile-app' | 'maintenance' | 'modules' | 'google' | 'update'
 
 // Organization Settings Interface
 interface OrganizationSettings {
@@ -1807,6 +1809,7 @@ export default function SettingsPage() {
     { id: 'mobile-app' as TabType, label: 'Mobile App', icon: Smartphone },
     ...(isSuperAdmin ? [{ id: 'maintenance' as TabType, label: 'Maintenance', icon: Wrench }] : []),
     ...(isSuperAdmin ? [{ id: 'modules' as TabType, label: 'Modules', icon: Blocks }] : []),
+    ...(isSuperAdmin ? [{ id: 'google' as TabType, label: 'Google Sign-In', icon: KeyRound }] : []),
     ...(isSuperAdmin ? [{ id: 'update' as TabType, label: 'System Update', icon: DownloadCloud }] : []),
     { id: 'info' as TabType, label: 'Info', icon: Info },
   ]
@@ -4362,6 +4365,7 @@ export default function SettingsPage() {
 
         {/* Info Tab */}
         {activeTab === 'modules' && isSuperAdmin && <ModulesTab />}
+        {activeTab === 'google' && isSuperAdmin && <GoogleSignInTab />}
         {activeTab === 'update' && isSuperAdmin && <UpdateTab />}
 
         {activeTab === 'info' && (

@@ -19,6 +19,7 @@ import toast from 'react-hot-toast'
 import Link from 'next/link'
 import { formatDateTime, formatRelativeTime } from '@/utils/dateUtils'
 import { useThemeHighlight } from '@/hooks/useThemeHighlight'
+import { notifyNotificationsChanged } from '@/utils/appBadge'
 
 interface Notification {
   id: number
@@ -83,6 +84,7 @@ export default function NotificationsPage() {
       setNotifications((prev) =>
         prev.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n))
       )
+      notifyNotificationsChanged()
     } catch (error) {
       console.error('Failed to mark as read:', error)
       toast.error('ไม่สามารถทำเครื่องหมายว่าอ่านแล้ว')
@@ -101,6 +103,7 @@ export default function NotificationsPage() {
       )
 
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))
+      notifyNotificationsChanged()
       toast.success('ทำเครื่องหมายว่าอ่านทั้งหมดแล้ว')
     } catch (error) {
       console.error('Failed to mark all as read:', error)
@@ -119,6 +122,7 @@ export default function NotificationsPage() {
       )
 
       setNotifications((prev) => prev.filter((n) => n.id !== notificationId))
+      notifyNotificationsChanged()
       toast.success('ลบ Notification แล้ว')
     } catch (error) {
       console.error('Failed to delete notification:', error)

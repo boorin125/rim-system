@@ -19,7 +19,7 @@ export class NotificationsService {
    * Send Expo push notification to a user's device (fire-and-forget)
    * Silently ignores errors so DB notification always saves even if push fails
    */
-  private async sendExpoPush(userId: number, title: string, body: string, data?: Record<string, unknown>): Promise<void> {
+  private async sendExpoPush(userId: number, title: string, body: string, data?: Record<string, unknown>, badge = 1): Promise<void> {
     try {
       const token = await this.getPushToken(userId)
       if (!token || !Expo.isExpoPushToken(token)) return
@@ -29,7 +29,7 @@ export class NotificationsService {
         title,
         body,
         sound: 'default',
-        badge: 1,
+        badge,
         channelId: 'rim-notifications',
         data: data ?? {},
       }
@@ -146,18 +146,32 @@ export class NotificationsService {
       },
     });
 
-    // Send Expo push (mobile app) — fire-and-forget
-    this.sendExpoPush(userId, title, message, { incidentId: incidentId ?? null, type })
-
-    // Send Web Push (browser on mobile/desktop) — fire-and-forget
-    this.pushService.sendToUser(userId, {
-      title,
-      body: message,
-      url: link || (incidentId ? `/dashboard/incidents/${incidentId}` : '/dashboard'),
-      tag: incidentId ? `incident-${incidentId}` : `rim-${type}`,
+    // Send Expo push (mobile app) + Web Push (browser on mobile/desktop) — fire-and-forget
+    // badgeCount = unread count shown on the installed app icon
+    this.getBadgeCount(userId).then(badgeCount => {
+      this.sendExpoPush(userId, title, message, { incidentId: incidentId ?? null, type }, badgeCount)
+      return this.pushService.sendToUser(userId, {
+        title,
+        body: message,
+        url: link || (incidentId ? `/dashboard/incidents/${incidentId}` : '/dashboard'),
+        tag: incidentId ? `incident-${incidentId}` : `rim-${type}`,
+        badgeCount,
+      })
     }).catch(() => {})
 
     return notification
+  }
+
+  /**
+   * Unread count for the app icon badge — same rules as getUnreadCount (Help Desk filter)
+   */
+  private async getBadgeCount(userId: number): Promise<number> {
+    try {
+      const roles = await this.prisma.userRoleAssignment.findMany({ where: { userId }, select: { role: true } })
+      return await this.getUnreadCount(userId, { roles: roles.map(r => r.role) })
+    } catch {
+      return 1
+    }
   }
 
   /**

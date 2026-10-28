@@ -39,8 +39,19 @@ self.addEventListener('push', (event) => {
     data: { url: payload.url || '/' },
   };
 
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil(Promise.all([
+    self.registration.showNotification(title, options),
+    setBadge(payload.badgeCount),
+  ]));
 });
+
+// App icon badge (unread count) — Badging API: iOS 16.4+ home screen app, desktop Chrome/Edge
+function setBadge(count) {
+  const nav = self.navigator;
+  if (typeof count !== 'number' || !nav || !('setAppBadge' in nav)) return Promise.resolve();
+  const p = count > 0 ? nav.setAppBadge(count) : nav.clearAppBadge();
+  return p.catch(() => {});
+}
 
 // Handle notification click — open/focus the correct page
 self.addEventListener('notificationclick', (event) => {

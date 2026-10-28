@@ -24,9 +24,10 @@ export class SettingsPublicController {
 
   @Get('branding')
   async getBranding() {
-    const [org, theme] = await Promise.all([
+    const [org, theme, google] = await Promise.all([
       this.settingsService.getOrganizationSettings(),
       this.settingsService.getThemeSettings(),
+      this.settingsService.getGoogleSettings(),
     ]);
 
     return {
@@ -34,6 +35,8 @@ export class SettingsPublicController {
       logoPath: org.logoPath || '',
       appName: org.appName,
       isTestServer: org.isTestServer,
+      // show the "Sign in with Google" button only when this server has an OAuth client
+      googleEnabled: google.enabled,
       theme: {
         bgStart: theme.bgStart || '#0f172a',
         bgEnd: theme.bgEnd || '#1e293b',

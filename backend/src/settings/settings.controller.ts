@@ -176,6 +176,25 @@ export class SettingsController {
   }
 
   // ==========================================
+  // GOOGLE SIGN-IN (SUPER_ADMIN)
+  // ==========================================
+
+  @Get('google')
+  @Roles(UserRole.SUPER_ADMIN)
+  async getGoogleSettings() {
+    return this.settingsService.getGoogleSettings();
+  }
+
+  @Post('google')
+  @Roles(UserRole.SUPER_ADMIN)
+  async saveGoogleSettings(@Body() data: { clientId?: string; clientSecret?: string; baseUrl?: string }) {
+    for (const k of ['clientId', 'clientSecret', 'baseUrl'] as const) {
+      if (data[k] !== undefined && typeof data[k] !== 'string') throw new BadRequestException(`${k} must be a string`);
+    }
+    return this.settingsService.saveGoogleSettings(data);
+  }
+
+  // ==========================================
   // ORGANIZATION SETTINGS ENDPOINTS
   // ==========================================
 

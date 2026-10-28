@@ -64,6 +64,7 @@ export class PushService implements OnModuleInit {
     badge?: string;
     url?: string;
     tag?: string;
+    badgeCount?: number;
   }) {
     if (!process.env.VAPID_PUBLIC_KEY) return;
 
@@ -92,6 +93,7 @@ export class PushService implements OnModuleInit {
       badge: orgIcon || '/icons/badge-72x72.png',
       url: payload.url || '/',
       tag: payload.tag || 'rim-notification',
+      badgeCount: payload.badgeCount,
     });
 
     const staleEndpoints: string[] = [];

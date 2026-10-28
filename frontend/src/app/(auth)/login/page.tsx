@@ -7,6 +7,7 @@ import { Mail, Lock, Eye, EyeOff, Phone, X, FileText } from 'lucide-react'
 import toast from 'react-hot-toast'
 import axios from 'axios'
 import { hasMenuAccess, menuPermissions } from '@/config/permissions'
+import GoogleIcon from '@/components/GoogleIcon'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
@@ -14,7 +15,20 @@ interface Branding {
   organizationName: string
   logoPath: string
   theme: { bgStart: string; bgEnd: string }
+  googleEnabled?: boolean
 }
+
+// Result of the Google sign-in round trip (backend auth/google/callback → /login?google=…)
+const GOOGLE_MESSAGES: Record<string, { text: string; ok?: boolean }> = {
+  pending: { text: 'ส่งคำขอใช้งานด้วยบัญชี Google แล้ว — รอ IT Manager อนุมัติก่อนเข้าใช้งาน', ok: true },
+  inactive: { text: 'บัญชีนี้ถูกปิดใช้งาน กรุณาติดต่อผู้ดูแลระบบ' },
+  locked: { text: 'บัญชีถูกล็อกชั่วคราว กรุณาลองใหม่ภายหลัง' },
+  cancelled: { text: 'ยกเลิกการเข้าสู่ระบบด้วย Google' },
+  retry: { text: 'เข้าสู่ระบบด้วย Google ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง' },
+  error: { text: 'เข้าสู่ระบบด้วย Google ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง' },
+  not_configured: { text: 'Server นี้ยังไม่ได้ตั้งค่าการเข้าสู่ระบบด้วย Google' },
+}
+
 
 function LoginContent() {
   const router = useRouter()
@@ -34,6 +48,30 @@ function LoginContent() {
     theme: { bgStart: '#0f172a', bgEnd: '#1e293b' },
   })
   const [brandingLoaded, setBrandingLoaded] = useState(false)
+  const [appVersion, setAppVersion] = useState('')
+
+  // The three cards are stacked (absolute) for the flip — the stage takes the height of the card on show
+  // only, so the hidden (taller) register card no longer makes the login / forgot screens scroll
+  const frontRef = useRef<HTMLDivElement>(null)
+  const backRef = useRef<HTMLDivElement>(null)
+  const forgotRef = useRef<HTMLDivElement>(null)
+  const [cardH, setCardH] = useState<number | undefined>(undefined)
+  useEffect(() => {
+    const el = (showForgot ? forgotRef : isFlipped ? backRef : frontRef).current
+    if (!el) return
+    const update = () => setCardH(el.offsetHeight)
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [isFlipped, showForgot])
+
+  useEffect(() => {
+    fetch(`${API_URL}/system/version`)
+      .then((r) => r.json())
+      .then((data) => { if (data?.version) setAppVersion(data.version) })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     // Check if first-time setup is needed
@@ -118,6 +156,65 @@ function LoginContent() {
   // Forgot password state
   const [forgotEmail, setForgotEmail] = useState('')
 
+  // Back from Google: ?gcode=… (one-time, ~1 min) → tokens; ?google=… → explain what happened
+  const [googleBusy, setGoogleBusy] = useState(false)
+  const googleHandled = useRef(false)
+  useEffect(() => {
+    if (googleHandled.current) return
+    const gcode = searchParams.get('gcode')
+    const result = searchParams.get('google')
+    if (!gcode && !result) return
+    googleHandled.current = true
+    // drop the code / result from the address bar (and history)
+    window.history.replaceState(null, '', '/login')
+    if (gcode) {
+      setGoogleBusy(true)
+      axios.post(`${API_URL}/auth/google/exchange`, { code: gcode })
+        .then((res) => completeLogin(res.data))
+        .catch((err) => {
+          toast.error(err.response?.data?.message || 'เข้าสู่ระบบด้วย Google ไม่สำเร็จ')
+          setGoogleBusy(false)
+        })
+      return
+    }
+    // The installed app on Android can get Google's answer twice — the other one may have signed in already
+    if (result === 'retry' && localStorage.getItem('token')) {
+      router.replace('/dashboard')
+      return
+    }
+    const msg = GOOGLE_MESSAGES[result!] || GOOGLE_MESSAGES.error
+    if (msg.ok) toast.success(msg.text, { duration: 6000 })
+    else toast.error(msg.text, { duration: 6000 })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
+
+  const startGoogle = () => {
+    setGoogleBusy(true)
+    window.location.href = `${API_URL}/auth/google/start`
+  }
+
+  // Store the session (password or Google sign-in) and go to the page asked for
+  const completeLogin = (data: any) => {
+    // Save tokens — clear old sessionExpiresAt first so stale expiry
+    // from a previous session never triggers an immediate logout
+    localStorage.setItem('token', data.accessToken)
+    localStorage.setItem('refreshToken', data.refreshToken)
+    localStorage.setItem('user', JSON.stringify(data.user))
+    localStorage.removeItem('sessionExpiresAt')
+    if (data.sessionExpiresAt) {
+      localStorage.setItem('sessionExpiresAt', data.sessionExpiresAt)
+    }
+
+    toast.success('เข้าสู่ระบบสำเร็จ!')
+
+    // Validate nextUrl against user's role — if it's a known restricted page the user
+    // can't access (e.g. IT_MANAGER landing on /dashboard/settings), fall back to /dashboard
+    const pathOnly = nextUrl.split('?')[0]
+    const isKnownMenu = pathOnly in menuPermissions
+    const canAccess = !isKnownMenu || hasMenuAccess(data.user, pathOnly)
+    router.push(canAccess ? nextUrl : '/dashboard')
+  }
+
   // Handle Login
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -130,25 +227,7 @@ function LoginContent() {
         `${process.env.NEXT_PUBLIC_API_URL}/auth/login`,
         loginData
       )
-
-      // Save tokens — clear old sessionExpiresAt first so stale expiry
-      // from a previous session never triggers an immediate logout
-      localStorage.setItem('token', response.data.accessToken)
-      localStorage.setItem('refreshToken', response.data.refreshToken)
-      localStorage.setItem('user', JSON.stringify(response.data.user))
-      localStorage.removeItem('sessionExpiresAt')
-      if (response.data.sessionExpiresAt) {
-        localStorage.setItem('sessionExpiresAt', response.data.sessionExpiresAt)
-      }
-
-      toast.success('เข้าสู่ระบบสำเร็จ!')
-
-      // Validate nextUrl against user's role — if it's a known restricted page the user
-      // can't access (e.g. IT_MANAGER landing on /dashboard/settings), fall back to /dashboard
-      const pathOnly = nextUrl.split('?')[0]
-      const isKnownMenu = pathOnly in menuPermissions
-      const canAccess = !isKnownMenu || hasMenuAccess(response.data.user, pathOnly)
-      router.push(canAccess ? nextUrl : '/dashboard')
+      completeLogin(response.data)
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'เข้าสู่ระบบไม่สำเร็จ')
       setIsLoading(false)
@@ -249,7 +328,8 @@ function LoginContent() {
   }
 
   return (
-    <div className="min-h-screen flex items-start justify-center px-4 pt-8 pb-4 overflow-y-auto" style={bgStyle}>
+    // Full screen, no page scroll: the form area only scrolls when it can't fit (on-screen keyboard, tiny phones)
+    <div className="h-[100dvh] flex flex-col overflow-hidden" style={bgStyle}>
       {/* Terms of Service Modal */}
       {showTermsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -325,33 +405,36 @@ function LoginContent() {
       <div className="fixed inset-0 bg-pattern pointer-events-none"></div>
 
       {/* Main Container */}
-      <div className="relative z-10 w-full max-w-md animate-fade-in">
-        
+      <div className="relative z-10 flex-1 min-h-0 overflow-y-auto flex px-4 py-3 sm:py-6">
+      <div className="w-full max-w-md m-auto animate-fade-in">
+
         {/* Logo & Header */}
-        <div className="text-center mb-3">
-          <div className="mb-2 h-20 flex items-center justify-center">
+        {/* Register is the tallest card — on phones it gets a smaller logo and no title line */}
+        <div className="text-center mb-2 sm:mb-3">
+          <div className={`mb-1 sm:mb-2 ${isFlipped ? 'h-10' : 'h-14'} sm:h-20 flex items-center justify-center`}>
             <img
               src={logoUrl || '/logo.png'}
               alt="Organization Logo"
-              className={`h-20 w-auto mx-auto object-contain rounded-xl transition-opacity duration-300 ${brandingLoaded ? 'opacity-100' : 'opacity-0'}`}
+              className={`${isFlipped ? 'h-10' : 'h-14'} sm:h-20 w-auto mx-auto object-contain rounded-xl transition-opacity duration-300 ${brandingLoaded ? 'opacity-100' : 'opacity-0'}`}
             />
           </div>
-          <p className={`text-lg font-light ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{appTitle}</p>
+          <p className={`${isFlipped ? 'hidden sm:block' : ''} text-base sm:text-lg font-light ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{appTitle}</p>
         </div>
 
-        {/* Flip Container */}
+        {/* Flip Container — as tall as the card on show; hidden cards are clipped */}
         <div
-          className={`flip-container ${isFlipped ? 'flipped' : ''} ${
+          className={`flip-container overflow-hidden transition-[height] duration-300 ${isFlipped ? 'flipped' : ''} ${
             showForgot ? 'show-forgot' : ''
           }`}
+          style={{ height: cardH }}
         >
           <div className="flipper">
-            
+
             {/* FRONT: Login Form */}
-            <div className="flip-front">
-              <div className="glass-card rounded-2xl p-6">
-                <div className="mb-4">
-                  <h2 className="text-2xl font-semibold text-white mb-2">
+            <div className="flip-front" ref={frontRef}>
+              <div className="glass-card rounded-2xl p-5 sm:p-6">
+                <div className="mb-3 sm:mb-4">
+                  <h2 className="text-xl sm:text-2xl font-semibold text-white mb-1 sm:mb-2">
                     เข้าสู่ระบบ
                   </h2>
                   <p className="text-gray-400 text-sm whitespace-nowrap overflow-hidden text-ellipsis">
@@ -359,10 +442,10 @@ function LoginContent() {
                   </p>
                 </div>
 
-                <form onSubmit={handleLogin} className="space-y-4">
+                <form onSubmit={handleLogin} className="space-y-3 sm:space-y-4">
                   {/* Email Input */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                    <label className="block text-sm font-medium text-gray-300 mb-1 sm:mb-2">
                       อีเมล
                     </label>
                     <div className="relative">
@@ -377,7 +460,7 @@ function LoginContent() {
                         }
                         placeholder="your.email@example.com"
                         autoComplete="off"
-                        className="w-full pl-10 pr-4 py-3 bg-gray-700/50 backdrop-blur-sm border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+                        className="w-full pl-10 pr-4 py-2.5 sm:py-3 bg-gray-700/50 backdrop-blur-sm border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
                         required
                       />
                     </div>
@@ -385,7 +468,7 @@ function LoginContent() {
 
                   {/* Password Input */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                    <label className="block text-sm font-medium text-gray-300 mb-1 sm:mb-2">
                       รหัสผ่าน
                     </label>
                     <div className="relative">
@@ -400,7 +483,7 @@ function LoginContent() {
                         }
                         placeholder="••••••••"
                         autoComplete="current-password"
-                        className="w-full pl-10 pr-12 py-3 bg-gray-700/50 backdrop-blur-sm border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+                        className="w-full pl-10 pr-12 py-2.5 sm:py-3 bg-gray-700/50 backdrop-blur-sm border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
                         required
                       />
                       <button
@@ -433,7 +516,7 @@ function LoginContent() {
                     type="submit"
                     disabled={isLoading}
                     style={btnStyle}
-                    className="w-full py-3 px-4 text-white font-medium rounded-lg hover:opacity-90 transition duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full py-2.5 sm:py-3 px-4 text-white font-medium rounded-lg hover:opacity-90 transition duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isLoading ? (
                       <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -442,8 +525,23 @@ function LoginContent() {
                     )}
                   </button>
 
+                  {/* Google — signs in, links an existing account with the same email, or requests a new one */}
+                  {branding.googleEnabled && (
+                    <button
+                      type="button"
+                      onClick={startGoogle}
+                      disabled={googleBusy}
+                      className="w-full py-2.5 sm:py-3 px-4 flex items-center justify-center gap-2.5 rounded-lg bg-white text-slate-700 font-medium hover:bg-slate-100 transition duration-200 disabled:opacity-60"
+                    >
+                      {googleBusy
+                        ? <div className="w-5 h-5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
+                        : <GoogleIcon />}
+                      เข้าสู่ระบบด้วย Google
+                    </button>
+                  )}
+
                   {/* Register Link */}
-                  <div className={`text-center pt-4 border-t ${isDark ? 'border-gray-700/50' : 'border-slate-300/70'}`}>
+                  <div className={`text-center pt-3 sm:pt-4 border-t ${isDark ? 'border-gray-700/50' : 'border-slate-300/70'}`}>
                     <p className={isDark ? 'text-gray-400' : 'text-slate-500'}>
                       ยังไม่มีบัญชี?{' '}
                       <button
@@ -463,22 +561,35 @@ function LoginContent() {
             </div>
 
             {/* BACK: Register Form */}
-            <div className="flip-back">
-              <div className="glass-card rounded-2xl p-6">
-                <div className="mb-4">
-                  <h2 className="text-2xl font-semibold text-white mb-2">
-                    สมัครสมาชิก
-                  </h2>
-                  <p className="text-gray-400">
+            <div className="flip-back" ref={backRef}>
+              <div className="glass-card rounded-2xl p-5 sm:p-6">
+                <div className="mb-3 sm:mb-4">
+                  {/* Google sits on the title row — the register card has to fit one phone screen */}
+                  <div className="flex items-center justify-between gap-2 mb-1 sm:mb-2">
+                    <h2 className="text-xl sm:text-2xl font-semibold text-white">
+                      สมัครสมาชิก
+                    </h2>
+                    {branding.googleEnabled && (
+                      <button
+                        type="button"
+                        onClick={startGoogle}
+                        disabled={googleBusy}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white text-slate-700 text-xs sm:text-sm font-medium hover:bg-slate-100 transition disabled:opacity-60 shrink-0"
+                      >
+                        <GoogleIcon className="w-4 h-4" /> สมัครด้วย Google
+                      </button>
+                    )}
+                  </div>
+                  <p className="hidden sm:block text-gray-400 text-sm">
                     สร้างบัญชีใหม่เพื่อเข้าใช้งานระบบ
                   </p>
                 </div>
 
-                <form onSubmit={handleRegister} className="space-y-4">
+                <form onSubmit={handleRegister} className="space-y-2.5 sm:space-y-4">
                   {/* Name Inputs */}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                      <label className="block text-sm font-medium text-gray-300 mb-1 sm:mb-2">
                         ชื่อ
                       </label>
                       <input
@@ -492,12 +603,12 @@ function LoginContent() {
                         }
                         placeholder="ชื่อ"
                         autoComplete="given-name"
-                        className="w-full px-4 py-3 bg-gray-700/50 backdrop-blur-sm border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+                        className="w-full px-4 py-2.5 sm:py-3 bg-gray-700/50 backdrop-blur-sm border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
                         required
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                      <label className="block text-sm font-medium text-gray-300 mb-1 sm:mb-2">
                         นามสกุล
                       </label>
                       <input
@@ -511,7 +622,7 @@ function LoginContent() {
                         }
                         placeholder="นามสกุล"
                         autoComplete="family-name"
-                        className="w-full px-4 py-3 bg-gray-700/50 backdrop-blur-sm border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+                        className="w-full px-4 py-2.5 sm:py-3 bg-gray-700/50 backdrop-blur-sm border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
                         required
                       />
                     </div>
@@ -519,7 +630,7 @@ function LoginContent() {
 
                   {/* Email */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                    <label className="block text-sm font-medium text-gray-300 mb-1 sm:mb-2">
                       อีเมล
                     </label>
                     <div className="relative">
@@ -537,7 +648,7 @@ function LoginContent() {
                         }
                         placeholder="your.email@example.com"
                         autoComplete="off"
-                        className="w-full pl-10 pr-4 py-3 bg-gray-700/50 backdrop-blur-sm border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+                        className="w-full pl-10 pr-4 py-2.5 sm:py-3 bg-gray-700/50 backdrop-blur-sm border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
                         required
                       />
                     </div>
@@ -545,7 +656,7 @@ function LoginContent() {
 
                   {/* Phone */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                    <label className="block text-sm font-medium text-gray-300 mb-1 sm:mb-2">
                       เบอร์โทรศัพท์
                     </label>
                     <div className="relative">
@@ -563,14 +674,15 @@ function LoginContent() {
                         }
                         placeholder="081-234-5678"
                         autoComplete="tel"
-                        className="w-full pl-10 pr-4 py-3 bg-gray-700/50 backdrop-blur-sm border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+                        className="w-full pl-10 pr-4 py-2.5 sm:py-3 bg-gray-700/50 backdrop-blur-sm border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
                       />
                     </div>
                   </div>
 
-                  {/* Password */}
+                  {/* Password + confirm side by side (keeps the register card one screen tall on phones) */}
+                  <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                    <label className="block text-sm font-medium text-gray-300 mb-1 sm:mb-2">
                       รหัสผ่าน
                     </label>
                     <div className="relative">
@@ -588,7 +700,7 @@ function LoginContent() {
                         }
                         placeholder="••••••••"
                         autoComplete="new-password"
-                        className="w-full pl-10 pr-12 py-3 bg-gray-700/50 backdrop-blur-sm border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+                        className="w-full pl-10 pr-12 py-2.5 sm:py-3 bg-gray-700/50 backdrop-blur-sm border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
                         required
                       />
                       <button
@@ -607,7 +719,7 @@ function LoginContent() {
 
                   {/* Confirm Password */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                    <label className="block text-sm font-medium text-gray-300 mb-1 sm:mb-2">
                       ยืนยันรหัสผ่าน
                     </label>
                     <div className="relative">
@@ -625,7 +737,7 @@ function LoginContent() {
                         }
                         placeholder="••••••••"
                         autoComplete="new-password"
-                        className="w-full pl-10 pr-12 py-3 bg-gray-700/50 backdrop-blur-sm border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+                        className="w-full pl-10 pr-12 py-2.5 sm:py-3 bg-gray-700/50 backdrop-blur-sm border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
                         required
                       />
                       <button
@@ -640,6 +752,7 @@ function LoginContent() {
                         )}
                       </button>
                     </div>
+                  </div>
                   </div>
 
                   {/* Terms of Service Checkbox */}
@@ -669,7 +782,7 @@ function LoginContent() {
                     type="submit"
                     disabled={isLoading || !agreedToTerms}
                     style={agreedToTerms ? btnStyle : {}}
-                    className="w-full py-3 px-4 text-white font-medium rounded-lg hover:opacity-90 transition duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full py-2.5 sm:py-3 px-4 text-white font-medium rounded-lg hover:opacity-90 transition duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isLoading ? (
                       <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -679,7 +792,7 @@ function LoginContent() {
                   </button>
 
                   {/* Back to Login */}
-                  <div className={`text-center pt-4 border-t ${isDark ? 'border-gray-700/50' : 'border-slate-300/70'}`}>
+                  <div className={`text-center pt-3 sm:pt-4 border-t ${isDark ? 'border-gray-700/50' : 'border-slate-300/70'}`}>
                     <p className={isDark ? 'text-gray-400' : 'text-slate-500'}>
                       มีบัญชีอยู่แล้ว?{' '}
                       <button
@@ -697,21 +810,21 @@ function LoginContent() {
             </div>
 
             {/* FORGOT: Forgot Password Form */}
-            <div className="flip-forgot">
-              <div className="glass-card rounded-2xl p-6">
-                <div className="mb-4">
-                  <h2 className="text-2xl font-semibold text-white mb-2">
+            <div className="flip-forgot" ref={forgotRef}>
+              <div className="glass-card rounded-2xl p-5 sm:p-6">
+                <div className="mb-3 sm:mb-4">
+                  <h2 className="text-xl sm:text-2xl font-semibold text-white mb-1 sm:mb-2">
                     ลืมรหัสผ่าน
                   </h2>
-                  <p className="text-gray-400">
+                  <p className="text-gray-400 text-sm">
                     กรอกอีเมลเพื่อรับลิงก์รีเซ็ตรหัสผ่าน
                   </p>
                 </div>
 
-                <form onSubmit={handleForgotPassword} className="space-y-4">
+                <form onSubmit={handleForgotPassword} className="space-y-3 sm:space-y-4">
                   {/* Email */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                    <label className="block text-sm font-medium text-gray-300 mb-1 sm:mb-2">
                       อีเมล
                     </label>
                     <div className="relative">
@@ -723,7 +836,7 @@ function LoginContent() {
                         value={forgotEmail}
                         onChange={(e) => setForgotEmail(e.target.value)}
                         placeholder="your.email@example.com"
-                        className="w-full pl-10 pr-4 py-3 bg-gray-700/50 backdrop-blur-sm border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+                        className="w-full pl-10 pr-4 py-2.5 sm:py-3 bg-gray-700/50 backdrop-blur-sm border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
                         required
                       />
                     </div>
@@ -733,13 +846,13 @@ function LoginContent() {
                   <button
                     type="submit"
                     style={btnStyle}
-                    className="w-full py-3 px-4 text-white font-medium rounded-lg hover:opacity-90 transition duration-200"
+                    className="w-full py-2.5 sm:py-3 px-4 text-white font-medium rounded-lg hover:opacity-90 transition duration-200"
                   >
                     ส่งลิงก์รีเซ็ตรหัสผ่าน
                   </button>
 
                   {/* Back to Login */}
-                  <div className={`text-center pt-4 border-t ${isDark ? 'border-gray-700/50' : 'border-slate-300/70'}`}>
+                  <div className={`text-center pt-3 sm:pt-4 border-t ${isDark ? 'border-gray-700/50' : 'border-slate-300/70'}`}>
                     <button
                       type="button"
                       onClick={() => setShowForgot(false)}
@@ -755,6 +868,15 @@ function LoginContent() {
           </div>
         </div>
       </div>
+      </div>
+
+      {/* Version */}
+      <p
+        className={`relative z-10 shrink-0 text-center text-[11px] pt-1 ${isDark ? 'text-white/40' : 'text-slate-500'}`}
+        style={{ paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom))' }}
+      >
+        {appVersion ? `Version ${appVersion}` : ' '}
+      </p>
     </div>
   )
 }

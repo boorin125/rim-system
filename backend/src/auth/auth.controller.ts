@@ -11,8 +11,12 @@ import {
   UseInterceptors,
   UploadedFile,
   Request,
+  Query,
+  Res,
   BadRequestException,
 } from '@nestjs/common';
+import { Response } from 'express';
+import { GoogleAuthService } from './google-auth.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import * as path from 'path';
@@ -29,7 +33,10 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly googleAuth: GoogleAuthService,
+  ) {}
 
   // =====================
   // Public Endpoints
@@ -68,6 +75,48 @@ export class AuthController {
   @Post('logout')
   async logout(@Body('refreshToken') refreshToken: string) {
     return this.authService.logout(refreshToken);
+  }
+
+  // ── Google Sign-In (google-auth.service.ts) — browser navigations, so they answer with redirects ──
+
+  @Get('google/start')
+  async googleStart(@Query('ticket') ticket: string | undefined, @Res() res: Response) {
+    res.redirect(await this.googleAuth.startUrl(ticket));
+  }
+
+  @Get('google/callback')
+  async googleCallback(
+    @Query('code') code: string | undefined,
+    @Query('state') state: string | undefined,
+    @Query('error') error: string | undefined,
+    @Res() res: Response,
+  ) {
+    let target = '/login?google=error';
+    try {
+      target = await this.googleAuth.callback(code, state, error);
+    } catch {
+      // keep the generic error page target
+    }
+    res.redirect(target);
+  }
+
+  // One-time code from the callback → access / refresh tokens (same response as POST /auth/login)
+  @Post('google/exchange')
+  async googleExchange(@Body('code') code: string) {
+    if (typeof code !== 'string' || !code) throw new BadRequestException('code is required');
+    return this.googleAuth.exchange(code);
+  }
+
+  @Post('google/link-ticket')
+  @UseGuards(JwtAuthGuard)
+  async googleLinkTicket(@Request() req) {
+    return this.googleAuth.createLinkTicket(req.user.id);
+  }
+
+  @Delete('google/link')
+  @UseGuards(JwtAuthGuard)
+  async googleUnlink(@Request() req) {
+    return this.googleAuth.unlink(req.user.id);
   }
 
   // =====================

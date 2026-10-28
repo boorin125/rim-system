@@ -104,7 +104,7 @@ export class AuthService {
   /**
    * Send notification to all IT_MANAGER users about new user registration
    */
-  private async notifyITManagersAboutNewUser(user: any) {
+  async notifyITManagersAboutNewUser(user: any) {
     // Find all users with IT_MANAGER or SUPER_ADMIN role
     const managers = await this.prisma.user.findMany({
       where: {
@@ -232,6 +232,14 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    return this.issueSession(user);
+  }
+
+  /**
+   * Sign a verified user in (password or Google): reset failed attempts, record the login,
+   * single-session (old refresh tokens revoked), issue access + refresh tokens.
+   */
+  async issueSession(user: any) {
     // Reset failed login attempts, update last login, set online status
     const now = new Date()
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -258,7 +266,7 @@ export class AuthService {
     await this.prisma.refreshToken.deleteMany({ where: { userId: user.id } });
 
     // Extract roles as array
-    const roles = user.roles.map(r => r.role);
+    const roles = user.roles.map((r: { role: string }) => r.role);
 
     // Generate JWT access token with roles array (short-lived: 15 min)
     const payload = {
@@ -502,6 +510,7 @@ export class AuthService {
         twoFactorEnabled: true,
         lastLogin: true,
         lastPasswordChange: true,
+        googleEmail: true,
         createdAt: true,
         updatedAt: true,
       },

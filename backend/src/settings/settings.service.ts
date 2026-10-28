@@ -1,6 +1,6 @@
 // src/settings/settings.service.ts
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { execSync } from 'child_process';
 import * as fs from 'fs';
@@ -479,6 +479,65 @@ export class SettingsService {
     }
 
     return { message: 'Organization settings saved successfully' };
+  }
+
+  // ========================================
+  // GOOGLE SIGN-IN (per server — OAuth client from Google Cloud Console)
+  // ========================================
+
+  /** Base URL the browser uses for this server (redirect URI = <base>/api/auth/google/callback) */
+  private googleBaseUrl(stored?: string) {
+    return (stored || process.env.FRONTEND_URL || 'http://localhost').replace(/\/+$/, '');
+  }
+
+  /** For the Settings screen — the secret itself is never sent back */
+  async getGoogleSettings() {
+    const rows = await this.prisma.systemConfig.findMany({
+      where: { key: { in: ['google_client_id', 'google_client_secret', 'google_base_url'] } },
+    });
+    const m = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+    const baseUrl = this.googleBaseUrl(m['google_base_url']);
+    return {
+      clientId: m['google_client_id'] || '',
+      hasSecret: !!m['google_client_secret'],
+      baseUrl: m['google_base_url'] || '',
+      redirectUri: `${baseUrl}/api/auth/google/callback`,
+      enabled: !!(m['google_client_id'] && m['google_client_secret']),
+    };
+  }
+
+  /** Full config for the OAuth flow (backend only) */
+  async getGoogleOAuthConfig() {
+    const rows = await this.prisma.systemConfig.findMany({
+      where: { key: { in: ['google_client_id', 'google_client_secret', 'google_base_url'] } },
+    });
+    const m = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+    if (!m['google_client_id'] || !m['google_client_secret']) return null;
+    return {
+      clientId: m['google_client_id'],
+      clientSecret: m['google_client_secret'],
+      redirectUri: `${this.googleBaseUrl(m['google_base_url'])}/api/auth/google/callback`,
+    };
+  }
+
+  /** clientSecret: undefined = keep, '' = remove; clientId '' turns Google Sign-In off */
+  async saveGoogleSettings(data: { clientId?: string; clientSecret?: string; baseUrl?: string }) {
+    const upsert = (key: string, value: string, description: string) =>
+      this.prisma.systemConfig.upsert({
+        where: { key },
+        create: { key, value, category: 'google', description },
+        update: { value },
+      });
+    const ops = [];
+    if (data.clientId !== undefined) ops.push(upsert('google_client_id', data.clientId.trim(), 'Google OAuth client ID'));
+    if (data.clientSecret !== undefined) ops.push(upsert('google_client_secret', data.clientSecret.trim(), 'Google OAuth client secret'));
+    if (data.baseUrl !== undefined) {
+      const base = data.baseUrl.trim().replace(/\/+$/, '');
+      if (base && !/^https?:\/\/[^\s/]+/i.test(base)) throw new BadRequestException('URL ต้องขึ้นต้นด้วย http:// หรือ https://');
+      ops.push(upsert('google_base_url', base, 'Server URL for the Google redirect URI'));
+    }
+    if (ops.length) await this.prisma.$transaction(ops);
+    return this.getGoogleSettings();
   }
 
   // ========================================
