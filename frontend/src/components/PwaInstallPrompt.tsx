@@ -25,6 +25,7 @@ const HIDDEN_KEY = 'pwaInstallHidden'
 const store = {
   get: (k: string) => { try { return localStorage.getItem(k) } catch { return null } },
   set: (k: string, v: string) => { try { localStorage.setItem(k, v) } catch { /* ignore */ } },
+  remove: (k: string) => { try { localStorage.removeItem(k) } catch { /* ignore */ } },
 }
 
 interface PwaInstallState {
@@ -86,11 +87,20 @@ export function PwaInstallProvider({ children }: { children: React.ReactNode }) 
       .then(b => { if (b) setBranding({ name: appDisplayName(b), isTest: !!b.isTestServer }) })
       .catch(() => {})
 
-    // Android Chrome — the event may have fired before React mounted (captured in app/layout.tsx)
-    const existing = (window as any).__pwaPrompt as BeforeInstallPromptEvent | null
-    if (existing) setDeferredPrompt(existing)
-    const onReady = () => setDeferredPrompt((window as any).__pwaPrompt ?? null)
-    const onPrompt = (e: Event) => { e.preventDefault(); setDeferredPrompt(e as BeforeInstallPromptEvent) }
+    // Android Chrome — the event may have fired before React mounted (captured in app/layout.tsx).
+    // Chrome only offers it while the app is NOT installed, so it also undoes an old "installed / hidden"
+    // flag (e.g. the app was uninstalled afterwards) and brings the 📲 button back.
+    const gotPrompt = (prompt: BeforeInstallPromptEvent | null) => {
+      if (!prompt) return
+      setDeferredPrompt(prompt)
+      if (store.get(HIDDEN_KEY) === '1') {
+        store.remove(HIDDEN_KEY)
+        setIsHidden(false)
+      }
+    }
+    gotPrompt((window as any).__pwaPrompt as BeforeInstallPromptEvent | null)
+    const onReady = () => gotPrompt((window as any).__pwaPrompt ?? null)
+    const onPrompt = (e: Event) => { e.preventDefault(); gotPrompt(e as BeforeInstallPromptEvent) }
     const onInstalled = () => {
       store.set(HIDDEN_KEY, '1')
       setIsInstalled(true)

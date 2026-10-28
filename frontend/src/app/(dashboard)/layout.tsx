@@ -1,7 +1,7 @@
 // app/(dashboard)/layout.tsx - Dashboard Layout (FIXED BREADCRUMB)
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -174,6 +174,10 @@ export default function DashboardLayout({
   const { modules } = useModules()
   // Technicians work their project tasks from the Incidents page — only Project Managers keep the Projects menu
   const { managesProjects } = useMyProjectWork()
+  // The fixed header grows with its banners (TEST / maintenance / license / profile) — the page content
+  // starts below its real height instead of a fixed padding, so nothing is hidden underneath
+  const headerRef = useRef<HTMLElement>(null)
+  const [contentTop, setContentTop] = useState(0)
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false) // For top-right menu
   const [user, setUser] = useState<any>(null)
   // Init from cache so logo/name show instantly on refresh (no flash of default)
@@ -542,6 +546,18 @@ export default function DashboardLayout({
     fetchTheme()
   }, [pathname])
 
+  // Track the header's height (banners appear / disappear, fonts load, screen rotates)
+  useEffect(() => {
+    const el = headerRef.current
+    if (!el) return
+    // + gap below the header: 16px on phones, 40px on desktop (the old pt-20 / lg:pt-28 spacing)
+    const update = () => setContentTop(el.getBoundingClientRect().height + (window.innerWidth >= 1024 ? 40 : 16))
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [user, isApp])
+
   // Fetch app version once on mount
   useEffect(() => {
     const token = localStorage.getItem('token')
@@ -802,6 +818,7 @@ export default function DashboardLayout({
       <div className={`transition-all duration-300 ${isApp ? '' : 'lg:ml-64'}`}>
         {/* Top Navbar - FIXED (ไม่เคลื่อนไหว) */}
         <header
+          ref={headerRef}
           className={`fixed top-0 right-0 left-0 z-30 glass-card border-b border-slate-700/50 ${isApp ? '' : 'lg:left-64'}`}
           // App mode: clear the iOS status bar (statusBarStyle black-translucent + viewportFit cover)
           style={isApp ? { ...chromeStyle, paddingTop: 'env(safe-area-inset-top)' } : chromeStyle}
@@ -979,10 +996,15 @@ export default function DashboardLayout({
             underneath the fixed header (z-30) and bottom tab bar (z-40), hiding modal buttons. bg-pattern sits earlier in the DOM, so main still paints above it. */}
         <main
           className={`relative ${isApp ? '' : 'z-10'} p-4 lg:p-6 pt-20 lg:pt-28`}
-          style={isApp ? {
-            paddingTop: 'calc(5rem + env(safe-area-inset-top))',
-            paddingBottom: 'calc(6rem + env(safe-area-inset-bottom))',
-          } : undefined}
+          style={{
+            // measured header height (it already includes the iOS safe area in app mode) + the usual gap;
+            // before the first measurement the fixed paddings above apply
+            ...(contentTop > 0 && { paddingTop: `${Math.round(contentTop)}px` }),
+            ...(isApp && {
+              ...(contentTop === 0 && { paddingTop: 'calc(5rem + env(safe-area-inset-top))' }),
+              paddingBottom: 'calc(6rem + env(safe-area-inset-bottom))',
+            }),
+          }}
         >
           {children}
         </main>
