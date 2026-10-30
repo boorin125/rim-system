@@ -27,6 +27,8 @@ import { EquipmentService } from './equipment.service';
 import { CreateEquipmentDto } from './dto/create-equipment.dto';
 import { UpdateEquipmentDto } from './dto/update-equipment.dto';
 import { FilterEquipmentDto } from './dto/filter-equipment.dto';
+import { BulkDeviceDto, BulkDeviceExistingDto } from './dto/bulk-device.dto';
+import { BulkDeviceService } from './services/bulk-device.service';
 import { memoryStorage, diskStorage } from 'multer';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -34,7 +36,35 @@ import * as fs from 'fs';
 @Controller('equipment')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class EquipmentController {
-  constructor(private readonly equipmentService: EquipmentService) {}
+  constructor(
+    private readonly equipmentService: EquipmentService,
+    private readonly bulkDeviceService: BulkDeviceService,
+  ) {}
+
+  // =========================================================
+  // Add one device to many stores — IT_MANAGER only (before :id routes)
+  // =========================================================
+
+  /** Current values of the device (by name) in the chosen stores — pre-fills the grid */
+  @Post('bulk-device/existing')
+  @Roles(UserRole.IT_MANAGER)
+  async bulkDeviceExisting(@Body() dto: BulkDeviceExistingDto) {
+    return this.bulkDeviceService.getExisting(dto);
+  }
+
+  /** What saving would do: counts + rows with problems (nothing is written) */
+  @Post('bulk-device/preview')
+  @Roles(UserRole.IT_MANAGER)
+  async bulkDevicePreview(@Body() dto: BulkDeviceDto) {
+    return this.bulkDeviceService.preview(dto);
+  }
+
+  /** Create / update the device in every store (re-planned on the server) */
+  @Post('bulk-device/apply')
+  @Roles(UserRole.IT_MANAGER)
+  async bulkDeviceApply(@Body() dto: BulkDeviceDto, @Request() req) {
+    return this.bulkDeviceService.apply(dto, req.user.id);
+  }
 
   // =========================================================
   // Import / Export (MUST be before :id routes)

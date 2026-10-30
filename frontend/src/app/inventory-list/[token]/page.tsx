@@ -219,7 +219,7 @@ export default function InventoryListPage() {
               const eq = rec.equipment
               const brand = rec.updatedBrand || eq.brand
               const model = rec.updatedModel || eq.model
-              const serial = rec.updatedSerial || eq.serialNumber
+              const serial = rec.updatedSerial || eq.serialNumber || '-'
               const photo = rec.afterPhotos?.[0] ?? rec.beforePhotos?.[0]
               return (
                 <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-purple-50/40'}>

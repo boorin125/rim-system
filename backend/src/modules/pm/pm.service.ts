@@ -531,7 +531,7 @@ export class PmService {
           });
           if (!serialConflict) {
             updateData.serialNumber = rec.updatedSerial;
-            changes.push(`Serial: ${current.serialNumber} → ${rec.updatedSerial}`);
+            changes.push(`Serial: ${current.serialNumber ?? "-"} → ${rec.updatedSerial}`);
           }
         }
       }
@@ -911,7 +911,7 @@ export class PmService {
 
     await this.logPmAudit(
       incidentId, user.id,
-      `เพิ่มอุปกรณ์ "${equipment.name}" (S/N ${equipment.serialNumber}) เข้าร้านจากงาน PM ${pm.incident?.ticketNumber ?? ''}`,
+      `เพิ่มอุปกรณ์ "${equipment.name}" (S/N ${equipment.serialNumber ?? "-"}) เข้าร้านจากงาน PM ${pm.incident?.ticketNumber ?? ''}`,
     );
     return this.getPmRecord(incidentId, true);
   }
@@ -946,7 +946,7 @@ export class PmService {
 
     await this.logPmAudit(
       incidentId, user.id,
-      `นำอุปกรณ์ "${rec.equipment.name}" (S/N ${rec.equipment.serialNumber}) ออกจากร้าน (Inactive) จากงาน PM ${rec.pmRecord.incident?.ticketNumber ?? ''}`,
+      `นำอุปกรณ์ "${rec.equipment.name}" (S/N ${rec.equipment.serialNumber ?? "-"}) ออกจากร้าน (Inactive) จากงาน PM ${rec.pmRecord.incident?.ticketNumber ?? ''}`,
     );
     return this.getPmRecord(incidentId, true);
   }

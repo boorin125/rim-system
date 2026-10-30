@@ -252,7 +252,7 @@ model Store {
 
 model Equipment {
   id                 Int                          @id @default(autoincrement())
-  serialNumber       String                       @unique @map("serial_number")
+  serialNumber       String?                      @unique @map("serial_number") // ว่างได้ (ยังไม่รู้ S/N ตอนตั้งระบบ) — NULL ซ้ำกันได้, ค่าที่มีห้ามซ้ำ
   name               String // ชื่ออุปกรณ์รวมตำแหน่ง เช่น "POS#1 Printer"
   category           String
   brand              String?

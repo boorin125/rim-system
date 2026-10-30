@@ -263,7 +263,7 @@ export async function generateInventoryListPDF(data: InventoryListData): Promise
     cx += cols[2].w
 
     // Serial No.
-    const snLines = doc.splitTextToSize(eq.serialNumber, cols[3].w - 3)
+    const snLines = doc.splitTextToSize(eq.serialNumber || '-', cols[3].w - 3)
     doc.text(snLines.slice(0, 2), cx + 1.5, y + 7)
     cx += cols[3].w
 

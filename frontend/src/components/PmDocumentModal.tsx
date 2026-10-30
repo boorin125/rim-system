@@ -139,7 +139,7 @@ export function PmReportModal({
             .map((rec, idx) => {
             const brand = rec.updatedBrand || rec.brand
             const model = rec.updatedModel || rec.model
-            const serial = rec.updatedSerial || rec.serialNumber
+            const serial = rec.updatedSerial || rec.serialNumber || '-'
             const brandModel = [brand, model].filter(Boolean).join(' ')
             return (
             <div key={idx} className="border border-gray-200 rounded-lg overflow-hidden">

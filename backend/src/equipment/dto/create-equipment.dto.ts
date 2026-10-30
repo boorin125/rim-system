@@ -9,14 +9,16 @@ import {
   MinLength,
 } from 'class-validator';
 import { EquipmentStatus } from '@prisma/client';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 
 export class CreateEquipmentDto {
+  // Optional — devices are often registered before the S/N is known. Blank → null (on update: clears it)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() || null : value))
+  @IsOptional()
   @IsString()
-  @IsNotEmpty({ message: 'Serial Number is required' })
   @MinLength(3, { message: 'Serial Number must be at least 3 characters' })
   @MaxLength(100, { message: 'Serial Number must not exceed 100 characters' })
-  serialNumber: string;
+  serialNumber?: string | null;
 
   @IsString()
   @IsNotEmpty({ message: 'Equipment name is required' })

@@ -604,8 +604,8 @@ export default function SettingsPage() {
     website: 'https://rub-jobb.com',
     email: 'support@rub-jobb.com',
     phones: [
+      { number: '061-246-9293', name: 'คุณบอย' },
       { number: '061-228-2879', name: 'คุณเหมียว' },
-      { number: '081-822-6788', name: 'คุณบอย' },
     ],
   })
 

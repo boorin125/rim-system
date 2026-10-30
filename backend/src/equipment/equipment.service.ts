@@ -51,10 +51,12 @@ export class EquipmentService {
    * Create new equipment
    */
   async create(createEquipmentDto: CreateEquipmentDto, userId: number) {
-    // Check if serial number already exists
-    const existingEquipment = await this.prisma.equipment.findUnique({
-      where: { serialNumber: createEquipmentDto.serialNumber },
-    });
+    // Check if serial number already exists (S/N is optional)
+    const existingEquipment = createEquipmentDto.serialNumber
+      ? await this.prisma.equipment.findFirst({
+          where: { serialNumber: { equals: createEquipmentDto.serialNumber, mode: 'insensitive' } },
+        })
+      : null;
 
     if (existingEquipment) {
       throw new ConflictException(
@@ -107,7 +109,7 @@ export class EquipmentService {
           equipmentId: newEquipment.id,
           action: EquipmentLogAction.CREATED,
           source: EquipmentLogSource.MANUAL,
-          description: `Equipment "${newEquipment.name}" (SN: ${newEquipment.serialNumber}) created`,
+          description: `Equipment "${newEquipment.name}" (SN: ${newEquipment.serialNumber ?? "-"}) created`,
           changedBy: userId,
           newValue: {
             name: newEquipment.name,
@@ -129,7 +131,7 @@ export class EquipmentService {
         entityType: 'Equipment',
         entityId: equipment.id,
         userId,
-        description: `สร้างอุปกรณ์ "${equipment.name}" (SN: ${equipment.serialNumber})`,
+        description: `สร้างอุปกรณ์ "${equipment.name}" (SN: ${equipment.serialNumber ?? "-"})`,
         newValue: { name: equipment.name, category: equipment.category, storeId: equipment.storeId },
       });
     } catch (_) {}
@@ -338,8 +340,8 @@ export class EquipmentService {
       updateEquipmentDto.serialNumber &&
       updateEquipmentDto.serialNumber !== equipment.serialNumber
     ) {
-      const existingEquipment = await this.prisma.equipment.findUnique({
-        where: { serialNumber: updateEquipmentDto.serialNumber },
+      const existingEquipment = await this.prisma.equipment.findFirst({
+        where: { serialNumber: { equals: updateEquipmentDto.serialNumber, mode: 'insensitive' }, id: { not: id } },
       });
 
       if (existingEquipment) {
@@ -537,7 +539,7 @@ export class EquipmentService {
           entityType: 'Equipment',
           entityId: id,
           userId,
-          description: `ลบอุปกรณ์ "${equipment.name}" (SN: ${equipment.serialNumber}) ออกจากระบบอย่างถาวร`,
+          description: `ลบอุปกรณ์ "${equipment.name}" (SN: ${equipment.serialNumber ?? "-"}) ออกจากระบบอย่างถาวร`,
           oldValue: { status: equipment.status, name: equipment.name },
         });
       } catch (_) {}
@@ -593,7 +595,7 @@ export class EquipmentService {
         entityType: 'Equipment',
         entityId: id,
         userId,
-        description: `ลบอุปกรณ์ "${equipment.name}" (SN: ${equipment.serialNumber})`,
+        description: `ลบอุปกรณ์ "${equipment.name}" (SN: ${equipment.serialNumber ?? "-"})`,
         oldValue: { status: equipment.status },
       });
     } catch (_) {}
@@ -676,7 +678,7 @@ export class EquipmentService {
           userId: manager.id,
           type: 'SYSTEM_ALERT' as any,
           title: 'มีคำขอปลดระวางอุปกรณ์รออนุมัติ',
-          message: `${requesterName} ขอปลดระวาง "${equipment.name}" (SN: ${equipment.serialNumber}) เหตุผล: ${reason}`,
+          message: `${requesterName} ขอปลดระวาง "${equipment.name}" (SN: ${equipment.serialNumber ?? "-"}) เหตุผล: ${reason}`,
           link: '/dashboard/equipment/retirement-requests',
         })),
       });
@@ -688,7 +690,7 @@ export class EquipmentService {
       entityType: 'EquipmentRetirementRequest',
       entityId: request.id,
       userId,
-      description: `ส่งคำขอปลดระวางอุปกรณ์ "${equipment.name}" (SN: ${equipment.serialNumber}) เหตุผล: ${reason}`,
+      description: `ส่งคำขอปลดระวางอุปกรณ์ "${equipment.name}" (SN: ${equipment.serialNumber ?? "-"}) เหตุผล: ${reason}`,
     });
 
     return request;
@@ -771,7 +773,7 @@ export class EquipmentService {
         entityType: 'Equipment',
         entityId: request.equipmentId,
         userId: approverId,
-        description: `อนุมัติปลดระวางอุปกรณ์ "${request.equipment.name}" (SN: ${request.equipment.serialNumber})`,
+        description: `อนุมัติปลดระวางอุปกรณ์ "${request.equipment.name}" (SN: ${request.equipment.serialNumber ?? "-"})`,
         oldValue: { status: request.equipment.status },
         newValue: { status: EquipmentStatus.RETIRED },
       });
@@ -783,7 +785,7 @@ export class EquipmentService {
         userId: request.requestedBy,
         type: 'SYSTEM_ALERT' as any,
         title: 'คำขอปลดระวางอุปกรณ์ได้รับการอนุมัติ',
-        message: `คำขอปลดระวาง "${request.equipment.name}" (SN: ${request.equipment.serialNumber}) ได้รับการอนุมัติโดย ${approverName}`,
+        message: `คำขอปลดระวาง "${request.equipment.name}" (SN: ${request.equipment.serialNumber ?? "-"}) ได้รับการอนุมัติโดย ${approverName}`,
       },
     });
 
@@ -841,7 +843,7 @@ export class EquipmentService {
         userId: request.requestedBy,
         type: 'SYSTEM_ALERT' as any,
         title: 'คำขอปลดระวางอุปกรณ์ถูกปฏิเสธ',
-        message: `คำขอปลดระวาง "${request.equipment.name}" (SN: ${request.equipment.serialNumber}) ถูกปฏิเสธโดย ${approverName}${note ? ` เหตุผล: ${note}` : ''}`,
+        message: `คำขอปลดระวาง "${request.equipment.name}" (SN: ${request.equipment.serialNumber ?? "-"}) ถูกปฏิเสธโดย ${approverName}${note ? ` เหตุผล: ${note}` : ''}`,
       },
     });
 

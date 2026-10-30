@@ -242,7 +242,7 @@ export async function generatePmReportPDF(data: PmReportData): Promise<void> {
     doc.setFontSize(7.5)
     const effectiveBrand = eq.updatedBrand || eq.brand || ''
     const effectiveModel = eq.updatedModel || eq.model || ''
-    const effectiveSerial = eq.updatedSerial || eq.serialNumber
+    const effectiveSerial = eq.updatedSerial || eq.serialNumber || '-'
     const brandModel = [effectiveBrand, effectiveModel].filter(Boolean).join(' ')
     const details = [
       `Category: ${eq.category}`,

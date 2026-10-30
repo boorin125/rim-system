@@ -186,9 +186,8 @@ export default function EditEquipmentPage() {
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {}
 
-    if (!formData.serialNumber.trim()) {
-      newErrors.serialNumber = 'กรุณากรอก Serial Number'
-    } else if (formData.serialNumber.length < 3) {
+    // S/N is optional — blank clears it; only check length when given
+    if (formData.serialNumber.trim() && formData.serialNumber.trim().length < 3) {
       newErrors.serialNumber = 'Serial Number ต้องมีอย่างน้อย 3 ตัวอักษร'
     }
 
@@ -225,7 +224,7 @@ export default function EditEquipmentPage() {
       const submitData: any = {
         name: formData.name.trim(),
         category: formData.category,
-        serialNumber: formData.serialNumber.trim(),
+        serialNumber: formData.serialNumber.trim() || null,
         status: formData.status,
         storeId: parseInt(formData.storeId),
       }
@@ -368,7 +367,7 @@ export default function EditEquipmentPage() {
             {/* Serial Number */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Serial Number <span className="text-red-400">*</span>
+                Serial Number <span className="text-gray-500 text-xs font-normal">(เว้นว่างได้ ถ้ายังไม่ทราบ)</span>
               </label>
               <input
                 type="text"

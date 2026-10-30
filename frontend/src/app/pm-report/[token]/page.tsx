@@ -204,7 +204,7 @@ export default function PmReportPage() {
               const eq = rec.equipment
               const brand = rec.updatedBrand || eq.brand
               const model = rec.updatedModel || eq.model
-              const serial = rec.updatedSerial || eq.serialNumber
+              const serial = rec.updatedSerial || eq.serialNumber || '-'
               const brandModel = `${brand || '-'} ${model || '-'}`
               const cond = rec.condition || ''
 

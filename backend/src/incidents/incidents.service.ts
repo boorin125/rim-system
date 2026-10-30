@@ -663,7 +663,7 @@ export class IncidentsService {
             source: EquipmentLogSource.INCIDENT,
             sourceId: incidentId ?? null,
             description: `ถูกถอดออกจาก Incident ${ticketNumber} และเปลี่ยนเป็นอุปกรณ์ใหม่` +
-              (serialCorrected ? ` (แก้ Serial: "${oldEquip.serialNumber}" → "${oldSerial}")` : ''),
+              (serialCorrected ? ` (แก้ Serial: "${oldEquip.serialNumber ?? "-"}" → "${oldSerial}")` : ''),
             changedBy: userId,
             oldValue: { status: oldEquip.status, storeId: oldEquip.storeId, serialNumber: oldEquip.serialNumber },
             newValue: { status: 'INACTIVE', ...(serialCorrected ? { serialNumber: oldSerial } : {}) },

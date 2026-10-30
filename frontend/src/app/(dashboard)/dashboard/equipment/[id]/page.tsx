@@ -363,7 +363,7 @@ export default function EquipmentDetailPage() {
           </div>
           <div className="min-w-0">
             <h1 className="text-xl sm:text-2xl font-bold text-white truncate">{equipment.name}</h1>
-            <p className="text-gray-400 text-sm">S/N: {equipment.serialNumber}</p>
+            <p className="text-gray-400 text-sm">S/N: {equipment.serialNumber || '-'}</p>
           </div>
         </div>
 
@@ -486,7 +486,7 @@ export default function EquipmentDetailPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <p className="text-sm text-gray-400">Serial Number</p>
-                  <p className="text-blue-400 font-mono">{equipment.serialNumber}</p>
+                  <p className="text-blue-400 font-mono">{equipment.serialNumber || '-'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-400">ตำแหน่งอุปกรณ์</p>
@@ -844,7 +844,7 @@ export default function EquipmentDetailPage() {
             <p className="text-gray-300 mb-2">
               คุณต้องการลบ{' '}
               <span className="font-semibold text-white">{equipment.name}</span>
-              <span className="text-gray-400 text-sm ml-1">(S/N: {equipment.serialNumber})</span>{' '}
+              <span className="text-gray-400 text-sm ml-1">(S/N: {equipment.serialNumber || '-'})</span>{' '}
               ออกจากระบบถาวรใช่หรือไม่?
             </p>
             <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg mb-4">
@@ -894,7 +894,7 @@ export default function EquipmentDetailPage() {
             <p className="text-gray-300 mb-4">
               อุปกรณ์:{' '}
               <span className="font-semibold text-white">{equipment.name}</span>
-              <span className="text-gray-400 text-sm ml-2">(S/N: {equipment.serialNumber})</span>
+              <span className="text-gray-400 text-sm ml-2">(S/N: {equipment.serialNumber || '-'})</span>
             </p>
 
             <div className="mb-4">

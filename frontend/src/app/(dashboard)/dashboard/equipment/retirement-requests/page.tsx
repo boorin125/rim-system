@@ -182,7 +182,7 @@ export default function EquipmentRetirementRequestsPage() {
                     </div>
                     <div>
                       <h3 className="text-white font-semibold text-lg">{req.equipment.name}</h3>
-                      <p className="text-blue-400 font-mono text-sm">S/N: {req.equipment.serialNumber}</p>
+                      <p className="text-blue-400 font-mono text-sm">S/N: {req.equipment.serialNumber || '-'}</p>
                       <div className="flex flex-wrap gap-2 mt-2">
                         <span className="text-xs px-2 py-0.5 bg-slate-700 text-gray-300 rounded-md">
                           {req.equipment.category}
@@ -281,7 +281,7 @@ export default function EquipmentRetirementRequestsPage() {
 
             <div className="bg-slate-800/50 rounded-lg p-3 mb-4">
               <p className="text-white font-medium">{actionModal.request.equipment.name}</p>
-              <p className="text-blue-400 font-mono text-sm">S/N: {actionModal.request.equipment.serialNumber}</p>
+              <p className="text-blue-400 font-mono text-sm">S/N: {actionModal.request.equipment.serialNumber || '-'}</p>
             </div>
 
             {actionModal.type === 'approve' && (

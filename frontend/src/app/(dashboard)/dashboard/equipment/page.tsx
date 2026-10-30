@@ -36,6 +36,7 @@ import {
   AlertCircle,
   ZoomIn,
   X,
+  Layers,
 } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
@@ -461,6 +462,18 @@ export default function EquipmentPage() {
             </button>
           )}
 
+          {/* Add one device to many stores (IT Manager) */}
+          {isItManager && (
+            <button
+              onClick={() => router.push('/dashboard/equipment/bulk-device')}
+              className="flex items-center gap-2 px-3 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/30 rounded-lg transition duration-200 text-sm"
+              title="เพิ่มอุปกรณ์ให้หลายสาขา"
+            >
+              <Layers className="w-4 h-4 shrink-0" />
+              <span className="hidden sm:inline">เพิ่มให้หลายสาขา</span>
+            </button>
+          )}
+
           {/* Inventory Management Button */}
           {!viewOnly && (
             <button
@@ -716,7 +729,7 @@ export default function EquipmentPage() {
                   <p className="text-xs text-gray-300 truncate">
                     {item.category}{(item.brand || item.model) ? ` · ${[item.brand, item.model].filter(Boolean).join(' ')}` : ''}
                   </p>
-                  <p className="text-xs font-mono text-gray-400 truncate">S/N {item.serialNumber}</p>
+                  <p className="text-xs font-mono text-gray-400 truncate">S/N {item.serialNumber || '-'}</p>
                   <div className="flex items-center justify-between gap-2 text-xs">
                     <span className="text-gray-400 truncate">{item.store ? formatStore(item.store) : '-'}</span>
                     <span className={`shrink-0 font-semibold ${
@@ -806,7 +819,7 @@ export default function EquipmentPage() {
                     {/* Serial Number */}
                     <td className="px-6 py-4">
                       <span className="text-sm font-mono text-white">
-                        {item.serialNumber}
+                        {item.serialNumber || '-'}
                       </span>
                     </td>
 

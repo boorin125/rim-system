@@ -4,6 +4,7 @@ import { EquipmentService } from './equipment.service';
 import { EquipmentTemplateService } from './services/equipment-template.service';
 import { EquipmentExcelService } from './services/equipment-excel.service';
 import { EquipmentTrackingService } from './services/equipment-tracking.service';
+import { BulkDeviceService } from './services/bulk-device.service';
 import { EquipmentController } from './equipment.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AuditTrailModule } from '../modules/audit-trail/audit-trail.module';
@@ -24,6 +25,7 @@ import { AuditTrailModule } from '../modules/audit-trail/audit-trail.module';
     EquipmentTemplateService,
     EquipmentExcelService,
     EquipmentTrackingService,
+    BulkDeviceService,
   ],
   exports: [
     EquipmentService,
