@@ -347,7 +347,11 @@ export function createUpdater(o) {
       await run("mkdir", ["-p", `${o.rimDir}/backups`]);
       await run("sh", ["-c", `set -o pipefail; docker exec rim-db pg_dump -U '${dbUser}' --clean --if-exists ${exclude} '${dbName}' | gzip > '${file}'`]);
       const size = Number.parseInt(await quiet("sh", ["-c", `wc -c < '${file}'`]), 10);
-      if (!(size > 100_000)) throw new Error(`database backup too small (${size} bytes)`);
+      // A complete pg_dump ends with this line — size alone is no proof (a fresh install dumps ~40 KB)
+      const tail = await quiet("sh", ["-c", `gzip -cd '${file}' | tail -c 4000`]);
+      if (!(size > 1_000) || !tail.includes("PostgreSQL database dump complete")) {
+        throw new Error(`database backup incomplete (${size} bytes)`);
+      }
       state.backup = file;
       log(`backup: ${file} (${Math.round(size / 1024)} KB)`);
       step("backup", "done");
