@@ -1,6 +1,20 @@
 {
   "releases": [
     {
+      "version": "1.1.12",
+      "date": "2026-10-30",
+      "changes": [
+        {
+          "type": "fixed",
+          "text": "Server ที่ติดตั้งใหม่ไม่มีค่า SLA (หน้า Settings › SLA ว่าง แก้ไขไม่ได้ และงานใหม่ไม่มีกำหนดเวลา SLA) — ระบบสร้างค่า SLA เริ่มต้น Critical / High / Medium / Low ให้เองเมื่อเริ่มทำงาน (ไม่ทับค่าที่ตั้งไว้แล้ว) และมีปุ่ม \"สร้างค่าเริ่มต้น\" ในหน้า SLA"
+        },
+        {
+          "type": "new",
+          "text": "ตั้ง Description เริ่มต้นของงาน PM ได้ที่ Settings › Incident (เช่น \"Preventive Maintenance Phase 1\" → \"Phase 2\") — งาน PM ที่ขอจากหน้าสาขาหลังจากนั้นใช้ค่าใหม่ และแก้ Description ได้ในหน้าต่าง Request PM ก่อนยืนยัน; งาน PM ที่เปิดไปแล้วคง Description เดิม"
+        }
+      ]
+    },
+    {
       "version": "1.1.11",
       "date": "2026-10-30",
       "changes": [

@@ -201,6 +201,21 @@ export default function StoreDetailPage() {
   const [showPmModal, setShowPmModal] = useState(false)
   const [pmScheduledDate, setPmScheduledDate] = useState('')
   const [pmScheduledTime, setPmScheduledTime] = useState('09:00')
+  const [pmDescription, setPmDescription] = useState('')
+
+  /** Open the PM request with the Description set in Settings › Incident (editable before confirming) */
+  const openPmModal = async () => {
+    setShowPmModal(true)
+    try {
+      const token = localStorage.getItem('token')
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/settings/incident`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      setPmDescription(res.data?.pmDefaultDescription || 'Preventive Maintenance ตามแผนประจำปี')
+    } catch {
+      setPmDescription('Preventive Maintenance ตามแผนประจำปี')
+    }
+  }
   const [isCreatingPm, setIsCreatingPm] = useState(false)
   const [pmOpenIncident, setPmOpenIncident] = useState<{
     id: string; ticketNumber: string; title: string; status: string
@@ -644,7 +659,7 @@ export default function StoreDetailPage() {
         `${process.env.NEXT_PUBLIC_API_URL}/incidents`,
         {
           title: `Preventive Maintenance Store ${store.storeCode} ${store.name}`,
-          description: 'Preventive Maintenance ตามแผนประจำปี',
+          description: pmDescription.trim() || 'Preventive Maintenance ตามแผนประจำปี',
           category: 'PM',
           jobType: 'Preventive Maintenance',
           priority: 'LOW',
@@ -855,7 +870,7 @@ export default function StoreDetailPage() {
           </div>
           {canRequestPm && (
             <button
-              onClick={() => setShowPmModal(true)}
+              onClick={openPmModal}
               className="flex items-center gap-2 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors text-sm"
             >
               <Wrench className="w-4 h-4" />
@@ -1783,6 +1798,17 @@ export default function StoreDetailPage() {
                   onChange={setPmScheduledTime}
                   className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus-within:border-purple-500"
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Description</label>
+                <input
+                  type="text"
+                  value={pmDescription}
+                  onChange={(e) => setPmDescription(e.target.value)}
+                  maxLength={500}
+                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-purple-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">ค่าเริ่มต้นตั้งได้ที่ Settings › Incident</p>
               </div>
             </div>
 

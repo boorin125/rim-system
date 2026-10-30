@@ -44,6 +44,7 @@ import {
   FileText,
   ShieldCheck,
   Zap,
+  ClipboardCheck,
   History,
   RotateCcw,
   CircleDot,
@@ -486,6 +487,10 @@ export default function SettingsPage() {
   const [autoAssignOnsite, setAutoAssignOnsite] = useState(false)
   const [isSavingAutoAssign, setIsSavingAutoAssign] = useState(false)
 
+  // Description pre-filled on new PM jobs
+  const [pmDefaultDescription, setPmDefaultDescription] = useState('')
+  const [isSavingPmDescription, setIsSavingPmDescription] = useState(false)
+
   // Service Report Settings State
   const [srSettings, setSrSettings] = useState<ServiceReportSettings>({
     providerName: '',
@@ -797,6 +802,7 @@ export default function SettingsPage() {
     if (incidentRes.status === 'fulfilled' && incidentRes.value.data) {
       if (incidentRes.value.data.serviceWarrantyDays !== undefined) setWarrantyDays(incidentRes.value.data.serviceWarrantyDays)
       if (incidentRes.value.data.autoAssignOnsite !== undefined) setAutoAssignOnsite(incidentRes.value.data.autoAssignOnsite)
+      if (incidentRes.value.data.pmDefaultDescription !== undefined) setPmDefaultDescription(incidentRes.value.data.pmDefaultDescription)
     }
 
     if (infoRes.status === 'fulfilled' && infoRes.value.data) {
@@ -931,6 +937,27 @@ export default function SettingsPage() {
       toast.error(error.response?.data?.message || 'Failed to save incident settings')
     } finally {
       setIsSavingWarranty(false)
+    }
+  }
+
+  const handleSavePmDescription = async () => {
+    if (!pmDefaultDescription.trim()) {
+      toast.error('กรุณากรอก Description')
+      return
+    }
+    setIsSavingPmDescription(true)
+    try {
+      const token = localStorage.getItem('token')
+      await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/settings/incident`,
+        { pmDefaultDescription: pmDefaultDescription.trim() },
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      toast.success('บันทึก Description เริ่มต้นของงาน PM แล้ว')
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to save setting')
+    } finally {
+      setIsSavingPmDescription(false)
     }
   }
 
@@ -2252,6 +2279,40 @@ export default function SettingsPage() {
               </div>
             </div>
 
+            {/* PM default description */}
+            <div className="p-4 md:p-6 bg-slate-700/30 border border-slate-600 rounded-xl">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-purple-600/20 rounded-lg">
+                  <ClipboardCheck className="w-5 h-5 text-purple-400" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-white">Description เริ่มต้นของงาน PM</h3>
+                  <p className="text-xs text-gray-400">ใส่ให้อัตโนมัติเมื่อกด Request Preventive Maintenance ที่หน้าสาขา (แก้ได้ก่อนยืนยัน) — งาน PM ที่เปิดไปแล้วไม่เปลี่ยน</p>
+                </div>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="text"
+                  value={pmDefaultDescription}
+                  onChange={(e) => setPmDefaultDescription(e.target.value)}
+                  disabled={!canManage}
+                  maxLength={500}
+                  placeholder="เช่น Preventive Maintenance Phase 1"
+                  className="flex-1 px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-60"
+                />
+                {canManage && (
+                  <button
+                    onClick={handleSavePmDescription}
+                    disabled={isSavingPmDescription}
+                    className="flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-lg text-sm"
+                  >
+                    <Save className="w-4 h-4" />
+                    {isSavingPmDescription ? 'กำลังบันทึก...' : 'บันทึก'}
+                  </button>
+                )}
+              </div>
+            </div>
+
             {/* Info Box */}
             <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl mt-4 md:mt-6">
               <div className="flex items-start space-x-3">
@@ -2960,6 +3021,27 @@ export default function SettingsPage() {
               Configure Service Level Agreement response and resolution times for each priority level.
               Times are configured separately for Bangkok/Metropolitan area and Provincial areas.
             </p>
+
+            {slaConfigs.length === 0 && (
+              <div className="p-4 rounded-xl border border-yellow-500/30 bg-yellow-500/10 text-sm text-yellow-200 flex flex-wrap items-center justify-between gap-3">
+                <span>ยังไม่มีค่า SLA ในระบบ — สร้างค่าเริ่มต้น (Critical / High / Medium / Low) แล้วแก้ไขได้ตามต้องการ</span>
+                <button
+                  onClick={async () => {
+                    try {
+                      const token = localStorage.getItem('token')
+                      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/sla/seed`, {}, { headers: { Authorization: `Bearer ${token}` } })
+                      toast.success('สร้างค่า SLA เริ่มต้นแล้ว')
+                      fetchData()
+                    } catch {
+                      toast.error('สร้างค่า SLA ไม่สำเร็จ')
+                    }
+                  }}
+                  className="px-4 py-2 rounded-lg bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-100 border border-yellow-500/40"
+                >
+                  สร้างค่าเริ่มต้น
+                </button>
+              </div>
+            )}
 
             <div className="space-y-4">
               {slaConfigs.map((sla) => (

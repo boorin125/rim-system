@@ -65,7 +65,7 @@ export class SettingsController {
    */
   @Post('incident')
   @Roles(UserRole.SUPER_ADMIN, UserRole.IT_MANAGER)
-  async saveIncidentSettings(@Body() data: { serviceWarrantyDays?: number; autoAssignOnsite?: boolean }) {
+  async saveIncidentSettings(@Body() data: { serviceWarrantyDays?: number; autoAssignOnsite?: boolean; pmDefaultDescription?: string }) {
     if (data.serviceWarrantyDays !== undefined && data.serviceWarrantyDays < 0) {
       throw new BadRequestException('serviceWarrantyDays must be 0 or more');
     }

@@ -1,11 +1,26 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, Logger, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSlaConfigDto, UpdateSlaConfigDto } from './dto/sla-config.dto';
 import { Priority, SlaRegion } from '@prisma/client';
 
 @Injectable()
-export class SlaService {
+export class SlaService implements OnModuleInit {
+  private readonly logger = new Logger(SlaService.name);
+
   constructor(private prisma: PrismaService) {}
+
+  /** A fresh install has no SLA rows (nothing to edit, incidents get no deadline) — create the missing
+   *  priorities with defaults. Existing rows are never touched (upsert with an empty update). */
+  async onModuleInit() {
+    try {
+      const count = await this.prisma.slaConfig.count();
+      if (count >= Object.values(Priority).length) return;
+      await this.seedDefaults();
+      this.logger.log(`SLA defaults created (had ${count} of ${Object.values(Priority).length} priorities)`);
+    } catch (err: any) {
+      this.logger.error(`Could not create SLA defaults: ${err?.message ?? err}`);
+    }
+  }
 
   // ========================================
   // SLA CONFIG CRUD

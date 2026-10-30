@@ -6,6 +6,9 @@ import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 
+/** Description of a new PM job until Settings › Incident sets another (the text used before it was configurable) */
+const PM_DEFAULT_DESCRIPTION = 'Preventive Maintenance ตามแผนประจำปี';
+
 @Injectable()
 export class SettingsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -693,12 +696,14 @@ export class SettingsService {
    */
   async getIncidentSettings() {
     const configs = await this.prisma.systemConfig.findMany({
-      where: { key: { in: ['service_warranty_days', 'auto_assign_onsite'] } },
+      where: { key: { in: ['service_warranty_days', 'auto_assign_onsite', 'pm_default_description'] } },
     });
     const map = Object.fromEntries(configs.map((c) => [c.key, c.value]));
     return {
       serviceWarrantyDays: map['service_warranty_days'] ? parseInt(map['service_warranty_days']) : 30,
       autoAssignOnsite: map['auto_assign_onsite'] === 'true',
+      // Pre-filled Description of new PM jobs (e.g. "Preventive Maintenance Phase 2") — jobs already open keep theirs
+      pmDefaultDescription: map['pm_default_description'] || PM_DEFAULT_DESCRIPTION,
     };
   }
 
@@ -748,8 +753,24 @@ export class SettingsService {
     return { message: 'Maintenance window saved successfully' };
   }
 
-  async saveIncidentSettings(data: { serviceWarrantyDays?: number; autoAssignOnsite?: boolean }) {
+  async saveIncidentSettings(data: { serviceWarrantyDays?: number; autoAssignOnsite?: boolean; pmDefaultDescription?: string }) {
     const ops: Promise<any>[] = [];
+
+    if (data.pmDefaultDescription !== undefined) {
+      const value = String(data.pmDefaultDescription).trim().slice(0, 500) || PM_DEFAULT_DESCRIPTION;
+      ops.push(
+        this.prisma.systemConfig.upsert({
+          where: { key: 'pm_default_description' },
+          create: {
+            key: 'pm_default_description',
+            value,
+            category: 'incident',
+            description: 'Description pre-filled when a Preventive Maintenance job is requested',
+          },
+          update: { value },
+        }),
+      );
+    }
 
     if (data.serviceWarrantyDays !== undefined) {
       ops.push(
