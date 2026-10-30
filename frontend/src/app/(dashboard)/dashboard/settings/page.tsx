@@ -1838,24 +1838,34 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Tabs — horizontal scroll on all screen sizes */}
-      <div className="border-b border-slate-700 overflow-x-auto scrollbar-hide">
-        <div className="flex gap-2 min-w-max">
+      {/* Tabs — phones: a dropdown; wider screens: tabs wrap onto a second line so every tab stays reachable
+          (a hidden-scrollbar strip could not be scrolled with a mouse wheel) */}
+      <div className="sm:hidden">
+        <select
+          value={activeTab}
+          onChange={(e) => setActiveTab(e.target.value as TabType)}
+          className="w-full bg-slate-800 border border-slate-600 rounded-lg text-white px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 [&>option]:bg-slate-800 [&>option]:text-white"
+        >
           {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 font-medium transition-colors whitespace-nowrap ${
-                activeTab === tab.id
-                  ? 'text-blue-400 border-b-2 border-blue-400'
-                  : 'text-gray-400 hover:text-gray-300'
-              }`}
-            >
-              <tab.icon className="w-4 h-4 inline mr-2" />
-              {tab.label}
-            </button>
+            <option key={tab.id} value={tab.id}>{tab.label}</option>
           ))}
-        </div>
+        </select>
+      </div>
+      <div className="hidden sm:flex flex-wrap gap-x-2 gap-y-1 border-b border-slate-700">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`px-4 py-2 font-medium transition-colors whitespace-nowrap ${
+              activeTab === tab.id
+                ? 'text-blue-400 border-b-2 border-blue-400'
+                : 'text-gray-400 hover:text-gray-300'
+            }`}
+          >
+            <tab.icon className="w-4 h-4 inline mr-2" />
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       {/* Tab Content */}

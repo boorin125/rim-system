@@ -27,7 +27,7 @@ import { EquipmentService } from './equipment.service';
 import { CreateEquipmentDto } from './dto/create-equipment.dto';
 import { UpdateEquipmentDto } from './dto/update-equipment.dto';
 import { FilterEquipmentDto } from './dto/filter-equipment.dto';
-import { BulkDeviceDto, BulkDeviceExistingDto } from './dto/bulk-device.dto';
+import { BulkDeviceDto } from './dto/bulk-device.dto';
 import { BulkDeviceService } from './services/bulk-device.service';
 import { memoryStorage, diskStorage } from 'multer';
 import * as path from 'path';
@@ -42,15 +42,8 @@ export class EquipmentController {
   ) {}
 
   // =========================================================
-  // Add one device to many stores — IT_MANAGER only (before :id routes)
+  // Devices for many stores from one Excel file — IT_MANAGER only (before :id routes)
   // =========================================================
-
-  /** Current values of the device (by name) in the chosen stores — pre-fills the grid */
-  @Post('bulk-device/existing')
-  @Roles(UserRole.IT_MANAGER)
-  async bulkDeviceExisting(@Body() dto: BulkDeviceExistingDto) {
-    return this.bulkDeviceService.getExisting(dto);
-  }
 
   /** What saving would do: counts + rows with problems (nothing is written) */
   @Post('bulk-device/preview')

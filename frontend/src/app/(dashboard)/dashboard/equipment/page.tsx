@@ -462,15 +462,15 @@ export default function EquipmentPage() {
             </button>
           )}
 
-          {/* Add one device to many stores (IT Manager) */}
+          {/* Devices for many stores from one Excel file (IT Manager) */}
           {isItManager && (
             <button
               onClick={() => router.push('/dashboard/equipment/bulk-device')}
               className="flex items-center gap-2 px-3 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/30 rounded-lg transition duration-200 text-sm"
-              title="เพิ่มอุปกรณ์ให้หลายสาขา"
+              title="นำเข้าอุปกรณ์หลายสาขาจาก Excel"
             >
               <Layers className="w-4 h-4 shrink-0" />
-              <span className="hidden sm:inline">เพิ่มให้หลายสาขา</span>
+              <span className="hidden sm:inline">นำเข้าหลายสาขา</span>
             </button>
           )}
 

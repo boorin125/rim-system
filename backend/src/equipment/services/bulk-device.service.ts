@@ -9,12 +9,12 @@ import {
 } from '@prisma/client';
 import { AuditTrailService } from '../../modules/audit-trail/audit-trail.service';
 import { syncOpenPmEquipment, findOpenPmPhotoLock, PM_EQUIPMENT_STATUSES } from '../../modules/pm/pm-sync.helper';
-import { BulkDeviceDto, BulkDeviceExistingDto } from '../dto/bulk-device.dto';
+import { BulkDeviceDto, BulkDeviceRowDto } from '../dto/bulk-device.dto';
 
 /**
- * "Add one device to many stores" (IT_MANAGER) — see memory project-bulk-device-plan.
- * - The device is matched by name inside each store (case-insensitive, trimmed), RETIRED included
- * - Each row is the truth: a blank field clears the old value (status blank = keep / ACTIVE)
+ * Add / update devices in many stores from one Excel file (IT_MANAGER) — see memory project-bulk-device-plan.
+ * - A device is matched by (store, Device Name) — case-insensitive, trimmed, RETIRED included
+ * - Blank cell = keep the old value, "-" = clear it (new devices: both mean empty)
  * - S/N uniqueness is judged on the batch's final state, so S/N swapped between devices pass
  */
 
@@ -33,13 +33,16 @@ const COMPARED: Array<keyof Fields> = [
   'category', 'brand', 'model', 'serialNumber', 'ipAddress', 'purchaseDate', 'warrantyExpiry', 'status',
 ];
 const STATUSES = Object.values(EquipmentStatus) as string[];
+const CLEAR = '-';
 
 export type BulkDeviceAction = 'create' | 'update' | 'unchanged' | 'error';
 
 export interface BulkDeviceRowResult {
   index: number; // position in the request's rows
+  row: number | null; // Excel row number
   storeCode: string;
   storeName: string | null;
+  name: string;
   action: BulkDeviceAction;
   message?: string;
   changes?: string[];
@@ -52,13 +55,17 @@ interface Planned extends BulkDeviceRowResult {
 }
 
 const norm = (s?: string | null) => (s ?? '').trim().toLowerCase();
-const blank = (s?: string | null) => (s ?? '').trim() || null;
 const dayKey = (d?: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
 const valueKey = (v: unknown) => (v instanceof Date ? dayKey(v) : (v ?? null));
 
-function parseDay(raw: string | undefined, label: string): Date | null {
-  const v = blank(raw);
-  if (!v) return null;
+/** Excel cell → keep (undefined) / clear (null) / value */
+function cell(raw: string | undefined): string | null | undefined {
+  const v = (raw ?? '').trim();
+  if (!v) return undefined;
+  return v === CLEAR ? null : v;
+}
+
+function parseDay(v: string, label: string): Date {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(v) || isNaN(Date.parse(v))) {
     throw new Error(`${label} "${v}" ไม่ถูกต้อง (ใช้รูปแบบ YYYY-MM-DD)`);
   }
@@ -72,44 +79,6 @@ export class BulkDeviceService {
     private auditTrailService: AuditTrailService,
   ) {}
 
-  /** Current values of the device per store — pre-fills the grid so untouched data is not wiped */
-  async getExisting(dto: BulkDeviceExistingDto) {
-    const name = dto.name.trim();
-    const found = dto.storeIds.length
-      ? await this.prisma.equipment.findMany({
-          where: { storeId: { in: dto.storeIds }, name: { contains: name, mode: 'insensitive' } },
-          select: {
-            id: true, storeId: true, name: true, category: true, brand: true, model: true, serialNumber: true,
-            ipAddress: true, purchaseDate: true, warrantyExpiry: true, status: true,
-          },
-        })
-      : [];
-    const byStore = new Map<number, typeof found>();
-    for (const e of found) {
-      if (norm(e.name) !== norm(name)) continue;
-      byStore.set(e.storeId, [...(byStore.get(e.storeId) ?? []), e]);
-    }
-    return dto.storeIds.map((storeId) => {
-      const list = byStore.get(storeId) ?? [];
-      const e = list.length === 1 ? list[0] : null;
-      return {
-        storeId,
-        duplicates: list.length > 1 ? list.length : 0,
-        equipment: e && {
-          id: e.id,
-          category: e.category,
-          brand: e.brand ?? '',
-          model: e.model ?? '',
-          serialNumber: e.serialNumber ?? '',
-          ipAddress: e.ipAddress ?? '',
-          purchaseDate: dayKey(e.purchaseDate) ?? '',
-          warrantyExpiry: dayKey(e.warrantyExpiry) ?? '',
-          status: e.status,
-        },
-      };
-    });
-  }
-
   async preview(dto: BulkDeviceDto) {
     const rows = await this.plan(dto);
     return { summary: this.summarize(rows), rows: rows.map((r) => this.publicRow(r)) };
@@ -118,7 +87,6 @@ export class BulkDeviceService {
   async apply(dto: BulkDeviceDto, userId: number) {
     // Re-plan on the server: data may have changed since the preview
     const rows = await this.plan(dto);
-    const label = dto.name.trim();
     const fail = (r: Planned, err: any) => {
       r.action = 'error';
       r.message = `บันทึกไม่สำเร็จ: ${err?.code === 'P2002' ? 'S/N ซ้ำกับอุปกรณ์อื่น' : err?.message ?? 'Unknown error'}`;
@@ -134,7 +102,7 @@ export class BulkDeviceService {
               where: { id: { in: snMovers.map((r) => r.existing.id) } },
               data: { serialNumber: null },
             });
-            for (const r of snMovers) await this.writeUpdate(tx, r, userId, label);
+            for (const r of snMovers) await this.writeUpdate(tx, r, userId);
           },
           { timeout: 120_000, maxWait: 10_000 },
         );
@@ -146,14 +114,14 @@ export class BulkDeviceService {
     // 2. Other updates, then new devices (may take an S/N freed in step 1) — one transaction each
     for (const r of rows.filter((x) => x.action === 'update' && !snMovers.includes(x))) {
       try {
-        await this.prisma.$transaction((tx) => this.writeUpdate(tx, r, userId, label));
+        await this.prisma.$transaction((tx) => this.writeUpdate(tx, r, userId));
       } catch (err) {
         fail(r, err);
       }
     }
     for (const r of rows.filter((x) => x.action === 'create')) {
       try {
-        await this.prisma.$transaction((tx) => this.writeCreate(tx, r, userId, label));
+        await this.prisma.$transaction((tx) => this.writeCreate(tx, r, userId));
       } catch (err) {
         fail(r, err);
       }
@@ -164,16 +132,16 @@ export class BulkDeviceService {
     try {
       await syncOpenPmEquipment(this.prisma, touched);
     } catch (err) {
-      console.error('[PM Sync] Failed after bulk device:', err);
+      console.error('[PM Sync] Failed after bulk device import:', err);
     }
     try {
       await this.auditTrailService.logDirect({
         module: AuditModule.EQUIPMENT,
         action: AuditAction.IMPORT,
         entityType: 'Equipment',
-        entityId: label,
+        entityId: 'bulk-device',
         userId,
-        description: `เพิ่มอุปกรณ์หลายสาขา "${label}" — สร้างใหม่ ${summary.create}, อัปเดต ${summary.update}, ไม่เปลี่ยน ${summary.unchanged}, ไม่สำเร็จ ${summary.error}`,
+        description: `นำเข้าอุปกรณ์หลายสาขาจาก Excel — สร้างใหม่ ${summary.create}, อัปเดต ${summary.update}, ไม่เปลี่ยน ${summary.unchanged}, ไม่สำเร็จ ${summary.error}`,
         newValue: summary,
       });
     } catch (_) {}
@@ -184,9 +152,6 @@ export class BulkDeviceService {
   // ─────────────────────────────────────────────────────────────
 
   private async plan(dto: BulkDeviceDto): Promise<Planned[]> {
-    const name = dto.name.trim();
-    const category = dto.category.trim();
-
     const codes = Array.from(new Set(dto.rows.map((r) => (r.storeCode ?? '').trim()).filter(Boolean)));
     const stores = codes.length
       ? await this.prisma.store.findMany({
@@ -196,61 +161,101 @@ export class BulkDeviceService {
       : [];
     const storeByCode = new Map(stores.map((s) => [s.storeCode.toUpperCase(), s]));
 
-    const candidates = stores.length
-      ? await this.prisma.equipment.findMany({
-          where: { storeId: { in: stores.map((s) => s.id) }, name: { contains: name, mode: 'insensitive' } },
-        })
+    // Every device of these stores, grouped by (store, name)
+    const inStores = stores.length
+      ? await this.prisma.equipment.findMany({ where: { storeId: { in: stores.map((s) => s.id) } } })
       : [];
-    const byStore = new Map<number, typeof candidates>();
-    for (const e of candidates) {
-      if (norm(e.name) !== norm(name)) continue;
-      byStore.set(e.storeId, [...(byStore.get(e.storeId) ?? []), e]);
+    const byKey = new Map<string, typeof inStores>();
+    for (const e of inStores) {
+      const key = `${e.storeId}|${norm(e.name)}`;
+      byKey.set(key, [...(byKey.get(key) ?? []), e]);
     }
 
-    const seen = new Set<number>();
-    const rows: Planned[] = dto.rows.map((r, index) => {
+    // Category must be one the system knows (settings list, or already used on equipment) — spelled as stored
+    const categoryByNorm = new Map<string, string>();
+    const [settingCats, usedCats] = await Promise.all([
+      this.prisma.incidentCategory.findMany({ where: { isActive: true }, select: { name: true } }),
+      this.prisma.equipment.findMany({ distinct: ['category'], select: { category: true } }),
+    ]);
+    for (const c of usedCats) if (c.category) categoryByNorm.set(norm(c.category), c.category);
+    for (const c of settingCats) categoryByNorm.set(norm(c.name), c.name);
+
+    const seen = new Set<string>();
+    const rows: Planned[] = dto.rows.map((r: BulkDeviceRowDto, index) => {
       const code = (r.storeCode ?? '').trim();
+      const name = (r.name ?? '').trim();
       const store = storeByCode.get(code.toUpperCase());
-      const row: Planned = { index, storeCode: store?.storeCode ?? code, storeName: store?.name ?? null, action: 'error' };
+      const row: Planned = {
+        index,
+        row: typeof r.row === 'number' ? r.row : null,
+        storeCode: store?.storeCode ?? code,
+        storeName: store?.name ?? null,
+        name,
+        action: 'error',
+      };
       const error = (message: string) => ({ ...row, message });
 
+      if (!code) return error('ไม่ได้ระบุ Store Code');
       if (!store) return error(`ไม่พบรหัสสาขา "${code}" ในระบบ`);
-      if (seen.has(store.id)) return error('สาขานี้อยู่ในรายการซ้ำ');
-      seen.add(store.id);
+      if (!name || name === CLEAR) return error('ไม่ได้ระบุ Device Name');
       row.storeId = store.id;
 
-      const matches = byStore.get(store.id) ?? [];
+      const key = `${store.id}|${norm(name)}`;
+      if (seen.has(key)) return error(`"${name}" ของสาขานี้อยู่ในไฟล์ซ้ำ`);
+      seen.add(key);
+
+      const matches = byKey.get(key) ?? [];
       if (matches.length > 1) {
         return error(`สาขานี้มี "${name}" อยู่ ${matches.length} เครื่อง — เปลี่ยนชื่อให้ไม่ซ้ำ (เช่น ${name}#2) ก่อน`);
       }
+      const existing = matches[0];
 
-      const serialNumber = blank(r.serialNumber);
-      if (serialNumber && serialNumber.length < 3) return error('Serial Number ต้องมีอย่างน้อย 3 ตัวอักษร');
-      const status = blank(r.status)?.toUpperCase() ?? null;
-      if (status && !STATUSES.includes(status)) return error(`สถานะ "${r.status}" ไม่ถูกต้อง (${STATUSES.join(', ')})`);
-      let purchaseDate: Date | null;
-      let warrantyExpiry: Date | null;
+      // Category: blank = keep (new devices must have one); "-" cannot clear it
+      const catCell = cell(r.category);
+      let category: string;
+      if (catCell === undefined || catCell === null) {
+        if (catCell === null) return error('Category ลบไม่ได้ (ต้องมีค่า)');
+        if (!existing) return error('อุปกรณ์ใหม่ต้องระบุ Category');
+        category = existing.category;
+      } else {
+        const known = categoryByNorm.get(norm(catCell));
+        if (!known) return error(`ไม่มี Category "${catCell}" ในระบบ`);
+        category = known;
+      }
+
+      // Status: blank = keep / ACTIVE for new
+      const statusCell = cell(r.status)?.toUpperCase();
+      if (statusCell && !STATUSES.includes(statusCell)) return error(`สถานะ "${r.status}" ไม่ถูกต้อง (${STATUSES.join(', ')})`);
+
+      // Other fields: blank = keep, "-" = clear
+      const pick = (raw: string | undefined, old: any) => {
+        const v = cell(raw);
+        return v === undefined ? (old ?? null) : v;
+      };
+      let data: Fields;
       try {
-        purchaseDate = parseDay(r.purchaseDate, 'Purchase Date');
-        warrantyExpiry = parseDay(r.warrantyExpiry, 'Warranty Expiry');
+        const day = (raw: string | undefined, old: Date | null | undefined, label: string) => {
+          const v = cell(raw);
+          return v === undefined ? (old ?? null) : v === null ? null : parseDay(v, label);
+        };
+        data = {
+          category,
+          serialNumber: pick(r.serialNumber, existing?.serialNumber),
+          ipAddress: pick(r.ipAddress, existing?.ipAddress),
+          brand: pick(r.brand, existing?.brand),
+          model: pick(r.model, existing?.model),
+          purchaseDate: day(r.purchaseDate, existing?.purchaseDate, 'Purchase Date'),
+          warrantyExpiry: day(r.warrantyExpiry, existing?.warrantyExpiry, 'Warranty Expiry'),
+          status: (statusCell ?? existing?.status ?? EquipmentStatus.ACTIVE) as EquipmentStatus,
+        };
       } catch (err: any) {
         return error(err.message);
       }
+      if (data.serialNumber && data.serialNumber.length < 3) return error('Serial Number ต้องมีอย่างน้อย 3 ตัวอักษร');
 
-      const existing = matches[0];
-      row.data = {
-        category,
-        serialNumber,
-        ipAddress: blank(r.ipAddress),
-        brand: blank(r.brand),
-        model: blank(r.model),
-        purchaseDate,
-        warrantyExpiry,
-        status: (status ?? existing?.status ?? EquipmentStatus.ACTIVE) as EquipmentStatus,
-      };
+      row.data = data;
       if (!existing) return { ...row, action: 'create' };
-
-      const changes = COMPARED.filter((k) => valueKey(existing[k]) !== valueKey(row.data[k]));
+      const changes = COMPARED.filter((k) => valueKey(existing[k]) !== valueKey(data[k]));
       return { ...row, existing, action: changes.length ? 'update' : 'unchanged', changes };
     });
 
@@ -265,6 +270,7 @@ export class BulkDeviceService {
       r.action = 'error';
       r.message = message;
     };
+    const where = (r: Planned) => `${r.storeCode} ${r.name}`;
     // A failed row keeps its old S/N, which may block a row that counted on it — repeat until stable
     for (let pass = 0; pass < 20; pass++) {
       const active = rows.filter((r) => r.action !== 'error' && r.data);
@@ -277,8 +283,8 @@ export class BulkDeviceService {
       let failed = false;
       for (const list of claims.values()) {
         if (list.length < 2) continue;
-        const where = list.map((r) => r.storeCode).join(', ');
-        list.forEach((r) => fail(r, `S/N ${r.data.serialNumber} ซ้ำกันในรายการ (สาขา ${where})`));
+        const all = list.map(where).join(', ');
+        list.forEach((r) => fail(r, `S/N ${r.data.serialNumber} ซ้ำกันในไฟล์ (${all})`));
         failed = true;
       }
       if (failed) continue;
@@ -319,7 +325,7 @@ export class BulkDeviceService {
     }
   }
 
-  private async writeUpdate(tx: any, r: Planned, userId: number, label: string) {
+  private async writeUpdate(tx: any, r: Planned, userId: number) {
     const before = r.existing;
     await tx.equipment.update({ where: { id: before.id }, data: r.data });
     const oldValue: Record<string, unknown> = {};
@@ -333,7 +339,7 @@ export class BulkDeviceService {
         equipmentId: before.id,
         action: r.changes?.includes('status') ? EquipmentLogAction.STATUS_CHANGED : EquipmentLogAction.UPDATED,
         source: EquipmentLogSource.IMPORT,
-        description: `อัปเดตจากการเพิ่มอุปกรณ์หลายสาขา "${label}" — ${(r.changes ?? []).join(', ')}`,
+        description: `อัปเดตจากการนำเข้าอุปกรณ์หลายสาขา — ${(r.changes ?? []).join(', ')}`,
         changedBy: userId,
         oldValue,
         newValue,
@@ -341,16 +347,16 @@ export class BulkDeviceService {
     });
   }
 
-  private async writeCreate(tx: any, r: Planned, userId: number, label: string) {
-    const created = await tx.equipment.create({ data: { ...r.data, name: label, storeId: r.storeId } });
+  private async writeCreate(tx: any, r: Planned, userId: number) {
+    const created = await tx.equipment.create({ data: { ...r.data, name: r.name, storeId: r.storeId } });
     await tx.equipmentLog.create({
       data: {
         equipmentId: created.id,
         action: EquipmentLogAction.CREATED,
         source: EquipmentLogSource.IMPORT,
-        description: `เพิ่มจากการเพิ่มอุปกรณ์หลายสาขา "${label}" ที่สาขา ${r.storeCode}`,
+        description: `เพิ่มจากการนำเข้าอุปกรณ์หลายสาขา ที่สาขา ${r.storeCode}`,
         changedBy: userId,
-        newValue: { name: label, category: r.data.category, serialNumber: r.data.serialNumber, storeId: r.storeId },
+        newValue: { name: r.name, category: r.data.category, serialNumber: r.data.serialNumber, storeId: r.storeId },
       },
     });
   }
@@ -363,8 +369,10 @@ export class BulkDeviceService {
   private publicRow(r: Planned): BulkDeviceRowResult {
     return {
       index: r.index,
+      row: r.row,
       storeCode: r.storeCode,
       storeName: r.storeName,
+      name: r.name,
       action: r.action,
       ...(r.message ? { message: r.message } : {}),
       ...(r.changes?.length ? { changes: r.changes } : {}),
