@@ -906,7 +906,14 @@ export class EmailService {
   /**
    * Generic send — used internally by other services (e.g. PatchService)
    */
-  async sendEmail(data: { to: string; cc?: string | string[]; subject: string; html: string }): Promise<void> {
+  async sendEmail(data: {
+    to: string;
+    cc?: string | string[];
+    subject: string;
+    html: string;
+    /** nodemailer attachments — inline images use `cid` + contentDisposition 'inline' */
+    attachments?: any[];
+  }): Promise<void> {
     const config = await this.getSmtpConfig();
     const transporter = await this.createTransporter();
     await transporter.sendMail({
@@ -915,7 +922,58 @@ export class EmailService {
       ...(data.cc && { cc: data.cc }),
       subject: data.subject,
       html: data.html,
+      ...(data.attachments?.length && { attachments: data.attachments }),
     });
+  }
+
+  /**
+   * Thumbnail grid of local upload files for an email body — inline CID images (shown by Gmail / Outlook,
+   * unlike data: URIs). Unreadable files are skipped. `cols` per row, square `size` px.
+   */
+  async buildEmailPhotoGrid(
+    photos: Array<{ path: string; caption?: string }>,
+    opts: { cidPrefix: string; cols?: number; size?: number },
+  ): Promise<{ html: string; attachments: any[] }> {
+    const cols = opts.cols ?? 4;
+    const size = opts.size ?? 128;
+    const attachments: any[] = [];
+    const cells: string[] = [];
+    for (const [i, p] of photos.entries()) {
+      try {
+        const rel = p.path.replace(/^\/+/, '');
+        const file = rel.startsWith('uploads/') ? path.join(process.cwd(), rel) : path.join(process.cwd(), 'uploads', rel);
+        const content = await sharp(await fsPromises.readFile(file))
+          .rotate()
+          .resize(size * 2, size * 2, { fit: 'cover', position: 'centre' })
+          .jpeg({ quality: 70 })
+          .toBuffer();
+        const cid = `${opts.cidPrefix}-${i}@rim`;
+        attachments.push({ filename: `photo-${i + 1}.jpg`, content, cid, contentType: 'image/jpeg', contentDisposition: 'inline' });
+        const caption = p.caption
+          ? `<div style="font-size:11px;color:#475569;margin-top:3px;line-height:1.3;word-break:break-word;">${p.caption
+              .replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')}</div>`
+          : '';
+        cells.push(
+          `<td valign="top" style="padding:4px;width:${size}px;">` +
+            `<img src="cid:${cid}" alt="photo" width="${size}" height="${size}" style="display:block;width:${size}px;height:${size}px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;" />` +
+            `${caption}</td>`,
+        );
+      } catch {
+        /* missing / unreadable file — leave it out */
+      }
+    }
+    if (!cells.length) return { html: '', attachments };
+    const rows: string[] = [];
+    for (let i = 0; i < cells.length; i += cols) {
+      const slice = cells.slice(i, i + cols);
+      while (slice.length < cols) slice.push(`<td style="width:${size}px;"></td>`);
+      rows.push(`<tr>${slice.join('')}</tr>`);
+    }
+    return {
+      html: `<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;">${rows.join('')}</table>`,
+      attachments,
+    };
   }
 
   /**

@@ -1,6 +1,6 @@
 'use client'
 
-// Gate every /dashboard/projects page behind Settings › Modules › Project.
+// Gate every /dashboard/projects page behind Settings › Incident › Modules › Project.
 // Technicians work their tasks from the Incidents page: unless they are a Project Manager,
 // the project pages send them there (the task page itself stays open — they close jobs on it).
 import { useEffect, useState } from 'react'
@@ -50,7 +50,7 @@ export default function ProjectsLayout({ children }: { children: React.ReactNode
       <div className="max-w-md mx-auto text-center py-24 px-4">
         <FolderKanban className="w-12 h-12 text-slate-500 mx-auto mb-4" />
         <h2 className="text-lg font-semibold text-white mb-2">โมดูล Project ยังไม่เปิดใช้งาน</h2>
-        <p className="text-sm text-gray-400 mb-6">ผู้ดูแลระบบ (Super Admin) เปิดได้ที่ Settings › Modules</p>
+        <p className="text-sm text-gray-400 mb-6">ผู้ดูแลระบบ (Super Admin) เปิดได้ที่ Settings › Incident › Modules</p>
         <Link href="/dashboard" className="text-sm text-blue-400 hover:underline">กลับหน้าหลัก</Link>
       </div>
     )

@@ -30,7 +30,7 @@ function fetchModules(): Promise<EnabledModules> {
   return cached
 }
 
-/** Call after saving Settings › Modules so menus update without a reload. */
+/** Call after saving Settings › Incident › Modules so menus update without a reload. */
 export function notifyModulesChanged(modules: EnabledModules) {
   cached = Promise.resolve(modules)
   window.dispatchEvent(new CustomEvent(MODULES_CHANGED_EVENT, { detail: modules }))

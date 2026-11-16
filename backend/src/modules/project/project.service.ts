@@ -1286,6 +1286,29 @@ export class ProjectService implements OnModuleInit {
       : '-';
     const verifierName = verifier ? `${verifier.firstName} ${verifier.lastName}` : 'Helpdesk';
 
+    // Photos of the job: check-in, work / evidence photos (point + before/after), test-result photos
+    const PHASE: Record<string, string> = { BEFORE: 'ก่อน', AFTER: 'หลัง' };
+    const allPhotos: Array<{ path: string; caption?: string }> = [
+      ...(task.checkInPhotoPath ? [{ path: task.checkInPhotoPath, caption: 'Check-in' }] : []),
+      ...task.photos.map((p) => ({
+        path: p.photoPath,
+        caption: [p.pointName, p.phase ? PHASE[p.phase] ?? p.phase : null, p.comment].filter(Boolean).join(' · ') || undefined,
+      })),
+      ...task.testResults
+        .filter((t) => t.photoPath)
+        .map((t) => ({ path: t.photoPath as string, caption: `${t.itemName}: ${t.result}` })),
+    ];
+    const MAX_PHOTOS = 40; // keeps the email a few MB at most
+    const grid = await this.emailService.buildEmailPhotoGrid(allPhotos.slice(0, MAX_PHOTOS), { cidPrefix: `task-${task.id}` });
+    const photosHtml = grid.html
+      ? `
+          <div style="padding: 0 30px 24px;">
+            <p style="margin: 0 0 10px 0; font-weight: bold; color: #2d5a47;">📷 รูปงาน (${allPhotos.length} รูป)</p>
+            ${grid.html}
+            ${allPhotos.length > MAX_PHOTOS ? `<p style="margin: 8px 0 0 0; font-size: 12px; color: #6b7280;">แสดง ${MAX_PHOTOS} รูปแรก — ดูทั้งหมดได้ในระบบ</p>` : ''}
+          </div>`
+      : '';
+
     const fmtDate = (d: Date | null) =>
       d
         ? d.toLocaleString('th-TH', {
@@ -1350,6 +1373,7 @@ export class ProjectService implements OnModuleInit {
               </tr>
             </table>
           </div>
+          ${photosHtml}
 
           <!-- Footer -->
           <div style="padding: 16px 30px 20px; border-top: 1px solid #d1ddd1; text-align: center; color: #9ca3af; font-size: 12px;">
@@ -1366,6 +1390,7 @@ export class ProjectService implements OnModuleInit {
       ...(cc.length > 0 && { cc }),
       subject: `✅ ยืนยันปิดงาน ${ticketNo} - [${storeCode}] ${storeName}`,
       html,
+      attachments: grid.attachments,
     });
   }
 

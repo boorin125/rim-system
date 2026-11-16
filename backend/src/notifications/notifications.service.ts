@@ -8,6 +8,12 @@ import { PushService } from '../modules/push/push.service';
 
 const expo = new Expo()
 
+/** A Help Desk-only user sees just the jobs waiting for their Confirm Close */
+const HELP_DESK_NOTIFICATION_TYPES: NotificationType[] = [
+  NotificationType.INCIDENT_RESOLVED,
+  NotificationType.PROJECT_TASK_COMPLETED,
+]
+
 @Injectable()
 export class NotificationsService {
   constructor(
@@ -197,10 +203,10 @@ export class NotificationsService {
       ...(isRead !== undefined && { isRead }),
     };
 
-    // Filter notifications for Help Desk - only show INCIDENT_RESOLVED
+    // Filter notifications for Help Desk - only jobs waiting for their Confirm Close (incident resolved, project task sent)
     // Only apply this filter if user ONLY has HELP_DESK role
     if (userRoles.length === 1 && userRoles.includes(UserRole.HELP_DESK)) {
-      where.type = NotificationType.INCIDENT_RESOLVED;
+      where.type = { in: HELP_DESK_NOTIFICATION_TYPES };
     }
 
     return this.prisma.notification.findMany({
@@ -233,10 +239,10 @@ export class NotificationsService {
       isRead: false,
     };
 
-    // Filter notifications for Help Desk - only count INCIDENT_RESOLVED
+    // Filter notifications for Help Desk - only count jobs waiting for their Confirm Close
     // Only apply this filter if user ONLY has HELP_DESK role
     if (userRoles.length === 1 && userRoles.includes(UserRole.HELP_DESK)) {
-      where.type = NotificationType.INCIDENT_RESOLVED;
+      where.type = { in: HELP_DESK_NOTIFICATION_TYPES };
     }
 
     return this.prisma.notification.count({
@@ -517,18 +523,24 @@ export class NotificationsService {
     );
   }
 
+  /** Technician sent a project task: Help Desk confirms the close (like a resolved incident), Supervisors follow */
   async notifyProjectTaskCompleted(taskId: number, taskName: string, projectName: string, excludeUserIds?: number[]) {
-    const supervisors = await this.getSupervisors();
-    const targets = excludeUserIds?.length
-      ? supervisors.filter(s => !excludeUserIds.includes(s.id))
-      : supervisors;
+    const [supervisors, helpDesks] = await Promise.all([
+      this.getSupervisors(),
+      this.prisma.user.findMany({
+        where: { status: 'ACTIVE', roles: { some: { role: UserRole.HELP_DESK } } },
+        select: { id: true },
+      }),
+    ]);
+    const ids = new Set([...helpDesks, ...supervisors].map((u) => u.id));
+    excludeUserIds?.forEach((id) => ids.delete(id));
     return Promise.all(
-      targets.map(s =>
+      Array.from(ids).map((id) =>
         this.createNotification(
-          s.id,
+          id,
           NotificationType.PROJECT_TASK_COMPLETED,
-          'งานโปรเจกต์เสร็จแล้ว รอตรวจสอบ',
-          `งาน "${taskName}" ในโปรเจกต์ ${projectName} เสร็จสิ้นแล้ว รอการตรวจสอบ`,
+          'งานโปรเจกต์ส่งปิดแล้ว รอ Confirm ปิดงาน',
+          `งาน "${taskName}" ในโปรเจกต์ ${projectName} ช่างส่งปิดงานแล้ว รอ Confirm ปิดงาน`,
           undefined,
           `/dashboard/projects/task/${taskId}`,
         ),

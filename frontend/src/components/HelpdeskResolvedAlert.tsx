@@ -26,6 +26,19 @@ interface ResolvedIncident {
   assignees?: Array<{ user?: { firstName: string; lastName: string } }>
 }
 
+/** Project task the technician sent (PENDING_VERIFY) — Help Desk confirms the close like a resolved incident */
+interface PendingTask {
+  id: number
+  title: string | null
+  ticketNo: string | null
+  completedAt: string | null
+  projectStore: {
+    project: { id: number; name: string }
+    store: { id: number; storeCode: string; name: string }
+  }
+  assignedTo?: { firstName: string; lastName: string } | null
+}
+
 interface Props {
   userId: number
   onDismiss: () => void
@@ -55,6 +68,7 @@ function getTimeSinceResolved(resolvedAt?: string): string {
 export default function HelpdeskResolvedAlert({ userId, onDismiss }: Props) {
   const router = useRouter()
   const [incidents, setIncidents] = useState<ResolvedIncident[]>([])
+  const [tasks, setTasks] = useState<PendingTask[]>([])
   const [loading, setLoading] = useState(true)
   const [checkedAt, setCheckedAt] = useState(new Date())
   const [slaNames, setSlaNames] = useState<Record<string, string>>({})
@@ -112,8 +126,16 @@ export default function HelpdeskResolvedAlert({ userId, onDismiss }: Props) {
 
   const fetchResolvedIncidents = async () => {
     setLoading(true)
+    const token = localStorage.getItem('token')
+    // Project tasks waiting for Confirm Close (fails quietly when the Project module is off)
+    axios
+      .get(`${process.env.NEXT_PUBLIC_API_URL}/projects/tasks/pending-verify`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => {
+        const list: PendingTask[] = res.data || []
+        setTasks([...list].sort((a, b) => new Date(a.completedAt || 0).getTime() - new Date(b.completedAt || 0).getTime()))
+      })
+      .catch(() => setTasks([]))
     try {
-      const token = localStorage.getItem('token')
       const response = await axios.get(
         `${process.env.NEXT_PUBLIC_API_URL}/incidents?limit=200&page=1`,
         { headers: { Authorization: `Bearer ${token}` } }
@@ -188,7 +210,7 @@ export default function HelpdeskResolvedAlert({ userId, onDismiss }: Props) {
                 </h2>
                 {!loading && (
                   <span className="px-2 py-0.5 text-xs sm:text-sm bg-green-500/20 text-green-400 rounded-full border border-green-500/30 whitespace-nowrap">
-                    {incidents.length} งาน
+                    {incidents.length + tasks.length} งาน
                   </span>
                 )}
               </div>
@@ -237,14 +259,52 @@ export default function HelpdeskResolvedAlert({ userId, onDismiss }: Props) {
             <div className="flex items-center justify-center py-12">
               <div className="w-8 h-8 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
             </div>
-          ) : incidents.length === 0 ? (
+          ) : incidents.length + tasks.length === 0 ? (
             <div className="text-center py-12">
               <CheckCheck className="w-12 h-12 text-green-400 mx-auto mb-3" />
               <p className="text-white font-semibold">ไม่มีงานรอ Confirm</p>
               <p className="text-gray-400 text-sm mt-1">งานทั้งหมดได้รับการ Confirm ปิดแล้ว</p>
             </div>
           ) : (
-            incidents.map(incident => {
+            <>
+            {tasks.map(task => {
+              const timeSince = getTimeSinceResolved(task.completedAt || undefined).replace('resolve แล้ว', 'ส่งงานแล้ว')
+              return (
+                <div
+                  key={`task-${task.id}`}
+                  className="flex items-start gap-3 p-3 bg-slate-800/60 rounded-xl border border-slate-700/50 hover:border-slate-500/50 cursor-pointer transition-colors group"
+                  style={rowBg ? { background: rowBg, borderColor: rowBorder } : undefined}
+                  onClick={() => { handleDismiss(); router.push(`/dashboard/projects/task/${task.id}`) }}
+                >
+                  <span className="flex-shrink-0 mt-0.5 px-2 py-0.5 text-xs font-bold rounded bg-purple-500/20 text-purple-300">
+                    PROJECT
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {task.ticketNo && <span className="text-xs text-gray-400 font-mono">{task.ticketNo}</span>}
+                      <span className="text-xs px-1.5 py-0.5 bg-purple-500/10 text-purple-300 border border-purple-500/20 rounded">
+                        รอตรวจรับ
+                      </span>
+                      {timeSince && <span className="text-xs text-amber-400 font-medium">⏱ {timeSince}</span>}
+                    </div>
+                    <p className="text-sm text-white font-medium mt-0.5 truncate">
+                      {task.title || task.projectStore.project.name}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5 truncate">
+                      {formatStore(task.projectStore.store)} · {task.projectStore.project.name}
+                    </p>
+                    {task.assignedTo && (
+                      <p className="text-xs text-blue-400 mt-0.5 flex items-center gap-1">
+                        <User className="w-3 h-3 shrink-0" />
+                        {`${task.assignedTo.firstName} ${task.assignedTo.lastName}`}
+                      </p>
+                    )}
+                  </div>
+                  <ExternalLink className="w-4 h-4 text-gray-500 group-hover:text-purple-300 flex-shrink-0 transition-colors mt-1" />
+                </div>
+              )
+            })}
+            {incidents.map(incident => {
               const pc = PRIORITY_COLORS[incident.priority] || PRIORITY_COLORS['LOW']
               const timeSince = getTimeSinceResolved(incident.resolvedAt)
               return (
@@ -293,7 +353,8 @@ export default function HelpdeskResolvedAlert({ userId, onDismiss }: Props) {
                   <ExternalLink className="w-4 h-4 text-gray-500 group-hover:text-green-400 flex-shrink-0 transition-colors mt-1" />
                 </div>
               )
-            })
+            })}
+            </>
           )}
         </div>
 

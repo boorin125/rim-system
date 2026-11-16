@@ -3,7 +3,7 @@ import { CanActivate, ForbiddenException, Injectable } from '@nestjs/common';
 import { SettingsService } from '../../settings/settings.service';
 
 /**
- * Blocks every Project endpoint unless Settings › Modules › Project is enabled.
+ * Blocks every Project endpoint unless Settings › Incident › Modules › Project is enabled.
  * The flag is cached briefly so each request doesn't hit system_configs.
  */
 @Injectable()
@@ -20,7 +20,7 @@ export class ProjectModuleGuard implements CanActivate {
       this.cache = { enabled: project, at: now };
     }
     if (!this.cache.enabled) {
-      throw new ForbiddenException('โมดูล Project ยังไม่เปิดใช้งาน (Settings › Modules)');
+      throw new ForbiddenException('โมดูล Project ยังไม่เปิดใช้งาน (Settings › Incident › Modules)');
     }
     return true;
   }

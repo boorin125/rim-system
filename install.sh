@@ -81,7 +81,7 @@ echo ""
 
 if [ -f docker-compose.yml ] || [ -f .env ]; then
   echo -e "${RED}⚠️  โฟลเดอร์นี้มี docker-compose.yml / .env อยู่แล้ว ($(pwd))${NC}"
-  echo "   installer นี้สำหรับติดตั้งใหม่ — การอัปเดตทำที่ Settings › System Update"
+  echo "   installer นี้สำหรับติดตั้งใหม่ — การอัปเดตทำที่ Settings › Maintenance › System Update"
   read -rp "  ติดตั้งทับต่อไหม? (พิมพ์ yes): " OVERWRITE
   [ "$OVERWRITE" = "yes" ] || exit 1
   echo ""
@@ -157,11 +157,11 @@ fi
 
 # ── License (local mode) ───────────────────────
 # The central License Server is offline (domain expired) — run in LOCAL_LICENSE_MODE like WS / Test:
-# the key below is activated in Settings › License and becomes an UNLIMITED 10-year local license.
+# the key below is activated in Settings › Info › License and becomes an UNLIMITED 10-year local license.
 # Switch to the central server later: remove LOCAL_LICENSE_MODE from .env (see memory/license notes).
 LICENSE_KEY=$(LC_ALL=C tr -dc 'A-Z0-9' </dev/urandom | head -c 16 | sed -E 's/(.{4})(.{4})(.{4})(.{4})/\1-\2-\3-\4/')
 echo -e "${GREEN}✅ License Key (Local): ${BOLD}${LICENSE_KEY}${NC}"
-echo "   ใส่ key นี้ที่ Settings › License หลังสร้าง Super Admin"
+echo "   ใส่ key นี้ที่ Settings › Info › License หลังสร้าง Super Admin"
 echo ""
 
 # ── Docker images ──────────────────────────────
@@ -481,10 +481,10 @@ else
   echo -e "${YELLOW}⚠️  Backend ยังไม่ healthy (${BACKEND_HEALTH}) — ดู logs ด้วย: docker logs rim-backend --tail 30${NC}"
 fi
 
-# ── Update button (Settings › System Update) ───
+# ── Update button (Settings › Maintenance › System Update) ───
 # rim-updater runs beside the app; it follows this server's channel (:stable / :latest)
 echo ""
-echo -e "${YELLOW}→ ติดตั้งปุ่มอัปเดตระบบ (Settings › System Update)...${NC}"
+echo -e "${YELLOW}→ ติดตั้งปุ่มอัปเดตระบบ (Settings › Maintenance › System Update)...${NC}"
 UPDATER_OK=false
 DL_OK=true
 mkdir -p rim-updater
@@ -512,7 +512,7 @@ echo -e "  🔑 License Key: ${BOLD}${LICENSE_KEY}${NC}"
 echo ""
 echo -e "  ขั้นต่อไป:"
 echo -e "    1. เปิด URL — ระบบจะนำทางสร้าง Super Admin"
-echo -e "    2. Settings › License → Activate ด้วย key ด้านบน"
+echo -e "    2. Settings › Info › License → Activate ด้วย key ด้านบน"
 echo -e "    3. Settings › Organization → ชื่อองค์กร, Prefix เลข Incident, โลโก้, ชื่อแอปบนมือถือ"
 if [ "$CHANNEL" = "latest" ]; then
   echo -e "       (Server ทดสอบ: ติ๊ก \"Server ทดสอบ (Test)\" ด้วย)"
@@ -522,7 +522,7 @@ echo -e "  คำสั่งที่ใช้บ่อย:"
 echo -e "    ดู status  : ${YELLOW}${COMPOSE_CMD} ps${NC}"
 echo -e "    ดู logs    : ${YELLOW}${COMPOSE_CMD} logs -f${NC}"
 echo -e "    หยุดระบบ   : ${YELLOW}${COMPOSE_CMD} down${NC}"
-echo -e "    อัปเดต     : ${YELLOW}Settings › System Update (SUPER_ADMIN)${NC}"
+echo -e "    อัปเดต     : ${YELLOW}Settings › Maintenance › System Update (SUPER_ADMIN)${NC}"
 echo ""
 echo -e "  📞 support@rub-jobb.com | 061-246-9293"
 echo ""

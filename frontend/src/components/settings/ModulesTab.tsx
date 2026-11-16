@@ -1,6 +1,6 @@
 'use client'
 
-// Settings › Modules — switch optional feature modules on/off (SUPER_ADMIN only)
+// Settings › Incident › Modules — switch optional feature modules on/off (SUPER_ADMIN only)
 import { useEffect, useState } from 'react'
 import axios from 'axios'
 import toast from 'react-hot-toast'

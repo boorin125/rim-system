@@ -80,7 +80,7 @@ export const menuPermissions: Record<string, MenuPermission> = {
       MONITOR: 'none',
     },
   },
-  // Project module (optional — menu also hidden unless Settings › Modules › Project is on)
+  // Project module (optional — menu also hidden unless Settings › Incident › Modules › Project is on)
   '/dashboard/projects': {
     roles: ['SUPER_ADMIN', 'IT_MANAGER', 'HELP_DESK', 'SUPERVISOR', 'TECHNICIAN', 'READ_ONLY'],
     accessLevel: {

@@ -11,6 +11,18 @@
         {
           "type": "new",
           "text": "ตั้ง Description เริ่มต้นของงาน PM ได้ที่ Settings › Incident (เช่น \"Preventive Maintenance Phase 1\" → \"Phase 2\") — งาน PM ที่ขอจากหน้าสาขาหลังจากนั้นใช้ค่าใหม่ และแก้ Description ได้ในหน้าต่าง Request PM ก่อนยืนยัน; งาน PM ที่เปิดไปแล้วคง Description เดิม"
+        },
+        {
+          "type": "improved",
+          "text": "จัดแท็บหน้า Settings ใหม่: SLA และ Modules ย้ายไปอยู่ในแท็บ Incident (แท็บย่อย ทั่วไป / SLA / Modules), System Update ย้ายไปอยู่ในแท็บ Maintenance (แท็บย่อย Maintenance Window / System Update), เอาแท็บ Mobile App ออก (ใช้แอปที่ติดตั้งจากหน้าเว็บแทน) — ลิงก์และการแจ้งเตือนเดิมที่ชี้ไปแท็บเก่ายังพาไปหน้าที่ถูกต้อง"
+        },
+        {
+          "type": "improved",
+          "text": "งาน Project ที่ช่างส่งปิดงาน แจ้งเตือน Helpdesk ทุกคน (เดิมแจ้งเฉพาะ Supervisor) และขึ้นในหน้าต่าง \"รอ Confirm ปิดงาน\" ของ Helpdesk พร้อมงาน Incident — กดแล้วเข้าหน้างานเพื่อ Confirm ได้ทันที"
+        },
+        {
+          "type": "fixed",
+          "text": "อีเมลยืนยันปิดงาน Project แนบรูปงานแล้ว — รูป Check-in, รูปงาน / หลักฐาน (พร้อมชื่อจุด และก่อน-หลัง) และรูปผลทดสอบ แสดงเป็นตารางรูปในอีเมล (สูงสุด 40 รูป)"
         }
       ]
     },

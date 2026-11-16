@@ -51,8 +51,6 @@ import {
   Key,
   AlertTriangle,
   LogOut,
-  Smartphone,
-  QrCode,
   Copy,
   FolderOpen,
   Lock,
@@ -63,7 +61,6 @@ import {
   CalendarClock,
 } from 'lucide-react'
 import Link from 'next/link'
-import QRCode from 'qrcode'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import { useThemeHighlight } from '@/hooks/useThemeHighlight'
@@ -205,108 +202,6 @@ interface LicenseInfo {
   }
 }
 
-// ─── Mobile App Tab ───────────────────────────────────────────────────────────
-function MobileAppTab() {
-  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
-  const [serverUrl, setServerUrl] = useState('')
-  const [copied, setCopied] = useState(false)
-
-  useEffect(() => {
-    // Auto-detect server URL from current window
-    if (typeof window !== 'undefined') {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? `${window.location.origin}/api`
-      const base = apiUrl.replace('/api', '').replace(/\/$/, '')
-      setServerUrl(base)
-      const qrPayload = JSON.stringify({ rimServer: base })
-      QRCode.toDataURL(qrPayload, { width: 280, margin: 2, color: { dark: '#f1f5f9', light: '#1e293b' } })
-        .then(setQrDataUrl)
-    }
-  }, [])
-
-  function copyUrl() {
-    navigator.clipboard.writeText(serverUrl)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3 mb-6">
-        <Smartphone className="w-5 h-5 text-cyan-400" />
-        <h2 className="text-xl font-semibold text-white">Mobile App — RIM System</h2>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* QR Code */}
-        <div className="p-6 bg-slate-700/30 rounded-xl border border-slate-600/30 flex flex-col items-center">
-          <div className="flex items-center gap-2 mb-4 self-start">
-            <QrCode className="w-4 h-4 text-indigo-400" />
-            <span className="text-sm font-semibold text-slate-300">QR Code สำหรับ Connect</span>
-          </div>
-          {qrDataUrl ? (
-            <img src={qrDataUrl} alt="Server QR Code" className="rounded-xl mb-4" style={{ width: 200, height: 200 }} />
-          ) : (
-            <div className="w-[200px] h-[200px] bg-slate-800 rounded-xl flex items-center justify-center">
-              <Loader2 className="w-6 h-6 text-slate-500 animate-spin" />
-            </div>
-          )}
-          <p className="text-xs text-slate-400 text-center mt-2">
-            ให้ช่างสแกน QR Code นี้เพื่อเชื่อมต่อ App กับ Server
-          </p>
-        </div>
-
-        {/* Instructions */}
-        <div className="space-y-4">
-          <div className="p-4 bg-slate-700/30 rounded-xl border border-slate-600/30">
-            <p className="text-sm font-semibold text-slate-300 mb-2">Server URL</p>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 text-xs bg-slate-800 rounded-lg px-3 py-2 text-indigo-300 break-all">
-                {serverUrl || 'กำลังโหลด...'}
-              </code>
-              <button
-                onClick={copyUrl}
-                className="p-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
-                title="คัดลอก URL"
-              >
-                {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4 text-slate-400" />}
-              </button>
-            </div>
-          </div>
-
-          <div className="p-4 bg-slate-700/30 rounded-xl border border-slate-600/30">
-            <p className="text-sm font-semibold text-slate-300 mb-3">วิธีติดตั้ง App</p>
-            <ol className="space-y-2 text-sm text-slate-400">
-              <li className="flex gap-2">
-                <span className="text-indigo-400 font-bold shrink-0">1.</span>
-                <span>ดาวน์โหลด <strong className="text-white">RIM System</strong> จาก Google Play Store</span>
-              </li>
-              <li className="flex gap-2">
-                <span className="text-indigo-400 font-bold shrink-0">2.</span>
-                <span>เปิด App → กดปุ่ม <strong className="text-white">สแกน QR Code</strong></span>
-              </li>
-              <li className="flex gap-2">
-                <span className="text-indigo-400 font-bold shrink-0">3.</span>
-                <span>สแกน QR Code ด้านซ้าย หรือกรอก Server URL ด้วยตนเอง</span>
-              </li>
-              <li className="flex gap-2">
-                <span className="text-indigo-400 font-bold shrink-0">4.</span>
-                <span>Login ด้วย Email/Password บัญชี RIM System ปกติ</span>
-              </li>
-            </ol>
-          </div>
-
-          <div className="p-4 bg-amber-500/10 rounded-xl border border-amber-500/20">
-            <p className="text-xs text-amber-300 flex gap-2">
-              <span>⚠️</span>
-              <span>App รองรับเฉพาะบัญชีที่มี Role: <strong>Technician, Supervisor, Helpdesk, IT Manager</strong> เท่านั้น</span>
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 const TABLE_LABELS: Record<string, string> = {
   system_configs: 'ตั้งค่าระบบ',
   sla_configs: 'ตั้งค่า SLA',
@@ -349,6 +244,21 @@ const RELEASE_NOTES: ReleaseEntry[] = (releasesData as { releases: ReleaseEntry[
 export default function SettingsPage() {
   const themeHighlight = useThemeHighlight()
   const [activeTab, setActiveTab] = useTabState<TabType>('organization')
+  // SLA / Modules live under Incident, System Update under Maintenance. Links to the old tabs
+  // (?tab=sla|modules|update — also stored in notifications already sent) still land on them.
+  const [incidentSub, setIncidentSub] = useState<'general' | 'sla' | 'modules'>('general')
+  const [maintenanceSub, setMaintenanceSub] = useState<'window' | 'update'>('window')
+  useEffect(() => {
+    if (activeTab === 'sla' || activeTab === 'modules') {
+      setIncidentSub(activeTab)
+      setActiveTab('incident')
+    } else if (activeTab === 'update') {
+      setMaintenanceSub('update')
+      setActiveTab('maintenance')
+    } else if (activeTab === 'mobile-app') {
+      setActiveTab('organization')
+    }
+  }, [activeTab, setActiveTab])
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [userRoles, setUserRoles] = useState<string[]>([])
@@ -1829,15 +1739,11 @@ export default function SettingsPage() {
     { id: 'organization' as TabType, label: 'Organization', icon: Building2 },
     { id: 'incident' as TabType, label: 'Incident', icon: TicketIcon },
     { id: 'email' as TabType, label: 'Email', icon: Mail },
-    { id: 'sla' as TabType, label: 'SLA', icon: Clock },
     ...(isSuperAdmin ? [{ id: 'service-report' as TabType, label: 'Service Report', icon: FileText }] : []),
     { id: 'backup' as TabType, label: 'Backup / Restore', icon: Database },
     { id: 'theme' as TabType, label: 'Theme', icon: Palette },
-    { id: 'mobile-app' as TabType, label: 'Mobile App', icon: Smartphone },
     ...(isSuperAdmin ? [{ id: 'maintenance' as TabType, label: 'Maintenance', icon: Wrench }] : []),
-    ...(isSuperAdmin ? [{ id: 'modules' as TabType, label: 'Modules', icon: Blocks }] : []),
     ...(isSuperAdmin ? [{ id: 'google' as TabType, label: 'Google Sign-In', icon: KeyRound }] : []),
-    ...(isSuperAdmin ? [{ id: 'update' as TabType, label: 'System Update', icon: DownloadCloud }] : []),
     { id: 'info' as TabType, label: 'Info', icon: Info },
   ]
 
@@ -1897,6 +1803,43 @@ export default function SettingsPage() {
 
       {/* Tab Content */}
       <div className="glass-card p-6 rounded-2xl">
+        {/* Sub-tabs: Incident (General | SLA | Modules), Maintenance (Maintenance Window | System Update) */}
+        {(activeTab === 'incident' || (activeTab === 'maintenance' && isSuperAdmin)) && (
+          <div className="flex flex-wrap gap-2 mb-6">
+            {(activeTab === 'incident'
+              ? [
+                  { id: 'general', label: 'ทั่วไป', icon: TicketIcon },
+                  { id: 'sla', label: 'SLA', icon: Clock },
+                  ...(isSuperAdmin ? [{ id: 'modules', label: 'Modules', icon: Blocks }] : []),
+                ]
+              : [
+                  { id: 'window', label: 'Maintenance Window', icon: Wrench },
+                  { id: 'update', label: 'System Update', icon: DownloadCloud },
+                ]
+            ).map((sub) => {
+              const current = activeTab === 'incident' ? incidentSub : maintenanceSub
+              return (
+                <button
+                  key={sub.id}
+                  onClick={() =>
+                    activeTab === 'incident'
+                      ? setIncidentSub(sub.id as typeof incidentSub)
+                      : setMaintenanceSub(sub.id as typeof maintenanceSub)
+                  }
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border transition-colors ${
+                    current === sub.id
+                      ? 'bg-blue-500/20 text-blue-300 border-blue-500/40'
+                      : 'text-gray-400 border-slate-600 hover:text-white hover:bg-slate-700/40'
+                  }`}
+                >
+                  <sub.icon className="w-4 h-4" />
+                  {sub.label}
+                </button>
+              )
+            })}
+          </div>
+        )}
+
         {/* Organization Tab */}
         {activeTab === 'organization' && (
           <div className="space-y-6">
@@ -2128,7 +2071,7 @@ export default function SettingsPage() {
         )}
 
         {/* Incident Tab */}
-        {activeTab === 'incident' && (
+        {activeTab === 'incident' && incidentSub === 'general' && (
           <div className="space-y-4 md:space-y-6">
             <div className="flex items-center space-x-3 mb-4 md:mb-6">
               <TicketIcon className="w-5 h-5 text-orange-400" />
@@ -3008,7 +2951,7 @@ export default function SettingsPage() {
         )}
 
         {/* SLA Tab */}
-        {activeTab === 'sla' && (
+        {activeTab === 'incident' && incidentSub === 'sla' && (
           <div className="space-y-6">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center space-x-3">
@@ -4370,12 +4313,8 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* Maintenance Tab */}
-        {activeTab === 'mobile-app' && (
-          <MobileAppTab />
-        )}
-
-        {activeTab === 'maintenance' && (
+        {/* Maintenance Tab — sub-tab "Maintenance Window" */}
+        {activeTab === 'maintenance' && maintenanceSub === 'window' && (
           <div className="space-y-6">
             <div className="flex items-center space-x-3 mb-6">
               <Wrench className="w-5 h-5 text-amber-400" />
@@ -4456,9 +4395,9 @@ export default function SettingsPage() {
         )}
 
         {/* Info Tab */}
-        {activeTab === 'modules' && isSuperAdmin && <ModulesTab />}
+        {activeTab === 'incident' && incidentSub === 'modules' && isSuperAdmin && <ModulesTab />}
         {activeTab === 'google' && isSuperAdmin && <GoogleSignInTab />}
-        {activeTab === 'update' && isSuperAdmin && <UpdateTab />}
+        {activeTab === 'maintenance' && maintenanceSub === 'update' && isSuperAdmin && <UpdateTab />}
 
         {activeTab === 'info' && (
           <div className="space-y-6">
