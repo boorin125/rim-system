@@ -44,6 +44,9 @@ const SUPPORT_INCIDENT_SELECT = {
   workRounds: { where: { checkInAt: { not: null } }, select: { id: true } },
 } satisfies Prisma.IncidentSelect;
 
+/** Closed = accepted by Help Desk (COMPLETED is the older name of the same end state) */
+const CLOSED_TASK_STATUSES = ['ACCEPTED', 'COMPLETED'];
+
 /** One visit per checked-in project task, per checked-in incident work round (or the incident check-in) */
 function countVisits(
   tasks: { checkInAt: Date | null }[],
@@ -371,7 +374,16 @@ export class ProjectService implements OnModuleInit {
    * Who may add / delete / edit a task's photos, captions, equipment and checklists:
    * technicians and staff (as before) or a Project Manager of the task's project.
    */
+  /** A closed task (accepted by Help Desk) is read-only for every role — its data is what the close email reported */
+  private assertTaskOpen(task: { status: string }) {
+    if (CLOSED_TASK_STATUSES.includes(task.status)) {
+      throw new BadRequestException('งานนี้ปิดแล้ว — แก้ไขไม่ได้');
+    }
+  }
+
   async assertCanEditTaskMedia(taskId: number, user: any) {
+    const current = await this.prisma.projectTask.findUnique({ where: { id: taskId }, select: { status: true } });
+    if (current) this.assertTaskOpen(current);
     const roles: string[] = [
       ...(Array.isArray(user?.roles) ? user.roles.map((r: any) => (typeof r === 'string' ? r : r?.role ?? r?.name)) : []),
       ...(typeof user?.role === 'string' ? [user.role] : []),
@@ -733,6 +745,7 @@ export class ProjectService implements OnModuleInit {
 
   async updateTask(taskId: number, dto: UpdateTaskDto, userId?: number) {
     const old = await this.findTask(taskId);
+    this.assertTaskOpen(old);
     const typesChanged = dto.taskType !== undefined || dto.workType !== undefined;
     const types = this.resolveTaskTypes(dto.taskType, dto.workType, old);
 
@@ -810,6 +823,7 @@ export class ProjectService implements OnModuleInit {
 
   async deleteTask(taskId: number) {
     const task = await this.findTask(taskId);
+    this.assertTaskOpen(task);
     await this.prisma.projectTask.delete({ where: { id: taskId } });
     await Promise.all([
       this.removeUpload(task.checkInPhotoPath),
@@ -885,6 +899,7 @@ export class ProjectService implements OnModuleInit {
     if (task.status === 'COMPLETED' || task.status === 'PENDING_VERIFY') {
       throw new BadRequestException('Task is already completed');
     }
+    this.assertTaskOpen(task);
 
     const updated = await this.prisma.projectTask.update({
       where: { id: taskId },
@@ -1270,7 +1285,7 @@ export class ProjectService implements OnModuleInit {
     // Same recipients as Incident close notifications (Settings › Email)
     const emailSettings = await this.settingsService.getEmailSettings();
     const to = emailSettings?.closeNotificationTo?.trim();
-    if (!to) return; // no recipient configured
+    if (!to) return null; // no recipient configured
 
     const cc = emailSettings?.closeNotificationCc
       ? emailSettings.closeNotificationCc.split(',').map((e: string) => e.trim()).filter(Boolean)
@@ -1392,6 +1407,28 @@ export class ProjectService implements OnModuleInit {
       html,
       attachments: grid.attachments,
     });
+    return { to, cc };
+  }
+
+  /** IT Manager: send the close email of a closed task again (e.g. the first send failed or a recipient was added) */
+  async resendCloseEmail(taskId: number, userId: number) {
+    const task = await this.findTask(taskId);
+    if (!CLOSED_TASK_STATUSES.includes(task.status) || !task.verifiedAt) {
+      throw new BadRequestException('ส่งอีเมลได้เฉพาะงานที่ยืนยันปิดงานแล้ว');
+    }
+    const sent = await this.sendVerifyNotificationEmail(task, task.verifiedBy, task.verifiedAt);
+    if (!sent) throw new BadRequestException('ยังไม่ได้ตั้งผู้รับอีเมลแจ้งปิดงาน (Settings › Email)');
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { firstName: true, lastName: true } });
+    await this.prisma.projectTaskLog.create({
+      data: {
+        taskId,
+        userId,
+        action: 'RESEND_EMAIL',
+        message: `${user ? `${user.firstName} ${user.lastName}` : 'IT Manager'} ส่งอีเมลปิดงานอีกครั้ง ถึง ${[sent.to, ...sent.cc].join(', ')}`,
+      },
+    });
+    return sent;
   }
 
   async rejectTask(

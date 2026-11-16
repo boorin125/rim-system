@@ -20,6 +20,7 @@ import {
   Upload,
   Lock,
   Loader2,
+  Mail,
   Navigation,
   User,
   Calendar,
@@ -169,9 +170,31 @@ export default function TaskDetailPage() {
   // Project Managers of this project may add / delete / edit photos, captions, equipment and checklists
   const isProjectManager = !!currentUser && (task?.projectStore?.project?.managers || [])
     .some((m: any) => Number(m.userId) === Number(currentUser.id))
-  const canMedia = (isAssignedTech && task?.status === 'IN_PROGRESS') || userRoles.includes('HELP_DESK') || isProjectManager
+  // Closed (accepted by Help Desk) = read-only for every role; IT Manager may only resend the close email
+  const isClosed = ['ACCEPTED', 'COMPLETED'].includes(task?.status ?? '')
+  const isItManager = userRoles.includes('IT_MANAGER')
+  const canMedia = !isClosed && ((isAssignedTech && task?.status === 'IN_PROGRESS') || userRoles.includes('HELP_DESK') || isProjectManager)
   // Edit caption / delete — staff kept the delete buttons they had before
-  const canEditMedia = canMedia || canManage
+  const canEditMedia = !isClosed && (canMedia || canManage)
+  const [resending, setResending] = useState(false)
+  const handleResendEmail = async () => {
+    if (!confirm('ส่งอีเมลยืนยันปิดงานอีกครั้ง?')) return
+    setResending(true)
+    try {
+      const token = localStorage.getItem('token')
+      const res = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/projects/tasks/${taskId}/resend-email`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } },
+      )
+      toast.success(`ส่งอีเมลแล้ว ถึง ${res.data?.to ?? ''}`)
+      fetchTask()
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'ส่งอีเมลไม่สำเร็จ')
+    } finally {
+      setResending(false)
+    }
+  }
   // Work photos / equipment / checklists come after check-in (backend enforces it too)
   const checkedIn = !!task?.checkInAt
   const addLockedCls = checkedIn ? 'cursor-pointer hover:opacity-90' : 'opacity-40 cursor-not-allowed pointer-events-none'
@@ -703,8 +726,29 @@ export default function TaskDetailPage() {
         )}
       </div>
 
+      {/* ── Closed: read-only notice + resend the close email (IT Manager) ── */}
+      {isClosed && (
+        <div className="glass-card rounded-xl px-5 py-4 flex flex-wrap items-center justify-between gap-3 border border-cyan-500/30">
+          <div className="flex items-center gap-2 text-sm text-cyan-200">
+            <Lock className="w-4 h-4 shrink-0" />
+            งานนี้ปิดแล้ว — ดูข้อมูลได้อย่างเดียว แก้ไขไม่ได้
+          </div>
+          {isItManager && (
+            <button
+              onClick={handleResendEmail}
+              disabled={resending}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 disabled:opacity-50"
+              style={{ backgroundColor: themeHighlight }}
+            >
+              {resending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+              ส่งอีเมลปิดงานอีกครั้ง
+            </button>
+          )}
+        </div>
+      )}
+
       {/* ── Assign Task Panel (Supervisor / Manager / Super_Admin only) ── */}
-      {canAssign && !['COMPLETED', 'CANCELLED'].includes(task.status) && (
+      {canAssign && !isClosed && !['CANCELLED'].includes(task.status) && (
         <div className="glass-card rounded-xl overflow-hidden">
           <div className="flex items-center gap-2 px-5 py-4 border-b border-slate-700/50">
             <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${themeHighlight}25` }}>
@@ -724,6 +768,12 @@ export default function TaskDetailPage() {
                   className="w-full px-3 py-2 bg-slate-800 border border-slate-600 [&>option]:bg-slate-800 [&>option]:text-white rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
                 >
                   <option value="">-- ยังไม่มอบหมาย --</option>
+                  {/* The current assignee even when no longer an active technician — otherwise the field reads "not assigned" */}
+                  {task.assignedTo && !techUsers.some((u: any) => Number(u.id) === Number(task.assignedToId)) && (
+                    <option value={String(task.assignedToId)}>
+                      {task.assignedTo.firstName} {task.assignedTo.lastName} (ไม่ได้ใช้งานแล้ว)
+                    </option>
+                  )}
                   {techUsers.map((u: any) => (
                     <option key={u.id} value={u.id}>
                       {u.firstName} {u.lastName}
@@ -904,7 +954,7 @@ export default function TaskDetailPage() {
                           className="w-full aspect-video object-cover cursor-pointer"
                           onClick={() => setLightboxUrl(getPhotoUrl(photo.photoPath))}
                         />
-                        {((isAssignedTech && !['COMPLETED', 'PENDING_VERIFY'].includes(task.status)) || isProjectManager) && (
+                        {!isClosed && ((isAssignedTech && !['COMPLETED', 'PENDING_VERIFY'].includes(task.status)) || isProjectManager) && (
                           <button
                             onClick={(e) => { e.stopPropagation(); handleDeletePhoto(photo.id) }}
                             className="absolute top-1.5 right-1.5 bg-black/70 p-1.5 rounded-lg text-red-400 hover:text-red-300 hover:bg-black/90 transition-colors"

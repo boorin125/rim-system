@@ -290,6 +290,12 @@ export class ProjectController {
     return this.projectService.verifyTask(taskId, req.user.id);
   }
 
+  @Post('tasks/:taskId/resend-email')
+  @Roles(UserRole.IT_MANAGER)
+  resendCloseEmail(@Param('taskId', ParseIntPipe) taskId: number, @Request() req: any) {
+    return this.projectService.resendCloseEmail(taskId, req.user.id);
+  }
+
   @Post('tasks/:taskId/reject')
   @Roles(UserRole.SUPER_ADMIN, UserRole.IT_MANAGER, UserRole.HELP_DESK)
   rejectTask(

@@ -40,6 +40,8 @@ const PROJECT_STATUS_LABELS: Record<string, { label: string; color: string }> = 
 }
 
 const DONE_STATUSES = ['COMPLETED', 'PENDING_VERIFY', 'ACCEPTED']
+/** Closed by Help Desk — read-only for every role (backend refuses edits too) */
+const CLOSED_TASK_STATUSES = ['ACCEPTED', 'COMPLETED']
 
 function isOverdue(task: any) {
   if (!task.scheduledDate) return false
@@ -1081,8 +1083,8 @@ export default function ProjectDetailPage() {
                               </span>
                             </div>
                           </Link>
-                          {/* No hover on a phone — edit / delete always visible */}
-                          {canManage && (
+                          {/* No hover on a phone — edit / delete always visible (not on a closed task) */}
+                          {canManage && !CLOSED_TASK_STATUSES.includes(task.status) && (
                             <div className="absolute right-3 top-9 flex items-center gap-1">
                               <button
                                 onClick={() => openEditTask(task)}
@@ -1178,8 +1180,8 @@ export default function ProjectDetailPage() {
                               </span>
                             </Link>
 
-                            {/* Action buttons — PM/Helpdesk/Supervisor only */}
-                            {canManage && (
+                            {/* Action buttons — PM/Helpdesk/Supervisor only, not on a closed task */}
+                            {canManage && !CLOSED_TASK_STATUSES.includes(task.status) && (
                               <div className="absolute right-3 top-1/2 -translate-y-1/2 hidden group-hover:flex items-center gap-1">
                                 <button
                                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); openEditTask(task) }}
