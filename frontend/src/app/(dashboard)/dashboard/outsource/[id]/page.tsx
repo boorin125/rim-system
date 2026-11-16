@@ -8,6 +8,7 @@ import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import axios from 'axios'
 import toast from 'react-hot-toast'
+import { appConfirm } from '@/components/ConfirmDialog'
 import {
   ChevronLeft,
   MapPin,
@@ -1294,7 +1295,7 @@ function FinanceConfirmationSection({ job, jobId, onSuccess, onPhotoSuccess }: {
   }
 
   const handleDeleteSparePhoto = async (index: number) => {
-    if (!confirm('ลบรูปนี้?')) return
+    if (!(await appConfirm({ title: 'ลบรูปนี้?', confirmLabel: 'ลบ', variant: 'danger' }))) return
     setDeletingSparePhoto(index)
     try {
       await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/outsource/jobs/${jobId}/spare-part-photos/${index}`, { headers: authHeader() })
@@ -1326,7 +1327,7 @@ function FinanceConfirmationSection({ job, jobId, onSuccess, onPhotoSuccess }: {
   }
 
   const handleDeleteDocPhoto = async (index: number) => {
-    if (!confirm('ลบรูปนี้?')) return
+    if (!(await appConfirm({ title: 'ลบรูปนี้?', confirmLabel: 'ลบ', variant: 'danger' }))) return
     setDeletingDocPhoto(index)
     try {
       await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/outsource/jobs/${jobId}/finance-document-photos/${index}`, { headers: authHeader() })

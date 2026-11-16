@@ -6,6 +6,7 @@ import { Loader2, AlertCircle, Download } from 'lucide-react'
 import axios from 'axios'
 import { generatePmReportPDF, PmReportData } from '@/utils/pmReportPdf'
 import { getPhotoUrl } from '@/utils/photoUtils'
+import toast from 'react-hot-toast'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'
 
@@ -146,7 +147,7 @@ export default function PmReportPage() {
       }
       await generatePmReportPDF(pdfData)
     } catch {
-      alert('ดาวน์โหลด PDF ไม่สำเร็จ')
+      toast.error('ดาวน์โหลด PDF ไม่สำเร็จ')
     } finally {
       setDownloading(false)
     }

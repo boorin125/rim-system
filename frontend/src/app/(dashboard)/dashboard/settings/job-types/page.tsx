@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
+import { appConfirm } from '@/components/ConfirmDialog'
 import BackButton from '@/components/BackButton'
 import { useThemeHighlight } from '@/hooks/useThemeHighlight'
 
@@ -193,7 +194,7 @@ export default function JobTypesSettingsPage() {
   }
 
   const handleSeedDefaults = async () => {
-    if (!confirm('ยืนยันการสร้าง Job Type เริ่มต้น? หากมีอยู่แล้วจะไม่ถูกเขียนทับ')) return
+    if (!(await appConfirm({ title: 'สร้าง Job Type เริ่มต้น?', message: 'Job Type ที่มีอยู่แล้วจะไม่ถูกเขียนทับ', confirmLabel: 'สร้าง', variant: 'success' }))) return
     setIsSeeding(true)
     try {
       const token = localStorage.getItem('token')

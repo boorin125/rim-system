@@ -39,6 +39,7 @@ import {
 } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
+import { appConfirm } from '@/components/ConfirmDialog'
 import BackButton from '@/components/BackButton'
 import { formatDateTime, formatDateTimeThai } from '@/utils/dateUtils'
 import AssignIncidentModal from '@/components/AssignIncidentModal'
@@ -2489,9 +2490,9 @@ SLA Breach Time: ${slaBreachText}`
                       </div>
                       {canEditBeforePhotos && (
                         <button
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation()
-                            if (window.confirm(`ลบรูปก่อนทำ #${index + 1} ใช่หรือไม่?`)) {
+                            if (await appConfirm({ title: `ลบรูปก่อนทำ #${index + 1} ใช่หรือไม่?`, confirmLabel: 'ลบ', variant: 'danger' })) {
                               handleDeleteBeforePhoto(index)
                             }
                           }}

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import axios from 'axios'
 import { getPhotoUrl } from '@/utils/photoUtils'
+import toast from 'react-hot-toast'
 
 interface PmEquipmentItem {
   equipment: {
@@ -338,7 +339,7 @@ export default function InventorySignPage() {
 
   const handleSubmit = async () => {
     if (!signerName.trim()) {
-      alert('กรุณาระบุชื่อผู้เซ็น')
+      toast.error('กรุณาระบุชื่อผู้เซ็น')
       return
     }
     const signatureData =
@@ -347,7 +348,7 @@ export default function InventorySignPage() {
         ? canvasRef.current?.toDataURL('image/png') ?? null
         : null)
     if (!signatureData) {
-      alert('กรุณาเซ็นลายมือชื่อก่อนยืนยัน')
+      toast.error('กรุณาเซ็นลายมือชื่อก่อนยืนยัน')
       return
     }
     try {
@@ -358,7 +359,7 @@ export default function InventorySignPage() {
       )
       setIsSigned(true)
     } catch (e: any) {
-      alert(e?.response?.data?.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่')
+      toast.error(e?.response?.data?.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่')
     } finally {
       setIsSubmitting(false)
     }

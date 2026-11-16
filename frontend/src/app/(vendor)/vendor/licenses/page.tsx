@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { appConfirm } from '@/components/ConfirmDialog'
 import { useRouter } from 'next/navigation'
 import {
   Shield, Plus, RefreshCw, LogOut, ChevronDown, ChevronUp,
@@ -359,7 +360,7 @@ export default function VendorLicensesPage() {
                                 {/* Suspend */}
                                 {lic.status !== 'SUSPENDED' && (
                                   <button
-                                    onClick={() => confirm('ระงับ License นี้?') && doAction(lic.id, 'suspend')}
+                                    onClick={async () => (await appConfirm({ title: 'ระงับ License นี้?', confirmLabel: 'ระงับ', variant: 'warning' })) && doAction(lic.id, 'suspend')}
                                     disabled={actionLoading === lic.id}
                                     className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-600/20 hover:bg-orange-600/30 text-orange-400 border border-orange-500/30 text-sm rounded-lg transition-colors disabled:opacity-50"
                                   >
@@ -370,7 +371,7 @@ export default function VendorLicensesPage() {
 
                                 {/* Revoke */}
                                 <button
-                                  onClick={() => confirm('ยกเลิก License นี้ถาวร? ไม่สามารถย้อนกลับได้') && doAction(lic.id, 'revoke')}
+                                  onClick={async () => (await appConfirm({ title: 'ยกเลิก License นี้ถาวร?', message: 'ไม่สามารถย้อนกลับได้', confirmLabel: 'ยกเลิก License', cancelLabel: 'ไม่ใช่', variant: 'danger' })) && doAction(lic.id, 'revoke')}
                                   disabled={actionLoading === lic.id}
                                   className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 text-sm rounded-lg transition-colors disabled:opacity-50"
                                 >

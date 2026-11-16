@@ -18,6 +18,7 @@ import SignaturePad from 'signature_pad'
 import QRCodeDisplay from '@/components/QRCodeDisplay'
 import { generateServiceReportPDF, ServiceReportData } from '@/utils/serviceReportPdf'
 import { getPhotoUrl } from '@/utils/photoUtils'
+import toast from 'react-hot-toast'
 
 interface ServiceReport {
   organizationName: string
@@ -250,11 +251,11 @@ export default function ServiceReportPage() {
         : null)
 
     if (!signatureData) {
-      alert('กรุณาเซ็นลายเซ็นก่อน')
+      toast.error('กรุณาเซ็นลายเซ็นก่อน')
       return
     }
     if (!signerName.trim()) {
-      alert('กรุณาระบุชื่อผู้เซ็น')
+      toast.error('กรุณาระบุชื่อผู้เซ็น')
       return
     }
 
@@ -269,7 +270,7 @@ export default function ServiceReportPage() {
       )
       setReport(res.data)
     } catch (err: any) {
-      alert(err.response?.data?.message || 'เกิดข้อผิดพลาด')
+      toast.error(err.response?.data?.message || 'เกิดข้อผิดพลาด')
     } finally {
       setIsSubmitting(false)
     }
@@ -289,7 +290,7 @@ export default function ServiceReportPage() {
       })
     } catch (err: any) {
       console.error('PDF generation failed:', err)
-      alert(`เกิดข้อผิดพลาดในการสร้าง PDF\n${err?.message || String(err)}`)
+      toast.error(`เกิดข้อผิดพลาดในการสร้าง PDF\n${err?.message || String(err)}`)
     } finally {
       setIsGeneratingPdf(false)
     }

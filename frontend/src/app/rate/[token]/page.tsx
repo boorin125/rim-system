@@ -14,6 +14,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import axios from 'axios'
+import toast from 'react-hot-toast'
 
 interface IncidentInfo {
   ticketNumber: string
@@ -115,7 +116,7 @@ export default function PublicRatingPage() {
     e.preventDefault()
 
     if (rating === 0) {
-      alert('กรุณาให้คะแนน')
+      toast.error('กรุณาให้คะแนน')
       return
     }
 
@@ -137,7 +138,7 @@ export default function PublicRatingPage() {
 
       setIsSubmitted(true)
     } catch (err: any) {
-      alert(err.response?.data?.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่')
+      toast.error(err.response?.data?.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่')
     } finally {
       setIsSubmitting(false)
     }

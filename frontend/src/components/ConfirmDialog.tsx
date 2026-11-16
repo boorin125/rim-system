@@ -1,5 +1,6 @@
 'use client'
 import { useCallback, useState } from 'react'
+import { createRoot } from 'react-dom/client'
 import { AlertTriangle, Trash2, LogOut, CheckCircle2 } from 'lucide-react'
 
 export interface ConfirmOptions {
@@ -42,6 +43,27 @@ export function useConfirm() {
   ) : null
 
   return { confirm, dialog }
+}
+
+/**
+ * The same dialog without a hook — a drop-in for window.confirm in handlers:
+ * `if (!(await appConfirm({ title: 'ลบรูปนี้?', variant: 'danger' }))) return`
+ */
+export function appConfirm(opts: ConfirmOptions): Promise<boolean> {
+  return new Promise((resolve) => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    const root = createRoot(host)
+    const done = (value: boolean) => {
+      resolve(value)
+      // Unmount after the click handler finishes (React refuses to unmount a root mid-event)
+      setTimeout(() => {
+        root.unmount()
+        host.remove()
+      }, 0)
+    }
+    root.render(<ConfirmDialogUI {...opts} onConfirm={() => done(true)} onCancel={() => done(false)} />)
+  })
 }
 
 interface ConfirmDialogUIProps extends ConfirmOptions {

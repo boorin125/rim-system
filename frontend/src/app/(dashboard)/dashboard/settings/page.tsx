@@ -63,6 +63,7 @@ import {
 import Link from 'next/link'
 import axios from 'axios'
 import toast from 'react-hot-toast'
+import { appConfirm } from '@/components/ConfirmDialog'
 import { useThemeHighlight } from '@/hooks/useThemeHighlight'
 import LicenseActivateModal from '@/components/LicenseActivateModal'
 import LicenseManagementModal from '@/components/LicenseManagementModal'
@@ -940,7 +941,7 @@ export default function SettingsPage() {
   }
 
   const handleDeleteLogo = async () => {
-    if (!confirm('Are you sure you want to delete the logo?')) return
+    if (!(await appConfirm({ title: 'ลบโลโก้องค์กร?', confirmLabel: 'ลบ', variant: 'danger' }))) return
 
     try {
       const token = localStorage.getItem('token')
@@ -1031,7 +1032,7 @@ export default function SettingsPage() {
   }
 
   const handleDeleteSrLogo = async () => {
-    if (!confirm('ต้องการลบโลโก้ Service Report หรือไม่?')) return
+    if (!(await appConfirm({ title: 'ต้องการลบโลโก้ Service Report หรือไม่?', confirmLabel: 'ลบ', variant: 'danger' }))) return
 
     try {
       const token = localStorage.getItem('token')
@@ -1398,7 +1399,7 @@ export default function SettingsPage() {
         toast.error('Password ไม่ถูกต้อง')
       } else if (msg.startsWith('LICENSE_LIMIT_EXCEEDED:')) {
         const detail = msg.replace('LICENSE_LIMIT_EXCEEDED:', '').trim()
-        alert(`⛔ License ไม่เพียงพอ\n\n${detail}`)
+        toast.error(`License ไม่เพียงพอ — ${detail}`, { duration: 10000 })
       } else {
         toast.error(msg || 'Restore ล้มเหลว')
       }

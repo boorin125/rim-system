@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import axios from 'axios'
 import toast from 'react-hot-toast'
+import { appConfirm } from '@/components/ConfirmDialog'
 import {
   DollarSign,
   MapPin,
@@ -56,7 +57,7 @@ export default function MyJobsPage() {
   }
 
   const handleStart = async (jobId: number) => {
-    if (!confirm('ยืนยันเริ่มงาน?')) return
+    if (!(await appConfirm({ title: 'ยืนยันเริ่มงาน?', confirmLabel: 'เริ่มงาน', variant: 'success' }))) return
     try {
       const token = localStorage.getItem('token')
       await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/outsource/jobs/${jobId}/start`, {}, {

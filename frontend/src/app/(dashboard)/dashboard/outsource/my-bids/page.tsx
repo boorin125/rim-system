@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import axios from 'axios'
 import toast from 'react-hot-toast'
+import { appConfirm } from '@/components/ConfirmDialog'
 import {
   DollarSign,
   Clock,
@@ -57,7 +58,7 @@ export default function MyBidsPage() {
   }
 
   const handleWithdraw = async (bidId: number) => {
-    if (!confirm('ยืนยันถอนข้อเสนอ?')) return
+    if (!(await appConfirm({ title: 'ยืนยันถอนข้อเสนอ?', confirmLabel: 'ถอนข้อเสนอ', variant: 'warning' }))) return
     try {
       const token = localStorage.getItem('token')
       await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/outsource/bids/${bidId}`, {

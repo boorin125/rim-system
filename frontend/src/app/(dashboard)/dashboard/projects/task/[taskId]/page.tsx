@@ -178,7 +178,13 @@ export default function TaskDetailPage() {
   const canEditMedia = !isClosed && (canMedia || canManage)
   const [resending, setResending] = useState(false)
   const handleResendEmail = async () => {
-    if (!confirm('ส่งอีเมลยืนยันปิดงานอีกครั้ง?')) return
+    const ok = await confirmDialog({
+      title: 'ส่งอีเมลยืนยันปิดงานอีกครั้ง?',
+      message: 'ส่งถึงผู้รับอีเมลแจ้งปิดงาน (Settings › Email) พร้อมรูปงาน',
+      confirmLabel: 'ส่งอีเมล',
+      variant: 'success',
+    })
+    if (!ok) return
     setResending(true)
     try {
       const token = localStorage.getItem('token')

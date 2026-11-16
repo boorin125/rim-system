@@ -46,6 +46,7 @@ import {
 } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
+import { appConfirm } from '@/components/ConfirmDialog'
 import BackButton from '@/components/BackButton'
 import { useThemeHighlight } from '@/hooks/useThemeHighlight'
 
@@ -217,7 +218,7 @@ export default function CategoriesSettingsPage() {
   }
 
   const handleSeedDefaults = async () => {
-    if (!confirm('ยืนยันการสร้าง Category เริ่มต้น? หากมีอยู่แล้วจะไม่ถูกเขียนทับ')) return
+    if (!(await appConfirm({ title: 'สร้าง Category เริ่มต้น?', message: 'Category ที่มีอยู่แล้วจะไม่ถูกเขียนทับ', confirmLabel: 'สร้าง', variant: 'success' }))) return
     setIsSeeding(true)
     try {
       const token = localStorage.getItem('token')
