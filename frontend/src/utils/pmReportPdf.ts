@@ -81,19 +81,20 @@ async function loadSarabunFont(doc: jsPDF): Promise<string> {
 }
 
 /** Center-crop a base64 image to a square using canvas (object-fit: cover equivalent) */
-async function cropToSquare(base64: string): Promise<string> {
+async function cropToSquare(base64: string, maxPx = 900): Promise<string> {
   return new Promise((resolve) => {
     const img = new Image()
     img.onload = () => {
       const size = Math.min(img.width, img.height)
       const sx = (img.width - size) / 2
       const sy = (img.height - size) / 2
+      const outSize = Math.min(size, maxPx) // downscale so many photos keep the PDF small
       const canvas = document.createElement('canvas')
-      canvas.width = size
-      canvas.height = size
+      canvas.width = outSize
+      canvas.height = outSize
       const ctx = canvas.getContext('2d')
       if (!ctx) { resolve(base64); return }
-      ctx.drawImage(img, sx, sy, size, size, 0, 0, size, size)
+      ctx.drawImage(img, sx, sy, size, size, 0, 0, outSize, outSize)
       resolve(canvas.toDataURL('image/jpeg', 0.85))
     }
     img.onerror = () => resolve(base64)
@@ -210,13 +211,32 @@ export async function generatePmReportPDF(data: PmReportData): Promise<void> {
   // With photoSize=60: item height ≈ 9(header)+6(details)+4(label)+60(photo)+4(gap)+4(space) = 87 mm
   // Page 1 available ≈ 283-44 = 239 mm → fits 2×87=174 mm ✓ (even 2 with some space)
   // Other pages available ≈ 283-14 = 269 mm → fits 3×87=261 mm ✓
-  const photoSize = 60
-  const itemMinHeight = 9 + 6 + 4 + photoSize + 8  // 87 mm — used for pre-item page-break check
+  // Photo grid: every photo is printed. Size shrinks as the photo count grows
+  // (1 → 60mm, 2-4 → 2 columns, 5+ → 3 columns) per side (before / after).
+  const halfW = contentW / 2
+  const gridPad = 2
+  const photoGrid = (count: number) => {
+    if (count <= 1) return { cols: 1, size: 60, gap: 0 }
+    if (count <= 4) return { cols: 2, size: (halfW - gridPad * 2 - 3) / 2, gap: 3 }
+    return { cols: 3, size: (halfW - gridPad * 2 - 4) / 3, gap: 2 }
+  }
+  const resolvePhoto = async (raw: string): Promise<string | null> => {
+    try {
+      const src = raw.startsWith('data:') ? raw
+        : await loadImageAsDataURL(`/uploads/${raw.replace(/^\/?(uploads\/)?/, '')}`)
+      return src ? await cropToSquare(src) : null
+    } catch { return null }
+  }
 
   for (let i = 0; i < data.equipmentRecords.length; i++) {
     const eq = data.equipmentRecords[i]
 
-    // Pre-item page break — check full item height before drawing anything
+    const photoCount = Math.max(eq.beforePhotos.length, eq.afterPhotos.length)
+    const grid = photoGrid(photoCount)
+    // Header + details + label + first photo row must stay together
+    const itemMinHeight = 9 + 6 + 4 + (photoCount > 0 ? grid.size : 0) + 8
+
+    // Pre-item page break — check header + first photo row before drawing anything
     if (y + itemMinHeight > pageH - 14) {
       doc.addPage()
       y = 14
@@ -264,63 +284,68 @@ export async function generatePmReportPDF(data: PmReportData): Promise<void> {
       y += lines.length * 4 + 2
     }
 
-    // Photos — square crop, each centered within its half of the content width
-    // Left half: marginL → marginL+halfW  |  Right half: marginL+halfW → marginL+contentW
-    const halfW = contentW / 2
-    const p1x = marginL + (halfW - photoSize) / 2          // centered in left half
-    const p2x = marginL + halfW + (halfW - photoSize) / 2  // centered in right half
-    const p1cx = marginL + halfW / 2                        // label center of left half
-    const p2cx = marginL + halfW + halfW / 2                // label center of right half
+    // Photos — square crops in a grid, before on the left half, after on the right half
+    const { cols, size: ps, gap } = grid
+    const leftX = marginL
+    const rightHalfX = marginL + halfW
+    const gridW = cols * ps + (cols - 1) * gap
+    const gx = (halfX: number) => halfX + (halfW - gridW) / 2   // grid centered in its half
+    const p1cx = marginL + halfW / 2                            // label center of left half
+    const p2cx = marginL + halfW + halfW / 2                    // label center of right half
 
-    const hasB = eq.beforePhotos.length > 0
-    const hasA = eq.afterPhotos.length > 0
-
-    if (hasB || hasA) {
+    const drawLabels = () => {
+      doc.setFont(font, 'normal')
       doc.setFontSize(7)
       doc.setTextColor(80, 80, 200)
       doc.text('ก่อน PM', p1cx, y + 3, { align: 'center' })
       doc.setTextColor(30, 120, 30)
       doc.text('หลัง PM', p2cx, y + 3, { align: 'center' })
       y += 4
+    }
 
-      // Square placeholders
-      doc.setDrawColor(180, 180, 180)
-      doc.rect(p1x, y, photoSize, photoSize)
-      doc.rect(p2x, y, photoSize, photoSize)
+    if (photoCount > 0) {
+      drawLabels()
 
-      if (hasB) {
-        try {
-          const raw = eq.beforePhotos[0]
-          const src = raw.startsWith('data:') ? raw
-            : await loadImageAsDataURL(`/uploads/${raw.replace(/^\/?(uploads\/)?/, '')}`)
-          if (src) {
-            const cropped = await cropToSquare(src)
-            doc.addImage(cropped, 'JPEG', p1x, y, photoSize, photoSize, undefined, 'FAST')
+      const rows = Math.ceil(photoCount / cols)
+      for (let r = 0; r < rows; r++) {
+        // Row doesn't fit → continue on a new page (labels repeated)
+        if (y + ps > pageH - 14) {
+          doc.addPage()
+          y = 14
+          drawLabels()
+        }
+
+        for (let c = 0; c < cols; c++) {
+          const idx = r * cols + c
+          const px = c * (ps + gap)
+          const sides = [
+            { photos: eq.beforePhotos, x: gx(leftX) + px, cx: p1cx },
+            { photos: eq.afterPhotos, x: gx(rightHalfX) + px, cx: p2cx },
+          ]
+          for (const side of sides) {
+            if (idx >= side.photos.length) {
+              // Only mark "no photo" for the very first cell of an empty side
+              if (idx === 0) {
+                doc.setDrawColor(180, 180, 180)
+                doc.rect(side.x, y, ps, ps)
+                doc.setFontSize(7)
+                doc.setTextColor(160, 160, 160)
+                doc.text('ไม่มีรูป', side.x + ps / 2, y + ps / 2, { align: 'center' })
+              }
+              continue
+            }
+            doc.setDrawColor(180, 180, 180)
+            doc.rect(side.x, y, ps, ps)
+            const img = await resolvePhoto(side.photos[idx])
+            if (img) {
+              try { doc.addImage(img, 'JPEG', side.x, y, ps, ps, undefined, 'FAST') } catch {}
+            }
           }
-        } catch {}
-      } else {
-        doc.setFontSize(7)
-        doc.setTextColor(160, 160, 160)
-        doc.text('ไม่มีรูป', p1cx, y + photoSize / 2, { align: 'center' })
+        }
+        y += ps + (r < rows - 1 ? gap : 0)
       }
 
-      if (hasA) {
-        try {
-          const raw = eq.afterPhotos[0]
-          const src = raw.startsWith('data:') ? raw
-            : await loadImageAsDataURL(`/uploads/${raw.replace(/^\/?(uploads\/)?/, '')}`)
-          if (src) {
-            const cropped = await cropToSquare(src)
-            doc.addImage(cropped, 'JPEG', p2x, y, photoSize, photoSize, undefined, 'FAST')
-          }
-        } catch {}
-      } else {
-        doc.setFontSize(7)
-        doc.setTextColor(160, 160, 160)
-        doc.text('ไม่มีรูป', p2cx, y + photoSize / 2, { align: 'center' })
-      }
-
-      y += photoSize + 4
+      y += 4
     }
 
     y += 4 // gap between equipment
