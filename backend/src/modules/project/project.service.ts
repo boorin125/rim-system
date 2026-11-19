@@ -1399,7 +1399,7 @@ export class ProjectService implements OnModuleInit {
     <tr><td style="padding:24px 30px 6px;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${theme.border};border-radius:8px;border-collapse:separate;overflow:hidden;">
         <tr>
-          ${labelCell('งาน (Task)')}
+          ${labelCell('Task')}
           <td style="padding:11px 14px;border-bottom:1px solid ${theme.border};">
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
               <td style="font-size:14px;font-weight:bold;color:#111827;">${esc(taskTitle)}</td>
@@ -1409,9 +1409,9 @@ export class ProjectService implements OnModuleInit {
             </tr></table>
           </td>
         </tr>
-        <tr>${labelCell('โครงการ (Project)')}<td style="${valueStyle()}">${dot}${esc(projectName)}</td></tr>
-        <tr>${labelCell('สาขา')}<td style="${valueStyle()}">${esc(store)}</td></tr>
-        <tr>${labelCell('ช่างผู้รับผิดชอบ', true)}<td style="${valueStyle(true)}">${esc(techName)}</td></tr>
+        <tr>${labelCell('Project')}<td style="${valueStyle()}">${dot}${esc(projectName)}</td></tr>
+        <tr>${labelCell('Store')}<td style="${valueStyle()}">${esc(store)}</td></tr>
+        <tr>${labelCell('Technician', true)}<td style="${valueStyle(true)}">${esc(techName)}</td></tr>
       </table>
     </td></tr>
 
