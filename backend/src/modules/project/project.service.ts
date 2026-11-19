@@ -12,6 +12,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { Prisma, EquipmentStatus, EquipmentLogAction, EquipmentLogSource } from '@prisma/client';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EmailService } from '../../email/email.service';
 import { NotificationsService } from '../../notifications/notifications.service';
@@ -46,6 +47,23 @@ const SUPPORT_INCIDENT_SELECT = {
 
 /** Closed = accepted by Help Desk (COMPLETED is the older name of the same end state) */
 const CLOSED_TASK_STATUSES = ['ACCEPTED', 'COMPLETED'];
+
+/**
+ * Close-email colours from Project.color, as plain hex (email clients ignore CSS variables / color-mix):
+ * c = project colour, on = text on it, tint ≈ 9% / border ≈ 28% / bg ≈ 6% of the colour over white.
+ */
+function projectEmailTheme(color?: string | null) {
+  const c = /^#[0-9a-f]{6}$/i.test(color ?? '') ? (color as string).toLowerCase() : '#3b82f6';
+  const rgb = [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
+  const lin = (v: number) => {
+    v /= 255;
+    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  };
+  const lum = 0.2126 * lin(rgb[0]) + 0.7152 * lin(rgb[1]) + 0.0722 * lin(rgb[2]);
+  const mix = (t: number) =>
+    '#' + rgb.map((v) => Math.round(v * t + 255 * (1 - t)).toString(16).padStart(2, '0')).join('');
+  return { c, on: lum > 0.4 ? '#1f2937' : '#ffffff', tint: mix(0.09), border: mix(0.28), bg: mix(0.06) };
+}
 
 /** One visit per checked-in project task, per checked-in incident work round (or the incident check-in) */
 function countVisits(
@@ -636,7 +654,7 @@ export class ProjectService implements OnModuleInit {
       include: {
         projectStore: {
           include: {
-            project: { select: { id: true, name: true, status: true, managers: { select: { userId: true } } } },
+            project: { select: { id: true, name: true, status: true, color: true, managers: { select: { userId: true } } } },
             store: { select: { id: true, storeCode: true, name: true, province: true, storeStatus: true, storeType: true, closeDate: true } },
           },
         },
@@ -1173,7 +1191,7 @@ export class ProjectService implements OnModuleInit {
     }
 
     // Send close-notification email (fire-and-forget — don't block response)
-    this.sendVerifyNotificationEmail(task, verifier, verifiedAt).catch((err) =>
+    this.sendVerifyNotificationEmail(task).catch((err) =>
       this.logger.error('Failed to send verify notification email', err),
     );
 
@@ -1277,11 +1295,7 @@ export class ProjectService implements OnModuleInit {
     return res;
   }
 
-  private async sendVerifyNotificationEmail(
-    task: Awaited<ReturnType<typeof this.findTask>>,
-    verifier: { firstName: string; lastName: string } | null,
-    verifiedAt: Date,
-  ) {
+  private async sendVerifyNotificationEmail(task: Awaited<ReturnType<typeof this.findTask>>) {
     // Same recipients as Incident close notifications (Settings › Email)
     const emailSettings = await this.settingsService.getEmailSettings();
     const to = emailSettings?.closeNotificationTo?.trim();
@@ -1291,15 +1305,30 @@ export class ProjectService implements OnModuleInit {
       ? emailSettings.closeNotificationCc.split(',').map((e: string) => e.trim()).filter(Boolean)
       : [];
 
-    const ticketNo = task.ticketNo || `Task #${task.id}`;
-    const taskTitle = task.title || ticketNo;
+    const esc = (s: string) =>
+      s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const ticketNo = task.ticketNo || '';
+    const taskTitle = task.title || task.ticketNo || `Task #${task.id}`;
     const projectName = task.projectStore?.project?.name || '-';
-    const storeCode = task.projectStore?.store?.storeCode || '-';
-    const storeName = task.projectStore?.store?.name || '-';
+    const storeCode = task.projectStore?.store?.storeCode || '';
+    const storeName = task.projectStore?.store?.name || '';
+    const store = [storeCode, storeName].filter(Boolean).join(' ') || '-';
+    const province = task.projectStore?.store?.province || '';
     const techName = task.assignedTo
       ? `${task.assignedTo.firstName} ${task.assignedTo.lastName}`
       : '-';
-    const verifierName = verifier ? `${verifier.firstName} ${verifier.lastName}` : 'Helpdesk';
+
+    // Theme from the project colour — plain hex values (email clients ignore CSS variables / color-mix)
+    const theme = projectEmailTheme(task.projectStore?.project?.color);
+
+    // App name of this server (Settings › Organization), shown in the footer
+    const appNameCfg = await this.prisma.systemConfig.findUnique({ where: { key: 'pwa_app_name' } });
+    const appName = appNameCfg?.value?.trim() || 'RIM System';
+
+    // Permanent public link — created once, the same token on every resend
+    const publicToken = await this.ensurePublicToken(task.id, task.publicToken);
+    const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/+$/, '');
+    const publicLink = `${frontendUrl}/project-task/${publicToken}`;
 
     // Photos of the job: check-in, work / evidence photos (point + before/after), test-result photos
     const PHASE: Record<string, string> = { BEFORE: 'ก่อน', AFTER: 'หลัง' };
@@ -1314,100 +1343,139 @@ export class ProjectService implements OnModuleInit {
         .map((t) => ({ path: t.photoPath as string, caption: `${t.itemName}: ${t.result}` })),
     ];
     const MAX_PHOTOS = 40; // keeps the email a few MB at most
-    const grid = await this.emailService.buildEmailPhotoGrid(allPhotos.slice(0, MAX_PHOTOS), { cidPrefix: `task-${task.id}` });
+    const grid = await this.emailService.buildEmailPhotoGrid(allPhotos.slice(0, MAX_PHOTOS), {
+      cidPrefix: `task-${task.id}`,
+      cols: 3,
+      size: 176,
+    });
     const photosHtml = grid.html
       ? `
-          <div style="padding: 0 30px 24px;">
-            <p style="margin: 0 0 10px 0; font-weight: bold; color: #2d5a47;">📷 รูปงาน (${allPhotos.length} รูป)</p>
-            ${grid.html}
-            ${allPhotos.length > MAX_PHOTOS ? `<p style="margin: 8px 0 0 0; font-size: 12px; color: #6b7280;">แสดง ${MAX_PHOTOS} รูปแรก — ดูทั้งหมดได้ในระบบ</p>` : ''}
-          </div>`
+    <tr><td style="padding:18px 30px 8px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+        <td style="border-left:4px solid ${theme.c};padding:2px 0 2px 10px;font-size:15px;font-weight:bold;color:#111827;">📷 รูปงาน <span style="font-weight:normal;color:#6b7280;font-size:13px;">(${allPhotos.length} รูป)</span></td>
+      </tr></table>
+      <div style="margin-top:12px;">${grid.html}</div>
+      ${allPhotos.length > MAX_PHOTOS ? `<div style="font-size:11px;color:#9ca3af;margin-top:6px;">ดูรูปทั้งหมดได้ที่ "ดูรายละเอียดงาน"</div>` : ''}
+    </td></tr>`
       : '';
 
+    // "22 ตุลาคม 2569 · 09:30" (Thai time regardless of the container TZ)
     const fmtDate = (d: Date | null) =>
       d
-        ? d.toLocaleString('th-TH', {
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-          })
+        ? `${d.toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Bangkok' })} · ${d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Bangkok' })}`
         : '-';
 
-    const html = `
-      <!DOCTYPE html>
-      <html>
-      <head><meta charset="utf-8"><title>ยืนยันปิดงาน - RIM System</title></head>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #1f2937; background-color: #f0f5f0; padding: 20px;">
-        <div style="max-width: 620px; margin: 0 auto; background-color: #ffffff; border-radius: 10px; overflow: hidden; border: 1px solid #d1ddd1; box-shadow: 0 2px 8px rgba(45,90,71,0.08);">
+    const dot = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${theme.c};margin-right:6px;"></span>`;
+    const labelCell = (label: string, last = false) =>
+      `<td width="34%" style="padding:11px 14px;background:${theme.tint};font-weight:bold;font-size:13px;color:#374151;${last ? '' : `border-bottom:1px solid ${theme.border};`}">${label}</td>`;
+    const valueStyle = (last = false) =>
+      `padding:11px 14px;font-size:14px;color:#111827;${last ? '' : `border-bottom:1px solid ${theme.border};`}`;
+    const resolution = `เจ้าหน้าที่เข้าดำเนินการ ${taskTitle} ${projectName} ${store} เรียบร้อยแล้ว`;
 
-          <!-- Header -->
-          <div style="background-color: #2d5a47; padding: 28px 30px 24px; text-align: center; border-bottom: 3px solid #22c55e;">
-            <div style="display: inline-flex; align-items: center; justify-content: center; background: #22c55e; border-radius: 50%; width: 44px; height: 44px; margin-bottom: 10px;">
-              <span style="font-size: 22px; line-height: 1;">✅</span>
-            </div>
-            <h1 style="color: #ffffff; margin: 0; font-size: 22px;">ยืนยันปิดงานแล้ว</h1>
-            <p style="color: rgba(255,255,255,0.7); margin: 6px 0 0 0; font-size: 14px;">RIM - Project</p>
-          </div>
+    const html = `<!DOCTYPE html>
+<html lang="th">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Confirm Close · ${esc(taskTitle)}</title></head>
+<body style="margin:0;padding:0;background:${theme.bg};">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${theme.bg};padding:24px 0;">
+<tr><td align="center">
+  <table role="presentation" width="620" cellpadding="0" cellspacing="0" style="width:620px;max-width:100%;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid ${theme.border};font-family:Tahoma,'Segoe UI',Arial,sans-serif;color:#1f2937;">
 
-          <!-- Task Info -->
-          <div style="padding: 24px 30px;">
-            <table style="width: 100%; border-collapse: collapse; border-radius: 6px; overflow: hidden;">
-              <tr>
-                <td style="padding: 10px 14px; background: #f0f5f0; border: 1px solid #d1ddd1; font-weight: bold; width: 40%; color: #374151;">Ticket No.</td>
-                <td style="padding: 10px 14px; background: #ffffff; border: 1px solid #d1ddd1; color: #1f2937; font-weight: bold;">${ticketNo}</td>
-              </tr>
-              <tr>
-                <td style="padding: 10px 14px; background: #f0f5f0; border: 1px solid #d1ddd1; font-weight: bold; color: #374151;">งาน</td>
-                <td style="padding: 10px 14px; background: #ffffff; border: 1px solid #d1ddd1; color: #1f2937;">${taskTitle}</td>
-              </tr>
-              <tr>
-                <td style="padding: 10px 14px; background: #f0f5f0; border: 1px solid #d1ddd1; font-weight: bold; color: #374151;">โครงการ</td>
-                <td style="padding: 10px 14px; background: #ffffff; border: 1px solid #d1ddd1; color: #1f2937;">${projectName}</td>
-              </tr>
-              <tr>
-                <td style="padding: 10px 14px; background: #f0f5f0; border: 1px solid #d1ddd1; font-weight: bold; color: #374151;">สาขา</td>
-                <td style="padding: 10px 14px; background: #ffffff; border: 1px solid #d1ddd1; color: #1f2937;">[${storeCode}] ${storeName}</td>
-              </tr>
-              <tr>
-                <td style="padding: 10px 14px; background: #f0f5f0; border: 1px solid #d1ddd1; font-weight: bold; color: #374151;">ช่างผู้รับผิดชอบ</td>
-                <td style="padding: 10px 14px; background: #ffffff; border: 1px solid #d1ddd1; color: #1f2937;">${techName}</td>
-              </tr>
-              <tr>
-                <td style="padding: 10px 14px; background: #f0f5f0; border: 1px solid #d1ddd1; font-weight: bold; color: #374151;">ส่งปิดงานเมื่อ</td>
-                <td style="padding: 10px 14px; background: #ffffff; border: 1px solid #d1ddd1; color: #1f2937;">${fmtDate(task.completedAt)}</td>
-              </tr>
-              <tr>
-                <td style="padding: 10px 14px; background: #f0f5f0; border: 1px solid #d1ddd1; font-weight: bold; color: #374151;">ยืนยันปิดงานเมื่อ</td>
-                <td style="padding: 10px 14px; background: #ffffff; border: 1px solid #d1ddd1; color: #16a34a; font-weight: bold;">${fmtDate(verifiedAt)}</td>
-              </tr>
-              <tr>
-                <td style="padding: 10px 14px; background: #f0f5f0; border: 1px solid #d1ddd1; font-weight: bold; color: #374151;">ยืนยันโดย</td>
-                <td style="padding: 10px 14px; background: #ffffff; border: 1px solid #d1ddd1; color: #1f2937;">${verifierName} (Helpdesk)</td>
-              </tr>
-            </table>
-          </div>
-          ${photosHtml}
+    <!-- HEADER -->
+    <tr><td style="background:${theme.c};height:8px;line-height:8px;font-size:0;">&nbsp;</td></tr>
+    <tr><td style="padding:22px 30px 18px;background:#ffffff;border-bottom:3px solid ${theme.c};">
+      <div style="font-size:24px;line-height:1.3;font-weight:bold;color:#111827;">Confirm Close · ${esc(taskTitle)}</div>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:12px;"><tr>
+        <td valign="top" style="font-size:12px;letter-spacing:1px;text-transform:uppercase;color:#6b7280;font-weight:bold;">
+          ${dot}PROJECT · ${esc(`${projectName} ${store}`)}
+          ${province ? `<div style="font-size:12px;letter-spacing:0;text-transform:none;font-weight:normal;color:#6b7280;margin:3px 0 0 16px;">${esc(province)}</div>` : ''}
+        </td>
+        ${ticketNo ? `<td valign="top" align="right" style="white-space:nowrap;padding-left:12px;">
+          <span style="display:inline-block;border:2px solid ${theme.c};color:#111827;border-radius:6px;padding:3px 12px;font-size:13px;font-weight:bold;letter-spacing:.5px;">${esc(ticketNo)}</span>
+        </td>` : ''}
+      </tr></table>
+    </td></tr>
 
-          <!-- Footer -->
-          <div style="padding: 16px 30px 20px; border-top: 1px solid #d1ddd1; text-align: center; color: #9ca3af; font-size: 12px;">
-            <p style="margin: 0;">อีเมลนี้ส่งโดยอัตโนมัติจาก RIM System</p>
-            <p style="margin: 4px 0 0 0;">© ${new Date().getFullYear()} RIM System. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    <!-- OVERVIEW -->
+    <tr><td style="padding:24px 30px 6px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${theme.border};border-radius:8px;border-collapse:separate;overflow:hidden;">
+        <tr>
+          ${labelCell('งาน (Task)')}
+          <td style="padding:11px 14px;border-bottom:1px solid ${theme.border};">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+              <td style="font-size:14px;font-weight:bold;color:#111827;">${esc(taskTitle)}</td>
+              <td align="right" style="white-space:nowrap;">
+                <span style="display:inline-block;background:#dcfce7;color:#15803d;border-radius:999px;padding:3px 12px;font-size:12px;font-weight:bold;">✓ ปิดงานแล้ว</span>
+              </td>
+            </tr></table>
+          </td>
+        </tr>
+        <tr>${labelCell('โครงการ (Project)')}<td style="${valueStyle()}">${dot}${esc(projectName)}</td></tr>
+        <tr>${labelCell('สาขา')}<td style="${valueStyle()}">${esc(store)}</td></tr>
+        <tr>${labelCell('ช่างผู้รับผิดชอบ', true)}<td style="${valueStyle(true)}">${esc(techName)}</td></tr>
+      </table>
+    </td></tr>
+
+    <!-- TIMELINE -->
+    <tr><td style="padding:14px 30px 6px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+        <td width="49%" valign="top" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;">
+          <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;">เวลาเริ่มงาน (Check-in)</div>
+          <div style="font-size:14px;color:#111827;margin-top:3px;">${fmtDate(task.checkInAt)}</div>
+        </td>
+        <td width="2%"></td>
+        <td width="49%" valign="top" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 14px;">
+          <div style="font-size:11px;color:#15803d;text-transform:uppercase;letter-spacing:.5px;">เวลาปิดงาน (Resolve)</div>
+          <div style="font-size:14px;color:#15803d;font-weight:bold;margin-top:3px;">${fmtDate(task.completedAt)}</div>
+        </td>
+      </tr></table>
+    </td></tr>
+
+    <!-- RESOLUTION -->
+    <tr><td style="padding:14px 30px 0;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+        <td style="background:${theme.tint};border-left:4px solid ${theme.c};border-radius:0 8px 8px 0;padding:12px 16px;font-size:14px;line-height:1.6;color:#111827;">
+          <b>Resolution:</b> ${esc(resolution)}
+        </td>
+      </tr></table>
+    </td></tr>
+${photosHtml}
+    <!-- CTA : public link -->
+    <tr><td align="center" style="padding:18px 30px 26px;">
+      <a href="${publicLink}" style="display:inline-block;background:${theme.c};color:${theme.on};text-decoration:none;font-weight:bold;font-size:15px;padding:13px 30px;border-radius:8px;">🔗 ดูรายละเอียดงาน</a>
+    </td></tr>
+
+    <!-- FOOTER -->
+    <tr><td style="padding:18px 30px 22px;border-top:1px solid ${theme.border};text-align:center;color:#9ca3af;font-size:12px;">
+      <div>Automated message from ${esc(appName)} · Please do not reply</div>
+      <div style="margin-top:4px;">© ${new Date().getFullYear()} RIM System. All rights reserved.</div>
+    </td></tr>
+  </table>
+</td></tr>
+</table>
+</body>
+</html>`;
 
     await this.emailService.sendEmail({
       to,
       ...(cc.length > 0 && { cc }),
-      subject: `✅ ยืนยันปิดงาน ${ticketNo} - [${storeCode}] ${storeName}`,
+      subject: `✅ Confirm Close ${taskTitle} ${projectName} ${store}`,
       html,
       attachments: grid.attachments,
     });
     return { to, cc };
+  }
+
+  /** The task's permanent public-link token — created on first use, never replaced (resend keeps the same link) */
+  private async ensurePublicToken(taskId: number, current: string | null) {
+    if (current) return current;
+    const created = await this.prisma.projectTask.updateMany({
+      where: { id: taskId, publicToken: null },
+      data: { publicToken: randomUUID() },
+    });
+    // Whether we set it or a concurrent send did, read back the stored one
+    const row = await this.prisma.projectTask.findUnique({ where: { id: taskId }, select: { publicToken: true } });
+    if (!row?.publicToken) throw new Error(`Failed to create public token for task #${taskId} (${created.count})`);
+    return row.publicToken;
   }
 
   /** IT Manager: send the close email of a closed task again (e.g. the first send failed or a recipient was added) */
@@ -1416,7 +1484,7 @@ export class ProjectService implements OnModuleInit {
     if (!CLOSED_TASK_STATUSES.includes(task.status) || !task.verifiedAt) {
       throw new BadRequestException('ส่งอีเมลได้เฉพาะงานที่ยืนยันปิดงานแล้ว');
     }
-    const sent = await this.sendVerifyNotificationEmail(task, task.verifiedBy, task.verifiedAt);
+    const sent = await this.sendVerifyNotificationEmail(task);
     if (!sent) throw new BadRequestException('ยังไม่ได้ตั้งผู้รับอีเมลแจ้งปิดงาน (Settings › Email)');
 
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { firstName: true, lastName: true } });

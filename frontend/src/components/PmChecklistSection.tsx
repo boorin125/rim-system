@@ -349,6 +349,29 @@ function EquipmentCard({
     }
   }
 
+  // Drag to reorder after-PM photos — the FIRST one is used in the Inventory Report
+  const reorderAfterPhotos = async (from: number, to: number) => {
+    if (!canEditPhotos || from === to) return
+    const current = record.afterPhotos
+    if (from < 0 || from >= current.length || to < 0 || to >= current.length) return
+    const next = [...current]
+    const [moved] = next.splice(from, 1)
+    next.splice(to, 0, moved)
+    onUpdated({ ...record, afterPhotos: next }) // optimistic
+    try {
+      const token = localStorage.getItem('token')
+      const res = await axios.patch(
+        `${process.env.NEXT_PUBLIC_API_URL}/pm/equipment-record/${record.id}`,
+        { setAfterPhotos: next },
+        { headers: { Authorization: `Bearer ${token}` } },
+      )
+      onUpdated(res.data)
+    } catch {
+      onUpdated(record) // revert on error
+      toast.error('จัดลำดับรูปไม่สำเร็จ')
+    }
+  }
+
   return (
     <div
       className={`border rounded-xl transition-colors ${
@@ -424,6 +447,8 @@ function EquipmentCard({
               canEdit={canEditPhotos}
               onUpload={(files) => uploadPhotos(files, 'after')}
               onRemove={(i) => removePhoto('after', i)}
+              onReorder={reorderAfterPhotos}
+              highlightFirst
               accentColor="green"
             />
           </div>
@@ -643,6 +668,8 @@ function PhotoUploadBlock({
   canEdit,
   onUpload,
   onRemove,
+  onReorder,
+  highlightFirst,
   accentColor,
 }: {
   label: string
@@ -651,8 +678,46 @@ function PhotoUploadBlock({
   canEdit: boolean
   onUpload: (files: FileList) => void
   onRemove?: (index: number) => void
+  onReorder?: (from: number, to: number) => void
+  highlightFirst?: boolean
   accentColor: 'blue' | 'green'
 }) {
+  const [dragIndex, setDragIndex] = useState<number | null>(null)
+  const [overIndex, setOverIndex] = useState<number | null>(null)
+  const canReorder = canEdit && !!onReorder && photos.length > 1
+
+  // Drag-to-reorder via Pointer Events (works with mouse and touch)
+  const dragRef = useRef<{ index: number; startX: number; startY: number; active: boolean; over: number | null } | null>(null)
+  const justDraggedRef = useRef(false)
+  const resetDrag = () => { dragRef.current = null; setDragIndex(null); setOverIndex(null) }
+  const handlePointerDown = (e: React.PointerEvent<HTMLElement>, index: number) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return
+    dragRef.current = { index, startX: e.clientX, startY: e.clientY, active: false, over: null }
+    try { e.currentTarget.setPointerCapture(e.pointerId) } catch {}
+  }
+  const handlePointerMove = (e: React.PointerEvent<HTMLElement>) => {
+    const d = dragRef.current
+    if (!d) return
+    if (!d.active) {
+      if (Math.hypot(e.clientX - d.startX, e.clientY - d.startY) < 8) return
+      d.active = true
+      setDragIndex(d.index)
+    }
+    const el = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-photo-idx]') as HTMLElement | null
+    const over = el && el.parentElement === e.currentTarget.parentElement?.parentElement
+      ? Number(el.dataset.photoIdx) : null
+    if (over !== d.over) { d.over = over; setOverIndex(over) }
+  }
+  const handlePointerUp = () => {
+    const d = dragRef.current
+    if (d?.active) {
+      justDraggedRef.current = true                       // swallow the click that follows a drag
+      setTimeout(() => { justDraggedRef.current = false }, 0)
+      if (d.over !== null && d.over !== d.index) onReorder?.(d.index, d.over)
+    }
+    resetDrag()
+  }
+
   const cameraRef = useRef<HTMLInputElement>(null)
   const galleryRef = useRef<HTMLInputElement>(null)
   const [showChoice, setShowChoice] = useState(false)
@@ -694,23 +759,55 @@ function PhotoUploadBlock({
       {photos.length > 0 && (
         <div className="mb-2">
           <div className="flex gap-1 flex-wrap">
-            {photos.map((src, i) => (
-              <div key={i} className="relative">
-                <button
-                  onClick={() => { if (confirmDeleteIndex !== i) setLightbox(getPhotoUrl(src)) }}
+            {photos.map((src, i) => {
+              const isFirstHighlight = !!highlightFirst && i === 0
+              return (
+              <div
+                key={src}
+                data-photo-idx={i}
+                className={`relative rounded-lg transition-transform ${
+                  dragIndex === i ? 'opacity-50 scale-110 z-10' : ''
+                } ${
+                  overIndex === i && dragIndex !== null && dragIndex !== i ? 'ring-2 ring-white/80' : ''
+                }`}
+              >
+                {/* Pointer events = mouse + touch. touch-action:none lets a finger drag the photo instead of scrolling */}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => {
+                    if (justDraggedRef.current) return
+                    if (confirmDeleteIndex !== i) setLightbox(getPhotoUrl(src))
+                  }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && confirmDeleteIndex !== i) setLightbox(getPhotoUrl(src)) }}
+                  onPointerDown={canReorder ? (e) => handlePointerDown(e, i) : undefined}
+                  onPointerMove={canReorder ? handlePointerMove : undefined}
+                  onPointerUp={canReorder ? handlePointerUp : undefined}
+                  onPointerCancel={canReorder ? resetDrag : undefined}
+                  onContextMenu={canReorder ? (e) => e.preventDefault() : undefined}
+                  style={canReorder ? { touchAction: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none' } : undefined}
                   className="focus:outline-none"
+                  title={isFirstHighlight ? 'รูปแรก — ใช้ใน Inventory Report' : canReorder ? 'ลากเพื่อจัดลำดับรูป' : undefined}
                 >
                   <img
                     src={getPhotoUrl(src)}
                     alt=""
                     loading="eager"
-                    className={`w-12 h-12 object-cover rounded-lg border transition-all cursor-zoom-in ${
+                    draggable={false}
+                    className={`w-12 h-12 object-cover rounded-lg transition-all ${canReorder ? 'cursor-grab active:cursor-grabbing' : 'cursor-zoom-in'} ${
                       confirmDeleteIndex === i
-                        ? 'border-red-500 opacity-40'
-                        : 'border-slate-600 hover:opacity-80'
+                        ? 'border border-red-500 opacity-40'
+                        : isFirstHighlight
+                        ? 'border-2 border-amber-400 ring-2 ring-amber-400/40'
+                        : 'border border-slate-600 hover:opacity-80'
                     }`}
                   />
-                </button>
+                </div>
+                {isFirstHighlight && (
+                  <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 px-1 rounded bg-amber-400 text-[9px] leading-3 font-bold text-slate-900 whitespace-nowrap pointer-events-none">
+                    ★ Inventory
+                  </span>
+                )}
                 {canEdit && onRemove && (
                   <button
                     onClick={(e) => { e.stopPropagation(); setConfirmDeleteIndex(confirmDeleteIndex === i ? null : i) }}
@@ -722,8 +819,14 @@ function PhotoUploadBlock({
                   </button>
                 )}
               </div>
-            ))}
+              )
+            })}
           </div>
+          {highlightFirst && photos.length > 0 && (
+            <p className="mt-2.5 text-[11px] text-amber-400/80">
+              ★ รูปแรกใช้แสดงใน Inventory Report{canReorder ? ' — ลากรูปเพื่อเปลี่ยนลำดับ' : ''}
+            </p>
+          )}
           {/* Confirm delete panel */}
           {confirmDeleteIndex !== null && canEdit && onRemove && (
             <div className="mt-2 flex items-center gap-2 px-3 py-2 bg-red-500/10 border border-red-500/40 rounded-lg">

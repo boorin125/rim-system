@@ -34,6 +34,7 @@ const publicPaths = [
   '/inventory-sign/', // Public inventory sign (for signing)
   '/inventory-list/', // Public inventory list (view only)
   '/pm-report/',      // Public PM report
+  '/project-task/',   // Public project task view (close email link)
 ]
 
 export default function AuthProvider({ children }: { children: React.ReactNode }) {

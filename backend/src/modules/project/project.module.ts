@@ -1,6 +1,7 @@
 // src/modules/project/project.module.ts
 import { Module } from '@nestjs/common';
 import { ProjectController } from './project.controller';
+import { ProjectPublicController } from './project-public.controller';
 import { ProjectService } from './project.service';
 import { ProjectModuleGuard } from './project-module.guard';
 import { EmailModule } from '../../email/email.module';
@@ -10,7 +11,7 @@ import { StoresModule } from '../stores/stores.module';
 
 @Module({
   imports: [EmailModule, NotificationsModule, SettingsModule, StoresModule],
-  controllers: [ProjectController],
+  controllers: [ProjectController, ProjectPublicController],
   providers: [ProjectService, ProjectModuleGuard],
   exports: [ProjectService],
 })

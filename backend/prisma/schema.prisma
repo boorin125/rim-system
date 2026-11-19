@@ -2001,6 +2001,8 @@ model ProjectTask {
   verifiedById     Int?              @map("verified_by_id")
   notes            String?           @db.Text
   rejectionNote    String?           @map("rejection_note") @db.Text
+  // Public read-only link (/project-task/<token>) sent in the close email — never expires, never regenerated
+  publicToken      String?           @unique @map("public_token")
   createdAt        DateTime          @default(now()) @map("created_at")
   updatedAt        DateTime          @updatedAt @map("updated_at")
 
