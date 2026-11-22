@@ -1970,9 +1970,9 @@ model ProjectStore {
   notes     String?            @db.Text
   createdAt DateTime           @default(now()) @map("created_at")
 
-  project Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  store   Store         @relation(fields: [storeId], references: [id])
-  tasks   ProjectTask[]
+  project          Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  store            Store         @relation(fields: [storeId], references: [id])
+  tasks            ProjectTask[]
   // Incidents opened at any store to do work for this project store (visit counting)
   supportIncidents Incident[]
 
@@ -2006,9 +2006,9 @@ model ProjectTask {
   createdAt        DateTime          @default(now()) @map("created_at")
   updatedAt        DateTime          @updatedAt @map("updated_at")
 
-  projectStore ProjectStore       @relation(fields: [projectStoreId], references: [id], onDelete: Cascade)
-  assignedTo   User?              @relation("ProjectTaskAssignedTo", fields: [assignedToId], references: [id])
-  verifiedBy   User?              @relation("ProjectTaskVerifiedBy", fields: [verifiedById], references: [id])
+  projectStore ProjectStore        @relation(fields: [projectStoreId], references: [id], onDelete: Cascade)
+  assignedTo   User?               @relation("ProjectTaskAssignedTo", fields: [assignedToId], references: [id])
+  verifiedBy   User?               @relation("ProjectTaskVerifiedBy", fields: [verifiedById], references: [id])
   photos       ProjectPhoto[]
   testResults  ProjectTestResult[]
   equipment    ProjectEquipment[]
@@ -2182,4 +2182,39 @@ model Patch {
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
   @@map("patches")
+}
+
+// ── Integration API v1 (server ↔ server, read-only) ───────────────────────
+// Spec: RSM-System/docs/integration/integration-api-v1.md — keys are issued here for callers (e.g. RSM).
+// Not part of backups (credentials stay per server).
+model IntegrationApiKey {
+  id            Int       @id @default(autoincrement())
+  name          String // caller name, e.g. "RSM X-treme"
+  callerUrl     String    @map("caller_url") // X-Integration-Caller must equal this (normalised origin)
+  keyHash       String    @unique @map("key_hash") // SHA-256 hex of the full key — the key itself is never stored
+  keyPrefix     String    @map("key_prefix") // first characters, shown in the list to tell keys apart
+  scopes        String[]  @default([])
+  createdById   Int?      @map("created_by_id")
+  createdByName String?   @map("created_by_name")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  lastUsedAt    DateTime? @map("last_used_at")
+  lastUsedIp    String?   @map("last_used_ip")
+  revokedAt     DateTime? @map("revoked_at")
+
+  @@map("integration_api_keys")
+}
+
+model IntegrationAuditLog {
+  id         Int      @id @default(autoincrement())
+  keyId      Int?     @map("key_id") // null = no / unknown key
+  keyName    String?  @map("key_name")
+  method     String
+  path       String
+  status     Int
+  durationMs Int      @map("duration_ms")
+  ip         String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@map("integration_audit_logs")
 }

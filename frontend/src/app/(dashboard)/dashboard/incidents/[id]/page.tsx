@@ -36,6 +36,7 @@ import {
   ChevronRight,
   ArrowRightLeft,
   Cpu,
+  PackageOpen,
 } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
@@ -91,6 +92,16 @@ export default function IncidentDetailPage() {
   const [isGeneratingBlankPdf, setIsGeneratingBlankPdf] = useState(false)
   const [isSendingEmail, setIsSendingEmail] = useState(false)
   const [showSrMenu, setShowSrMenu] = useState(false)
+  // Integration: RSM URL for the "เบิกอะไหล่ (RSM)" button (Settings › Integration) — null = no button
+  const [rsmLink, setRsmLink] = useState<{ rsmUrl: string | null; baseUrl: string } | null>(null)
+  useEffect(() => {
+    axios
+      .get(`${process.env.NEXT_PUBLIC_API_URL}/integration/rsm-link`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      })
+      .then((res) => setRsmLink(res.data))
+      .catch(() => setRsmLink(null))
+  }, [])
   const srMenuRef = useRef<HTMLDivElement>(null)
   const photosRef = useRef<HTMLDivElement>(null)
   const [showReopen, setShowReopen] = useState(false)
@@ -1597,6 +1608,16 @@ SLA Breach Time: ${slaBreachText}`
               className="w-full sm:w-auto sm:min-w-[130px] flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg transition duration-200 text-sm font-medium">
               <X className="w-4 h-4 shrink-0" /><span>Cancel</span>
             </button>
+          )}
+          {/* Request spare parts in RSM — only the server + ticket number go in the URL; RSM fetches the rest (Integration API) */}
+          {rsmLink?.rsmUrl && incident.ticketNumber && !['CLOSED', 'CANCELLED'].includes(incident.status) && (
+            <a
+              href={`${rsmLink.rsmUrl}/stock-tickets/new?source=rim&server=${encodeURIComponent(rsmLink.baseUrl)}&incident=${encodeURIComponent(incident.ticketNumber)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full sm:w-auto sm:min-w-[130px] flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition duration-200 text-sm font-medium">
+              <PackageOpen className="w-4 h-4 shrink-0" /><span>เบิกอะไหล่ (RSM)</span><ExternalLink className="w-3 h-3" />
+            </a>
           )}
           {/* Service Report - Technician dropdown */}
           {(incident.status === 'RESOLVED' || incident.status === 'CLOSED') && hasTechnicianRole && (

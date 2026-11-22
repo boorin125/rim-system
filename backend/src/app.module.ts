@@ -31,6 +31,7 @@ import { PushModule } from './modules/push/push.module';
 import { SetupModule } from './setup/setup.module';
 import { JobNumberModule } from './modules/job-number/job-number.module';
 import { ProjectModule } from './modules/project/project.module';
+import { IntegrationModule } from './modules/integration/integration.module';
 import { ProvincesModule } from './modules/provinces/provinces.module';
 
 @Module({
@@ -65,6 +66,7 @@ import { ProvincesModule } from './modules/provinces/provinces.module';
     AppMobileModule,
     PushModule,
     ProjectModule,
+    IntegrationModule,
     ProvincesModule,
   ],
 })

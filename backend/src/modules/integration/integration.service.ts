@@ -1,0 +1,351 @@
+// src/modules/integration/integration.service.ts
+// Integration API v1 — API keys (issue / revoke / authenticate), rate limit, audit log, RSM link setting,
+// and the Incident object of spec §7.3.
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { createHash, randomBytes } from 'crypto';
+import { Prisma } from '@prisma/client';
+import { PrismaService } from '../../prisma/prisma.service';
+import { isAllowedUrl, normalizeOrigin, ownDomain, publicBaseUrl } from './integration-domain';
+
+/** Scopes this server (RIM) provides — meta:read is always granted */
+export const RIM_SCOPES = ['meta:read', 'incidents:read'] as const;
+export type RimScope = (typeof RIM_SCOPES)[number];
+
+const RSM_URL_KEY = 'integration_rsm_url';
+const RATE_LIMIT_PER_MINUTE = 120;
+const AUDIT_RETENTION_DAYS = 90;
+const BASE62 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+
+export const sha256 = (s: string) => createHash('sha256').update(s).digest('hex');
+
+/** "2026-11-22T14:05:00+07:00" — ISO-8601 with the Thai offset (spec §1) */
+export function isoTh(d: Date | null | undefined): string | null {
+  if (!d) return null;
+  const t = new Date(d.getTime() + 7 * 3600_000).toISOString(); // shift, then relabel the offset
+  return `${t.slice(0, 19)}+07:00`;
+}
+
+const lower = (s: string | null | undefined) => (s ? s.trim().toLowerCase() : null);
+const fullName = (u: { firstName: string | null; lastName: string | null } | null | undefined) =>
+  u ? [u.firstName, u.lastName].filter(Boolean).join(' ').trim() || null : null;
+
+@Injectable()
+export class IntegrationService {
+  private readonly logger = new Logger(IntegrationService.name);
+  /** keyId → request timestamps of the last minute (in-memory sliding window, per backend instance) */
+  private readonly hits = new Map<number, number[]>();
+
+  constructor(private readonly prisma: PrismaService) {}
+
+  // ── Status / settings ───────────────────────────────────────────────────
+
+  status() {
+    const own = ownDomain();
+    return { baseUrl: publicBaseUrl(), ownDomain: own, enabled: !!own };
+  }
+
+  async getRsmUrl(): Promise<string | null> {
+    const row = await this.prisma.systemConfig.findUnique({ where: { key: RSM_URL_KEY } });
+    const url = row?.value?.trim() || null;
+    // A stored URL that no longer passes the domain rule (e.g. the server moved domain) is not used
+    return url && isAllowedUrl(url) ? url : null;
+  }
+
+  async setRsmUrl(raw: string | null | undefined) {
+    const value = (raw || '').trim();
+    let stored = '';
+    if (value) {
+      const own = ownDomain();
+      if (!own) throw new BadRequestException('Integration ปิดอยู่ — URL ของเครื่องนี้ต้องเป็น https และเป็นโดเมน (ไม่ใช่ IP)');
+      if (!isAllowedUrl(value, own)) throw new BadRequestException(`RSM URL ต้องเป็น https://*.${own} เท่านั้น`);
+      stored = normalizeOrigin(value)!;
+    }
+    await this.prisma.systemConfig.upsert({
+      where: { key: RSM_URL_KEY },
+      create: { key: RSM_URL_KEY, value: stored, category: 'integration', description: 'RSM URL for the "เบิกอะไหล่ (RSM)" button' },
+      update: { value: stored },
+    });
+    return { rsmUrl: stored || null };
+  }
+
+  /** For the incident page button (any logged-in user) — rsmUrl null = hide the button */
+  async rsmLink() {
+    const { baseUrl, enabled } = this.status();
+    return { rsmUrl: enabled ? await this.getRsmUrl() : null, baseUrl };
+  }
+
+  async adminOverview() {
+    const [keys, rsmUrl, rsmRow] = await Promise.all([
+      this.listKeys(),
+      this.getRsmUrl(),
+      this.prisma.systemConfig.findUnique({ where: { key: RSM_URL_KEY } }),
+    ]);
+    return { ...this.status(), rsmUrl, rsmUrlStored: rsmRow?.value || null, scopes: RIM_SCOPES, keys };
+  }
+
+  // ── Keys ────────────────────────────────────────────────────────────────
+
+  async listKeys() {
+    const rows = await this.prisma.integrationApiKey.findMany({ orderBy: { createdAt: 'desc' } });
+    return rows.map(({ keyHash, ...k }) => k);
+  }
+
+  async createKey(dto: { name: string; callerUrl: string; scopes?: string[] }, user: { id: number; name: string | null }) {
+    const own = ownDomain();
+    if (!own) throw new BadRequestException('Integration ปิดอยู่ — URL ของเครื่องนี้ต้องเป็น https และเป็นโดเมน (ไม่ใช่ IP / localhost)');
+    const name = dto.name?.trim();
+    if (!name) throw new BadRequestException('กรุณากรอกชื่อผู้เรียก');
+    if (!isAllowedUrl(dto.callerUrl, own)) throw new BadRequestException(`Caller URL ต้องเป็น https://*.${own} เท่านั้น`);
+    const callerUrl = normalizeOrigin(dto.callerUrl)!;
+
+    const bad = (dto.scopes || []).filter((s) => !(RIM_SCOPES as readonly string[]).includes(s));
+    if (bad.length) throw new BadRequestException(`scope ไม่รองรับ: ${bad.join(', ')}`);
+    const scopes = [...new Set(['meta:read', ...(dto.scopes || [])])];
+
+    // rk_<server-code>_<random 40> — server code = first label of this server's host (ws, ntt, rim-test …)
+    const code = (new URL(publicBaseUrl()).hostname.split('.')[0] || 'rim').toLowerCase().replace(/[^a-z0-9]/g, '') || 'rim';
+    const bytes = randomBytes(40);
+    const random = Array.from(bytes, (b) => BASE62[b % 62]).join('');
+    const key = `rk_${code}_${random}`;
+
+    const row = await this.prisma.integrationApiKey.create({
+      data: {
+        name,
+        callerUrl,
+        keyHash: sha256(key),
+        keyPrefix: key.slice(0, code.length + 8),
+        scopes,
+        createdById: user.id,
+        createdByName: user.name,
+      },
+    });
+    const { keyHash, ...item } = row;
+    return { key, item }; // the full key is shown once — only its hash is stored
+  }
+
+  async revokeKey(id: number) {
+    const row = await this.prisma.integrationApiKey.findUnique({ where: { id } });
+    if (!row) throw new NotFoundException('ไม่พบ API Key');
+    if (row.revokedAt) return { id, revokedAt: row.revokedAt };
+    const updated = await this.prisma.integrationApiKey.update({ where: { id }, data: { revokedAt: new Date() } });
+    this.hits.delete(id);
+    return { id, revokedAt: updated.revokedAt };
+  }
+
+  findKeyByToken(token: string) {
+    return this.prisma.integrationApiKey.findUnique({ where: { keyHash: sha256(token) } });
+  }
+
+  touchKey(id: number, ip: string | null) {
+    this.prisma.integrationApiKey
+      .update({ where: { id }, data: { lastUsedAt: new Date(), lastUsedIp: ip } })
+      .catch((err) => this.logger.warn(`touchKey #${id}: ${err?.message}`));
+  }
+
+  /** true = allowed; false = over RATE_LIMIT_PER_MINUTE in the last 60 s */
+  takeRateToken(keyId: number): boolean {
+    const now = Date.now();
+    const recent = (this.hits.get(keyId) || []).filter((t) => now - t < 60_000);
+    if (recent.length >= RATE_LIMIT_PER_MINUTE) {
+      this.hits.set(keyId, recent);
+      return false;
+    }
+    recent.push(now);
+    this.hits.set(keyId, recent);
+    return true;
+  }
+
+  // ── Audit log ───────────────────────────────────────────────────────────
+
+  audit(entry: { keyId: number | null; keyName: string | null; method: string; path: string; status: number; durationMs: number; ip: string | null }) {
+    this.prisma.integrationAuditLog
+      .create({ data: { ...entry, path: entry.path.slice(0, 500) } })
+      .catch((err) => this.logger.warn(`audit log: ${err?.message}`));
+  }
+
+  recentLogs(limit = 200) {
+    return this.prisma.integrationAuditLog.findMany({ orderBy: { id: 'desc' }, take: Math.min(Math.max(limit, 1), 200) });
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_3AM)
+  async pruneAuditLogs() {
+    const before = new Date(Date.now() - AUDIT_RETENTION_DAYS * 86400_000);
+    const { count } = await this.prisma.integrationAuditLog.deleteMany({ where: { createdAt: { lt: before } } });
+    if (count) this.logger.log(`Pruned ${count} integration audit logs older than ${AUDIT_RETENTION_DAYS} days`);
+  }
+
+  // ── Meta / Incidents (spec §6, §7) ──────────────────────────────────────
+
+  async meta(scopes: string[]) {
+    const cfg = await this.prisma.systemConfig.findMany({
+      where: { key: { in: ['pwa_app_name', 'organization_name'] } },
+    });
+    const m = Object.fromEntries(cfg.map((c) => [c.key, c.value?.trim()]));
+    return {
+      system: 'RIM',
+      serverName: m['pwa_app_name'] || m['organization_name'] || 'RIM',
+      baseUrl: publicBaseUrl(),
+      version: process.env.RIM_VERSION || process.env.APP_VERSION || null,
+      apiVersion: 'v1',
+      scopes,
+      time: isoTh(new Date()),
+    };
+  }
+
+  async incidentByTicket(ticketNumber: string) {
+    const t = (ticketNumber || '').trim();
+    const incident = t
+      ? await this.prisma.incident.findFirst({ where: { ticketNumber: { equals: t, mode: 'insensitive' } }, select: { id: true } })
+      : null;
+    if (!incident) throw new NotFoundException(`ไม่พบใบงาน ${t}`);
+    const [obj] = await this.serializeIncidents([incident.id]);
+    return obj;
+  }
+
+  async incidentsBySerial(serialRaw: string, role: string, page: number, pageSize: number) {
+    const serial = (serialRaw || '').trim().toUpperCase();
+    if (!serial) throw new BadRequestException('กรุณาระบุ Serial Number');
+    if (!['removed', 'installed', 'any'].includes(role)) throw new BadRequestException('role ต้องเป็น removed, installed หรือ any');
+
+    const removed = Prisma.sql`UPPER(TRIM(sp.old_serial_no)) = ${serial} OR UPPER(TRIM(sp.old_component_serial)) = ${serial}`;
+    const installed = Prisma.sql`UPPER(TRIM(sp.new_serial_no)) = ${serial} OR UPPER(TRIM(sp.new_component_serial)) = ${serial}`;
+    const partCond = role === 'removed' ? removed : role === 'installed' ? installed : Prisma.sql`${removed} OR ${installed}`;
+
+    const equipmentMatch =
+      role === 'any'
+        ? Prisma.sql`
+          UNION
+          SELECT i.id, i.created_at FROM incidents i
+          WHERE EXISTS (
+            SELECT 1 FROM equipment e
+            WHERE UPPER(TRIM(e.serial_number)) = ${serial}
+              AND (e.id = i.equipment_id OR e.id = ANY(i.equipment_ids))
+          )`
+        : Prisma.empty;
+
+    const rows = await this.prisma.$queryRaw<{ id: string; created_at: Date }[]>`
+      SELECT i.id, i.created_at FROM incidents i
+      WHERE EXISTS (SELECT 1 FROM spare_parts sp WHERE sp.incident_id = i.id AND (${partCond}))
+      ${equipmentMatch}
+      ORDER BY created_at DESC`;
+
+    const total = rows.length;
+    const slice = rows.slice((page - 1) * pageSize, page * pageSize).map((r) => r.id);
+    return { data: await this.serializeIncidents(slice), page, pageSize, total };
+  }
+
+  /** Incident objects (spec §7.3) in the order of `ids` */
+  private async serializeIncidents(ids: string[]) {
+    if (!ids.length) return [];
+    const incidents = await this.prisma.incident.findMany({
+      where: { id: { in: ids } },
+      include: {
+        store: { select: { storeCode: true, name: true, address: true, province: true, postalCode: true, phone: true } },
+        assignee: { select: { email: true, firstName: true, lastName: true, phone: true } },
+        spareParts: {
+          orderBy: [{ roundNumber: 'asc' }, { id: 'asc' }],
+          include: { oldEquipment: { select: { id: true, category: true, brand: true, model: true } } },
+        },
+      },
+    });
+
+    // Reporter (Incident.reportedBy is a plain user id)
+    const reporterIds = [...new Set(incidents.map((i) => i.reportedBy).filter(Boolean))];
+    const reporters = new Map(
+      (await this.prisma.user.findMany({ where: { id: { in: reporterIds } }, select: { id: true, email: true, firstName: true, lastName: true } }))
+        .map((u) => [u.id, u]),
+    );
+
+    // Equipment of each incident (equipmentId + equipmentIds)
+    const equipIds = [...new Set(incidents.flatMap((i) => [i.equipmentId, ...(i.equipmentIds || [])]).filter(Boolean) as number[])];
+    const equipment = new Map(
+      (await this.prisma.equipment.findMany({
+        where: { id: { in: equipIds } },
+        select: { id: true, name: true, category: true, brand: true, model: true, serialNumber: true },
+      })).map((e) => [e.id, e]),
+    );
+
+    // Brand / model of the removed unit as it was before the incident updated it (same as the public incident page)
+    const oldEquipIds = incidents.flatMap((i) => i.spareParts.map((sp) => sp.oldEquipmentId)).filter(Boolean) as number[];
+    const logs = oldEquipIds.length
+      ? await this.prisma.equipmentLog.findMany({
+          where: { source: 'INCIDENT', sourceId: { in: ids }, equipmentId: { in: oldEquipIds } },
+          select: { equipmentId: true, sourceId: true, oldValue: true },
+          orderBy: { createdAt: 'asc' },
+        })
+      : [];
+    const firstOld = new Map<string, any>();
+    for (const l of logs) {
+      const k = `${l.sourceId}:${l.equipmentId}`;
+      if (!firstOld.has(k)) firstOld.set(k, l.oldValue);
+    }
+
+    const base = publicBaseUrl();
+    const byId = new Map(
+      incidents.map((i) => {
+        const reporter = reporters.get(i.reportedBy);
+        const eqIds = [...new Set([i.equipmentId, ...(i.equipmentIds || [])].filter(Boolean) as number[])];
+        return [
+          i.id,
+          {
+            ticketNumber: i.ticketNumber,
+            url: `${base}/dashboard/incidents/${i.id}`,
+            status: i.status,
+            category: i.category,
+            jobType: i.jobType,
+            priority: i.priority,
+            title: i.title,
+            description: i.description,
+            resolutionNote: i.resolutionNote,
+            incidentDate: isoTh(i.incidentDate),
+            createdAt: isoTh(i.createdAt),
+            resolvedAt: isoTh(i.resolvedAt),
+            store: {
+              code: i.store?.storeCode ?? i.storeCode ?? null,
+              name: i.store?.name ?? i.storeName ?? null,
+              address: i.store?.address ?? null,
+              province: i.store?.province ?? null,
+              postalCode: i.store?.postalCode ?? null,
+              phone: i.store?.phone ?? null,
+            },
+            technician: i.assignee
+              ? { email: lower(i.assignee.email), name: fullName(i.assignee), phone: i.assignee.phone ?? null }
+              : null,
+            reportedBy: reporter ? { email: lower(reporter.email), name: fullName(reporter) } : null,
+            equipment: eqIds
+              .map((id) => equipment.get(id))
+              .filter(Boolean)
+              .map((e) => ({ name: e.name, category: e.category, brand: e.brand, model: e.model, serialNumber: e.serialNumber })),
+            spareParts: i.spareParts.map((sp) => {
+              const logOld = sp.oldEquipmentId ? firstOld.get(`${i.id}:${sp.oldEquipmentId}`) : null;
+              const oe = sp.oldEquipment;
+              return {
+                round: sp.roundNumber,
+                repairType: sp.repairType,
+                deviceName: sp.deviceName,
+                oldSerialNo: sp.oldSerialNo?.trim() || null,
+                newSerialNo: sp.newSerialNo?.trim() || null,
+                newBrand: sp.newBrand,
+                newModel: sp.newModel,
+                componentName: sp.componentName,
+                oldComponentSerial: sp.oldComponentSerial?.trim() || null,
+                newComponentSerial: sp.newComponentSerial?.trim() || null,
+                oldEquipment: oe
+                  ? {
+                      category: oe.category,
+                      brand: logOld && logOld.brand !== undefined ? logOld.brand : oe.brand,
+                      model: logOld && logOld.model !== undefined ? logOld.model : oe.model,
+                    }
+                  : null,
+                notes: sp.notes,
+                createdAt: isoTh(sp.createdAt),
+              };
+            }),
+          },
+        ];
+      }),
+    );
+    return ids.map((id) => byId.get(id)).filter(Boolean);
+  }
+}

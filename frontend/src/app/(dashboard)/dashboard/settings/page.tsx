@@ -58,6 +58,7 @@ import {
   DownloadCloud,
   Blocks,
   KeyRound,
+  Plug,
   CalendarClock,
 } from 'lucide-react'
 import Link from 'next/link'
@@ -72,6 +73,7 @@ import releasesData from '@/data/releases.json'
 import UpdateTab from '@/components/settings/UpdateTab'
 import ModulesTab from '@/components/settings/ModulesTab'
 import GoogleSignInTab from '@/components/settings/GoogleSignInTab'
+import IntegrationTab from '@/components/settings/IntegrationTab'
 import ProvinceAuditCard from '@/components/settings/ProvinceAuditCard'
 
 type ReleaseEntry = {
@@ -83,7 +85,7 @@ type ReleaseEntry = {
 }
 
 // Tab types
-type TabType = 'organization' | 'incident' | 'email' | 'sla' | 'service-report' | 'backup' | 'info' | 'theme' | 'mobile-app' | 'maintenance' | 'modules' | 'google' | 'update'
+type TabType = 'organization' | 'incident' | 'email' | 'sla' | 'service-report' | 'backup' | 'info' | 'theme' | 'mobile-app' | 'maintenance' | 'modules' | 'google' | 'update' | 'integration'
 
 // Organization Settings Interface
 interface OrganizationSettings {
@@ -1745,6 +1747,7 @@ export default function SettingsPage() {
     { id: 'theme' as TabType, label: 'Theme', icon: Palette },
     ...(isSuperAdmin ? [{ id: 'maintenance' as TabType, label: 'Maintenance', icon: Wrench }] : []),
     ...(isSuperAdmin ? [{ id: 'google' as TabType, label: 'Google Sign-In', icon: KeyRound }] : []),
+    ...(isSuperAdmin ? [{ id: 'integration' as TabType, label: 'Integration', icon: Plug }] : []),
     { id: 'info' as TabType, label: 'Info', icon: Info },
   ]
 
@@ -4398,6 +4401,7 @@ export default function SettingsPage() {
         {/* Info Tab */}
         {activeTab === 'incident' && incidentSub === 'modules' && isSuperAdmin && <ModulesTab />}
         {activeTab === 'google' && isSuperAdmin && <GoogleSignInTab />}
+        {activeTab === 'integration' && isSuperAdmin && <IntegrationTab />}
         {activeTab === 'maintenance' && maintenanceSub === 'update' && isSuperAdmin && <UpdateTab />}
 
         {activeTab === 'info' && (
