@@ -44,4 +44,30 @@ export class IntegrationV1Controller {
   async incident(@Param('ticketNumber') ticketNumber: string) {
     return { data: await this.integration.incidentByTicket(ticketNumber) };
   }
+
+  // ── Store Lifecycle v1 §A5 (scope projects:read) ──
+
+  @Get('project-tasks')
+  @IntegrationScope('projects:read')
+  projectTasks(
+    @Query('workType') workType?: string,
+    @Query('status') status?: string,
+    @Query('since') since?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    return this.integration.projectTasks({ workType, status, since }, toInt(page, 1, 1, 100000), toInt(pageSize, 50, 1, 200));
+  }
+
+  @Get('project-tasks/:ticketNo')
+  @IntegrationScope('projects:read')
+  async projectTask(@Param('ticketNo') ticketNo: string) {
+    return { data: await this.integration.projectTaskByTicket(ticketNo) };
+  }
+
+  @Get('stores/:code')
+  @IntegrationScope('projects:read')
+  async store(@Param('code') code: string) {
+    return { data: await this.integration.storeByCode(code) };
+  }
 }

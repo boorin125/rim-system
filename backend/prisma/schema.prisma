@@ -262,6 +262,10 @@ model Equipment {
   ipAddress          String?                      @map("ip_address")
   imagePath          String?                      @map("image_path")
   status             EquipmentStatus              @default(ACTIVE)
+  // Where the unit came from (Store Lifecycle v1): EXISTING (already there / unknown), RSM (issued by RSM), CUSTOMER (sent by the customer)
+  source             EquipmentSource              @default(EXISTING)
+  rsmTicketNo        String?                      @map("rsm_ticket_no") // RSM issue ticket (ISS-…) when source = RSM
+  installedByTaskId  Int?                         @map("installed_by_task_id") // ProjectTask that installed it (no FK — equipment restores before project tasks)
   storeId            Int                          @map("store_id")
   createdAt          DateTime                     @default(now()) @map("created_at")
   updatedAt          DateTime                     @updatedAt @map("updated_at")
@@ -2006,14 +2010,16 @@ model ProjectTask {
   createdAt        DateTime          @default(now()) @map("created_at")
   updatedAt        DateTime          @updatedAt @map("updated_at")
 
-  projectStore ProjectStore        @relation(fields: [projectStoreId], references: [id], onDelete: Cascade)
-  assignedTo   User?               @relation("ProjectTaskAssignedTo", fields: [assignedToId], references: [id])
-  verifiedBy   User?               @relation("ProjectTaskVerifiedBy", fields: [verifiedById], references: [id])
+  projectStore ProjectStore         @relation(fields: [projectStoreId], references: [id], onDelete: Cascade)
+  assignedTo   User?                @relation("ProjectTaskAssignedTo", fields: [assignedToId], references: [id])
+  verifiedBy   User?                @relation("ProjectTaskVerifiedBy", fields: [verifiedById], references: [id])
   photos       ProjectPhoto[]
   testResults  ProjectTestResult[]
   equipment    ProjectEquipment[]
   checklists   ProjectChecklist[]
   logs         ProjectTaskLog[]
+  installItems ProjectInstallItem[]
+  closeItems   ProjectCloseItem[]
 
   @@index([projectStoreId])
   @@index([assignedToId])
@@ -2217,4 +2223,68 @@ model IntegrationAuditLog {
 
   @@index([createdAt])
   @@map("integration_audit_logs")
+}
+
+// ── Store Lifecycle v1 (RSM-System/docs/integration/store-lifecycle-v1.md) ──
+enum EquipmentSource {
+  EXISTING // already in the store / unknown
+  RSM // issued from RSM stock
+  CUSTOMER // sent by the customer
+}
+
+// Install task evidence (section kind installInventory): each unit issued by RSM for the task, or sent by the customer
+model ProjectInstallItem {
+  id           Int             @id @default(autoincrement())
+  taskId       Int             @map("task_id")
+  source       EquipmentSource @default(RSM)
+  rsmTicketNo  String?         @map("rsm_ticket_no")
+  rsmItemCode  String?         @map("rsm_item_code")
+  itemName     String?         @map("item_name") // RSM item name
+  category     String?
+  brand        String?
+  model        String?
+  serialNumber String?         @map("serial_number")
+  outcome      String? // INSTALLED | NOT_INSTALLED | LOST | DAMAGED — null = not answered yet
+  pointName    String?         @map("point_name") // where it was installed (POS#1, PMC …)
+  note         String?         @db.Text
+  photoPath    String?         @map("photo_path")
+  equipmentId  Int?            @map("equipment_id") // Equipment created / updated on verify (no FK)
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+
+  task ProjectTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([serialNumber])
+  @@map("project_install_items")
+}
+
+// Closed Store evidence (section kind closeInventory): every unit of the store and where it went
+model ProjectCloseItem {
+  id           Int             @id @default(autoincrement())
+  taskId       Int             @map("task_id")
+  equipmentId  Int?            @map("equipment_id") // null = added by the technician (not in the store list) — no FK
+  pointName    String?         @map("point_name")
+  category     String?
+  brand        String?
+  model        String?
+  serialNumber String?         @map("serial_number")
+  noSerial     Boolean         @default(false) @map("no_serial")
+  outcome      String? // TO_WAREHOUSE | TO_CUSTOMER | TRANSFERRED | LEFT_WITH_CUSTOMER | NOT_FOUND — null = not answered yet
+  toStoreId    Int?            @map("to_store_id") // TRANSFERRED (no FK)
+  handedTo     String?         @map("handed_to") // TO_CUSTOMER / LEFT_WITH_CUSTOMER: who received it
+  shipRef      String?         @map("ship_ref") // TO_CUSTOMER: address or parcel number
+  note         String?         @db.Text
+  photoPath    String?         @map("photo_path")
+  source       EquipmentSource @default(EXISTING)
+  rsmTicketNo  String?         @map("rsm_ticket_no")
+  inactive     Boolean         @default(false) // the unit was INACTIVE in the store list (shown last)
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+
+  task ProjectTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([serialNumber])
+  @@map("project_close_items")
 }

@@ -30,6 +30,7 @@ import { AddPhotoDto } from './dto/add-photo.dto';
 import { AddEquipmentDto } from './dto/add-equipment.dto';
 import { CreateProjectStoreDto } from './dto/create-project-store.dto';
 import { WORK_TYPES, workTypeDef, evaluateEvidence } from './work-types';
+import { ProjectLifecycleService } from './project-lifecycle.service';
 
 // Incidents linked to a project store via Incident.forProjectStoreId
 const SUPPORT_INCIDENT_SELECT = {
@@ -86,6 +87,7 @@ export class ProjectService implements OnModuleInit {
     private readonly settingsService: SettingsService,
     private readonly jobNumberService: JobNumberService,
     private readonly storesService: StoresService,
+    private readonly lifecycle: ProjectLifecycleService,
   ) {}
 
   /** Remove an uploaded file (stored as "uploads/..." relative to cwd). Missing files are ignored. */
@@ -655,10 +657,12 @@ export class ProjectService implements OnModuleInit {
         projectStore: {
           include: {
             project: { select: { id: true, name: true, status: true, color: true, managers: { select: { userId: true } } } },
-            store: { select: { id: true, storeCode: true, name: true, province: true, storeStatus: true, storeType: true, closeDate: true } },
+            store: { select: { id: true, storeCode: true, name: true, province: true, storeStatus: true, storeType: true, closeDate: true, lastPmAt: true } },
           },
         },
         assignedTo: { select: { id: true, firstName: true, lastName: true, avatarPath: true, phone: true } },
+        installItems: { orderBy: [{ source: 'asc' }, { id: 'asc' }] },
+        closeItems: { orderBy: [{ inactive: 'asc' }, { id: 'asc' }] },
         verifiedBy: { select: { id: true, firstName: true, lastName: true } },
         photos: { orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] },
         testResults: { orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] },
@@ -672,8 +676,15 @@ export class ProjectService implements OnModuleInit {
     });
 
     if (!task) throw new NotFoundException(`Task #${taskId} not found`);
+    // Closed Store checklist: name of each destination store ("456 Siam")
+    const toIds = [...new Set(task.closeItems.map((c) => c.toStoreId).filter(Boolean) as number[])];
+    const toStores = toIds.length
+      ? new Map((await this.prisma.store.findMany({ where: { id: { in: toIds } }, select: { id: true, storeCode: true, name: true } }))
+          .map((s) => [s.id, `${s.storeCode} ${s.name}`]))
+      : new Map<number, string>();
+    const closeItems = task.closeItems.map((c) => ({ ...c, toStoreLabel: c.toStoreId ? toStores.get(c.toStoreId) ?? null : null }));
     // Evidence progress for the task's work type (the UI shows it; completeTask enforces it)
-    return { ...task, evidence: evaluateEvidence(task.workType, task) };
+    return { ...task, closeItems, evidence: evaluateEvidence(task.workType, task) };
   }
 
   /** Work types and the evidence each needs (UI: task forms + evidence sections) */
@@ -1162,15 +1173,29 @@ export class ProjectService implements OnModuleInit {
     const storeId = task.projectStore.storeId;
 
     // Accept + push the task's equipment into the store's register atomically
-    const { updated, sync } = await this.prisma.$transaction(async (tx) => {
+    const ref = task.ticketNo || taskLabel;
+    const { updated, sync, lifecycleStores } = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.projectTask.update({
         where: { id: taskId },
         data: { status: 'ACCEPTED', verifiedAt, verifiedById: userId },
       });
-      const sync = await this.syncTaskEquipment(tx, taskId, storeId, task.equipment, userId, task.ticketNo || taskLabel);
+      const sync = await this.syncTaskEquipment(tx, taskId, storeId, task.equipment, userId, ref);
+      // Store Lifecycle: install items → new Equipment; Closed Store items → retired / moved / not found
+      const inst = await this.lifecycle.applyInstallItems(tx, taskId, storeId, userId, ref);
+      const close = await this.lifecycle.applyCloseItems(tx, taskId, storeId, userId, ref);
       await tx.projectTaskLog.create({
         data: { taskId, userId, action: 'VERIFY', message: `${name} ยืนยันปิดงาน (ACCEPTED) ${taskLabel}` },
       });
+      if (inst.created + inst.updated > 0) {
+        await tx.projectTaskLog.create({
+          data: { taskId, userId, action: 'EQUIPMENT_SYNC', message: `บันทึกอุปกรณ์ที่ติดตั้งเข้าทะเบียนสาขา: เพิ่มใหม่ ${inst.created}, อัปเดต/ย้ายเข้า ${inst.updated}` },
+        });
+      }
+      if (close.changed > 0) {
+        await tx.projectTaskLog.create({
+          data: { taskId, userId, action: 'EQUIPMENT_SYNC', message: `อัปเดตทะเบียนอุปกรณ์จากเช็กลิสต์ปิดร้าน ${close.changed} รายการ` },
+        });
+      }
       if (sync.created + sync.moved + sync.updated + sync.removed > 0) {
         await tx.projectTaskLog.create({
           data: {
@@ -1181,11 +1206,12 @@ export class ProjectService implements OnModuleInit {
           },
         });
       }
-      return { updated, sync };
+      return { updated, sync, lifecycleStores: [...inst.touched, ...close.touched] };
     });
 
-    if (sync.created + sync.moved + sync.removed > 0) {
-      syncOpenPmEquipment(this.prisma, [storeId, ...sync.fromStoreIds]).catch((err) =>
+    if (sync.created + sync.moved + sync.removed > 0 || lifecycleStores.length) {
+      const stores = [...new Set([storeId, ...sync.fromStoreIds, ...lifecycleStores])];
+      syncOpenPmEquipment(this.prisma, stores).catch((err) =>
         this.logger.error('Failed to sync open PM equipment', err),
       );
     }

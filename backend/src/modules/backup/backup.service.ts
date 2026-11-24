@@ -58,6 +58,7 @@ const SCOPE_TABLES = {
     // Project module (before incidents: incidents.for_project_store_id → project_stores)
     'projects', 'project_managers', 'project_stores', 'project_tasks', 'project_task_logs',
     'project_photos', 'project_test_results', 'project_equipment', 'project_checklists',
+    'project_install_items', 'project_close_items',
     // Knowledge base (categories before articles; self-ref handled specially)
     'knowledge_categories', 'knowledge_articles',
     'knowledge_article_feedbacks', 'knowledge_article_usages',
@@ -84,6 +85,7 @@ const SCOPE_TABLES = {
     // Project module (before incidents: incidents.for_project_store_id → project_stores)
     'projects', 'project_managers', 'project_stores', 'project_tasks', 'project_task_logs',
     'project_photos', 'project_test_results', 'project_equipment', 'project_checklists',
+    'project_install_items', 'project_close_items',
     'knowledge_categories', 'knowledge_articles',
     'knowledge_article_feedbacks', 'knowledge_article_usages',
     'incidents', 'incident_assignees', 'incident_reassignments', 'incident_ratings', 'incident_work_rounds',
@@ -554,7 +556,8 @@ export class BackupService {
 
     const tableModelMap: Record<string, () => Promise<any[]>> = {
       // Config — always full
-      system_configs: () => this.prisma.systemConfig.findMany(),
+      // integration_* (RSM URL / key issued to THIS server) never travel with a backup — a WS backup restored on Test must not point Test at production RSM
+      system_configs: () => this.prisma.systemConfig.findMany({ where: { NOT: { key: { startsWith: 'integration_' } } } }),
       sla_configs: () => this.prisma.slaConfig.findMany(),
       incident_categories: () => this.prisma.incidentCategory.findMany(),
       job_types: () => this.prisma.jobType.findMany(),
@@ -613,6 +616,8 @@ export class BackupService {
       project_photos: () => this.prisma.projectPhoto.findMany(wc()),
       project_test_results: () => this.prisma.projectTestResult.findMany(w()),
       project_equipment: () => this.prisma.projectEquipment.findMany(wc()),
+      project_install_items: () => this.prisma.projectInstallItem.findMany(w()),
+      project_close_items: () => this.prisma.projectCloseItem.findMany(w()),
       project_checklists: () => this.prisma.projectChecklist.findMany({
         where: s ? { uploadedAt: { gt: s } } : undefined,
       }),
@@ -989,6 +994,7 @@ export class BackupService {
       // Project module (before incidents: incidents.for_project_store_id → project_stores)
       'projects', 'project_managers', 'project_stores', 'project_tasks', 'project_task_logs',
       'project_photos', 'project_test_results', 'project_equipment', 'project_checklists',
+    'project_install_items', 'project_close_items',
       // Knowledge base (self-ref categories: root nodes first, then children)
       'knowledge_categories', 'knowledge_articles',
       'knowledge_article_feedbacks', 'knowledge_article_usages',
@@ -1112,6 +1118,7 @@ export class BackupService {
       'notifications', 'incident_history', 'spare_parts', 'comments',
       'incident_work_rounds', 'sla_defenses', 'incident_ratings', 'incident_reassignments', 'incident_assignees',
       'incidents',
+      'project_install_items', 'project_close_items',
       'project_checklists', 'project_equipment', 'project_test_results', 'project_photos', 'project_task_logs',
       'project_tasks', 'project_stores', 'project_managers', 'projects',
       'knowledge_article_usages', 'knowledge_article_feedbacks',
@@ -1131,6 +1138,8 @@ export class BackupService {
       pm_records:                    () => this.prisma.pmRecord.deleteMany({ where: { createdAt: after } }),
       project_checklists:            () => this.prisma.projectChecklist.deleteMany({ where: { uploadedAt: after } }),
       project_equipment:             () => this.prisma.projectEquipment.deleteMany({ where: { createdAt: after } }),
+      project_install_items:         () => this.prisma.projectInstallItem.deleteMany({ where: { createdAt: after } }),
+      project_close_items:           () => this.prisma.projectCloseItem.deleteMany({ where: { createdAt: after } }),
       project_photos:                () => this.prisma.projectPhoto.deleteMany({ where: { createdAt: after } }),
       project_test_results:          () => this.prisma.projectTestResult.deleteMany({ where: { createdAt: after } }),
       project_task_logs:             () => this.prisma.projectTaskLog.deleteMany({ where: { createdAt: after } }),
@@ -1427,6 +1436,7 @@ export class BackupService {
       // Project module (before incidents: incidents.for_project_store_id → project_stores)
       'projects', 'project_managers', 'project_stores', 'project_tasks', 'project_task_logs',
       'project_photos', 'project_test_results', 'project_equipment', 'project_checklists',
+    'project_install_items', 'project_close_items',
       'knowledge_categories', 'knowledge_articles',
       'knowledge_article_feedbacks', 'knowledge_article_usages',
       'incidents', 'incident_assignees', 'incident_reassignments', 'incident_ratings', 'incident_work_rounds',
@@ -1652,7 +1662,9 @@ export class BackupService {
 
     const tableMap: Record<string, (d: any[]) => Promise<{ count: number }>> = {
       // Config — update existing keys first, then insert new ones (avoids sequence/id conflict)
-      system_configs: async (d) => {
+      system_configs: async (all) => {
+        // Server-specific integration settings are kept as they are on this server (see export)
+        const d = all.filter((row) => !String(row.key || '').startsWith('integration_'));
         const existingKeys = new Set(
           (await this.prisma.systemConfig.findMany({ select: { key: true } })).map(r => r.key)
         );
@@ -1870,6 +1882,8 @@ export class BackupService {
         d,
       ),
       project_checklists: (d) => this.upsertRaw('project_checklists', d),
+      project_install_items: (d) => this.upsertRaw('project_install_items', d),
+      project_close_items: (d) => this.upsertRaw('project_close_items', d),
       technician_performance_scores: (d) => this.upsertRaw('technician_performance_scores', d),
       audit_logs: (d) => this.upsertRaw('audit_logs', d),
     };

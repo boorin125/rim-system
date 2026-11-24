@@ -14,7 +14,82 @@ export type EvidenceSection =
   /** Test items: PASS / FAIL / NA (+ photo unless NA, note when FAIL); technicians may add items */
   | { key: string; kind: 'tests'; label: string; hint?: string; items: string[] }
   /** Equipment swapped (ProjectEquipment rows) */
-  | { key: string; kind: 'equipment'; label: string; hint?: string; min: number };
+  | { key: string; kind: 'equipment'; label: string; hint?: string; min: number }
+  /** Units issued by RSM for the task (+ units sent by the customer): each one INSTALLED / NOT_INSTALLED / LOST / DAMAGED */
+  | { key: string; kind: 'installInventory'; label: string; hint?: string; min: number }
+  /** Every unit of the store at closing: where each one went (ProjectCloseItem rows) */
+  | { key: string; kind: 'closeInventory'; label: string; hint?: string };
+
+/** Install item outcomes (Store Lifecycle v1 §A3) */
+export const INSTALL_OUTCOMES = ['INSTALLED', 'NOT_INSTALLED', 'LOST', 'DAMAGED'] as const;
+/** Closed Store item outcomes (Store Lifecycle v1 §A4) */
+export const CLOSE_OUTCOMES = ['TO_WAREHOUSE', 'TO_CUSTOMER', 'TRANSFERRED', 'LEFT_WITH_CUSTOMER', 'NOT_FOUND'] as const;
+
+interface InstallItemInput {
+  outcome: string | null;
+  pointName: string | null;
+  note: string | null;
+  photoPath: string | null;
+  serialNumber: string | null;
+  itemName: string | null;
+  category: string | null;
+}
+interface CloseItemInput {
+  outcome: string | null;
+  pointName: string | null;
+  category: string | null;
+  serialNumber: string | null;
+  noSerial: boolean;
+  toStoreId: number | null;
+  handedTo: string | null;
+  shipRef: string | null;
+  note: string | null;
+  photoPath: string | null;
+}
+
+const blank = (s: string | null | undefined) => !(s || '').trim();
+const itemLabel = (i: { pointName?: string | null; itemName?: string | null; category?: string | null; serialNumber?: string | null }) =>
+  (i.pointName || i.itemName || i.category || 'อุปกรณ์') + (i.serialNumber ? ` (${i.serialNumber})` : '');
+
+/** What is still missing on one install item, in Thai (empty = complete) */
+export function installItemMissing(i: InstallItemInput): string[] {
+  if (!i.outcome) return ['ยังไม่ได้ระบุ'];
+  const m: string[] = [];
+  if (i.outcome === 'INSTALLED' && blank(i.pointName)) m.push('จุดที่ติดตั้ง');
+  if (i.outcome === 'LOST' || i.outcome === 'DAMAGED') {
+    if (blank(i.note)) m.push('หมายเหตุ');
+    if (!i.photoPath) m.push('รูป');
+  }
+  return m;
+}
+
+/** What is still missing on one closed-store item, in Thai (empty = complete) */
+export function closeItemMissing(i: CloseItemInput): string[] {
+  if (!i.outcome) return ['ยังไม่ได้ระบุ'];
+  const m: string[] = [];
+  switch (i.outcome) {
+    case 'TO_WAREHOUSE':
+      if (blank(i.serialNumber) && !i.noSerial) m.push('S/N (หรือติ๊ก "ไม่มี S/N")');
+      if (!i.photoPath) m.push('รูป');
+      break;
+    case 'TO_CUSTOMER':
+      if (blank(i.handedTo)) m.push('ผู้รับ');
+      if (blank(i.shipRef)) m.push('ที่อยู่ / เลขพัสดุ');
+      if (!i.photoPath) m.push('รูป');
+      break;
+    case 'TRANSFERRED':
+      if (!i.toStoreId) m.push('สาขาปลายทาง');
+      break;
+    case 'LEFT_WITH_CUSTOMER':
+      if (blank(i.handedTo)) m.push('ชื่อผู้รับ');
+      if (!i.photoPath) m.push('รูป');
+      break;
+    case 'NOT_FOUND':
+      if (blank(i.note)) m.push('หมายเหตุ');
+      break;
+  }
+  return m;
+}
 
 export interface WorkTypeDef {
   key: WorkTypeKey;
@@ -55,8 +130,15 @@ export const WORK_TYPES: WorkTypeDef[] = [
   {
     key: 'INSTALL',
     label: 'Install Equipment — ติดตั้งอุปกรณ์ใหม่',
-    description: 'รูปการติดตั้ง (Inventory รายชิ้น — เร็วๆ นี้)',
+    description: 'รายการอุปกรณ์ที่ติดตั้ง (จากใบเบิก RSM + ของที่ลูกค้าส่งเอง) + รูปการติดตั้ง',
     sections: [
+      {
+        key: 'installInventory',
+        kind: 'installInventory',
+        label: 'รายการอุปกรณ์ที่ติดตั้ง',
+        hint: 'ดึง S/N ที่เบิกจาก RSM แล้วระบุทีละชิ้น: ติดตั้งที่จุดไหน / ไม่ได้ติดตั้ง / หาย-เสียหายหน้างาน — ของที่ลูกค้าส่งมาเองกดเพิ่มได้',
+        min: 1,
+      },
       { key: 'install', kind: 'photos', label: 'รูปการติดตั้ง', hint: 'ระบุอุปกรณ์ / จุดติดตั้งในแต่ละรูป', min: 1, pointName: true },
     ],
   },
@@ -92,9 +174,15 @@ export const WORK_TYPES: WorkTypeDef[] = [
   {
     key: 'CLOSED_STORE',
     label: 'Closed Store — เก็บอุปกรณ์กลับ (ปิดร้าน)',
-    description: 'รูปอุปกรณ์ที่เก็บกลับ พร้อมชื่ออุปกรณ์ (เทียบ Inventory — เร็วๆ นี้)',
+    description: 'เช็กลิสต์อุปกรณ์ทุกชิ้นของสาขา: เก็บกลับคลัง / ส่งคืนลูกค้า / ย้ายสาขา / ลูกค้าเก็บเอง / ไม่พบ',
     sections: [
-      { key: 'collected', kind: 'photos', label: 'รูปอุปกรณ์ที่เก็บกลับ', hint: 'ระบุชื่ออุปกรณ์ในแต่ละรูป', min: 1, pointName: true },
+      {
+        key: 'closeInventory',
+        kind: 'closeInventory',
+        label: 'รายการอุปกรณ์ปิดร้าน',
+        hint: 'ระบุทุกชิ้นก่อนส่งงาน — ของที่ไม่อยู่ในรายการกดเพิ่มได้',
+      },
+      { key: 'collected', kind: 'photos', label: 'รูปเพิ่มเติม (ถ้ามี)', hint: 'ไม่บังคับ — รูปของแต่ละชิ้นถ่ายในรายการด้านบน', min: 0, pointName: true },
     ],
   },
   {
@@ -148,6 +236,8 @@ interface EvidenceInput {
   testResults: { section: string; itemName: string; result: string; note: string | null; photoPath: string | null }[];
   equipment: unknown[];
   checklists: unknown[];
+  installItems?: InstallItemInput[];
+  closeItems?: CloseItemInput[];
 }
 
 export interface SectionStatus {
@@ -196,6 +286,14 @@ export function evaluateEvidence(workType: string | null | undefined, task: Evid
       if (failNoNote.length) missing.push(`หมายเหตุของข้อที่ไม่ผ่าน: ${failNoNote.join(', ')}`);
     } else if (s.kind === 'equipment') {
       if (task.equipment.length < s.min) missing.push(`${s.label} อย่างน้อย ${s.min} รายการ`);
+    } else if (s.kind === 'installInventory' || s.kind === 'closeInventory') {
+      const items: any[] = (s.kind === 'installInventory' ? task.installItems : task.closeItems) || [];
+      if (s.kind === 'installInventory' && items.length < s.min) missing.push(`${s.label} อย่างน้อย ${s.min} รายการ`);
+      if (s.kind === 'closeInventory' && items.length === 0) missing.push('ยังไม่ได้โหลดรายการอุปกรณ์ของสาขา');
+      const check = s.kind === 'installInventory' ? installItemMissing : closeItemMissing;
+      const incomplete = items.map((i) => ({ i, m: check(i) })).filter((x) => x.m.length);
+      for (const { i, m } of incomplete.slice(0, 8)) missing.push(`${itemLabel(i)}: ${m.join(', ')}`);
+      if (incomplete.length > 8) missing.push(`และอีก ${incomplete.length - 8} รายการที่ยังไม่ครบ`);
     }
     return { key: s.key, label: s.label, ok: missing.length === 0, missing };
   });

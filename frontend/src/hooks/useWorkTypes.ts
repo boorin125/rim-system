@@ -9,6 +9,8 @@ export type EvidenceSection =
   | { key: string; kind: 'beforeAfter'; label: string; hint?: string; min: number }
   | { key: string; kind: 'tests'; label: string; hint?: string; items: string[] }
   | { key: string; kind: 'equipment'; label: string; hint?: string; min: number }
+  | { key: string; kind: 'installInventory'; label: string; hint?: string; min: number }
+  | { key: string; kind: 'closeInventory'; label: string; hint?: string }
 
 export interface WorkTypeDef {
   key: string

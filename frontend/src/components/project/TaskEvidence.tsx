@@ -13,6 +13,8 @@ import {
 import { getPhotoUrl } from '@/utils/photoUtils'
 import { resizeImage } from '@/utils/resizeImage'
 import type { EvidenceSection, WorkTypeDef } from '@/hooks/useWorkTypes'
+import InstallInventory from './InstallInventory'
+import CloseInventory from './CloseInventory'
 
 interface Props {
   task: any
@@ -431,7 +433,7 @@ export default function TaskEvidence({ task, def, canEdit, canDelete, onChanged,
       {def.sections.map((s) => {
         const st = status(s.key)
         return (
-          <div key={s.key} className="rounded-xl bg-slate-800/40 border border-slate-700/50 p-4 space-y-3">
+          <div key={s.key} className="rounded-xl bg-slate-800/40 border border-slate-700/50 p-4 space-y-3 min-w-0">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="text-sm text-white font-semibold flex items-center gap-1.5">
@@ -451,6 +453,12 @@ export default function TaskEvidence({ task, def, canEdit, canDelete, onChanged,
             {s.kind === 'photos' && renderPhotos(s)}
             {s.kind === 'beforeAfter' && renderBeforeAfter(s)}
             {s.kind === 'tests' && renderTests(s)}
+            {s.kind === 'installInventory' && (
+              <InstallInventory task={task} canEdit={canEdit} onChanged={onChanged} onView={onView} confirmDelete={confirmDelete} highlight={highlight} />
+            )}
+            {s.kind === 'closeInventory' && (
+              <CloseInventory task={task} canEdit={canEdit} onChanged={onChanged} onView={onView} confirmDelete={confirmDelete} highlight={highlight} />
+            )}
             {s.kind === 'equipment' && (
               <p className="text-xs text-gray-400 flex items-center gap-1.5">
                 <Package className="w-3.5 h-3.5" /> กรอกในหัวข้อ &quot;อุปกรณ์ที่เปลี่ยน&quot; ด้านล่าง ({task.equipment?.length || 0} รายการ)

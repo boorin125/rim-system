@@ -29,6 +29,8 @@ import {
   ScanLine,
   Pencil,
   Image as ImageIcon,
+  PackageOpen,
+  ExternalLink,
 } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
@@ -176,6 +178,17 @@ export default function TaskDetailPage() {
   const canMedia = !isClosed && ((isAssignedTech && task?.status === 'IN_PROGRESS') || userRoles.includes('HELP_DESK') || isProjectManager)
   // Edit caption / delete — staff kept the delete buttons they had before
   const canEditMedia = !isClosed && (canMedia || canManage)
+  // Integration: RSM URL for "เบิกอุปกรณ์ (RSM)" (Settings › Integration) — null = no button
+  const [rsmLink, setRsmLink] = useState<{ rsmUrl: string | null; baseUrl: string } | null>(null)
+  useEffect(() => {
+    axios
+      .get(`${process.env.NEXT_PUBLIC_API_URL}/integration/rsm-link`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
+      .then((res) => setRsmLink(res.data))
+      .catch(() => setRsmLink(null))
+  }, [])
+  const showRsmIssue =
+    !!rsmLink?.rsmUrl && !!task?.ticketNo && task?.workType !== 'CLOSED_STORE' &&
+    !['PENDING_VERIFY', 'ACCEPTED', 'COMPLETED', 'CANCELLED'].includes(task?.status ?? '')
   const [resending, setResending] = useState(false)
   const handleResendEmail = async () => {
     const ok = await confirmDialog({
@@ -750,6 +763,21 @@ export default function TaskDetailPage() {
               ส่งอีเมลปิดงานอีกครั้ง
             </button>
           )}
+        </div>
+      )}
+
+      {/* ── Request equipment in RSM — only server + task number in the URL; RSM fetches the task (Integration API) ── */}
+      {showRsmIssue && (
+        <div className="glass-card rounded-xl px-5 py-4 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-gray-300">เบิกอุปกรณ์สำหรับงานนี้ใน RSM (เลือก Template ชุดร้านได้)</p>
+          <a
+            href={`${rsmLink!.rsmUrl}/stock-tickets/new?source=rim-project&server=${encodeURIComponent(rsmLink!.baseUrl)}&task=${encodeURIComponent(task.ticketNo)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium"
+          >
+            <PackageOpen className="w-4 h-4" /> เบิกอุปกรณ์ (RSM) <ExternalLink className="w-3 h-3" />
+          </a>
         </div>
       )}
 

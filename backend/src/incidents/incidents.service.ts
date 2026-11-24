@@ -632,6 +632,23 @@ export class IncidentsService {
       if (newEquip) newEquipmentId = newEquip.id;
     }
 
+    // Old unit still unknown (e.g. the store list had a Mockup S/N and the technician typed the real one):
+    // fall back to the point itself — the one unit of this store with that point name ("POS#1 Printer").
+    // Without this the point kept the removed unit and nothing was updated. (Store Lifecycle v1 §A1)
+    if (!oldEquipmentId && originalSp.oldDeviceName) {
+      const sameName = await prisma.equipment.findMany({
+        where: {
+          storeId,
+          name: { equals: String(originalSp.oldDeviceName).trim(), mode: 'insensitive' },
+          status: { not: EquipmentStatus.RETIRED },
+          ...(newEquipmentId ? { NOT: { id: newEquipmentId } } : {}),
+        },
+        select: { id: true },
+        take: 2,
+      });
+      if (sameName.length === 1) oldEquipmentId = sameName[0].id;
+    }
+
     // If neither equipment found after all lookups, warn and return
     if (!oldEquipmentId && !newEquipmentId) {
       console.warn(
@@ -2513,6 +2530,7 @@ export class IncidentsService {
           newEquipmentId: sp.newEquipmentId,
           newBrand: (sp as any).newBrand || null,
           newModel: (sp as any).newModel || null,
+          oldDeviceName: sp.deviceName?.split(' → ')[0]?.trim() || null,
           newDeviceName: sp.deviceName?.includes(' → ')
             ? sp.deviceName.split(' → ')[1]?.trim()
             : sp.deviceName,
@@ -3972,7 +3990,8 @@ export class IncidentsService {
         newEquipmentId: sp.newEquipmentId,
         newBrand: (sp as any).newBrand || null,
         newModel: (sp as any).newModel || null,
-        newDeviceName: sp.deviceName?.includes(' → ')
+        oldDeviceName: sp.deviceName?.split(' → ')[0]?.trim() || null,
+          newDeviceName: sp.deviceName?.includes(' → ')
           ? sp.deviceName.split(' → ')[1]?.trim()
           : sp.deviceName,
         // Component replacement fields
@@ -4787,6 +4806,7 @@ export class IncidentsService {
           newEquipmentId: sp.newEquipmentId,
           newBrand: (sp as any).newBrand || null,
           newModel: (sp as any).newModel || null,
+          oldDeviceName: sp.deviceName?.split(' → ')[0]?.trim() || null,
           newDeviceName: sp.deviceName?.includes(' → ')
             ? sp.deviceName.split(' → ')[1]?.trim()
             : sp.deviceName,

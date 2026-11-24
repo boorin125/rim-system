@@ -9,7 +9,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { isAllowedUrl, normalizeOrigin, ownDomain, publicBaseUrl } from './integration-domain';
 
 /** Scopes this server (RIM) provides — meta:read is always granted */
-export const RIM_SCOPES = ['meta:read', 'incidents:read'] as const;
+export const RIM_SCOPES = ['meta:read', 'incidents:read', 'projects:read'] as const;
 export type RimScope = (typeof RIM_SCOPES)[number];
 
 const RSM_URL_KEY = 'integration_rsm_url';
@@ -24,6 +24,11 @@ export function isoTh(d: Date | null | undefined): string | null {
   if (!d) return null;
   const t = new Date(d.getTime() + 7 * 3600_000).toISOString(); // shift, then relabel the offset
   return `${t.slice(0, 19)}+07:00`;
+}
+
+/** "2026-12-01" — the Thai calendar date */
+export function dateTh(d: Date | null | undefined): string | null {
+  return d ? new Date(d.getTime() + 7 * 3600_000).toISOString().slice(0, 10) : null;
 }
 
 const lower = (s: string | null | undefined) => (s ? s.trim().toLowerCase() : null);
@@ -233,6 +238,185 @@ export class IntegrationService {
     const total = rows.length;
     const slice = rows.slice((page - 1) * pageSize, page * pageSize).map((r) => r.id);
     return { data: await this.serializeIncidents(slice), page, pageSize, total };
+  }
+
+  // ── Projects / stores (Store Lifecycle v1 §A5, scope projects:read) ──────
+
+  readonly storeSelect = {
+    id: true, storeCode: true, name: true, storeType: true, storeStatus: true, openDate: true, closeDate: true, autoClose: true,
+    address: true, province: true, postalCode: true, phone: true, lastPmAt: true,
+    hostStore: { select: { storeCode: true, name: true } },
+  } satisfies Prisma.StoreSelect;
+
+  private storeObj(s: Prisma.StoreGetPayload<{ select: IntegrationService['storeSelect'] }>) {
+    return {
+      code: s.storeCode,
+      name: s.name,
+      type: s.storeType,
+      status: s.storeStatus,
+      openDate: dateTh(s.openDate),
+      closeDate: dateTh(s.closeDate),
+      autoClose: s.autoClose,
+      address: s.address,
+      province: s.province,
+      postalCode: s.postalCode,
+      phone: s.phone,
+      lastPmAt: isoTh(s.lastPmAt),
+      hostStore: s.storeType === 'EVENT' && s.hostStore ? { code: s.hostStore.storeCode, name: s.hostStore.name } : null,
+    };
+  }
+
+  readonly taskInclude = {
+    projectStore: { select: { project: { select: { id: true, name: true } }, store: { select: this.storeSelect } } },
+    assignedTo: { select: { email: true, firstName: true, lastName: true, phone: true } },
+  } satisfies Prisma.ProjectTaskInclude;
+
+  private taskObj(t: Prisma.ProjectTaskGetPayload<{ include: IntegrationService['taskInclude'] }>) {
+    return {
+      ticketNo: t.ticketNo,
+      url: `${publicBaseUrl()}/dashboard/projects/task/${t.id}`,
+      project: { id: t.projectStore.project.id, name: t.projectStore.project.name },
+      title: t.title,
+      workType: t.workType,
+      taskType: t.taskType,
+      status: t.status,
+      scheduledDate: isoTh(t.scheduledDate),
+      checkInAt: isoTh(t.checkInAt),
+      completedAt: isoTh(t.completedAt),
+      verifiedAt: isoTh(t.verifiedAt),
+      assignee: t.assignedTo
+        ? { email: lower(t.assignedTo.email), name: fullName(t.assignedTo), phone: t.assignedTo.phone ?? null }
+        : null,
+      store: this.storeObj(t.projectStore.store),
+    };
+  }
+
+  /** A5.1 — one project task with its install / closed-store items */
+  async projectTaskByTicket(ticketNo: string) {
+    const t = (ticketNo || '').trim();
+    const task = t
+      ? await this.prisma.projectTask.findFirst({
+          where: { ticketNo: { equals: t, mode: 'insensitive' } },
+          include: { ...this.taskInclude, installItems: { orderBy: { id: 'asc' } }, closeItems: { orderBy: { id: 'asc' } } },
+        })
+      : null;
+    if (!task) throw new NotFoundException(`ไม่พบงาน ${t}`);
+
+    const toStoreIds = [...new Set(task.closeItems.map((c) => c.toStoreId).filter(Boolean) as number[])];
+    const toStores = new Map(
+      (await this.prisma.store.findMany({ where: { id: { in: toStoreIds } }, select: { id: true, storeCode: true, name: true } }))
+        .map((s) => [s.id, { code: s.storeCode, name: s.name }]),
+    );
+    return {
+      ...this.taskObj(task),
+      installItems: task.installItems.map((i) => ({
+        pointName: i.pointName,
+        itemName: i.itemName,
+        category: i.category,
+        brand: i.brand,
+        model: i.model,
+        serialNumber: i.serialNumber,
+        source: i.source,
+        rsmTicketNo: i.rsmTicketNo,
+        rsmItemCode: i.rsmItemCode,
+        outcome: i.outcome,
+        note: i.note,
+      })),
+      closeItems: task.closeItems.map((c) => ({
+        pointName: c.pointName,
+        category: c.category,
+        brand: c.brand,
+        model: c.model,
+        serialNumber: c.serialNumber,
+        noSerial: c.noSerial,
+        source: c.source,
+        rsmTicketNo: c.rsmTicketNo,
+        outcome: c.outcome,
+        toStore: c.toStoreId ? toStores.get(c.toStoreId) ?? null : null,
+        handedTo: c.handedTo,
+        shipRef: c.shipRef,
+        note: c.note,
+      })),
+    };
+  }
+
+  /**
+   * A5.2 — project tasks (short form), newest change first.
+   * status=COMPLETED also matches ACCEPTED: in RIM "accepted by Help Desk" is the verified end state (COMPLETED is its older name).
+   */
+  async projectTasks(q: { workType?: string; status?: string; since?: string }, page: number, pageSize: number) {
+    const where: Prisma.ProjectTaskWhereInput = {};
+    if (q.workType) {
+      const types = q.workType.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
+      where.workType = { in: types as any };
+    }
+    if (q.status) {
+      const st = new Set(q.status.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean));
+      if (st.has('COMPLETED')) st.add('ACCEPTED');
+      where.status = { in: [...st] as any };
+    }
+    if (q.since) {
+      const since = new Date(q.since);
+      if (isNaN(since.getTime())) throw new BadRequestException('since ต้องเป็นวันเวลา ISO-8601');
+      where.updatedAt = { gte: since };
+    }
+    const [total, rows] = await Promise.all([
+      this.prisma.projectTask.count({ where }),
+      this.prisma.projectTask.findMany({
+        where,
+        include: this.taskInclude,
+        orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+    ]);
+    return { data: rows.map((t) => this.taskObj(t)), page, pageSize, total };
+  }
+
+  /** A5.3 — a store and its current equipment (a store code reused by a later pop-up → the newest open one) */
+  async storeByCode(code: string) {
+    const c = (code || '').trim();
+    const stores = c
+      ? await this.prisma.store.findMany({
+          where: { storeCode: { equals: c, mode: 'insensitive' } },
+          select: this.storeSelect,
+          orderBy: { id: 'desc' },
+        })
+      : [];
+    const store = stores.find((s) => s.storeStatus !== 'PERMANENTLY_CLOSED') ?? stores[0];
+    if (!store) throw new NotFoundException(`ไม่พบสาขา ${c}`);
+
+    const equipment = await this.prisma.equipment.findMany({
+      where: { storeId: store.id, status: { not: 'RETIRED' } },
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+    });
+    // Last PM that confirmed each unit
+    const pm = equipment.length
+      ? await this.prisma.pmEquipmentRecord.findMany({
+          where: { equipmentId: { in: equipment.map((e) => e.id) }, pmRecord: { performedAt: { not: null } } },
+          select: { equipmentId: true, pmRecord: { select: { performedAt: true } } },
+        })
+      : [];
+    const lastPm = new Map<number, Date>();
+    for (const r of pm) {
+      const d = r.pmRecord.performedAt!;
+      const cur = lastPm.get(r.equipmentId);
+      if (!cur || d > cur) lastPm.set(r.equipmentId, d);
+    }
+    return {
+      ...this.storeObj(store),
+      equipment: equipment.map((e) => ({
+        pointName: e.name,
+        category: e.category,
+        brand: e.brand,
+        model: e.model,
+        serialNumber: e.serialNumber,
+        status: e.status,
+        source: e.source,
+        rsmTicketNo: e.rsmTicketNo,
+        updatedByPmAt: isoTh(lastPm.get(e.id)),
+      })),
+    };
   }
 
   /** Incident objects (spec §7.3) in the order of `ids` */

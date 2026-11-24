@@ -8,7 +8,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { EquipmentStatus } from '@prisma/client';
+import { EquipmentStatus, EquipmentSource } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
 
 export class CreateEquipmentDto {
@@ -63,6 +63,17 @@ export class CreateEquipmentDto {
   })
   @IsOptional()
   status?: EquipmentStatus;
+
+  // Where the unit came from (Store Lifecycle v1): EXISTING / RSM / CUSTOMER
+  @IsEnum(EquipmentSource, { message: 'Source must be EXISTING, RSM or CUSTOMER' })
+  @IsOptional()
+  source?: EquipmentSource;
+
+  // RSM issue ticket (ISS-…) when source = RSM
+  @IsString()
+  @IsOptional()
+  @MaxLength(50)
+  rsmTicketNo?: string;
 
   @IsInt({ message: 'Store ID must be an integer' })
   @IsNotEmpty({ message: 'Store ID is required' })

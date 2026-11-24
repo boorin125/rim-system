@@ -28,6 +28,7 @@ interface Overview {
   enabled: boolean
   rsmUrl: string | null
   rsmUrlStored: string | null
+  hasRsmKey: boolean
   scopes: string[]
   keys: ApiKey[]
 }
@@ -51,6 +52,7 @@ const fmt = (d: string | null) =>
 const SCOPE_LABEL: Record<string, string> = {
   'meta:read': 'meta:read — ตรวจการเชื่อมต่อ (ให้เสมอ)',
   'incidents:read': 'incidents:read — ใบงาน อาการ อุปกรณ์ อะไหล่ที่เปลี่ยน',
+  'projects:read': 'projects:read — งาน Project (ติดตั้ง / ปิดร้าน) และอุปกรณ์ของสาขา',
 }
 
 export default function IntegrationTab() {
@@ -59,7 +61,10 @@ export default function IntegrationTab() {
   const [rsmUrl, setRsmUrl] = useState('')
   const [savingRsm, setSavingRsm] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
-  const [form, setForm] = useState({ name: '', callerUrl: '', incidents: true })
+  const [form, setForm] = useState({ name: '', callerUrl: '', incidents: true, projects: true })
+  const [rsmKey, setRsmKey] = useState('')
+  const [savingKey, setSavingKey] = useState(false)
+  const [testing, setTesting] = useState(false)
   const [creating, setCreating] = useState(false)
   const [newKey, setNewKey] = useState<{ key: string; name: string } | null>(null)
   const [loadingLogs, setLoadingLogs] = useState(false)
@@ -109,12 +114,16 @@ export default function IntegrationTab() {
     try {
       const res = await axios.post(
         `${API()}/integration/admin/keys`,
-        { name: form.name.trim(), callerUrl: form.callerUrl.trim(), scopes: form.incidents ? ['incidents:read'] : [] },
+        {
+          name: form.name.trim(),
+          callerUrl: form.callerUrl.trim(),
+          scopes: [...(form.incidents ? ['incidents:read'] : []), ...(form.projects ? ['projects:read'] : [])],
+        },
         { headers: auth() },
       )
       setNewKey({ key: res.data.key, name: res.data.item.name })
       setShowCreate(false)
-      setForm({ name: '', callerUrl: '', incidents: true })
+      setForm({ name: '', callerUrl: '', incidents: true, projects: true })
       load()
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'สร้าง API Key ไม่สำเร็จ')
@@ -225,6 +234,10 @@ export default function IntegrationTab() {
                 <input type="checkbox" checked={form.incidents} onChange={(e) => setForm({ ...form, incidents: e.target.checked })} className="rounded" />
                 {SCOPE_LABEL['incidents:read']}
               </label>
+              <label className="flex items-center gap-2 text-sm text-gray-200 cursor-pointer mt-1">
+                <input type="checkbox" checked={form.projects} onChange={(e) => setForm({ ...form, projects: e.target.checked })} className="rounded" />
+                {SCOPE_LABEL['projects:read']}
+              </label>
             </div>
             <div className="flex justify-end gap-2 pt-1">
               <button onClick={() => setShowCreate(false)} className="px-4 py-2 rounded-lg border border-slate-600 text-gray-300 hover:bg-slate-700/50 text-sm">ยกเลิก</button>
@@ -300,7 +313,70 @@ export default function IntegrationTab() {
             {savingRsm ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} บันทึก
           </button>
         </div>
-        <p className="text-xs text-slate-500">เว้นว่าง = ไม่แสดงปุ่ม · ปุ่มแสดงเฉพาะใบงานที่ยังไม่ปิด / ยกเลิก</p>
+        <p className="text-xs text-slate-500">เว้นว่าง = ไม่แสดงปุ่ม · ปุ่มแสดงเฉพาะใบงานที่ยังไม่ปิด / ยกเลิก (และปุ่ม &quot;เบิกอุปกรณ์ (RSM)&quot; ในงาน Project)</p>
+      </div>
+
+      {/* RIM → RSM: key that RSM issued for this server (pull issued S/N into install tasks) */}
+      <div className="space-y-2 pt-4 border-t border-slate-700">
+        <h3 className="text-white font-medium flex items-center gap-2">
+          API Key จาก RSM (RIM เรียก RSM)
+          {data && (
+            <span className={`text-[11px] px-2 py-0.5 rounded-full ${data.hasRsmKey ? 'bg-green-500/20 text-green-400' : 'bg-slate-700 text-slate-400'}`}>
+              {data.hasRsmKey ? 'บันทึกไว้แล้ว' : 'ยังไม่ได้ใส่'}
+            </span>
+          )}
+        </h3>
+        <p className="text-xs text-slate-500">
+          ใช้ดึง S/N ที่ RSM เบิกให้งานติดตั้ง — สร้างใน RSM (ตั้งค่า › Integration) โดยตั้ง Caller = {data?.baseUrl || 'URL ของเครื่องนี้'} และ scope issues:read
+        </p>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input
+            type="password"
+            value={rsmKey}
+            onChange={(e) => setRsmKey(e.target.value)}
+            className={inputCls}
+            placeholder={data?.hasRsmKey ? '•••••••• (บันทึกไว้แล้ว — ใส่ใหม่เพื่อเปลี่ยน)' : 'rk_…'}
+            autoComplete="new-password"
+            disabled={!data?.enabled}
+          />
+          <button
+            onClick={async () => {
+              setSavingKey(true)
+              try {
+                await axios.put(`${API()}/integration/admin/rsm-key`, { rsmKey: rsmKey.trim() }, { headers: auth() })
+                toast.success(rsmKey.trim() ? 'บันทึก API Key ของ RSM แล้ว' : 'ลบ API Key ของ RSM แล้ว')
+                setRsmKey('')
+                load()
+              } catch (err: any) {
+                toast.error(err?.response?.data?.message || 'บันทึกไม่สำเร็จ')
+              } finally {
+                setSavingKey(false)
+              }
+            }}
+            disabled={savingKey || !data?.enabled || (!rsmKey.trim() && !data?.hasRsmKey)}
+            className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm disabled:opacity-50 shrink-0"
+          >
+            {savingKey ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {rsmKey.trim() || !data?.hasRsmKey ? 'บันทึก' : 'ลบ Key'}
+          </button>
+          <button
+            onClick={async () => {
+              setTesting(true)
+              try {
+                const res = await axios.post(`${API()}/integration/admin/rsm-test`, {}, { headers: auth() })
+                const m = res.data || {}
+                toast.success(`เชื่อมต่อ RSM ได้: ${m.serverName || m.system || 'RSM'}${m.version ? ` v${m.version}` : ''} · scope ${(m.scopes || []).join(', ') || '-'}`, { duration: 6000 })
+              } catch (err: any) {
+                toast.error(err?.response?.data?.message || 'เชื่อมต่อ RSM ไม่ได้')
+              } finally {
+                setTesting(false)
+              }
+            }}
+            disabled={testing || !data?.hasRsmKey || !data?.rsmUrl}
+            className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-600 text-gray-200 hover:bg-slate-700/50 text-sm disabled:opacity-50 shrink-0"
+          >
+            {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plug className="w-4 h-4" />} ทดสอบการเชื่อมต่อ
+          </button>
+        </div>
       </div>
 
       {/* Call log */}

@@ -36,14 +36,36 @@ import { Roles } from '../../auth/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
 import { ProjectModuleGuard } from './project-module.guard';
 
+import { ProjectLifecycleService, InstallItemDto, CloseItemDto } from './project-lifecycle.service';
+
 const STAFF = [UserRole.SUPER_ADMIN, UserRole.IT_MANAGER, UserRole.HELP_DESK, UserRole.SUPERVISOR] as const;
+
+/** Photos of install / closed-store items */
+const ITEM_PHOTO_STORAGE = diskStorage({
+  destination: (_req, _file, cb) => {
+    const dir = 'uploads/project-photos';
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (_req, file, cb) => {
+    cb(null, `item-${Date.now()}-${Math.random().toString(36).slice(2)}${path.extname(file.originalname)}`);
+  },
+});
+
+/** JSON body → typed close-item fields (toStoreId as number, noSerial as boolean) */
+function normalizeCloseBody(body: any): CloseItemDto {
+  const b = { ...(body || {}) };
+  if (b.toStoreId !== undefined) b.toStoreId = b.toStoreId === null || b.toStoreId === '' ? null : Number(b.toStoreId) || null;
+  if (b.noSerial !== undefined) b.noSerial = b.noSerial === true || b.noSerial === 'true';
+  return b;
+}
 
 // Class-level roles = who may read; write endpoints override with their own @Roles
 @Controller('projects')
 @UseGuards(JwtAuthGuard, RolesGuard, ProjectModuleGuard)
 @Roles(...STAFF, UserRole.TECHNICIAN, UserRole.MONITOR, UserRole.READ_ONLY)
 export class ProjectController {
-  constructor(private readonly projectService: ProjectService) {}
+  constructor(private readonly projectService: ProjectService, private readonly lifecycle: ProjectLifecycleService) {}
 
   // ── Analytics ────────────────────────────────────────────────────────────
 
@@ -477,6 +499,86 @@ export class ProjectController {
   async deleteEquipment(@Param('equipmentId', ParseIntPipe) equipmentId: number, @Request() req: any) {
     await this.projectService.assertCanEditTaskMedia(await this.projectService.taskIdOf('equipment', equipmentId), req.user);
     return this.projectService.deleteEquipment(equipmentId);
+  }
+
+  // ── Store Lifecycle: install items (from RSM issues + customer units) ──────
+
+  @Post('tasks/:taskId/install-items/import-rsm')
+  async importInstallFromRsm(@Param('taskId', ParseIntPipe) taskId: number, @Request() req: any) {
+    await this.projectService.assertCanEditTaskMedia(taskId, req.user);
+    return this.lifecycle.importFromRsm(taskId);
+  }
+
+  @Post('tasks/:taskId/install-items')
+  async addInstallItem(@Param('taskId', ParseIntPipe) taskId: number, @Body() body: InstallItemDto, @Request() req: any) {
+    await this.projectService.assertCanEditTaskMedia(taskId, req.user);
+    return this.lifecycle.addInstallItem(taskId, body || {});
+  }
+
+  @Patch('install-items/:id')
+  async updateInstallItem(@Param('id', ParseIntPipe) id: number, @Body() body: InstallItemDto, @Request() req: any) {
+    await this.projectService.assertCanEditTaskMedia(await this.lifecycle.taskIdOfItem('install', id), req.user);
+    return this.lifecycle.updateInstallItem(id, body || {});
+  }
+
+  @Delete('install-items/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteInstallItem(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
+    await this.projectService.assertCanEditTaskMedia(await this.lifecycle.taskIdOfItem('install', id), req.user);
+    return this.lifecycle.deleteInstallItem(id);
+  }
+
+  @Post('install-items/:id/photo')
+  @UseInterceptors(FileInterceptor('photo', { storage: ITEM_PHOTO_STORAGE, limits: { fileSize: 10 * 1024 * 1024 } }))
+  async installItemPhoto(@Param('id', ParseIntPipe) id: number, @UploadedFile() file: Express.Multer.File, @Request() req: any) {
+    if (!file) throw new BadRequestException('Photo file is required');
+    try {
+      await this.projectService.assertCanEditTaskMedia(await this.lifecycle.taskIdOfItem('install', id), req.user);
+    } catch (err) {
+      fs.promises.unlink(file.path).catch(() => {});
+      throw err;
+    }
+    return this.dropFileOnError(file, this.lifecycle.setInstallPhoto(id, file.path.replace(/\\/g, '/')));
+  }
+
+  // ── Store Lifecycle: Closed Store checklist ───────────────────────────────
+
+  @Post('tasks/:taskId/close-items/load')
+  async loadCloseItems(@Param('taskId', ParseIntPipe) taskId: number, @Request() req: any) {
+    await this.projectService.assertCanEditTaskMedia(taskId, req.user);
+    return this.lifecycle.loadCloseItems(taskId);
+  }
+
+  @Post('tasks/:taskId/close-items')
+  async addCloseItem(@Param('taskId', ParseIntPipe) taskId: number, @Body() body: CloseItemDto, @Request() req: any) {
+    await this.projectService.assertCanEditTaskMedia(taskId, req.user);
+    return this.lifecycle.addCloseItem(taskId, normalizeCloseBody(body));
+  }
+
+  @Patch('close-items/:id')
+  async updateCloseItem(@Param('id', ParseIntPipe) id: number, @Body() body: CloseItemDto, @Request() req: any) {
+    await this.projectService.assertCanEditTaskMedia(await this.lifecycle.taskIdOfItem('close', id), req.user);
+    return this.lifecycle.updateCloseItem(id, normalizeCloseBody(body));
+  }
+
+  @Delete('close-items/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteCloseItem(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
+    await this.projectService.assertCanEditTaskMedia(await this.lifecycle.taskIdOfItem('close', id), req.user);
+    return this.lifecycle.deleteCloseItem(id);
+  }
+
+  @Post('close-items/:id/photo')
+  @UseInterceptors(FileInterceptor('photo', { storage: ITEM_PHOTO_STORAGE, limits: { fileSize: 10 * 1024 * 1024 } }))
+  async closeItemPhoto(@Param('id', ParseIntPipe) id: number, @UploadedFile() file: Express.Multer.File, @Request() req: any) {
+    if (!file) throw new BadRequestException('Photo file is required');
+    try {
+      await this.projectService.assertCanEditTaskMedia(await this.lifecycle.taskIdOfItem('close', id), req.user);
+    } catch (err) {
+      fs.promises.unlink(file.path).catch(() => {});
+      throw err;
+    }
+    return this.dropFileOnError(file, this.lifecycle.setClosePhoto(id, file.path.replace(/\\/g, '/')));
   }
 
   @Post('tasks/:taskId/checklists')

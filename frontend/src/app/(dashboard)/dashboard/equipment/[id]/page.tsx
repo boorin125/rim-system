@@ -512,6 +512,13 @@ export default function EquipmentDetailPage() {
                     {equipment.ipAddress || '-'}
                   </p>
                 </div>
+                <div>
+                  <p className="text-sm text-gray-400">ที่มา / Source</p>
+                  <p className="text-white">
+                    {equipment.source === 'RSM' ? 'เบิกจาก RSM' : equipment.source === 'CUSTOMER' ? 'ลูกค้าส่งเอง' : 'เดิม'}
+                    {equipment.rsmTicketNo && <span className="ml-2 font-mono text-amber-300 text-sm">{equipment.rsmTicketNo}</span>}
+                  </p>
+                </div>
               </div>
             </div>
           </div>

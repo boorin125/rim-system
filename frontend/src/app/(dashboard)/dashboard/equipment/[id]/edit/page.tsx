@@ -47,6 +47,8 @@ export default function EditEquipmentPage() {
     model: '',
     serialNumber: '',
     ipAddress: '',
+    source: 'EXISTING',
+    rsmTicketNo: '',
     status: 'ACTIVE',
     purchaseDate: '',
     warrantyExpiry: '',
@@ -115,6 +117,8 @@ export default function EditEquipmentPage() {
         model: data.model || '',
         serialNumber: data.serialNumber || '',
         ipAddress: data.ipAddress || '',
+        source: data.source || 'EXISTING',
+        rsmTicketNo: data.rsmTicketNo || '',
         status: data.status || 'ACTIVE',
         purchaseDate: data.purchaseDate ? data.purchaseDate.split('T')[0] : '',
         warrantyExpiry: data.warrantyExpiry ? data.warrantyExpiry.split('T')[0] : '',
@@ -232,6 +236,8 @@ export default function EditEquipmentPage() {
       if (formData.brand) submitData.brand = formData.brand.trim()
       if (formData.model) submitData.model = formData.model.trim()
       if (formData.ipAddress) submitData.ipAddress = formData.ipAddress.trim()
+      submitData.source = formData.source
+      submitData.rsmTicketNo = formData.source === 'RSM' ? formData.rsmTicketNo.trim() : ''
       if (formData.purchaseDate) submitData.purchaseDate = formData.purchaseDate
       if (formData.warrantyExpiry) submitData.warrantyExpiry = formData.warrantyExpiry
 
@@ -398,6 +404,35 @@ export default function EditEquipmentPage() {
                 className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
+
+            {/* Source (Store Lifecycle) + RSM issue ticket */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">ที่มาของอุปกรณ์</label>
+              <select
+                name="source"
+                value={formData.source}
+                onChange={handleChange}
+                className="w-full px-4 py-2 bg-slate-800 border border-slate-600 [&>option]:bg-slate-800 [&>option]:text-white rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="EXISTING">เดิม / ไม่ทราบ</option>
+                <option value="RSM">เบิกจาก RSM</option>
+                <option value="CUSTOMER">ลูกค้าส่งเอง</option>
+              </select>
+            </div>
+            {formData.source === 'RSM' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">เลขใบเบิก RSM</label>
+                <input
+                  type="text"
+                  name="rsmTicketNo"
+                  value={formData.rsmTicketNo}
+                  onChange={handleChange}
+                  placeholder="เช่น ISS-2026120012"
+                  maxLength={50}
+                  className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            )}
 
             {/* Status */}
             <div>
