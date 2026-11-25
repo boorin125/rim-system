@@ -45,6 +45,20 @@ export class IntegrationV1Controller {
     return { data: await this.integration.incidentByTicket(ticketNumber) };
   }
 
+  // ── RIM Demand v1 §A (scope stats:read) — totals only ──
+
+  @Get('stats/repairs')
+  @IntegrationScope('stats:read')
+  async repairStats(@Query('from') from?: string, @Query('to') to?: string) {
+    return { data: await this.integration.repairStats(from, to) };
+  }
+
+  @Get('stats/installed-base')
+  @IntegrationScope('stats:read')
+  async installedBase() {
+    return { data: await this.integration.installedBase() };
+  }
+
   // ── Store Lifecycle v1 §A5 (scope projects:read) ──
 
   @Get('project-tasks')

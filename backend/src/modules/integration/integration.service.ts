@@ -7,9 +7,10 @@ import { createHash, randomBytes } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { isAllowedUrl, normalizeOrigin, ownDomain, publicBaseUrl } from './integration-domain';
+import { repairIncidentWhere } from '../performance/repair-incident.where';
 
 /** Scopes this server (RIM) provides — meta:read is always granted */
-export const RIM_SCOPES = ['meta:read', 'incidents:read', 'projects:read'] as const;
+export const RIM_SCOPES = ['meta:read', 'incidents:read', 'projects:read', 'stats:read'] as const;
 export type RimScope = (typeof RIM_SCOPES)[number];
 
 const RSM_URL_KEY = 'integration_rsm_url';
@@ -29,6 +30,29 @@ export function isoTh(d: Date | null | undefined): string | null {
 /** "2026-12-01" — the Thai calendar date */
 export function dateTh(d: Date | null | undefined): string | null {
   return d ? new Date(d.getTime() + 7 * 3600_000).toISOString().slice(0, 10) : null;
+}
+
+/** "2026-11" — Thai calendar month of a timestamp */
+const monthTh = (d: Date) => dateTh(d)!.slice(0, 7);
+/** Trimmed value, empty → null (stats group on it) */
+const val = (s: string | null | undefined) => (s && s.trim() ? s.trim() : null);
+const MAX_STAT_MONTHS = 24;
+
+/** from / to as "YYYY-MM" (both included, Thai months) → UTC instants [start, end). Default = last 6 months incl. this one */
+function monthRange(fromRaw?: string, toRaw?: string) {
+  const re = /^(\d{4})-(0[1-9]|1[0-2])$/;
+  const idx = (s: string) => { const [, y, m] = s.match(re)!; return Number(y) * 12 + Number(m) - 1; };
+  const label = (i: number) => `${Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, '0')}`;
+  for (const [n, v] of [['from', fromRaw], ['to', toRaw]] as const) {
+    if (v && !re.test(v)) throw new BadRequestException(`${n} ต้องเป็นรูปแบบ YYYY-MM`);
+  }
+  const toI = toRaw ? idx(toRaw) : idx(monthTh(new Date()));
+  const fromI = fromRaw ? idx(fromRaw) : toI - 5;
+  if (fromI > toI) throw new BadRequestException('from ต้องไม่เกิน to');
+  if (toI - fromI + 1 > MAX_STAT_MONTHS) throw new BadRequestException(`ช่วงเดือนสูงสุด ${MAX_STAT_MONTHS} เดือน`);
+  // Thai midnight on the 1st = 17:00 UTC of the day before
+  const instant = (i: number) => new Date(Date.UTC(Math.floor(i / 12), i % 12, 1) - 7 * 3600_000);
+  return { from: label(fromI), to: label(toI), start: instant(fromI), end: instant(toI + 1) };
 }
 
 const lower = (s: string | null | undefined) => (s ? s.trim().toLowerCase() : null);
@@ -416,6 +440,103 @@ export class IntegrationService {
         rsmTicketNo: e.rsmTicketNo,
         updatedByPmAt: isoTh(lastPm.get(e.id)),
       })),
+    };
+  }
+
+  // ── Stats (RIM Demand v1 §A, scope stats:read) — totals only: no customer / store / technician / ticket data ──
+
+  /**
+   * A2 — repair requests and real replacements per Thai calendar month.
+   * Same incidents as Performance › Top 10 Category (repairIncidentWhere: no PM, no cancelled).
+   */
+  async repairStats(fromRaw?: string, toRaw?: string) {
+    const { from, to, start, end } = monthRange(fromRaw, toRaw);
+    const inRange = { gte: start, lt: end };
+    const repair = repairIncidentWhere();
+
+    const [incidents, parts] = await Promise.all([
+      this.prisma.incident.findMany({
+        where: { AND: [repair, { createdAt: inRange }] },
+        select: { category: true, createdAt: true },
+      }),
+      this.prisma.sparePart.findMany({
+        where: { createdAt: inRange, incident: repair },
+        select: {
+          repairType: true, createdAt: true, newBrand: true, newModel: true, componentName: true,
+          oldEquipment: { select: { category: true, brand: true, model: true } },
+          newEquipment: { select: { category: true } },
+          parentEquipment: { select: { category: true } },
+        },
+      }),
+    ]);
+
+    const tally = <T extends Record<string, string | null>>(rows: { month: string; key: T }[]) => {
+      const m = new Map<string, { month: string; key: T; count: number }>();
+      for (const r of rows) {
+        const k = JSON.stringify([r.month, r.key]);
+        const cur = m.get(k);
+        if (cur) cur.count++;
+        else m.set(k, { ...r, count: 1 });
+      }
+      return [...m.values()]
+        .map((v) => ({ month: v.month, ...v.key, count: v.count }))
+        .sort((a, b) => (a.month === b.month ? b.count - a.count : a.month.localeCompare(b.month)));
+    };
+
+    const reports = tally(incidents.map((i) => ({ month: monthTh(i.createdAt), key: { category: val(i.category) } })));
+    const replacements = tally(
+      parts
+        .filter((p) => p.repairType === 'EQUIPMENT_REPLACEMENT')
+        .map((p) => {
+          // Brand / model of the unit put in; when neither was recorded, those of the unit taken out
+          const hasNew = !!(val(p.newBrand) || val(p.newModel));
+          return {
+            month: monthTh(p.createdAt),
+            key: {
+              category: val(p.oldEquipment?.category) ?? val(p.newEquipment?.category),
+              brand: hasNew ? val(p.newBrand) : val(p.oldEquipment?.brand),
+              model: hasNew ? val(p.newModel) : val(p.oldEquipment?.model),
+            },
+          };
+        }),
+    );
+    const components = tally(
+      parts
+        .filter((p) => p.repairType === 'COMPONENT_REPLACEMENT')
+        .map((p) => ({
+          month: monthTh(p.createdAt),
+          key: { category: val(p.parentEquipment?.category), component: val(p.componentName) },
+        })),
+    );
+    return { from, to, generatedAt: isoTh(new Date()), reports, replacements, components };
+  }
+
+  /** A3 — units in service now (ACTIVE / MAINTENANCE) per category / brand / model, in stores that are not closed */
+  async installedBase() {
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6); // same rule as PM isWithin6Months
+    const openStore: Prisma.StoreWhereInput = { storeStatus: { not: 'PERMANENTLY_CLOSED' } };
+
+    const [total, pmWithin6Months, units] = await Promise.all([
+      this.prisma.store.count({ where: openStore }),
+      this.prisma.store.count({ where: { ...openStore, lastPmAt: { gt: sixMonthsAgo } } }),
+      this.prisma.equipment.findMany({
+        where: { status: { in: ['ACTIVE', 'MAINTENANCE'] }, store: openStore },
+        select: { category: true, brand: true, model: true },
+      }),
+    ]);
+    const m = new Map<string, { category: string | null; brand: string | null; model: string | null; count: number }>();
+    for (const u of units) {
+      const row = { category: val(u.category), brand: val(u.brand), model: val(u.model) };
+      const k = JSON.stringify(row);
+      const cur = m.get(k);
+      if (cur) cur.count++;
+      else m.set(k, { ...row, count: 1 });
+    }
+    return {
+      generatedAt: isoTh(new Date()),
+      stores: { total, pmWithin6Months },
+      rows: [...m.values()].sort((a, b) => b.count - a.count),
     };
   }
 

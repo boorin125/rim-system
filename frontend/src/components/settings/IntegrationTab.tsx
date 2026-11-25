@@ -53,6 +53,7 @@ const SCOPE_LABEL: Record<string, string> = {
   'meta:read': 'meta:read — ตรวจการเชื่อมต่อ (ให้เสมอ)',
   'incidents:read': 'incidents:read — ใบงาน อาการ อุปกรณ์ อะไหล่ที่เปลี่ยน',
   'projects:read': 'projects:read — งาน Project (ติดตั้ง / ปิดร้าน) และอุปกรณ์ของสาขา',
+  'stats:read': 'stats:read — ตัวเลขสรุปแจ้งซ่อม / เปลี่ยนอุปกรณ์ / เครื่องติดตั้ง ต่อเดือน (พยากรณ์ใน RSM)',
 }
 
 export default function IntegrationTab() {
@@ -61,7 +62,7 @@ export default function IntegrationTab() {
   const [rsmUrl, setRsmUrl] = useState('')
   const [savingRsm, setSavingRsm] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
-  const [form, setForm] = useState({ name: '', callerUrl: '', incidents: true, projects: true })
+  const [form, setForm] = useState({ name: '', callerUrl: '', incidents: true, projects: true, stats: true })
   const [rsmKey, setRsmKey] = useState('')
   const [savingKey, setSavingKey] = useState(false)
   const [testing, setTesting] = useState(false)
@@ -117,13 +118,17 @@ export default function IntegrationTab() {
         {
           name: form.name.trim(),
           callerUrl: form.callerUrl.trim(),
-          scopes: [...(form.incidents ? ['incidents:read'] : []), ...(form.projects ? ['projects:read'] : [])],
+          scopes: [
+            ...(form.incidents ? ['incidents:read'] : []),
+            ...(form.projects ? ['projects:read'] : []),
+            ...(form.stats ? ['stats:read'] : []),
+          ],
         },
         { headers: auth() },
       )
       setNewKey({ key: res.data.key, name: res.data.item.name })
       setShowCreate(false)
-      setForm({ name: '', callerUrl: '', incidents: true, projects: true })
+      setForm({ name: '', callerUrl: '', incidents: true, projects: true, stats: true })
       load()
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'สร้าง API Key ไม่สำเร็จ')
@@ -237,6 +242,10 @@ export default function IntegrationTab() {
               <label className="flex items-center gap-2 text-sm text-gray-200 cursor-pointer mt-1">
                 <input type="checkbox" checked={form.projects} onChange={(e) => setForm({ ...form, projects: e.target.checked })} className="rounded" />
                 {SCOPE_LABEL['projects:read']}
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-200 cursor-pointer mt-1">
+                <input type="checkbox" checked={form.stats} onChange={(e) => setForm({ ...form, stats: e.target.checked })} className="rounded" />
+                {SCOPE_LABEL['stats:read']}
               </label>
             </div>
             <div className="flex justify-end gap-2 pt-1">

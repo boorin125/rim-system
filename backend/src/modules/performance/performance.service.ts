@@ -10,6 +10,7 @@ import {
 import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UserRole, IncidentStatus, SlaDefenseStatus, Prisma } from '@prisma/client';
+import { repairIncidentWhere } from './repair-incident.where';
 
 // Grade definitions — score is 0-100, first grade whose min is reached wins
 const GRADES = [
@@ -1169,12 +1170,8 @@ export class PerformanceService implements OnApplicationBootstrap {
 
   /** Incidents that count as a repair request for equipment — PM jobs and cancelled are excluded */
   private repeatIncidentWhere(jobTypes?: string[]): Prisma.IncidentWhereInput {
-    return {
-      status: { notIn: [IncidentStatus.CANCELLED] },
-      jobType: jobTypes?.length
-        ? { in: jobTypes.filter((jt) => jt !== 'Preventive Maintenance') }
-        : { not: 'Preventive Maintenance' },
-    };
+    // Shared with the Integration API stats (stats/repairs) — keep one definition
+    return repairIncidentWhere(jobTypes);
   }
 
   private normalizeSerial(sn?: string | null): string {
